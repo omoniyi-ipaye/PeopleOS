@@ -1,0 +1,7 @@
+EmployeeID,SurveyType,SurveyDate,OverallScore,ClarityOfRole,ManagerSupport,TeamIntegration,ToolsAccess,TrainingQuality,Comments
+EMP0001,30-day,2024-01-15,4.2,4,5,4,3,4,"Good onboarding experience, but tools access was delayed by a week"
+EMP0001,60-day,2024-02-15,3.8,4,4,4,2,4,"Still waiting for some system access. Manager has been supportive"
+EMP0001,90-day,2024-03-15,4.5,5,5,5,4,4,"Fully ramped up now. Feeling productive and part of the team"
+EMP0002,30-day,2024-02-01,3.5,3,4,3,4,3,"Role expectations unclear. Need more guidance from manager"
+EMP0002,60-day,2024-03-01,4.0,4,4,4,4,4,"Clarity improving after 1:1 meetings with manager"
+EMP0002,90-day,2024-04-01,4.2,4,5,4,4,4,"Feeling confident in role now"

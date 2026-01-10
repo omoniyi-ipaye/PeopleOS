@@ -1,0 +1,204 @@
+# PeopleOS Configuration
+version: "1.1.0"
+
+app:
+  name: "PeopleOS"
+  debug: false
+  log_level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+
+ollama:
+  host: "http://localhost:11434"
+  model: "gemma3:4b"  # Model-agnostic: can be changed
+  timeout: 30
+  max_retries: 3
+  response_max_tokens: 1500
+
+ml:
+  random_seed: 42
+  shap_sample_size: 100
+  risk_threshold_high: 0.75
+  risk_threshold_medium: 0.50
+  test_split_ratio: 0.2
+  cross_validation_folds: 5
+
+analytics:
+  high_risk_dept_threshold: 0.20  # Departments with turnover above this are flagged
+
+nlp:
+  enabled: true
+  batch_size: 20  # Reviews per LLM call
+  sentiment_temperature: 0.3  # Lower = more consistent
+  skill_extraction_temperature: 0.2
+  topic_temperature: 0.5
+  max_review_length: 500  # Truncate longer reviews
+  topics_count: 5  # Number of dominant topics to extract
+
+compensation:
+  outlier_std_threshold: 2.0  # Standard deviations for outlier detection
+  equity_warning_threshold: 0.15  # Gini coefficient warning level
+  salary_percentile_bins: [25, 50, 75]
+
+succession:
+  high_performer_rating: 4.0  # Minimum rating for high-potential
+  min_tenure_years: 2.0  # Minimum tenure for succession candidates
+  readiness_weights:
+    tenure: 0.3
+    rating: 0.4
+    risk_of_loss: 0.3
+
+team_dynamics:
+  min_team_size: 3  # Minimum employees to analyze team
+  health_warning_threshold: 0.6  # Below this triggers warning
+  diversity_metrics:
+    - "age"
+    - "tenure"
+    - "salary"
+
+fairness:
+  enabled: true
+  protected_attributes:
+    - "Gender"
+    - "Age_Group"
+    - "Dept"
+  four_fifths_threshold: 0.8  # EEOC 80% rule
+  disparity_warning_threshold: 0.15  # Flag disparities above 15%
+  run_on_predictions: true  # Analyze ML predictions for bias
+
+sessions:
+  directory: "sessions/"
+  max_saved: 10
+
+# Data persistence configuration
+persistence:
+  enabled: true
+  database_path: "data/peopleos.db"
+  upload_mode: "auto_update"  # Always update existing employees automatically
+  keep_history: true  # Store historical snapshots for trend analysis
+  history_retention_days: 365  # Keep 1 year of history
+
+data:
+  max_rows: 50000
+  min_rows: 50
+  required_columns:
+    - "EmployeeID"
+    - "Dept"
+    - "Tenure"
+    - "Salary"
+    - "LastRating"
+    - "Age"
+  optional_columns:
+    - "Attrition"
+    - "PerformanceText"
+    - "Gender"
+    - "JobTitle"
+    - "YearsInCurrentRole"
+    - "YearsSinceLastPromotion"
+    - "Education"
+    - "Location"
+    - "ManagerID"
+  allowed_formats:
+    - "csv"
+    - "json"
+    - "sqlite"
+
+performance:
+  app_load_timeout_seconds: 5
+  model_train_timeout_seconds: 30
+  llm_response_timeout_seconds: 10
+
+logging:
+  file_path: "logs/peopleos.log"
+  max_file_size_mb: 10
+  backup_count: 5
+  format: "%(asctime)s | %(levelname)s | %(module)s | %(message)s"
+
+# =============================================================================
+# NEW ANALYTICS ENGINES (People OS v2.0)
+# =============================================================================
+
+survival:
+  enabled: true
+  min_sample_size: 50
+  time_horizon_months: [3, 6, 12, 24]  # Prediction horizons
+  cox_covariates:  # Variables for Cox Proportional Hazards model
+    - "Salary"
+    - "YearsSinceLastPromotion"
+    - "YearsInCurrentRole"
+    - "LastRating"
+    - "Age"
+    - "CompaRatio"
+  stagnation_thresholds:
+    warning: 0.7   # YearsInRole/Tenure ratio triggering warning
+    critical: 0.9  # Ratio triggering critical alert
+  risk_categories:
+    high: 0.75      # Probability threshold for high risk
+    medium: 0.50    # Probability threshold for medium risk
+
+quality_of_hire:
+  enabled: true
+  performance_window_months: 12  # Measure performance at 12 months post-hire
+  retention_window_months: 12    # Measure retention at 12 months
+  min_cohort_size: 10            # Minimum hires for cohort analysis
+  sources:  # Expected hiring sources
+    - "Referral"
+    - "LinkedIn"
+    - "Agency"
+    - "JobBoard"
+    - "Internal"
+    - "Website"
+    - "Campus"
+  quality_score_weights:
+    performance: 0.4    # Weight for performance rating
+    retention: 0.3      # Weight for staying at company
+    promotion: 0.2      # Weight for receiving promotion
+    ramp_time: 0.1      # Weight for time to full productivity
+  interview_dimensions:  # Pre-hire assessment dimensions to track
+    - "Technical"
+    - "Cultural"
+    - "Curiosity"
+    - "Communication"
+    - "Leadership"
+
+structural:
+  enabled: true
+  span_of_control:
+    optimal_min: 4       # Minimum optimal direct reports
+    optimal_max: 8       # Maximum optimal direct reports
+    warning_threshold: 12
+    critical_threshold: 15
+  stagnation:
+    tenure_threshold: 3.0  # Years of tenure before stagnation analysis applies
+    role_threshold: 0.8    # YearsInRole/Tenure ratio for stagnation flag
+  promotion_equity:
+    protected_attributes:
+      - "Gender"
+      - "Age_Group"
+    significance_level: 0.05  # p-value threshold for statistical significance
+    min_group_size: 10        # Minimum employees in group for analysis
+
+sentiment:
+  enabled: true
+  survey_types:
+    - "30-day"
+    - "60-day"
+    - "90-day"
+    - "eNPS"
+    - "Pulse"
+  enps:
+    promoter_threshold: 9    # Score >= 9 = Promoter
+    detractor_threshold: 6   # Score <= 6 = Detractor
+  early_warning:
+    declining_trajectory: true  # Flag declining 30->60->90 scores
+    low_score_threshold: 3.0    # Flag scores below this
+    missing_survey_days: 14     # Alert if survey not completed within days
+  onboarding:
+    expected_surveys: ["30-day", "60-day", "90-day"]
+    min_score_healthy: 3.5      # Minimum healthy onboarding score
+
+templates:
+  directory: "templates/"
+  files:
+    hr_data: "sample_hr_data_enhanced.csv"
+    onboarding: "onboarding_survey_template.csv"
+    enps: "enps_survey_template.csv"
+    hiring: "hiring_data_template.csv"

@@ -1,0 +1,7 @@
+EmployeeID,SurveyDate,eNPSScore,RecommendScore,EngagementScore,WellbeingScore,GrowthScore,ManagerScore,CultureScore,Comments
+EMP0001,2024-03-01,8,8,4,4,3,5,4,"Great team culture but limited growth opportunities in current role"
+EMP0002,2024-03-01,6,6,3,3,2,4,3,"Workload concerns and burnout risk. Need more work-life balance"
+EMP0003,2024-03-01,9,9,5,4,5,5,5,"Love working here! Great manager and interesting projects"
+EMP0004,2024-03-01,4,4,2,2,2,3,2,"Considering other opportunities. Not feeling valued"
+EMP0005,2024-03-01,10,10,5,5,5,5,5,"Would highly recommend to friends. Best company I've worked for"
+EMP0006,2024-03-01,7,7,4,3,4,4,4,"Good overall but compensation could be more competitive"

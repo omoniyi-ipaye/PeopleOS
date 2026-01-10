@@ -1,0 +1,8 @@
+EmployeeID,HireDate,HireSource,InterviewScore,InterviewScore_Technical,InterviewScore_Cultural,InterviewScore_Curiosity,InterviewScore_Communication,InterviewScore_Leadership,AssessmentScore,PriorExperienceYears,Referrer,RecruiterID,TimeToHire_Days,OfferAcceptance
+EMP0001,2023-06-15,Referral,4.2,4.5,4.0,4.5,4.0,3.5,82,5.5,EMP0050,REC001,28,Yes
+EMP0002,2023-08-01,LinkedIn,3.8,4.0,3.5,3.5,4.0,4.0,75,3.2,,REC002,35,Yes
+EMP0003,2023-09-10,Agency,4.0,4.2,4.0,3.8,3.5,3.5,78,7.0,,REC001,42,Yes
+EMP0004,2023-10-01,JobBoard,3.5,3.5,3.8,3.5,3.5,3.0,68,2.0,,REC003,21,Yes
+EMP0005,2023-11-15,Internal,4.5,4.8,4.5,4.2,4.5,4.5,90,4.5,EMP0025,REC001,14,Yes
+EMP0006,2024-01-10,Website,3.2,3.0,3.5,3.2,3.5,2.5,62,1.5,,REC002,30,Yes
+EMP0007,2024-02-01,Campus,3.8,3.5,4.0,4.5,4.0,3.0,72,0.0,,REC003,45,Yes

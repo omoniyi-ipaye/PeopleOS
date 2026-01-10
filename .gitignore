@@ -1,0 +1,39 @@
+# Python
+venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+*.pyo
+*.pyd
+.ipynb_checkpoints/
+
+# Node / Next.js
+web/node_modules/
+web/.next/
+web/out/
+web/.vercel/
+web/tsconfig.tsbuildinfo
+web/.env.local
+
+# Application Data (Sensitive HR Data)
+data/*.db
+data/peopleos.db
+logs/*.log
+sessions/
+results/
+artifacts/
+
+# System
+.DS_Store
+Thumbs.db
+
+# Config (Keep config.yaml but exclude any potential .env)
+.env
+*.env
+
+# Internal Documentation & Workflows
+IMPLEMENTATION_PLAN.md
+Agent.md
+PRD.md
+TASK.md
+PeopleOS_Guide.md
