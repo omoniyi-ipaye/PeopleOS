@@ -90,6 +90,7 @@ class Database:
                     gender TEXT,
                     job_title TEXT,
                     location TEXT,
+                    country TEXT,
                     hire_date TEXT,
                     manager_id TEXT,
                     years_in_current_role REAL,
@@ -107,6 +108,18 @@ class Database:
                     rating_history TEXT,
                     promotion_date TEXT,
                     starting_salary REAL,
+                    enps_score REAL,
+                    pulse_score REAL,
+                    manager_satisfaction REAL,
+                    work_life_balance REAL,
+                    career_growth_satisfaction REAL,
+                    onboarding_30d REAL,
+                    onboarding_60d REAL,
+                    onboarding_90d REAL,
+                    job_level INTEGER,
+                    compa_ratio REAL,
+                    prior_experience_years REAL,
+                    manager_change_count INTEGER,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     is_active INTEGER DEFAULT 1
@@ -118,6 +131,7 @@ class Database:
                 ('gender', 'TEXT'),
                 ('job_title', 'TEXT'),
                 ('location', 'TEXT'),
+                ('country', 'TEXT'),
                 ('hire_date', 'TEXT'),
                 ('manager_id', 'TEXT'),
                 ('years_in_current_role', 'REAL'),
@@ -130,7 +144,19 @@ class Database:
                 ('interview_score_cultural', 'REAL'),
                 ('interview_score_curiosity', 'REAL'),
                 ('interview_score_communication', 'REAL'),
-                ('interview_score_leadership', 'REAL')
+                ('interview_score_leadership', 'REAL'),
+                ('enps_score', 'REAL'),
+                ('pulse_score', 'REAL'),
+                ('manager_satisfaction', 'REAL'),
+                ('work_life_balance', 'REAL'),
+                ('career_growth_satisfaction', 'REAL'),
+                ('onboarding_30d', 'REAL'),
+                ('onboarding_60d', 'REAL'),
+                ('onboarding_90d', 'REAL'),
+                ('job_level', 'INTEGER'),
+                ('compa_ratio', 'REAL'),
+                ('prior_experience_years', 'REAL'),
+                ('manager_change_count', 'INTEGER'),
             ]
 
             cursor.execute("PRAGMA table_info(employees)")
@@ -213,6 +239,26 @@ class Database:
             cursor.execute("SELECT COUNT(*) FROM employees WHERE is_active = 1")
             return cursor.fetchone()[0]
 
+    def get_employee_distribution_by_country(self) -> List[Dict[str, Any]]:
+        """
+        Get employee count grouped by country.
+        
+        Returns:
+            List of dictionaries with country and count.
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT 
+                    COALESCE(country, 'Unknown') as country,
+                    COUNT(*) as count
+                FROM employees
+                WHERE is_active = 1
+                GROUP BY country
+                ORDER BY count DESC
+            """)
+            return [{'country': row[0], 'count': row[1]} for row in cursor.fetchall()]
+
     def get_all_employees(self) -> pd.DataFrame:
         """
         Retrieve all active employees as a DataFrame.
@@ -233,6 +279,7 @@ class Database:
                     gender as Gender,
                     job_title as JobTitle,
                     location as Location,
+                    country as Country,
                     hire_date as HireDate,
                     manager_id as ManagerID,
                     years_in_current_role as YearsInCurrentRole,
@@ -250,6 +297,18 @@ class Database:
                     rating_history as RatingHistory,
                     promotion_date as PromotionDate,
                     starting_salary as StartingSalary,
+                    job_level as JobLevel,
+                    compa_ratio as CompaRatio,
+                    prior_experience_years as PriorExperienceYears,
+                    manager_change_count as ManagerChangeCount,
+                    enps_score as eNPS_Score,
+                    pulse_score as Pulse_Score,
+                    manager_satisfaction as ManagerSatisfaction,
+                    work_life_balance as WorkLifeBalance,
+                    career_growth_satisfaction as CareerGrowthSatisfaction,
+                    onboarding_30d as Onboarding_30d,
+                    onboarding_60d as Onboarding_60d,
+                    onboarding_90d as Onboarding_90d,
                     created_at,
                     updated_at
                 FROM employees
@@ -298,6 +357,7 @@ class Database:
             'Gender': 'gender',
             'JobTitle': 'job_title',
             'Location': 'location',
+            'Country': 'country',
             'HireDate': 'hire_date',
             'ManagerID': 'manager_id',
             'YearsInCurrentRole': 'years_in_current_role',
@@ -314,7 +374,19 @@ class Database:
             'PerformanceText': 'performance_text',
             'RatingHistory': 'rating_history',
             'PromotionDate': 'promotion_date',
-            'StartingSalary': 'starting_salary'
+            'StartingSalary': 'starting_salary',
+            'eNPS_Score': 'enps_score',
+            'Pulse_Score': 'pulse_score',
+            'ManagerSatisfaction': 'manager_satisfaction',
+            'WorkLifeBalance': 'work_life_balance',
+            'CareerGrowthSatisfaction': 'career_growth_satisfaction',
+            'Onboarding_30d': 'onboarding_30d',
+            'Onboarding_60d': 'onboarding_60d',
+            'Onboarding_90d': 'onboarding_90d',
+            'JobLevel': 'job_level',
+            'CompaRatio': 'compa_ratio',
+            'PriorExperienceYears': 'prior_experience_years',
+            'ManagerChangeCount': 'manager_change_count',
         }
 
         added = 0
@@ -464,6 +536,37 @@ class Database:
                 ORDER BY snapshot_date ASC
             """
             return pd.read_sql_query(query, conn, params=(employee_id,))
+
+    def get_historical_snapshots(self, start_date: str) -> pd.DataFrame:
+        """
+        Get all employee snapshots from a given start date onwards.
+
+        Used for backtesting model predictions against historical states.
+
+        Args:
+            start_date: Start date in 'YYYY-MM-DD' format.
+
+        Returns:
+            DataFrame with snapshot data for all employees.
+        """
+        with self._get_connection() as conn:
+            query = """
+                SELECT
+                    employee_id as EmployeeID,
+                    snapshot_date,
+                    dept as Dept,
+                    tenure as Tenure,
+                    salary as Salary,
+                    last_rating as LastRating,
+                    age as Age,
+                    attrition as Attrition,
+                    hire_source as HireSource,
+                    interview_score as InterviewScore
+                FROM employee_snapshots
+                WHERE snapshot_date >= ?
+                ORDER BY snapshot_date ASC
+            """
+            return pd.read_sql_query(query, conn, params=(start_date,))
 
     def get_upload_history(self, limit: int = 10) -> List[Dict[str, Any]]:
         """

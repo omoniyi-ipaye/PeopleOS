@@ -54,6 +54,26 @@ PeopleOS was built for maximum security:
 - ✅ **Automatic Redaction**: Sensitive PII is automatically handled securely.
 - ✅ **Git-Safe**: The default configuration (via .gitignore) ensures you never accidentally push your `peopleos.db` or employee CSVs to GitHub.
 
+## 📋 Is PeopleOS Right for Your Organization? (Readiness Checklist)
+
+PeopleOS is designed for organizations with a certain level of data maturity. Use this checklist to see if you are ready to achieve high-integrity results:
+
+### 1. Data Maturity (The "Fuel")
+- [ ] **Historical Depth**: At least 12–24 months of attrition and performance records.
+- [ ] **Data Hygiene**: Consistent records for Job Levels, Salary, and Manager IDs.
+- [ ] **Outcome Integrity**: Clear distinction between Voluntary and Involuntary attrition.
+
+### 2. Technical Infrastructure (The "Engine")
+- [ ] **Hardware**: A machine with 16GB+ RAM to run local AI (Ollama).
+- [ ] **Privacy Approval**: Internal approval for a local-first, zero-cloud architecture.
+
+### 3. Cultural Readiness (The "Pilot")
+- [ ] **Supportive Intervention**: Using AI for conversations, not automated punitive actions.
+- [ ] **Probabilistic Thinking**: Comfort with making decisions based on risk percentages.
+
+> [!TIP]
+> **Not ready yet?** You can still use PeopleOS for workforce visualization and historical analytics while you build up the data depth required for advanced forecasting.
+
 ---
 
 ## 💻 Setup Guide (For IT/Admins)

@@ -8,7 +8,7 @@ import { DepartmentBarChart } from '../../components/charts/department-bar-chart
 import { CorrelationHeatmap } from '../../components/charts/correlation-heatmap'
 import { api } from '../../lib/api-client'
 import { cn } from '../../lib/utils'
-import { AlertTriangle, Building2, TrendingDown, Info, RefreshCw } from 'lucide-react'
+import { AlertTriangle, TrendingDown, Info, RefreshCw } from 'lucide-react'
 import {
   ExplanationBox,
   RiskFactorGuide,
@@ -23,11 +23,11 @@ import type {
   CorrelationsResponse,
   HighRiskDepartment,
   HighRiskDepartmentsResponse,
-  TeamHealth,
 } from '@/types/api'
 import { CompensationTab } from '../../components/diagnostics/compensation-tab'
 import { SuccessionTab } from '../../components/diagnostics/succession-tab'
 import { NLPTab } from '../../components/diagnostics/nlp-tab'
+import { TeamDynamicsTab } from '../../components/diagnostics/team-dynamics-tab'
 
 type WorkforceTab = 'operational' | 'compensation' | 'succession' | 'team' | 'nlp'
 
@@ -61,10 +61,6 @@ export default function WorkforceHealthPage() {
   const highRiskDepts: HighRiskDepartment[] = highRiskData?.departments || []
   const threshold = highRiskData?.threshold || 0
 
-  const { data: teamHealth } = useQuery<TeamHealth[]>({
-    queryKey: ['team', 'health'],
-    queryFn: () => api.team.getHealth() as Promise<TeamHealth[]>,
-  })
 
   if (deptLoading) {
     return (
@@ -345,69 +341,7 @@ export default function WorkforceHealthPage() {
       ) : activeTab === 'succession' ? (
         <SuccessionTab />
       ) : activeTab === 'team' ? (
-        /* Team Health */
-        <Card title="Team Health Scores" subtitle="Sentiment analysis and wellness indicators from performance reviews">
-          {teamHealth && teamHealth.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {teamHealth.map((team) => (
-                <div
-                  key={team.dept}
-                  className="p-5 rounded-xl bg-surface dark:bg-surface-dark border border-border dark:border-border-dark shadow-sm hover:shadow-md transition-all"
-                >
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center">
-                        <Building2 className="w-4 h-4 text-accent" />
-                      </div>
-                      <span className="font-bold text-text-primary dark:text-text-dark-primary">{team.dept}</span>
-                    </div>
-                    <Badge
-                      variant={
-                        team.status === 'Thriving'
-                          ? 'success'
-                          : team.status === 'Healthy'
-                            ? 'info'
-                            : team.status === 'At Risk'
-                              ? 'warning'
-                              : 'danger'
-                      }
-                    >
-                      {team.status}
-                    </Badge>
-                  </div>
-
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-text-secondary dark:text-text-dark-secondary">Wellness Score</span>
-                      <span className="font-mono font-bold text-text-primary dark:text-text-dark-primary">
-                        {(team.health_score * 100).toFixed(0)}%
-                      </span>
-                    </div>
-                    <div className="h-2.5 bg-surface-secondary dark:bg-background-dark rounded-full overflow-hidden shadow-inner">
-                      <div
-                        className={cn(
-                          "h-full rounded-full transition-all duration-1000",
-                          team.health_score >= 0.75
-                            ? 'bg-success'
-                            : team.health_score >= 0.6
-                              ? 'bg-accent'
-                              : team.health_score >= 0.45
-                                ? 'bg-warning'
-                                : 'bg-danger'
-                        )}
-                        style={{ width: `${team.health_score * 100}%` }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="py-12 text-center text-text-secondary dark:text-text-dark-secondary">
-              No team dynamics data available. Ensure performance text is loaded.
-            </div>
-          )}
-        </Card>
+        <TeamDynamicsTab />
       ) : activeTab === 'nlp' ? (
         <NLPTab />
       ) : null}

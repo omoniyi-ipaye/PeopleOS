@@ -202,3 +202,96 @@ templates:
     onboarding: "onboarding_survey_template.csv"
     enps: "enps_survey_template.csv"
     hiring: "hiring_data_template.csv"
+
+# =============================================================================
+# EMPLOYEE EXPERIENCE ENGINE
+# =============================================================================
+
+experience:
+  enabled: true
+  # Weights for EXI calculation (must sum to 1.0 when all signals present)
+  index_weights:
+    enps: 0.25
+    onboarding: 0.15
+    pulse: 0.15
+    manager_satisfaction: 0.15
+    engagement: 0.10
+    work_life: 0.10
+    career_growth: 0.10
+  # Engagement segment thresholds (EXI score boundaries)
+  segments:
+    thriving: 80      # EXI >= 80
+    content: 60       # EXI >= 60
+    neutral: 40       # EXI >= 40
+    disengaged: 20    # EXI >= 20
+    # Critical: EXI < 20
+  thresholds:
+    at_risk_exi: 40           # Employees below this are flagged
+    declining_days: 30        # Days of declining trend to flag
+    critical_exi: 20          # Critical threshold for immediate action
+  lifecycle_stages:
+    new_hire_months: 6        # 0-6 months = New Hire
+    ramping_months: 12        # 6-12 months = Ramping
+    established_months: 36    # 12-36 months = Established
+    # 36+ months = Veteran
+
+# =============================================================================
+# SCENARIO PLANNING ENGINE (Monte Carlo Simulation)
+# =============================================================================
+
+scenario:
+  enabled: true
+  max_scenarios_saved: 50
+  default_time_horizon_months: 12
+
+  # Monte Carlo simulation settings
+  monte_carlo_iterations: 1000
+  random_seed: 42
+  confidence_intervals: [0.05, 0.25, 0.50, 0.75, 0.95]  # Percentiles to report
+
+  # Cost assumptions for ROI calculations
+  cost_assumptions:
+    replacement_cost_multiplier: 1.5  # Times annual salary
+    hiring_cost_base: 5000            # Base cost per hire
+    training_cost_months: 3           # Months of reduced productivity
+    productivity_ramp_months: 6       # Time to full productivity
+
+  # Engine dependency behavior
+  fallback_to_statistical: true   # Use statistical models if ML engines unavailable
+  require_ml_for_accuracy: false  # Don't block scenarios if ML not available
+
+  # Confidence thresholds based on sample size
+  confidence:
+    min_sample_for_high: 100      # High confidence if N >= 100
+    min_sample_for_medium: 30     # Medium confidence if N >= 30
+    # Low confidence if N < 30
+
+  # Pre-built scenario templates
+  templates:
+    - name: "5% Engineering Raise"
+      type: "compensation"
+      description: "Simulate 5% salary increase for Engineering department"
+      params:
+        adjustment_type: "percentage"
+        target:
+          scope: "department"
+          department: "Engineering"
+        adjustment_value: 5.0
+
+    - name: "Retain High-Risk Top Performers"
+      type: "intervention"
+      description: "Retention bonus for high-risk employees with top ratings"
+      params:
+        intervention_type: "retention_bonus"
+        target_employees: "high_risk_high_performer"
+        bonus_percentage: 10.0
+
+    - name: "10% Headcount Reduction"
+      type: "headcount"
+      description: "Model impact of 10% workforce reduction"
+      params:
+        change_type: "reduction"
+        target:
+          scope: "all"
+        change_percentage: 10.0
+        selection_criteria: "performance"

@@ -32,6 +32,8 @@ from src.survival_engine import SurvivalEngine
 from src.quality_of_hire_engine import QualityOfHireEngine
 from src.structural_engine import StructuralEngine
 from src.sentiment_engine import SentimentEngine
+from src.experience_engine import ExperienceEngine
+from src.scenario_engine import ScenarioEngine
 from src.utils import load_config
 logger = get_logger('api_dependencies')
 
@@ -80,6 +82,8 @@ class AppState:
         self.quality_of_hire_engine: Optional[QualityOfHireEngine] = None
         self.structural_engine: Optional[StructuralEngine] = None
         self.sentiment_engine: Optional[SentimentEngine] = None
+        self.experience_engine: Optional[ExperienceEngine] = None
+        self.scenario_engine: Optional[ScenarioEngine] = None
 
         # Survey data for sentiment analysis
         self.enps_df: Optional[pd.DataFrame] = None
@@ -339,6 +343,27 @@ class AppState:
         except Exception as e:
             self.sentiment_engine = None
 
+        # Experience engine (always available - uses unified data)
+        try:
+            self.experience_engine = ExperienceEngine(self.raw_df)
+            logger.info("ExperienceEngine initialized successfully")
+        except Exception as e:
+            logger.warning(f"ExperienceEngine initialization failed: {e}")
+            self.experience_engine = None
+
+        # Scenario engine (uses ML/Survival engines when available)
+        try:
+            self.scenario_engine = ScenarioEngine(
+                employee_df=self.raw_df,
+                ml_engine=self.ml_engine,
+                survival_engine=self.survival_engine,
+                compensation_engine=self.compensation_engine
+            )
+            logger.info("ScenarioEngine initialized successfully")
+        except Exception as e:
+            logger.warning(f"ScenarioEngine initialization failed: {e}")
+            self.scenario_engine = None
+
     def has_data(self) -> bool:
         """Check if data is loaded."""
         return self.raw_df is not None and not self.raw_df.empty
@@ -411,6 +436,8 @@ class AppState:
         self.quality_of_hire_engine = None
         self.structural_engine = None
         self.sentiment_engine = None
+        self.experience_engine = None
+        self.scenario_engine = None
         self.enps_df = None
         self.onboarding_df = None
         self.model_metrics = None

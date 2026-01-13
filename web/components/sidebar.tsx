@@ -20,16 +20,59 @@ import {
   UserPlus,
   ShieldAlert,
   BarChartHorizontal,
+  Heart,
+  GitBranch,
+  TrendingUp,
+  UserCheck,
+  Lightbulb,
+  Wrench,
 } from 'lucide-react'
 
-const analyticsNavigation = [
-  { name: 'Overview', href: '/', icon: LayoutDashboard },
-  { name: 'Workforce Health', href: '/workforce-health', icon: Activity },
-  { name: 'Flight Risk', href: '/flight-risk', icon: ShieldAlert },
-  { name: 'Retention Forecast', href: '/retention-forecast', icon: BarChartHorizontal },
-  { name: 'Quality of Hire', href: '/quality-of-hire', icon: UserPlus },
-  { name: 'Review Search', href: '/search', icon: Search },
-  { name: 'HR Advisor', href: '/advisor', icon: Brain },
+// Reorganized into HR-friendly categories
+const navigationSections = [
+  {
+    id: 'dashboard',
+    label: 'Dashboard',
+    items: [
+      { name: 'Overview', href: '/', icon: LayoutDashboard },
+    ],
+  },
+  {
+    id: 'people',
+    label: 'People Analytics',
+    description: 'Understand your workforce',
+    items: [
+      { name: 'Workforce Health', href: '/workforce-health', icon: Activity },
+      { name: 'Employee Experience', href: '/employee-experience', icon: Heart },
+      { name: 'Flight Risk', href: '/flight-risk', icon: ShieldAlert },
+    ],
+  },
+  {
+    id: 'planning',
+    label: 'Strategic Planning',
+    description: 'Plan for the future',
+    items: [
+      { name: 'Scenario Planner', href: '/scenario-planner', icon: GitBranch },
+      { name: 'Retention Forecast', href: '/retention-forecast', icon: BarChartHorizontal },
+    ],
+  },
+  {
+    id: 'talent',
+    label: 'Talent Management',
+    description: 'Build your talent pipeline',
+    items: [
+      { name: 'Quality of Hire', href: '/quality-of-hire', icon: UserPlus },
+    ],
+  },
+  {
+    id: 'tools',
+    label: 'AI Tools',
+    description: 'AI-powered insights',
+    items: [
+      { name: 'HR Advisor', href: '/advisor', icon: Brain },
+      { name: 'Review Search', href: '/search', icon: Search },
+    ],
+  },
 ]
 
 const managementNavigation = [
@@ -41,8 +84,21 @@ const managementNavigation = [
 export function Sidebar() {
   const pathname = usePathname()
   const [isCollapsed, setIsCollapsed] = useState(false)
-  const [analyticsOpen, setAnalyticsOpen] = useState(true)
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+    dashboard: true,
+    people: true,
+    planning: true,
+    talent: true,
+    tools: true,
+  })
   const [managementOpen, setManagementOpen] = useState(true)
+
+  const toggleSection = (sectionId: string) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [sectionId]: !prev[sectionId]
+    }))
+  }
 
   const toggleTheme = () => {
     document.documentElement.classList.toggle('dark')
@@ -72,65 +128,67 @@ export function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-3 py-6 space-y-4 overflow-x-hidden overflow-y-auto custom-scrollbar">
-        {/* Analytics Section */}
-        <div>
-          {!isCollapsed ? (
-            <button
-              onClick={() => setAnalyticsOpen(!analyticsOpen)}
-              className="w-full flex items-center justify-between px-3 mb-2 text-[10px] font-bold text-text-muted uppercase tracking-widest hover:text-text-secondary transition-colors"
-            >
-              <span>Insights & Analytics</span>
-              {analyticsOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-            </button>
-          ) : (
-            <div className="h-px bg-border dark:bg-border-dark my-4 mx-2 opacity-50" />
-          )}
+      <nav className="flex-1 px-3 py-4 space-y-1 overflow-x-hidden overflow-y-auto custom-scrollbar">
+        {/* Main Navigation Sections */}
+        {navigationSections.map((section) => (
+          <div key={section.id} className="mb-2">
+            {!isCollapsed ? (
+              <button
+                onClick={() => toggleSection(section.id)}
+                className="w-full flex items-center justify-between px-3 py-1.5 text-[10px] font-bold text-text-muted uppercase tracking-widest hover:text-text-secondary transition-colors rounded-lg hover:bg-surface-hover/50"
+              >
+                <span>{section.label}</span>
+                {expandedSections[section.id] ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+              </button>
+            ) : (
+              section.id !== 'dashboard' && <div className="h-px bg-border dark:bg-border-dark my-2 mx-2 opacity-50" />
+            )}
 
-          <div className={cn("space-y-0.5 transition-all duration-300 ease-in-out",
-            !isCollapsed && !analyticsOpen ? "max-h-0 opacity-0 overflow-hidden" : "max-h-[500px] opacity-100"
-          )}>
-            {analyticsNavigation.map((item) => {
-              const isActive = pathname === item.href
-              return (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className={cn(
-                    'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all group relative',
-                    isActive
-                      ? 'bg-accent/10 text-accent'
-                      : 'text-text-secondary dark:text-text-dark-secondary hover:text-text-primary dark:hover:text-text-dark-primary hover:bg-surface-hover dark:hover:bg-surface-dark-hover'
-                  )}
-                >
-                  <item.icon className={cn("w-5 h-5 flex-shrink-0 transition-transform duration-200", !isActive && "group-hover:scale-110")} />
-                  {!isCollapsed && <span>{item.name}</span>}
-                  {isCollapsed && (
-                    <div className="absolute left-full ml-4 px-2 py-1 bg-slate-900 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">
-                      {item.name}
-                    </div>
-                  )}
-                </Link>
-              )
-            })}
+            <div className={cn("space-y-0.5 transition-all duration-300 ease-in-out",
+              !isCollapsed && !expandedSections[section.id] ? "max-h-0 opacity-0 overflow-hidden" : "max-h-[500px] opacity-100"
+            )}>
+              {section.items.map((item) => {
+                const isActive = pathname === item.href
+                return (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    className={cn(
+                      'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all group relative',
+                      isActive
+                        ? 'bg-accent/10 text-accent'
+                        : 'text-text-secondary dark:text-text-dark-secondary hover:text-text-primary dark:hover:text-text-dark-primary hover:bg-surface-hover dark:hover:bg-surface-dark-hover'
+                    )}
+                  >
+                    <item.icon className={cn("w-5 h-5 flex-shrink-0 transition-transform duration-200", !isActive && "group-hover:scale-110")} />
+                    {!isCollapsed && <span>{item.name}</span>}
+                    {isCollapsed && (
+                      <div className="absolute left-full ml-4 px-2 py-1 bg-slate-900 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">
+                        {item.name}
+                      </div>
+                    )}
+                  </Link>
+                )
+              })}
+            </div>
           </div>
-        </div>
+        ))}
 
         {/* Divider */}
-        {!isCollapsed && <div className="mx-3 h-px bg-border/40 dark:bg-border-dark/40" />}
+        {!isCollapsed && <div className="mx-3 h-px bg-border/40 dark:bg-border-dark/40 my-2" />}
 
         {/* Management Section */}
         <div>
           {!isCollapsed ? (
             <button
               onClick={() => setManagementOpen(!managementOpen)}
-              className="w-full flex items-center justify-between px-3 mb-2 text-[10px] font-bold text-text-muted uppercase tracking-widest hover:text-text-secondary transition-colors"
+              className="w-full flex items-center justify-between px-3 py-1.5 text-[10px] font-bold text-text-muted uppercase tracking-widest hover:text-text-secondary transition-colors rounded-lg hover:bg-surface-hover/50"
             >
-              <span>Management & Ops</span>
+              <span>Data & Settings</span>
               {managementOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
             </button>
           ) : (
-            <div className="h-px bg-border dark:bg-border-dark my-4 mx-2 opacity-50" />
+            <div className="h-px bg-border dark:bg-border-dark my-2 mx-2 opacity-50" />
           )}
 
           <div className={cn("space-y-0.5 transition-all duration-300 ease-in-out",
@@ -188,4 +246,3 @@ export function Sidebar() {
     </div>
   )
 }
-

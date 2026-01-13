@@ -78,8 +78,8 @@ async def get_feature_importance(
     features = []
     for _, row in importance_df.head(limit).iterrows():
         features.append(FeatureImportance(
-            feature=row['Feature'],
-            importance=float(row['Importance'])
+            feature=row['feature'],
+            importance=float(row['importance'])
         ))
 
     return FeatureImportanceResponse(

@@ -29,6 +29,10 @@ from api.routes.survival import router as survival_router
 from api.routes.quality_of_hire import router as quality_of_hire_router
 from api.routes.structural import router as structural_router
 from api.routes.sentiment import router as sentiment_router
+from api.routes.experience import router as experience_router
+from api.routes.scenario import router as scenario_router
+from api.routes.model_lab import router as model_lab_router
+from api.routes.geo import router as geo_router
 from api.dependencies import get_app_state
 
 
@@ -84,6 +88,10 @@ app.include_router(survival_router)
 app.include_router(quality_of_hire_router)
 app.include_router(structural_router)
 app.include_router(sentiment_router)
+app.include_router(experience_router)
+app.include_router(scenario_router)
+app.include_router(model_lab_router)
+app.include_router(geo_router)
 
 
 @app.get("/")
@@ -131,7 +139,9 @@ async def api_status():
             "survival": state.survival_engine is not None,
             "quality_of_hire": state.quality_of_hire_engine is not None,
             "structural": state.structural_engine is not None,
-            "sentiment": state.sentiment_engine is not None
+            "sentiment": state.sentiment_engine is not None,
+            "experience": state.experience_engine is not None,
+            "scenario": state.scenario_engine is not None
         },
         "features_enabled": state.features_enabled,
         "model_metrics": state.model_metrics

@@ -140,7 +140,9 @@ class Preprocessor:
         self.categorical_columns = []
         
         for col in df.columns:
-            if col == target_column or col == 'EmployeeID':
+            # Case-insensitive check for metadata columns
+            is_metadata = col.lower() in [target_column.lower(), 'employeeid', 'employee_id', 'created_at', 'updated_at', 'is_active']
+            if is_metadata:
                 continue
             
             if df[col].dtype in ['int64', 'float64', 'int32', 'float32']:

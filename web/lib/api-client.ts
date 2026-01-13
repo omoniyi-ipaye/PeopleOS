@@ -103,6 +103,31 @@ export const api = {
     getHealth: () => fetchAPI('/api/team/health'),
     getDiversity: () => fetchAPI('/api/team/diversity'),
     getAnalysis: () => fetchAPI('/api/team/analysis'),
+    getFilters: () => fetchAPI('/api/team/filters'),
+    getComprehensive: (filters?: {
+      departments?: string[];
+      locations?: string[];
+      countries?: string[];
+      genders?: string[];
+      age_groups?: string[];
+      job_levels?: number[];
+      tenure_ranges?: string[];
+      min_tenure?: number;
+      max_tenure?: number;
+    }) => {
+      const params = new URLSearchParams();
+      if (filters?.departments?.length) params.append('departments', filters.departments.join(','));
+      if (filters?.locations?.length) params.append('locations', filters.locations.join(','));
+      if (filters?.countries?.length) params.append('countries', filters.countries.join(','));
+      if (filters?.genders?.length) params.append('genders', filters.genders.join(','));
+      if (filters?.age_groups?.length) params.append('age_groups', filters.age_groups.join(','));
+      if (filters?.job_levels?.length) params.append('job_levels', filters.job_levels.join(','));
+      if (filters?.tenure_ranges?.length) params.append('tenure_ranges', filters.tenure_ranges.join(','));
+      if (filters?.min_tenure !== undefined) params.append('min_tenure', String(filters.min_tenure));
+      if (filters?.max_tenure !== undefined) params.append('max_tenure', String(filters.max_tenure));
+      const queryString = params.toString();
+      return fetchAPI(`/api/team/comprehensive${queryString ? `?${queryString}` : ''}`);
+    },
   },
 
   // Fairness endpoints
@@ -248,6 +273,86 @@ export const api = {
     },
   },
 
+  // Employee Experience endpoints
+  experience: {
+    getAnalysis: () => fetchAPI('/api/experience/analysis'),
+    getIndex: (groupBy?: string) => {
+      const params = groupBy ? `?group_by=${groupBy}` : ''
+      return fetchAPI(`/api/experience/index${params}`)
+    },
+    getEmployeeExperience: (employeeId: string) =>
+      fetchAPI(`/api/experience/index/employee/${employeeId}`),
+    getSegments: () => fetchAPI('/api/experience/segments'),
+    getDrivers: () => fetchAPI('/api/experience/drivers'),
+    getAtRisk: (threshold?: number, limit = 20) => {
+      const params = new URLSearchParams()
+      if (threshold) params.set('threshold', String(threshold))
+      params.set('limit', String(limit))
+      return fetchAPI(`/api/experience/at-risk?${params}`)
+    },
+    getLifecycle: () => fetchAPI('/api/experience/lifecycle'),
+    getManagerImpact: () => fetchAPI('/api/experience/manager-impact'),
+    getSignals: () => fetchAPI('/api/experience/signals'),
+    getTrends: (period = 'month') =>
+      fetchAPI(`/api/experience/trends?period=${period}`),
+  },
+
+  // Scenario Planning endpoints
+  scenario: {
+    simulateCompensation: (request: {
+      adjustment_type: 'percentage' | 'absolute' | 'market_adjustment'
+      target: { scope: string; department?: string; employee_ids?: string[] }
+      adjustment_value: number
+      time_horizon_months?: number
+    }) =>
+      fetchAPI('/api/scenario/simulate/compensation', {
+        method: 'POST',
+        body: JSON.stringify(request),
+      }),
+    simulateHeadcount: (request: {
+      change_type: 'reduction' | 'expansion'
+      target: { scope: string; department?: string }
+      change_count?: number
+      change_percentage?: number
+      selection_criteria?: 'performance' | 'tenure' | 'cost'
+    }) =>
+      fetchAPI('/api/scenario/simulate/headcount', {
+        method: 'POST',
+        body: JSON.stringify(request),
+      }),
+    simulateIntervention: (request: {
+      intervention_type: 'retention_bonus' | 'career_path' | 'manager_change'
+      target_employees: string | string[]
+      intervention_params?: Record<string, number>
+    }) =>
+      fetchAPI('/api/scenario/simulate/intervention', {
+        method: 'POST',
+        body: JSON.stringify(request),
+      }),
+    getTemplates: () => fetchAPI('/api/scenario/templates'),
+    compareScenarios: (scenarioIds: string[]) =>
+      fetchAPI('/api/scenario/compare', {
+        method: 'POST',
+        body: JSON.stringify(scenarioIds),
+      }),
+    getScenario: (scenarioId: string) =>
+      fetchAPI(`/api/scenario/${scenarioId}`),
+    deleteScenario: (scenarioId: string) =>
+      fetchAPI(`/api/scenario/${scenarioId}`, { method: 'DELETE' }),
+    getRecentScenarios: (limit = 10) =>
+      fetchAPI(`/api/scenario/history/recent?limit=${limit}`),
+    analyzeSensitivity: (request: {
+      scenario_type: 'compensation' | 'headcount' | 'intervention'
+      base_request: Record<string, unknown>
+      variable: string
+      range_values: number[]
+    }) =>
+      fetchAPI('/api/scenario/sensitivity', {
+        method: 'POST',
+        body: JSON.stringify(request),
+      }),
+  },
+
   // Sessions endpoints
   sessions: {
     list: () => fetchAPI('/api/sessions'),
@@ -264,6 +369,20 @@ export const api = {
       fetchAPI(`/api/sessions?filepath=${encodeURIComponent(filepath)}`, {
         method: 'DELETE',
       }),
+  },
+
+  // Model Lab endpoints
+  modelLab: {
+    getValidation: (daysBack = 90) => fetchAPI(`/api/model-lab/validation?days_back=${daysBack}`),
+    getSensitivity: () => fetchAPI('/api/model-lab/sensitivity'),
+    getRefinementPlan: () => fetchAPI('/api/model-lab/refinement-plan'),
+    optimize: () => fetchAPI('/api/model-lab/optimize', { method: 'POST' }),
+  },
+
+  // Geographic Distribution endpoints
+  geo: {
+    getDistribution: () => fetchAPI<Array<{ country: string; count: number; percentage: number }>>('/api/geo/distribution'),
+    getSummary: () => fetchAPI<{ total_employees: number; countries_represented: number; remote_workers: number; remote_percentage: number }>('/api/geo/summary'),
   },
 
   // General status

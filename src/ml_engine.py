@@ -35,6 +35,7 @@ from src.logger import get_logger
 MIN_SAMPLES_FOR_ML = 50
 MIN_SAMPLES_PER_CLASS = 10
 from src.utils import load_config
+from src.preprocessor import Preprocessor
 
 logger = get_logger('ml_engine')
 
@@ -99,6 +100,82 @@ class MLEngine:
         self.handle_imbalance = self.ml_config.get('handle_imbalance', True)
         self.models_to_compare = self.ml_config.get('models', ['random_forest', 'xgboost', 'lightgbm'])
         self.n_trials = self.ml_config.get('optuna_trials', 10)
+        self.preprocessor = Preprocessor()
+    
+    def train(self, df: pd.DataFrame) -> dict:
+        """
+        High-level training method that handles preprocessing and model selection.
+        
+        Args:
+            df: Raw DataFrame with employee data.
+            
+        Returns:
+            Dictionary with training metrics.
+        """
+        logger.info(f"Starting ML training pipeline for {len(df)} employees")
+        
+        # 1. Preprocess
+        target_col = 'Attrition' if 'Attrition' in df.columns else 'attrition'
+        processed_df, metadata = self.preprocessor.fit_transform(df, target_column=target_col)
+        
+        # 2. Split into X and y
+        feature_cols = self.preprocessor.numeric_columns + self.preprocessor.categorical_columns
+        X = processed_df[feature_cols]
+        
+        # DIAGNOSTIC: Check for non-numeric columns
+        non_numeric = X.select_dtypes(exclude=[np.number]).columns.tolist()
+        if non_numeric:
+            logger.error(f"CRITICAL: Non-numeric columns in training set: {non_numeric}. Dropping them.")
+            X = X.drop(columns=non_numeric)
+        
+        if target_col in processed_df.columns:
+            y = processed_df[target_col]
+        else:
+            y = pd.Series([0] * len(processed_df))
+
+        # DIAGNOSTIC: Check y for non-numeric data
+        if not pd.api.types.is_numeric_dtype(y):
+            logger.error(f"CRITICAL: Target variable y is non-numeric (type: {y.dtype}). Dropping non-numeric rows.")
+            logger.error(f"Sample value for y: {y.iloc[0]}")
+            # Try to force numeric
+            y = pd.to_numeric(y, errors='coerce').fillna(0).astype(int)
+            
+        # 3. Train
+        metrics = self.train_model(X, y)
+        self.is_trained = True
+        return metrics
+
+    def predict(self, df: pd.DataFrame) -> list[dict]:
+        """
+        High-level prediction method that handles preprocessing and risk scoring.
+        
+        Args:
+            df: Raw DataFrame with employee data.
+            
+        Returns:
+            List of dictionaries with risk scores and categories.
+        """
+        if not self.is_trained or self.model is None:
+            return []
+            
+        # 1. Transform raw data
+        processed_df = self.preprocessor.transform(df)
+        
+        # 2. Select feature columns
+        feature_cols = self.preprocessor.numeric_columns + self.preprocessor.categorical_columns
+        X = processed_df[feature_cols]
+        
+        # 3. Predict
+        scores = self.predict_risk(X)
+        
+        results = []
+        for i, score in enumerate(scores):
+            results.append({
+                'risk_score': float(score),
+                'risk_category': self.get_risk_category(score)
+            })
+            
+        return results
     
     def train_model(self, X: pd.DataFrame, y: pd.Series) -> dict:
         """
@@ -649,9 +726,9 @@ class MLEngine:
         importances = self.model.feature_importances_
         
         df = pd.DataFrame({
-            'Feature': self.feature_names,
-            'Importance': importances
-        }).sort_values('Importance', ascending=False)
+            'feature': self.feature_names,
+            'importance': importances
+        }).sort_values('importance', ascending=False)
         
         return df
 
