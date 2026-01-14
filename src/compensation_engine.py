@@ -14,7 +14,7 @@ Key Metrics:
 
 import numpy as np
 import pandas as pd
-from typing import Optional, Dict, List, Any, Tuple
+from typing import Optional, Dict, List, Any
 from scipy import stats
 
 from src.logger import get_logger
@@ -411,6 +411,9 @@ class CompensationEngine:
         }
 
         # ADJUSTED GAP (controlling for job level/title)
+        # PA-4 FIX: Increased minimum sample size from 2 to 10 for statistical reliability
+        MIN_GROUP_SIZE_FOR_ADJUSTED = 10
+
         if self.has_job_title:
             adjusted_gaps = []
             for job in df['JobTitle'].unique():
@@ -418,13 +421,25 @@ class CompensationEngine:
                 job_male = job_df.loc[job_df['Gender'].isin(male_labels), 'Salary']
                 job_female = job_df.loc[job_df['Gender'].isin(female_labels), 'Salary']
 
-                if len(job_male) >= 2 and len(job_female) >= 2:
+                if len(job_male) >= MIN_GROUP_SIZE_FOR_ADJUSTED and len(job_female) >= MIN_GROUP_SIZE_FOR_ADJUSTED:
                     gap = ((job_male.mean() - job_female.mean()) / job_male.mean()) * 100 if job_male.mean() > 0 else 0
                     adjusted_gaps.append({
                         'job_title': job,
                         'gap_percentage': round(gap, 1),
                         'male_count': len(job_male),
-                        'female_count': len(job_female)
+                        'female_count': len(job_female),
+                        'reliable': True
+                    })
+                elif len(job_male) >= 2 and len(job_female) >= 2:
+                    # Include but flag as insufficient sample
+                    gap = ((job_male.mean() - job_female.mean()) / job_male.mean()) * 100 if job_male.mean() > 0 else 0
+                    adjusted_gaps.append({
+                        'job_title': job,
+                        'gap_percentage': round(gap, 1),
+                        'male_count': len(job_male),
+                        'female_count': len(job_female),
+                        'reliable': False,
+                        'warning': f'Insufficient sample (n<{MIN_GROUP_SIZE_FOR_ADJUSTED}) - result may not be reliable'
                     })
 
             if adjusted_gaps:

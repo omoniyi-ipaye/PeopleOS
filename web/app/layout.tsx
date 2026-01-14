@@ -25,7 +25,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <title>PeopleOS - HR Analytics Dashboard</title>
+        <title>PeopleOS - HR Intelligence Operating System</title>
         <meta name="description" content="Privacy-preserving People Analytics Platform" />
       </head>
       <body className={cn(inter.className, "bg-background dark:bg-background-dark text-text-primary dark:text-text-dark-primary antialiased")}>

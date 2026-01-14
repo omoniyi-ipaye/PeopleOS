@@ -6,10 +6,9 @@ Sessions are stored locally in the sessions/ directory.
 """
 
 import json
-import os
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Optional
 
 import pandas as pd
 

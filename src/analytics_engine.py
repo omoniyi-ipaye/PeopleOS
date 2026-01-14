@@ -8,9 +8,11 @@ No machine learning is performed in this module.
 from typing import Any, Optional
 
 import pandas as pd
+import numpy as np
+from scipy import stats
 
 from src.logger import get_logger
-from src.utils import safe_divide, format_percentage, load_config
+from src.utils import safe_divide, load_config
 
 logger = get_logger('analytics_engine')
 
@@ -72,6 +74,7 @@ class AnalyticsEngine:
     def get_department_aggregates(self) -> pd.DataFrame:
         """
         Calculate department-level aggregates.
+        Base averages ONLY on active employees.
         
         Returns:
             DataFrame with department statistics.
@@ -79,44 +82,47 @@ class AnalyticsEngine:
         if 'Dept' not in self.df.columns:
             logger.warning("Dept column not present")
             return pd.DataFrame()
+            
+        # 1. Get total records and turnover per department
+        base_agg = self.df.groupby('Dept').agg({
+            'EmployeeID': 'count',
+            'Attrition': 'mean' if 'Attrition' in self.df.columns else lambda x: 0
+        }).rename(columns={'EmployeeID': 'Total_Records', 'Attrition': 'Turnover_Rate'})
+
+        # 2. Get active employee metrics only
+        active_df = self.df[self.df['Attrition'] == 0] if 'Attrition' in self.df.columns else self.df
         
         agg_funcs: dict[str, Any] = {
             'EmployeeID': 'count'
         }
-        
-        # Add numeric column aggregations if present
         if 'Salary' in self.df.columns:
-            agg_funcs['Salary'] = ['mean', 'median', 'std']
+            agg_funcs['Salary'] = ['mean', 'median']
         if 'Tenure' in self.df.columns:
             agg_funcs['Tenure'] = 'mean'
         if 'LastRating' in self.df.columns:
             agg_funcs['LastRating'] = 'mean'
         if 'Age' in self.df.columns:
             agg_funcs['Age'] = 'mean'
-        if 'Attrition' in self.df.columns:
-            agg_funcs['Attrition'] = 'mean'  # This gives turnover rate per dept
+            
+        active_stats = active_df.groupby('Dept').agg(agg_funcs)
         
-        dept_stats = self.df.groupby('Dept').agg(agg_funcs)
+        # Flatten and rename active metrics
+        active_stats.columns = ['_'.join(col).strip() if isinstance(col, tuple) else col 
+                               for col in active_stats.columns.values]
         
-        # Flatten column names
-        dept_stats.columns = ['_'.join(col).strip() if isinstance(col, tuple) else col 
-                              for col in dept_stats.columns.values]
-        
-        # Rename for clarity
-        dept_stats = dept_stats.rename(columns={
-            'EmployeeID_count': 'Headcount',
+        active_stats = active_stats.rename(columns={
+            'EmployeeID_count': 'Headcount', # This is active headcount now
             'Salary_mean': 'Avg_Salary',
             'Salary_median': 'Median_Salary',
-            'Salary_std': 'Salary_StdDev',
             'Tenure_mean': 'Avg_Tenure',
             'LastRating_mean': 'Avg_Rating',
-            'Age_mean': 'Avg_Age',
-            'Attrition_mean': 'Turnover_Rate'
+            'Age_mean': 'Avg_Age'
         })
+
+        # 3. Merge
+        dept_stats = base_agg.join(active_stats, how='left').fillna(0).reset_index()
         
-        dept_stats = dept_stats.reset_index()
-        logger.info(f"Generated department aggregates for {len(dept_stats)} departments")
-        
+        logger.info(f"Generated active-first department aggregates for {len(dept_stats)} departments")
         return dept_stats
     
     def get_correlations(self, target_column: str = 'Attrition', max_features: int = 20) -> pd.DataFrame:
@@ -162,46 +168,56 @@ class AnalyticsEngine:
     def get_summary_statistics(self) -> dict:
         """
         Get overall summary statistics.
+        Calculates means only for active employees.
         
         Returns:
             Dictionary with summary statistics.
         """
+        active_mask = self.df['Attrition'] == 0 if 'Attrition' in self.df.columns else pd.Series([True] * len(self.df))
+        active_df = self.df[active_mask]
+        
         stats: dict[str, Any] = {
-            'headcount': self.get_headcount(),
+            'headcount': self.get_headcount(), # Total pool
             'turnover_rate': self.get_turnover_rate(),
-            'department_count': self.df['Dept'].nunique() if 'Dept' in self.df.columns else 0
+            'department_count': self.df['Dept'].nunique() if 'Dept' in self.df.columns else 0,
+            'active_count': int(active_mask.sum())
         }
         
-        # Numeric column statistics
+        # Numeric column statistics (Active Only)
         numeric_cols = ['Salary', 'Tenure', 'LastRating', 'Age']
         for col in numeric_cols:
             if col in self.df.columns:
-                stats[f'{col.lower()}_mean'] = float(self.df[col].mean())
-                stats[f'{col.lower()}_median'] = float(self.df[col].median())
-                stats[f'{col.lower()}_std'] = float(self.df[col].std())
+                stats[f'{col.lower()}_mean'] = float(active_df[col].mean())
+                stats[f'{col.lower()}_median'] = float(active_df[col].median())
+                stats[f'{col.lower()}_std'] = float(active_df[col].std())
         
         # Attrition breakdown
         if 'Attrition' in self.df.columns:
             stats['attrition_count'] = int(self.df['Attrition'].sum())
-            stats['active_count'] = int((self.df['Attrition'] == 0).sum())
         
-        # Temporal metrics
-        temp_stats = self.get_temporal_stats()
+        # Temporal metrics (Active Only)
+        # We'll need a way to filter internal methods if they use self.df
+        # For now, let's keep it simple or update those methods too
+        temp_stats = self.get_temporal_stats(active_only=True)
         if temp_stats:
             stats['temporal'] = temp_stats
             
-        logger.info("Generated summary statistics")
+        logger.info("Generated summary statistics (Active-First)")
         return stats
 
-    def get_temporal_stats(self) -> dict:
+    def get_temporal_stats(self, active_only: bool = False) -> dict:
         """Calculate averages for temporal metrics."""
+        df = self.df
+        if active_only and 'Attrition' in self.df.columns:
+            df = self.df[self.df['Attrition'] == 0]
+            
         stats = {}
-        if 'RatingVelocity' in self.df.columns:
-            stats['avg_velocity'] = float(self.df['RatingVelocity'].mean())
-        if 'PromotionLag' in self.df.columns:
-            stats['avg_promo_lag'] = float(self.df['PromotionLag'].mean())
-        if 'SalaryGrowth' in self.df.columns:
-            stats['avg_salary_growth'] = float(self.df['SalaryGrowth'].mean())
+        if 'RatingVelocity' in df.columns:
+            stats['avg_velocity'] = float(df['RatingVelocity'].mean())
+        if 'PromotionLag' in df.columns:
+            stats['avg_promo_lag'] = float(df['PromotionLag'].mean())
+        if 'SalaryGrowth' in df.columns:
+            stats['avg_salary_growth'] = float(df['SalaryGrowth'].mean())
         return stats
     
     def get_tenure_distribution(self) -> pd.DataFrame:
@@ -311,3 +327,90 @@ class AnalyticsEngine:
 
         high_risk = dept_stats[dept_stats['Turnover_Rate'] > threshold]
         return high_risk.sort_values('Turnover_Rate', ascending=False)
+
+    def compare_groups(self, group_col: str, metric_col: str) -> dict:
+        """
+        Perform statistical test to compare metric across groups.
+
+        Uses T-test (for 2 groups) or ANOVA (for >2 groups).
+
+        Args:
+            group_col: Column defining groups (e.g., 'Gender', 'Dept').
+            metric_col: Numeric metric to compare (e.g., 'Salary').
+
+        Returns:
+            Dictionary with test results:
+            {
+                'test_name': 'ANOVA',
+                'statistic': 4.5,
+                'p_value': 0.01,
+                'is_significant': True,
+                'interpretation': "Significant difference found..."
+            }
+        """
+        if group_col not in self.df.columns or metric_col not in self.df.columns:
+            return {'success': False, 'reason': 'Columns not found'}
+
+        # Prepare data
+        groups = self.df.dropna(subset=[group_col, metric_col]).groupby(group_col)[metric_col]
+        group_list = [group.values for name, group in groups if len(group) > 5]
+        group_names = [name for name, group in groups if len(group) > 5]
+
+        if len(group_list) < 2:
+            return {'success': False, 'reason': 'Not enough groups with data (>5 samples)'}
+
+        try:
+            if len(group_list) == 2:
+                # T-Test
+                stat, p_val = stats.ttest_ind(group_list[0], group_list[1], equal_var=False)
+                test_name = "Welch's T-Test"
+            else:
+                # ANOVA
+                stat, p_val = stats.f_oneway(*group_list)
+                test_name = "One-way ANOVA"
+
+            is_sig = p_val < 0.05
+            
+            interpretation = (
+                f"Statistically significant difference found in {metric_col} across {group_col} ({test_name}, p={p_val:.4f})."
+                if is_sig else
+                f"No significant difference found in {metric_col} across {group_col} (p={p_val:.4f})."
+            )
+
+            return {
+                'success': True,
+                'test_name': test_name,
+                'statistic': float(stat),
+                'p_value': float(p_val),
+                'is_significant': is_sig,
+                'interpretation': interpretation,
+                'groups_compared': group_names
+            }
+
+        except Exception as e:
+            logger.error(f"Statistical test failed: {e}")
+            return {'success': False, 'reason': str(e)}
+
+    def get_confidence_interval(self, col: str, confidence: float = 0.95) -> Optional[tuple]:
+        """
+        Calculate confidence interval for the mean of a column.
+        
+        Args:
+            col: Numeric column name.
+            confidence: Confidence level (0.95 default).
+            
+        Returns:
+            Tuple (lower, upper) or None.
+        """
+        if col not in self.df.columns:
+            return None
+            
+        data = self.df[col].dropna()
+        if len(data) < 2:
+            return None
+            
+        mean = np.mean(data)
+        sem = stats.sem(data)
+        margin = sem * stats.t.ppf((1 + confidence) / 2., len(data)-1)
+        
+        return float(mean - margin), float(mean + margin)

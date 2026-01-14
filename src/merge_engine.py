@@ -6,7 +6,7 @@ providing summaries of what was added, updated, or changed.
 """
 
 from dataclasses import dataclass, field
-from typing import List, Dict, Any, Optional, Tuple
+from typing import List, Dict, Any, Optional
 from datetime import datetime
 
 import pandas as pd

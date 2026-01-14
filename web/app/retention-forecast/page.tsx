@@ -2,10 +2,11 @@
 
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Card } from '../../components/ui/card'
-import { Badge } from '../../components/ui/badge'
-import { api } from '../../lib/api-client'
-import { cn } from '../../lib/utils'
+import { GlassCard } from '@/components/ui/glass-card'
+import { Badge } from '@/components/ui/badge'
+import { BentoGrid, BentoGridItem } from '@/components/ui/bento-grid'
+import { api } from '@/lib/api-client'
+import { cn } from '@/lib/utils'
 import {
   Activity,
   ShieldAlert,
@@ -14,20 +15,20 @@ import {
   Clock,
   BarChart3,
   Info,
-  HelpCircle,
-  RefreshCw
+  RefreshCw,
+  TrendingDown,
+  TrendingUp,
+  Target,
+  Layers,
+  ChevronRight
 } from 'lucide-react'
-import {
-  ExplanationBox,
-  RiskFactorGuide,
-  MetricExplainer,
-} from '../../components/ui/metric-explainer'
-import { RetentionCurveChart } from '../../components/charts/retention-curve-chart'
-import { RiskAnalysisModal } from '../../components/risk-analysis-modal'
+import { RetentionCurveChart } from '@/components/charts/retention-curve-chart'
+import { RiskAnalysisModal } from '@/components/risk-analysis-modal'
 import type { SurvivalAnalysisResult, AtRiskEmployee, CohortInsight } from '@/types/api'
+import { ForecastTab } from '@/components/diagnostics/forecast-tab'
 
 export default function RetentionForecastPage() {
-  const [activeTab, setActiveTab] = useState<'summary' | 'risk-factors' | 'groups' | 'watch-list'>('summary')
+  const [activeTab, setActiveTab] = useState<'overview' | 'risk-analysis' | 'watch-list' | 'trends'>('overview')
   const [selectedEmployee, setSelectedEmployee] = useState<AtRiskEmployee | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
 
@@ -36,37 +37,39 @@ export default function RetentionForecastPage() {
     queryFn: () => api.survival.getAnalysis() as Promise<SurvivalAnalysisResult>,
   })
 
-  const { data: atRiskData, isError: isAtRiskError } = useQuery<AtRiskEmployee[]>({
+  // We limit the fetch to 100 for the premium view to keep it snappy
+  const { data: atRiskData } = useQuery<AtRiskEmployee[]>({
     queryKey: ['survival', 'at-risk'],
     queryFn: () => api.survival.getAtRisk(100) as Promise<AtRiskEmployee[]>,
   })
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="animate-pulse-subtle text-text-secondary dark:text-text-dark-secondary">
-          Calculating retention forecasts...
+      <div className="h-[calc(100vh-100px)] flex flex-col items-center justify-center">
+        <div className="relative">
+          <div className="absolute inset-0 bg-accent/20 blur-xl rounded-full animate-pulse" />
+          <RefreshCw className="w-12 h-12 text-accent animate-spin relative z-10" />
         </div>
+        <p className="mt-4 text-text-secondary animate-pulse font-medium">Forecasting Retention Trends...</p>
       </div>
     )
   }
 
   if (isError) {
     return (
-      <div className="flex flex-col items-center justify-center h-full gap-4 text-center">
-        <AlertTriangle className="w-12 h-12 text-danger" />
-        <h2 className="text-xl font-semibold text-text-primary dark:text-text-dark-primary">
-          Failed to Load Retention Data
-        </h2>
-        <p className="text-text-secondary dark:text-text-dark-secondary max-w-md">
-          {error instanceof Error ? error.message : 'Unable to load retention forecast. Please try again.'}
+      <div className="h-[calc(100vh-100px)] flex flex-col items-center justify-center text-center">
+        <div className="p-6 rounded-full bg-danger/10 mb-4">
+          <AlertTriangle className="w-12 h-12 text-danger" />
+        </div>
+        <h2 className="text-2xl font-bold text-text-primary dark:text-white">Analysis Failed</h2>
+        <p className="text-text-secondary mt-2 max-w-md">
+          {error instanceof Error ? error.message : 'Unable to generate retention model.'}
         </p>
         <button
           onClick={() => refetch()}
-          className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
+          className="mt-6 px-6 py-2 bg-text-primary dark:bg-white text-white dark:text-black rounded-xl font-bold hover:opacity-90 transition-opacity"
         >
-          <RefreshCw className="w-4 h-4" />
-          Retry
+          Retry Analysis
         </button>
       </div>
     )
@@ -89,436 +92,383 @@ export default function RetentionForecastPage() {
     : []
 
   return (
-    <div className="space-y-6">
-      {/* Page Title */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+    <div className="space-y-6 h-[calc(100vh-100px)] flex flex-col animate-in fade-in duration-700 slide-in-from-bottom-4">
+      {/* Header */}
+      <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between flex-shrink-0">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary dark:text-text-dark-primary">
+          <h1 className="text-4xl font-display font-bold text-gradient bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400">
             Retention Forecast
           </h1>
-          <p className="text-text-secondary dark:text-text-dark-secondary mt-1">
-            Predictive modeling of employee tenure and departure trends
+          <p className="text-text-secondary dark:text-text-dark-secondary mt-2 text-lg font-light flex items-center gap-2">
+            Predictive modeling of employee tenure and turnover risk
           </p>
         </div>
 
-        {/* Tab Switcher */}
-        <div className="flex bg-surface dark:bg-surface-dark border border-border dark:border-border-dark p-1 rounded-lg shadow-sm overflow-x-auto no-scrollbar">
+        {/* Tab Controls */}
+        <div className="glass p-1.5 rounded-2xl flex gap-1 overflow-x-auto no-scrollbar">
           {[
-            { id: 'summary', name: 'Summary' },
-            { id: 'risk-factors', name: 'Risk Factors' },
-            { id: 'groups', name: 'Employee Groups' },
-            { id: 'watch-list', name: 'Watch List' },
+            { id: 'overview', icon: Activity, label: 'Overview' },
+            { id: 'risk-analysis', icon: Target, label: 'Risk Analysis' },
+            { id: 'watch-list', icon: ShieldAlert, label: 'Watch List' },
+            { id: 'trends', icon: TrendingUp, label: 'Trends' },
           ].map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
               className={cn(
-                'px-4 py-1.5 text-sm font-medium rounded-md transition-all whitespace-nowrap',
+                "flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 whitespace-nowrap",
                 activeTab === tab.id
-                  ? 'bg-accent text-white shadow-sm'
-                  : 'text-text-secondary dark:text-text-dark-secondary hover:text-text-primary dark:hover:text-text-dark-primary'
+                  ? "bg-white dark:bg-slate-800 shadow-lg text-text-primary dark:text-white scale-105"
+                  : "text-text-secondary dark:text-slate-400 hover:text-text-primary dark:hover:text-white hover:bg-white/10"
               )}
             >
-              {tab.name}
+              <tab.icon className="w-4 h-4" />
+              {tab.label}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Warnings */}
+      {/* Warnings Banner */}
       {warnings.length > 0 && (
-        <div className="bg-warning/10 border border-warning/20 rounded-lg p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <AlertTriangle className="w-4 h-4 text-warning" />
-            <span className="font-medium text-warning">Warnings</span>
+        <div className="flex-shrink-0 bg-warning/5 border border-warning/20 rounded-xl p-3 flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-warning flex-shrink-0 mt-0.5" />
+          <div className="text-sm">
+            <span className="font-bold text-warning block mb-1">Data Quality Warnings</span>
+            <ul className="text-text-secondary space-y-0.5">
+              {warnings.slice(0, 2).map((w, i) => <li key={i}>• {w}</li>)}
+            </ul>
           </div>
-          <ul className="text-sm text-text-secondary dark:text-text-dark-secondary space-y-1">
-            {warnings.map((w: string, i: number) => (
-              <li key={i}>- {w}</li>
-            ))}
-          </ul>
         </div>
       )}
 
-      {activeTab === 'summary' && (
-        <>
-          {/* Explanation Box */}
-          <ExplanationBox title="What is Retention Forecasting?">
-            <p>
-              Retention forecasting uses historical data to predict how long employees are likely to stay with the company.
-              Instead of just looking at who left, it helps us anticipate future departures so we can intervene early.
-            </p>
-          </ExplanationBox>
-          {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <Card className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-accent/10 rounded-lg">
-                  <Users className="w-5 h-5 text-accent" />
-                </div>
-                <div>
-                  <p className="text-xs text-text-muted dark:text-text-dark-muted uppercase tracking-wider">
-                    Employees Analyzed
-                  </p>
-                  <p className="text-2xl font-bold text-text-primary dark:text-text-dark-primary">
-                    {summary?.total_employees ?? 0}
-                  </p>
-                </div>
-              </div>
-            </Card>
+      {/* Main Content Area */}
+      <div className="flex-1 min-h-0 overflow-y-auto pb-8 pr-2 custom-scrollbar">
+        {activeTab === 'overview' && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-left-4 duration-500">
+            {/* Summary Bento Grid */}
+            <BentoGrid>
+              <BentoGridItem
+                title="Median Tenure"
+                description="Average time employees stay"
+                header={
+                  <div className="flex items-center gap-2">
+                    <span className="text-4xl font-display font-bold text-text-primary dark:text-white">
+                      {summary?.median_tenure ? summary.median_tenure.toFixed(1) : '> 15'}
+                    </span>
+                    <span className="text-sm text-text-secondary self-end mb-1">years</span>
+                  </div>
+                }
+                className="md:col-span-1"
+                icon={<Clock className="w-4 h-4 text-accent" />}
+              />
+              <BentoGridItem
+                title="12-Month Retention"
+                description="Probability of staying 1 year"
+                header={
+                  <div className="flex items-center gap-2">
+                    <span className={cn("text-4xl font-display font-bold", (1 - (summary?.avg_12mo_risk || 0)) > 0.8 ? "text-success" : "text-warning")}>
+                      {summary?.avg_12mo_risk !== undefined ? `${((1 - (summary.avg_12mo_risk || 0)) * 100).toFixed(0)}%` : 'N/A'}
+                    </span>
+                  </div>
+                }
+                className="md:col-span-1"
+                icon={<Activity className="w-4 h-4 text-success" />}
+              />
+              <BentoGridItem
+                title="High Risk Volume"
+                description="Employees likely to leave soon"
+                header={
+                  <div className="flex items-center gap-2">
+                    <span className="text-4xl font-display font-bold text-danger">
+                      {summary?.high_risk_count ?? 0}
+                    </span>
+                    <span className="text-sm text-text-secondary self-end mb-1">people</span>
+                  </div>
+                }
+                className="md:col-span-1"
+                icon={<ShieldAlert className="w-4 h-4 text-danger" />}
+              />
+              <BentoGridItem
+                title="Strategic Actions"
+                description="Recommended interventions"
+                header={
+                  <div className="space-y-2 mt-2">
+                    {recommendations.slice(0, 2).map((rec, i) => (
+                      <div key={i} className="flex items-center gap-2 text-xs text-text-secondary bg-surface-secondary/50 p-1.5 rounded-lg border border-white/5">
+                        <div className="w-1.5 h-1.5 rounded-full bg-accent flex-shrink-0" />
+                        <span className="line-clamp-1">{rec}</span>
+                      </div>
+                    ))}
+                  </div>
+                }
+                className="md:col-span-1"
+                icon={<Target className="w-4 h-4 text-purple-500" />}
+              />
+            </BentoGrid>
 
-            <Card className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-success/10 rounded-lg">
-                  <Activity className="w-5 h-5 text-success" />
-                </div>
-                <div>
-                  <p className="text-xs text-text-muted dark:text-text-dark-muted uppercase tracking-wider">
-                    Median Time at Company
-                  </p>
-                  <p className="text-2xl font-bold text-text-primary dark:text-text-dark-primary">
-                    {summary?.median_tenure ? `${summary.median_tenure.toFixed(1)} years` : '> 15 years'}
-                  </p>
-                </div>
+            {/* Main Retention Curve */}
+            <GlassCard className="p-6">
+              <div className="mb-6">
+                <h3 className="text-lg font-bold flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5 text-accent" />
+                  Retention Survival Curve
+                </h3>
+                <p className="text-sm text-text-secondary">Kaplan-Meier estimate showing the probability of employee retention over time.</p>
               </div>
-            </Card>
 
-            <Card className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-danger/10 rounded-lg">
-                  <ShieldAlert className="w-5 h-5 text-danger" />
-                </div>
-                <div>
-                  <p className="text-xs text-text-muted dark:text-text-dark-muted uppercase tracking-wider">
-                    Employees at High Risk
-                  </p>
-                  <p className="text-2xl font-bold text-danger">
-                    {summary?.high_risk_count ?? 0}
-                  </p>
-                </div>
-              </div>
-            </Card>
+              {kmData?.overall?.survival_function && kmData.overall.survival_function.length > 0 ? (
+                <div className="pl-2">
+                  <RetentionCurveChart data={kmData.overall.survival_function} />
 
-            <Card className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-warning/10 rounded-lg">
-                  <Clock className="w-5 h-5 text-warning" />
+                  {/* Key Milestones */}
+                  <div className="grid grid-cols-5 gap-4 mt-8">
+                    {[
+                      { mo: 6, label: '6 Months' },
+                      { mo: 12, label: '1 Year' },
+                      { mo: 24, label: '2 Years' },
+                      { mo: 36, label: '3 Years' },
+                      { mo: 60, label: '5 Years' },
+                    ].map((milestone) => {
+                      // Find closest key in data (simplified mapping)
+                      const key = `survival_at_${milestone.mo}mo` as keyof typeof kmData.overall
+                      const prob = kmData.overall?.[key] as number | undefined
+                      return (
+                        <div key={milestone.mo} className="text-center p-3 rounded-xl bg-surface-secondary/30 border border-white/5">
+                          <p className="text-[10px] text-text-muted uppercase tracking-wider mb-1">{milestone.label}</p>
+                          <p className="text-lg font-bold">
+                            {prob !== undefined ? `${(prob * 100).toFixed(0)}%` : '-'}
+                          </p>
+                        </div>
+                      )
+                    })}
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs text-text-muted dark:text-text-dark-muted uppercase tracking-wider">
-                    12-Month Retention Chance
-                  </p>
-                  <p className="text-2xl font-bold text-text-primary dark:text-text-dark-primary">
-                    {summary?.avg_12mo_risk !== undefined && summary?.avg_12mo_risk !== null
-                      ? `${((1 - summary.avg_12mo_risk) * 100).toFixed(0)}%`
-                      : 'N/A'}
-                  </p>
+              ) : (
+                <div className="h-64 flex flex-col items-center justify-center text-text-muted opacity-50">
+                  <BarChart3 className="w-12 h-12 mb-4" />
+                  <p>No survival data available</p>
                 </div>
-              </div>
-            </Card>
+              )}
+            </GlassCard>
           </div>
+        )}
 
-          <Card title="Retention Over Time" subtitle="Overall employee likelihood of staying with the company">
-            {kmData?.overall?.survival_function && kmData.overall.survival_function.length > 0 ? (
-              <div className="pt-4">
-                <RetentionCurveChart data={kmData.overall.survival_function} />
-                <div className="mt-4 grid grid-cols-2 md:grid-cols-5 gap-4">
-                  {[
-                    { mo: 6, key: 'survival_at_6mo' as const },
-                    { mo: 12, key: 'survival_at_12mo' as const },
-                    { mo: 24, key: 'survival_at_24mo' as const },
-                    { mo: 36, key: 'survival_at_36mo' as const },
-                    { mo: 60, key: 'survival_at_60mo' as const },
-                  ].map(({ mo, key }) => {
-                    const prob = kmData.overall?.[key]
-                    return (
-                      <div key={mo} className="text-center p-2 bg-surface-secondary dark:bg-background-dark rounded-lg">
-                        <p className="text-[10px] text-text-muted uppercase tracking-tighter">{mo}mo Retention</p>
-                        <p className="text-sm font-bold text-text-primary dark:text-text-dark-primary">
-                          {prob !== undefined ? `${(prob * 100).toFixed(0)}%` : 'N/A'}
+        {activeTab === 'risk-analysis' && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
+            {/* Cohort Insights */}
+            <div className="mb-4">
+              <h3 className="text-lg font-bold">Identified Risk Segments</h3>
+              <p className="text-text-secondary text-sm">We've used AI to cluster your workforce into distinct groups with similar behavior. This helps you understand <i>who</i> is at risk and <i>why</i>.</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {cohortInsights.map((cohort, i) => (
+                <GlassCard key={i} className="flex flex-col">
+                  <div className="p-4 border-b border-white/5 flex items-center justify-between bg-surface-secondary/20">
+                    <div>
+                      <h4 className="font-bold text-lg">{cohort.cohort_name || 'Employee Segment ' + (i + 1)}</h4>
+                      <p className="text-xs text-text-secondary mt-0.5 uppercase tracking-wide opacity-80">{cohort.cohort_description}</p>
+                    </div>
+                    <Badge variant={
+                      cohort.risk_level === 'High' ? 'danger' :
+                        cohort.risk_level === 'Medium' ? 'warning' : 'success'
+                    }>
+                      {cohort.risk_level || 'Unknown'} Risk
+                    </Badge>
+                  </div>
+                  <div className="p-6 flex-1 flex flex-col gap-6">
+                    {/* Insight First - The "Story" */}
+                    {cohort.insight ? (
+                      <div className="p-4 bg-accent/5 rounded-xl border border-accent/10">
+                        <div className="flex gap-2 items-start">
+                          <Info className="w-4 h-4 text-accent shrink-0 mt-0.5" />
+                          <p className="text-sm text-text-primary dark:text-white italic">"{cohort.insight}"</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-4 bg-surface-secondary/30 rounded-xl border border-white/5">
+                        <p className="text-sm text-text-secondary">This group shares similar tenure and risk characteristics.</p>
+                      </div>
+                    )}
+
+                    {/* Metrics Grid */}
+                    <div className="grid grid-cols-3 gap-4 text-center mt-auto border-t border-white/5 pt-4">
+                      <div>
+                        <p className="text-[10px] text-text-muted uppercase tracking-wider mb-1">Group Size</p>
+                        <p className="text-xl font-display font-bold">{cohort.cohort_size}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-text-muted uppercase tracking-wider mb-1">Avg Tenure</p>
+                        <p className="text-xl font-display font-bold">
+                          {(cohort.median_tenure ?? cohort.avg_tenure_years)
+                            ? `${(cohort.median_tenure ?? cohort.avg_tenure_years)?.toFixed(1)} yr`
+                            : '-'}
                         </p>
                       </div>
-                    )
-                  })}
-                </div>
-              </div>
-            ) : (
-              <div className="h-64 flex flex-col items-center justify-center text-text-secondary">
-                <p>No survival curve data available</p>
-                {kmData?.available === false && <p className="text-xs mt-2 text-danger">{kmData?.reason}</p>}
-              </div>
-            )}
-          </Card>
-
-          {/* Recommendations */}
-          {recommendations.length > 0 && (
-            <Card title="Recommendations" subtitle="Strategic actions based on survival analysis">
-              <div className="space-y-3">
-                {recommendations.map((rec: string, i: number) => (
-                  <div key={i} className="flex items-start gap-3 p-3 bg-accent/5 rounded-lg">
-                    <Info className="w-4 h-4 text-accent mt-0.5 shrink-0" />
-                    <p className="text-sm text-text-secondary dark:text-text-dark-secondary">
-                      {rec}
-                    </p>
+                      <div>
+                        <p className="text-[10px] text-text-muted uppercase tracking-wider mb-1">Projected Retention</p>
+                        <p className={cn("text-xl font-display font-bold",
+                          (cohort.survival_probability_12mo || 0) > 0.85 ? "text-success" :
+                            (cohort.survival_probability_12mo || 0) > 0.70 ? "text-warning" : "text-danger"
+                        )}>
+                          {cohort.survival_probability_12mo ? `${(cohort.survival_probability_12mo * 100).toFixed(0)}%` : '-'}
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                ))}
-              </div>
-            </Card>
-          )}
-        </>
-      )}
-
-      {activeTab === 'risk-factors' && (
-        <Card title="Key Risk Factors" subtitle="Factors mathematically linked to employee departure">
-          {coxModel && coxModel.coefficients ? (
-            <div className="space-y-6">
-              <RiskFactorGuide />
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="p-4 bg-surface-secondary dark:bg-background-dark rounded-lg">
-                  <p className="text-xs text-text-muted uppercase tracking-wider mb-1">Model Accuracy</p>
-                  <p className="text-xl font-bold text-text-primary dark:text-text-dark-primary">
-                    {((coxModel.concordance || 0) * 100).toFixed(1)}%
-                  </p>
-                  <p className="text-xs text-text-muted mt-1">How well the model identifies at-risk employees</p>
+                </GlassCard>
+              ))}
+              {cohortInsights.length === 0 && (
+                <div className="col-span-full text-center py-12 opacity-50">
+                  <Layers className="w-16 h-16 mx-auto mb-4 text-text-muted" />
+                  <p>No cohort insights available.</p>
                 </div>
-                <div className="p-4 bg-surface-secondary dark:bg-background-dark rounded-lg">
-                  <p className="text-xs text-text-muted uppercase tracking-wider mb-1">Log Likelihood</p>
-                  <p className="text-xl font-bold text-text-primary dark:text-text-dark-primary">
-                    {coxModel.log_likelihood?.toFixed(2) || 'N/A'}
+              )}
+            </div>
+
+            {/* Risk Drivers Table */}
+            <GlassCard>
+              <div className="p-6 border-b border-border/50 flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-bold flex items-center gap-2">
+                    <Target className="w-6 h-6 text-accent" />
+                    Key Risk Drivers (Cox Model)
+                  </h3>
+                  <p className="text-sm text-text-secondary mt-1">
+                    Factors mathematically linked to employee departure. Model Accuracy: <span className="text-accent font-bold">{((coxModel?.concordance || 0) * 100).toFixed(1)}%</span>
                   </p>
                 </div>
               </div>
 
               <div className="overflow-x-auto">
-                <table className="w-full">
+                <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="border-b border-border dark:border-border-dark">
-                      <th className="text-left py-3 px-4 text-xs font-semibold text-text-muted uppercase">
-                        Factor
-                      </th>
-                      <th className="text-right py-3 px-4 text-xs font-semibold text-text-muted uppercase">
-                        Risk Multiplier
-                      </th>
-                      <th className="text-right py-3 px-4 text-xs font-semibold text-text-muted uppercase">
-                        Impact
-                      </th>
-                      <th className="text-right py-3 px-4 text-xs font-semibold text-text-muted uppercase">
-                        Confidence
-                      </th>
-                      <th className="text-center py-3 px-4 text-xs font-semibold text-text-muted uppercase">
-                        What to do
-                      </th>
+                    <tr className="border-b border-border/50 text-xs text-text-muted uppercase tracking-wider bg-surface-secondary/20">
+                      <th className="p-4 rounded-tl-xl">Factor</th>
+                      <th className="p-4 text-right">Impact Multiplier</th>
+                      <th className="p-4 text-right">Probability Shift</th>
+                      <th className="p-4 text-center">Confidence</th>
+                      <th className="p-4 rounded-tr-xl text-center">Action</th>
                     </tr>
                   </thead>
-                  <tbody>
-                    {coxCoefficients.map((coef: any, i: number) => (
-                      <tr
-                        key={i}
-                        className="border-b border-border/50 dark:border-border-dark/50 hover:bg-surface-hover dark:hover:bg-surface-dark-hover"
-                      >
-                        <td className="py-3 px-4 font-medium text-text-primary dark:text-text-dark-primary capitalize">
+                  <tbody className="text-sm">
+                    {coxCoefficients.map((coef, i) => (
+                      <tr key={i} className="border-b border-border/50 hover:bg-white/5 transition-colors group">
+                        <td className="p-4 font-bold capitalize text-text-primary dark:text-white">
                           {coef.covariate?.replace(/_/g, ' ')}
                         </td>
-                        <td className="py-3 px-4 text-right font-mono">
-                          <span className={cn(
-                            coef.hazard_ratio > 1 ? 'text-danger' : 'text-success'
-                          )}>
+                        <td className="p-4 text-right font-mono text-base">
+                          <span className={cn(coef.hazard_ratio > 1 ? "text-danger" : "text-success")}>
                             {coef.hazard_ratio?.toFixed(2)}x
                           </span>
                         </td>
-                        <td className="py-3 px-4 text-right text-sm">
-                          <span className={coef.hazard_ratio > 1 ? 'text-danger' : 'text-success'}>
-                            {coef.hazard_ratio > 1
-                              ? `${((coef.hazard_ratio - 1) * 100).toFixed(0)}% more likely to leave`
-                              : `${((1 - coef.hazard_ratio) * 100).toFixed(0)}% less likely to leave`
-                            }
-                          </span>
+                        <td className="p-4 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            {coef.hazard_ratio > 1 ? <TrendingUp className="w-4 h-4 text-danger" /> : <TrendingDown className="w-4 h-4 text-success" />}
+                            <span className={coef.hazard_ratio > 1 ? "text-danger" : "text-success"}>
+                              {coef.hazard_ratio > 1
+                                ? `${((coef.hazard_ratio - 1) * 100).toFixed(0)}% Higher Risk`
+                                : `${((1 - coef.hazard_ratio) * 100).toFixed(0)}% Lower Risk`
+                              }
+                            </span>
+                          </div>
                         </td>
-                        <td className="py-3 px-4 text-right text-sm text-text-secondary">
-                          {coef.p_value < 0.05 ? 'High Confidence' : 'Low Confidence'}
-                        </td>
-                        <td className="py-3 px-4 text-center">
-                          <Badge variant={coef.significant ? 'danger' : 'outline'}>
-                            {coef.hazard_ratio > 1 ? 'Action Needed' : 'Monitor'}
+                        <td className="p-4 text-center">
+                          <Badge variant="outline" className={cn(coef.p_value < 0.05 ? "border-success/50 text-success bg-success/5" : "border-warning/50 text-warning bg-warning/5")}>
+                            {coef.p_value < 0.05 ? 'High' : 'Low'}
                           </Badge>
+                        </td>
+                        <td className="p-4 text-center">
+                          {coef.hazard_ratio > 1 && coef.p_value < 0.1 && (
+                            <button className="text-xs font-bold text-accent hover:underline">Mitigate</button>
+                          )}
                         </td>
                       </tr>
                     ))}
+                    {coxCoefficients.length === 0 && (
+                      <tr>
+                        <td colSpan={5} className="p-8 text-center text-text-muted">No significant risk factors found in the model.</td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
-
-              <div className="mt-4 p-4 bg-accent/5 border border-accent/20 rounded-lg">
-                <p className="text-xs text-text-muted mb-2 font-bold uppercase tracking-wider">Why this matters</p>
-                <p className="text-xs text-text-secondary leading-relaxed">
-                  These factors represent the strongest drivers of retention in your organization. High multipliers (red) indicate areas where intervention could significantly reduce turnover, while low multipliers (green) highlight what's currently working well to keep employees engaged.
+              <div className="p-4 bg-accent/5 m-4 rounded-xl border border-accent/10">
+                <p className="text-xs text-text-secondary leading-relaxed flex gap-2">
+                  <Info className="w-4 h-4 text-accent shrink-0" />
+                  A multiplier greater than 1.0 (Red) indicates this factor increases the risk of leaving. A multiplier less than 1.0 (Green) indicates it helps retain employees.
                 </p>
               </div>
-            </div>
-          ) : (
-            <div className="py-12 text-center text-text-secondary">
-              Cox model data not available. Ensure data has Tenure and Attrition columns.
-            </div>
-          )}
-        </Card>
-      )}
+            </GlassCard>
+          </div>
+        )}
 
-      {activeTab === 'groups' && (
-        <Card title="Employee Group Insights" subtitle="Understanding retention patterns across different segments">
-          {cohortInsights.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {cohortInsights.map((cohort: any, i: number) => (
-                <div
-                  key={i}
-                  className="p-4 border border-border dark:border-border-dark rounded-lg hover:shadow-md transition-shadow"
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <h4 className="font-bold text-text-primary dark:text-text-dark-primary">
-                      {cohort.cohort_name}
-                    </h4>
-                    <Badge variant={
-                      cohort.risk_level === 'High' ? 'danger' :
-                        cohort.risk_level === 'Medium' ? 'warning' : 'success'
-                    }>
-                      {cohort.risk_level} Risk
-                    </Badge>
-                  </div>
-
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-text-muted">Employees</span>
-                      <span className="font-mono">{cohort.employee_count}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-text-muted">Median Tenure</span>
-                      <span className="font-mono">{cohort.median_tenure?.toFixed(1)} yrs</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-text-muted">12-mo Retention Chance</span>
-                      <span className="font-mono text-success">
-                        {cohort.survival_probability_12mo
-                          ? `${(cohort.survival_probability_12mo * 100).toFixed(0)}%`
-                          : 'N/A'}
-                      </span>
-                    </div>
-                  </div>
-
-                  {cohort.insight && (
-                    <p className="mt-3 text-xs text-text-secondary italic border-t border-border/50 pt-3">
-                      {cohort.insight}
-                    </p>
-                  )}
-                </div>
-              ))}
+        {activeTab === 'watch-list' && (
+          <GlassCard className="animate-in fade-in slide-in-from-left-4 duration-500">
+            <div className="p-6 border-b border-border/50">
+              <h3 className="text-xl font-bold flex items-center gap-2">
+                <ShieldAlert className="w-6 h-6 text-danger" />
+                High Risk Watch List
+              </h3>
+              <p className="text-sm text-text-secondary mt-1">Employees with the highest probability of departure in the next 12 months.</p>
             </div>
-          ) : (
-            <div className="py-12 text-center text-text-secondary">
-              No cohort insights available
-            </div>
-          )}
-        </Card>
-      )}
 
-      {activeTab === 'watch-list' && (
-        <Card title="Employee Watch List" subtitle="Individuals with the highest predicted departure risk">
-          {atRiskEmployees.length > 0 ? (
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full text-left">
                 <thead>
-                  <tr className="border-b border-border dark:border-border-dark">
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-text-muted uppercase">
-                      Employee
-                    </th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-text-muted uppercase">
-                      Department
-                    </th>
-                    <th className="text-right py-3 px-4 text-xs font-semibold text-text-muted uppercase">
-                      Tenure
-                    </th>
-                    <th className="text-right py-3 px-4 text-xs font-semibold text-text-muted uppercase">
-                      3-Month Chance
-                    </th>
-                    <th className="text-right py-3 px-4 text-xs font-semibold text-text-muted uppercase">
-                      6-Month Chance
-                    </th>
-                    <th className="text-right py-3 px-4 text-xs font-semibold text-text-muted uppercase">
-                      12-Month Chance
-                    </th>
-                    <th className="text-center py-3 px-4 text-xs font-semibold text-text-muted uppercase">
-                      Category
-                    </th>
+                  <tr className="text-xs text-text-muted uppercase tracking-wider bg-surface-secondary/20 border-b border-border/50">
+                    <th className="p-4">Employee</th>
+                    <th className="p-4">Department</th>
+                    <th className="p-4 text-right">Tenure</th>
+                    <th className="p-4 text-center">Departure Probability (12mo)</th>
+                    <th className="p-4 text-center">Risk Level</th>
+                    <th className="p-4"></th>
                   </tr>
                 </thead>
-                <tbody>
-                  {atRiskEmployees.map((emp: any, i: number) => (
-                    <tr
-                      key={i}
+                <tbody className="text-sm">
+                  {atRiskEmployees.map((emp, i) => (
+                    <tr key={i}
                       onClick={() => {
                         setSelectedEmployee(emp)
                         setIsModalOpen(true)
                       }}
-                      className="border-b border-border/50 dark:border-border-dark/50 hover:bg-surface-hover dark:hover:bg-surface-dark-hover cursor-pointer transition-colors group"
+                      className="border-b border-border/50 hover:bg-white/5 cursor-pointer transition-colors group"
                     >
-                      <td className="py-3 px-4 font-medium text-text-primary dark:text-text-dark-primary group-hover:text-accent">
+                      <td className="p-4 font-medium text-text-primary dark:text-white group-hover:text-accent transition-colors">
                         {emp.EmployeeID}
                       </td>
-                      <td className="py-3 px-4 text-text-secondary">
-                        {emp.Dept || '-'}
+                      <td className="p-4 text-text-secondary">{emp.Dept}</td>
+                      <td className="p-4 text-right font-mono text-text-secondary">{emp.current_tenure_years?.toFixed(1)} yrs</td>
+                      <td className="p-4 flex justify-center">
+                        <div className="w-32 bg-slate-200 dark:bg-slate-800 rounded-full h-2 mt-2 relative overflow-hidden">
+                          <div
+                            className={cn("absolute left-0 top-0 bottom-0 transition-all duration-500", (emp.attrition_risk_12mo || 0) > 0.5 ? "bg-danger" : "bg-warning")}
+                            style={{ width: `${(emp.attrition_risk_12mo || 0) * 100}%` }}
+                          />
+                        </div>
+                        <span className="ml-3 font-bold text-xs w-8">{Math.round((emp.attrition_risk_12mo || 0) * 100)}%</span>
                       </td>
-                      <td className="py-3 px-4 text-right font-mono">
-                        {emp.current_tenure_years?.toFixed(1)} yrs
-                      </td>
-                      <td className="py-3 px-4 text-right font-mono">
-                        <span className={cn(
-                          emp.attrition_risk_3mo > 0.3 ? 'text-danger' :
-                            emp.attrition_risk_3mo > 0.15 ? 'text-warning' : 'text-success'
-                        )}>
-                          {emp.attrition_risk_3mo
-                            ? `${((1 - emp.attrition_risk_3mo) * 100).toFixed(0)}%`
-                            : '-'}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-right font-mono">
-                        <span className={cn(
-                          emp.attrition_risk_6mo > 0.4 ? 'text-danger' :
-                            emp.attrition_risk_6mo > 0.2 ? 'text-warning' : 'text-success'
-                        )}>
-                          {emp.attrition_risk_6mo
-                            ? `${((1 - emp.attrition_risk_6mo) * 100).toFixed(0)}%`
-                            : '-'}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-right font-mono">
-                        <span className={cn(
-                          emp.attrition_risk_12mo > 0.5 ? 'text-danger' :
-                            emp.attrition_risk_12mo > 0.3 ? 'text-warning' : 'text-success'
-                        )}>
-                          {emp.attrition_risk_12mo
-                            ? `${((1 - emp.attrition_risk_12mo) * 100).toFixed(0)}%`
-                            : '-'}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-center">
-                        <Badge variant={
-                          emp.risk_category === 'High' ? 'danger' :
-                            emp.risk_category === 'Medium' ? 'warning' : 'success'
-                        }>
+                      <td className="p-4 text-center">
+                        <Badge variant={emp.risk_category === 'High' ? 'danger' : emp.risk_category === 'Medium' ? 'warning' : 'success'}>
                           {emp.risk_category}
                         </Badge>
+                      </td>
+                      <td className="p-4 text-right">
+                        <ChevronRight className="w-4 h-4 text-text-muted group-hover:text-accent transition-colors" />
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-          ) : (
-            <div className="py-12 text-center text-text-secondary">
-              No at-risk employee data available
-            </div>
-          )}
-        </Card>
-      )}
+          </GlassCard>
+        )}
+
+        {activeTab === 'trends' && (
+          <ForecastTab />
+        )}
+      </div>
 
       <RiskAnalysisModal
         isOpen={isModalOpen}

@@ -117,6 +117,11 @@ class SuccessionEngine:
 
         Returns:
             DataFrame with high-potential candidates.
+
+        ⚠️ PA-1 WARNING: This method derives 'Potential' from 'Performance' data.
+        High performers are not necessarily high potentials (different constructs).
+        For accurate succession planning, consider adding a separate 'Potential'
+        assessment from talent review processes.
         """
         df = self.df.copy()
 
@@ -130,6 +135,7 @@ class SuccessionEngine:
             return pd.DataFrame(columns=['EmployeeID', 'Dept', 'Tenure', 'LastRating', 'PotentialLevel'])
 
         # Calculate potential level
+        # NOTE: This is a proxy based on performance, not a true potential assessment
         high_potentials['PotentialScore'] = (
             high_potentials['LastRating'] * 0.6 +
             np.minimum(high_potentials['Tenure'] / 10, 1) * 0.4 * 5
@@ -137,6 +143,11 @@ class SuccessionEngine:
 
         high_potentials['PotentialLevel'] = high_potentials['PotentialScore'].apply(
             lambda x: 'Star' if x >= 4.5 else ('High' if x >= 4.0 else 'Emerging')
+        )
+
+        # Add methodology warning to output
+        high_potentials['_methodology_note'] = (
+            'Potential derived from performance rating - validate with talent review'
         )
 
         # Add risk of loss if available

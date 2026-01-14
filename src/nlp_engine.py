@@ -10,8 +10,6 @@ import re
 from typing import Any, Optional
 
 import pandas as pd
-import numpy as np
-from textblob import TextBlob
 
 from src.logger import get_logger
 from src.utils import load_config

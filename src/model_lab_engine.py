@@ -6,14 +6,12 @@ for predictive models (Flight Risk and Retention).
 """
 
 import pandas as pd
-import numpy as np
 from typing import Dict, List, Any, Optional
 from datetime import datetime, timedelta
 
 from src.logger import get_logger
 from src.database import Database
 from src.ml_engine import MLEngine
-from src.survival_engine import SurvivalEngine
 
 logger = get_logger('model_lab_engine')
 
@@ -59,7 +57,7 @@ class ModelLabEngine:
         if snapshot_df.empty:
             return {
                 "status": "warning", 
-                "message": f"Historical data baseline missing. This feature works best after 60-90 days of tracking. Total snapshots found: 0."
+                "message": "Historical data baseline missing. This feature works best after 60-90 days of tracking. Total snapshots found: 0."
             }
 
         # Filter for snapshots where they were still active (attrition=0 at the time)

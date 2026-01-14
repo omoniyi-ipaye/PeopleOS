@@ -11,8 +11,9 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import train_test_split, cross_val_score, StratifiedKFold
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
+from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score, brier_score_loss
+from sklearn.calibration import calibration_curve
 try:
     from xgboost import XGBClassifier
     XGB_AVAILABLE = True
@@ -255,6 +256,22 @@ class MLEngine:
             if y_proba is not None and len(y.unique()) == 2:
                 try:
                     metrics['roc_auc'] = float(roc_auc_score(y_test, y_proba))
+                    metrics['brier_score'] = float(brier_score_loss(y_test, y_proba))
+                    
+                    # 5. Check Calibration (with sample size consideration)
+                    prob_true, prob_pred = calibration_curve(y_test, y_proba, n_bins=5)
+                    calibration_error = np.mean(np.abs(prob_true - prob_pred))
+                    
+                    # Only flag calibration error if we have sufficient test data
+                    if calibration_error > 0.15 and len(y_test) > 100:
+                        metrics['warnings'].append(
+                            f"Model calibration is poor (>15% error). Risk probabilities may be inaccurate."
+                        )
+                    elif calibration_error > 0.15:
+                         # Just log, don't warn user if data is too small to be sure
+                        logger.info(f"Calibration error {calibration_error:.2f} but sample size {len(y_test)} too small to warn.")
+                        
+                    metrics['calibration_error'] = float(calibration_error)
                 except ValueError:
                     metrics['roc_auc'] = None
             
@@ -647,7 +664,6 @@ class MLEngine:
         
         try:
             if self.shap_explainer is not None:
-                import shap
                 
                 # Get SHAP values for this employee
                 employee_data = X.iloc[[employee_idx]]

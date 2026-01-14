@@ -6,8 +6,6 @@ and comprehensive validation. Supports persistent database storage.
 """
 
 import json
-import os
-import re
 import sqlite3
 from difflib import get_close_matches
 from typing import Optional, Dict, Any
@@ -29,13 +27,15 @@ GOLDEN_SCHEMA = {
     'optional': [
         'Attrition', 'PerformanceText', 'RatingHistory', 'PromotionDate', 
         'StartingSalary', 'YearsInCurrentRole', 'YearsSinceLastPromotion',
-        'PromotionCount', 'InterviewScore', 'AssessmentScore', 'HireSource'
+        'PromotionCount', 'InterviewScore', 'AssessmentScore', 'HireSource',
+        'SnapshotDate'
     ]
 }
 
 # Common variations for fuzzy matching
 COLUMN_ALIASES = {
     'employeeid': ['emp_id', 'employee_id', 'id', 'empid', 'emp_no', 'employee_no', 'staff_id'],
+    'snapshotdate': ['date', 'month', 'snapshot_date', 'period', 'as_of_date'],
     'dept': ['department', 'dept_name', 'department_name', 'division', 'team'],
     'tenure': ['years_of_service', 'yos', 'experience', 'years_employed', 'service_years'],
     'salary': ['compensation', 'pay', 'wage', 'annual_salary', 'base_salary', 'income'],
@@ -234,7 +234,9 @@ class DataLoader:
         
         # Step 1: Direct matches first
         for col in df.columns:
-            col_lower = col.lower().replace(' ', '_').replace('-', '_')
+            # Strip whitespace to handle dirty CSV headers
+            col_clean = col.strip()
+            col_lower = col_clean.lower().replace(' ', '_').replace('-', '_')
             for golden_col in GOLDEN_SCHEMA['required'] + GOLDEN_SCHEMA['optional']:
                 if col_lower == golden_col.lower():
                     self.column_mapping[col] = golden_col
@@ -304,11 +306,13 @@ class DataLoader:
             DataValidationError: If critical validation fails.
         """
         # Check for duplicate EmployeeIDs
-        duplicates = df['EmployeeID'].duplicated().sum()
-        if duplicates > 0:
-            raise DataValidationError(
-                get_error_message('duplicate_ids', count=duplicates)
-            )
+        # Only error if SnapshotDate is NOT present (SnapshotDate implies historical history)
+        if 'SnapshotDate' not in df.columns:
+            duplicates = df['EmployeeID'].duplicated().sum()
+            if duplicates > 0:
+                raise DataValidationError(
+                    get_error_message('duplicate_ids', count=duplicates)
+                )
         
         # Check for empty columns (>90% null)
         for col in df.columns:

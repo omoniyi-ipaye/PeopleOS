@@ -2,10 +2,11 @@
 
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Card } from '../../components/ui/card'
-import { Badge } from '../../components/ui/badge'
-import { api } from '../../lib/api-client'
-import { cn } from '../../lib/utils'
+import { GlassCard } from '@/components/ui/glass-card'
+import { BentoGrid, BentoGridItem } from '@/components/ui/bento-grid'
+import { Badge } from '@/components/ui/badge'
+import { api } from '@/lib/api-client'
+import { cn } from '@/lib/utils'
 import {
   Heart,
   AlertTriangle,
@@ -14,19 +15,17 @@ import {
   Users,
   RefreshCw,
   ChevronRight,
+  Target,
+  BarChart,
+  Eye,
+  Clock,
+  Sparkles,
+  PieChart,
+  Layers
 } from 'lucide-react'
-import { ExplanationBox } from '../../components/ui/metric-explainer'
-import { TabGroup } from '../../components/ui/tab-group'
 
-type ExperienceTab = 'overview' | 'segments' | 'drivers' | 'watchlist' | 'lifecycle'
-
-const TABS = [
-  { id: 'overview', label: 'Overview' },
-  { id: 'segments', label: 'Segments' },
-  { id: 'drivers', label: 'Drivers' },
-  { id: 'watchlist', label: 'Watch List' },
-  { id: 'lifecycle', label: 'Lifecycle' },
-] as const
+// Consolidated Tab definitions
+type ExperienceTab = 'overview' | 'analysis'
 
 interface ExperienceAnalysis {
   experience_index: {
@@ -79,16 +78,6 @@ interface ExperienceAnalysis {
       at_risk_count: number
     }>
   }
-  manager_impact: {
-    available: boolean
-    managers_analyzed?: number
-    overall_avg_exi?: number
-    bottom_managers?: Array<{
-      ManagerID: string
-      team_size: number
-      avg_team_exi: number
-    }>
-  }
   signals: {
     has_enps: boolean
     has_pulse: boolean
@@ -101,86 +90,8 @@ interface ExperienceAnalysis {
     total_employees: number
     at_risk_count: number
   }
-  recommendations: string[]
   warnings: string[]
-}
-
-function EXIGauge({ value, size = 'large' }: { value: number; size?: 'large' | 'small' }) {
-  const getColor = (exi: number) => {
-    if (exi >= 80) return 'text-success'
-    if (exi >= 60) return 'text-accent'
-    if (exi >= 40) return 'text-warning'
-    return 'text-danger'
-  }
-
-  const getLabel = (exi: number) => {
-    if (exi >= 80) return 'Thriving'
-    if (exi >= 60) return 'Content'
-    if (exi >= 40) return 'Neutral'
-    if (exi >= 20) return 'Disengaged'
-    return 'Critical'
-  }
-
-  return (
-    <div className={cn("flex flex-col items-center", size === 'large' ? 'gap-2' : 'gap-1')}>
-      <div className={cn(
-        "relative flex items-center justify-center rounded-full border-8",
-        size === 'large' ? 'w-32 h-32' : 'w-20 h-20',
-        value >= 80 ? 'border-success/30 bg-success/5' :
-        value >= 60 ? 'border-accent/30 bg-accent/5' :
-        value >= 40 ? 'border-warning/30 bg-warning/5' :
-        'border-danger/30 bg-danger/5'
-      )}>
-        <span className={cn(
-          "font-bold",
-          size === 'large' ? 'text-3xl' : 'text-xl',
-          getColor(value)
-        )}>
-          {Math.round(value)}
-        </span>
-      </div>
-      <span className={cn(
-        "font-semibold",
-        size === 'large' ? 'text-sm' : 'text-xs',
-        getColor(value)
-      )}>
-        {getLabel(value)}
-      </span>
-    </div>
-  )
-}
-
-function SegmentBar({ segments }: { segments: Array<{ segment: string; percentage: number }> }) {
-  const colors: Record<string, string> = {
-    'Thriving': 'bg-success',
-    'Content': 'bg-accent',
-    'Neutral': 'bg-gray-400',
-    'Disengaged': 'bg-warning',
-    'Critical': 'bg-danger',
-  }
-
-  return (
-    <div className="w-full">
-      <div className="h-6 rounded-full overflow-hidden flex">
-        {segments.map((seg) => (
-          <div
-            key={seg.segment}
-            className={cn("h-full", colors[seg.segment] || 'bg-gray-300')}
-            style={{ width: `${seg.percentage}%` }}
-            title={`${seg.segment}: ${seg.percentage.toFixed(1)}%`}
-          />
-        ))}
-      </div>
-      <div className="flex justify-between mt-2 text-xs text-text-muted">
-        {segments.map((seg) => (
-          <div key={seg.segment} className="flex items-center gap-1">
-            <div className={cn("w-2 h-2 rounded-full", colors[seg.segment])} />
-            <span>{seg.segment} ({seg.percentage.toFixed(0)}%)</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
+  recommendations: string[]
 }
 
 export default function EmployeeExperiencePage() {
@@ -191,11 +102,92 @@ export default function EmployeeExperiencePage() {
     queryFn: () => api.experience.getAnalysis() as Promise<ExperienceAnalysis>,
   })
 
+  // Helper components
+  const EXIGauge = ({ value, size = 'large' }: { value: number; size?: 'large' | 'small' }) => {
+    const getColor = (exi: number) => {
+      if (exi >= 80) return 'text-success'
+      if (exi >= 60) return 'text-accent'
+      if (exi >= 40) return 'text-warning'
+      return 'text-danger'
+    }
+
+    const getLabel = (exi: number) => {
+      if (exi >= 80) return 'Thriving'
+      if (exi >= 60) return 'Content'
+      if (exi >= 40) return 'Neutral'
+      if (exi >= 20) return 'Disengaged'
+      return 'Critical'
+    }
+
+    return (
+      <div className={cn("flex flex-col items-center", size === 'large' ? 'gap-2' : 'gap-1')}>
+        <div className={cn(
+          "relative flex items-center justify-center rounded-full border-8 transition-all duration-500",
+          size === 'large' ? 'w-40 h-40' : 'w-20 h-20',
+          value >= 80 ? 'border-success/30 bg-success/5 shadow-[0_0_20px_rgba(34,197,94,0.2)]' :
+            value >= 60 ? 'border-accent/30 bg-accent/5 shadow-[0_0_20px_rgba(59,130,246,0.2)]' :
+              value >= 40 ? 'border-warning/30 bg-warning/5 shadow-[0_0_20px_rgba(234,179,8,0.2)]' :
+                'border-danger/30 bg-danger/5 shadow-[0_0_20px_rgba(239,68,68,0.2)]'
+        )}>
+          <div className="absolute inset-0 rounded-full border-4 border-white/5 animate-pulse-slow"></div>
+          <span className={cn(
+            "font-display font-bold",
+            size === 'large' ? 'text-5xl' : 'text-xl',
+            getColor(value)
+          )}>
+            {Math.round(value)}
+          </span>
+        </div>
+        <span className={cn(
+          "font-semibold uppercase tracking-widest",
+          size === 'large' ? 'text-sm' : 'text-[10px]',
+          getColor(value)
+        )}>
+          {getLabel(value)}
+        </span>
+      </div>
+    )
+  }
+
+  const SegmentBar = ({ segments }: { segments: Array<{ segment: string; percentage: number }> }) => {
+    const colors: Record<string, string> = {
+      'Thriving': 'bg-success shadow-[0_0_10px_rgba(34,197,94,0.4)]',
+      'Content': 'bg-accent shadow-[0_0_10px_rgba(59,130,246,0.4)]',
+      'Neutral': 'bg-slate-400 dark:bg-slate-600',
+      'Disengaged': 'bg-warning shadow-[0_0_10px_rgba(234,179,8,0.4)]',
+      'Critical': 'bg-danger shadow-[0_0_10px_rgba(239,68,68,0.4)]',
+    }
+
+    return (
+      <div className="w-full">
+        <div className="h-4 rounded-full overflow-hidden flex bg-white/5 backdrop-blur-sm">
+          {segments.map((seg) => (
+            <div
+              key={seg.segment}
+              className={cn("h-full transition-all duration-1000 ease-out", colors[seg.segment])}
+              style={{ width: `${seg.percentage}%` }}
+              title={`${seg.segment}: ${seg.percentage.toFixed(1)}%`}
+            />
+          ))}
+        </div>
+        <div className="flex justify-between mt-4">
+          {segments.map((seg) => (
+            <div key={seg.segment} className="flex flex-col items-center">
+              <div className={cn("w-2 h-2 rounded-full mb-1", colors[seg.segment].split(' ')[0])} />
+              <span className="text-xs font-bold text-text-primary dark:text-white">{seg.percentage.toFixed(0)}%</span>
+              <span className="text-[10px] text-text-muted uppercase tracking-wide">{seg.segment}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="animate-pulse-subtle text-text-secondary dark:text-text-dark-secondary">
-          Analyzing employee experience...
+          Calculating experience index...
         </div>
       </div>
     )
@@ -208,9 +200,6 @@ export default function EmployeeExperiencePage() {
         <h2 className="text-xl font-semibold text-text-primary dark:text-text-dark-primary">
           Failed to Load Experience Data
         </h2>
-        <p className="text-text-secondary dark:text-text-dark-secondary max-w-md">
-          {error instanceof Error ? error.message : 'Unable to load experience metrics. Please try again.'}
-        </p>
         <button
           onClick={() => refetch()}
           className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
@@ -231,332 +220,267 @@ export default function EmployeeExperiencePage() {
   const summary = data?.summary
 
   return (
-    <div className="space-y-6">
-      {/* Page Title */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+    <div className="space-y-6 h-[calc(100vh-100px)] flex flex-col animate-in fade-in duration-700 slide-in-from-bottom-4">
+      {/* Header with Tabs */}
+      <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between flex-shrink-0">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary dark:text-text-dark-primary">Employee Experience</h1>
-          <p className="text-text-secondary dark:text-text-dark-secondary mt-1">
-            Unified experience index and engagement insights
+          <h1 className="text-4xl font-display font-bold text-gradient bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400">
+            Employee Experience
+          </h1>
+          <p className="text-text-secondary dark:text-text-dark-secondary mt-2 text-lg font-light flex items-center gap-2">
+            Unified Experience Index (EXI) & Engagement Analysis
           </p>
         </div>
 
-        <TabGroup<ExperienceTab>
-          tabs={TABS}
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-        />
+        {/* Premium Tab Navigation */}
+        <div className="glass p-1.5 rounded-2xl flex gap-1">
+          <button
+            onClick={() => setActiveTab('overview')}
+            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 ${activeTab === 'overview'
+              ? 'bg-white dark:bg-slate-800 shadow-lg text-text-primary dark:text-white scale-105'
+              : 'text-text-secondary dark:text-slate-400 hover:text-text-primary dark:hover:text-white hover:bg-white/10'
+              }`}
+          >
+            <PieChart className="w-4 h-4" />
+            Overview
+          </button>
+          <button
+            onClick={() => setActiveTab('analysis')}
+            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 ${activeTab === 'analysis'
+              ? 'bg-white dark:bg-slate-800 shadow-lg text-text-primary dark:text-white scale-105'
+              : 'text-text-secondary dark:text-slate-400 hover:text-text-primary dark:hover:text-white hover:bg-white/10'
+              }`}
+          >
+            <Layers className="w-4 h-4" />
+            Deep-Dive Analysis
+          </button>
+        </div>
       </div>
 
-      <ExplanationBox title={`About: ${activeTab === 'overview' ? 'Experience Index' : activeTab === 'segments' ? 'Engagement Segments' : activeTab === 'drivers' ? 'Experience Drivers' : activeTab === 'watchlist' ? 'At-Risk Employees' : 'Lifecycle Analysis'}`}>
-        {activeTab === 'overview' && "The Employee Experience Index (EXI) combines multiple signals into a single 0-100 score measuring overall employee experience."}
-        {activeTab === 'segments' && "Employees are segmented by engagement level: Thriving, Content, Neutral, Disengaged, and Critical."}
-        {activeTab === 'drivers' && "Factors that statistically correlate with higher or lower experience scores."}
-        {activeTab === 'watchlist' && "Employees with low experience scores who may need intervention."}
-        {activeTab === 'lifecycle' && "How experience varies by tenure stage, from new hires to veterans."}
-      </ExplanationBox>
+      {/* Tab Content */}
+      <div className="flex-1 min-h-0 overflow-y-auto pr-2 pb-4">
+        {activeTab === 'overview' && (
+          <div className="space-y-6">
+            <GlassCard className="p-8">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+                <div className="lg:col-span-4 flex justify-center border-r border-white/10">
+                  {exi?.overall_exi !== undefined ? (
+                    <div className="text-center">
+                      <EXIGauge value={exi.overall_exi} />
+                      <p className="mt-4 text-sm text-text-muted">Overall Experience Index</p>
+                    </div>
+                  ) : (
+                    <div className="text-center text-text-muted">No EXI Data</div>
+                  )}
+                </div>
+                <div className="lg:col-span-8 space-y-8">
+                  <div className="grid grid-cols-3 gap-8">
+                    <div className="text-center">
+                      <h4 className="text-sm font-medium text-text-muted uppercase tracking-widest mb-1">Interpretation</h4>
+                      <p className="text-xl font-bold text-text-primary dark:text-white">{exi?.interpretation || 'N/A'}</p>
+                    </div>
+                    <div className="text-center">
+                      <h4 className="text-sm font-medium text-text-muted uppercase tracking-widest mb-1">Health Status</h4>
+                      <div className="inline-flex items-center gap-2">
+                        <div className={cn("w-2 h-2 rounded-full", summary?.health_indicator === 'Healthy' ? 'bg-success' : 'bg-warning')} />
+                        <p className="text-xl font-bold text-text-primary dark:text-white">{summary?.health_indicator || 'N/A'}</p>
+                      </div>
+                    </div>
+                    <div className="text-center">
+                      <h4 className="text-sm font-medium text-text-muted uppercase tracking-widest mb-1">Total Signals</h4>
+                      <p className="text-xl font-bold text-text-primary dark:text-white">{signals?.total_signals || 0}</p>
+                    </div>
+                  </div>
 
-      {/* Warnings */}
-      {data?.warnings && data.warnings.length > 0 && (
-        <div className="bg-warning/10 border border-warning/30 rounded-lg p-4">
-          <div className="flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-warning mt-0.5" />
-            <div>
-              <p className="font-medium text-warning">Limited Data Available</p>
-              <ul className="text-sm text-text-secondary mt-1 space-y-1">
-                {data.warnings.map((w, i) => (
-                  <li key={i}>{w}</li>
+                  {/* Segments moved here per request */}
+                  <div>
+                    <h4 className="text-sm font-medium text-text-muted uppercase tracking-widest mb-4">Engagement Segments</h4>
+                    {segments?.segments && <SegmentBar segments={segments.segments} />}
+                  </div>
+                </div>
+              </div>
+            </GlassCard>
+
+            {/* Detailed Segments Cards (Moved from standalone tab) */}
+            {segments?.available && segments.segments && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {segments.segments.map((seg) => (
+                  <GlassCard key={seg.segment} className="relative overflow-hidden group">
+                    <div className={cn(
+                      "absolute top-0 left-0 w-1 h-full",
+                      seg.segment === 'Thriving' ? 'bg-success' :
+                        seg.segment === 'Content' ? 'bg-accent' :
+                          seg.segment === 'Disengaged' ? 'bg-warning' :
+                            seg.segment === 'Critical' ? 'bg-danger' : 'bg-slate-400'
+                    )} />
+                    <div className="p-2">
+                      <div className="flex justify-between items-start mb-4">
+                        <h3 className="text-lg font-bold">{seg.segment}</h3>
+                        <Badge variant={
+                          seg.segment === 'Thriving' ? 'success' :
+                            seg.segment === 'Content' ? 'info' :
+                              seg.segment === 'Disengaged' ? 'warning' :
+                                seg.segment === 'Critical' ? 'danger' : 'outline'
+                        }>{seg.percentage.toFixed(0)}%</Badge>
+                      </div>
+                      <div className="flex justify-between items-end">
+                        <div>
+                          <p className="text-xs text-text-muted uppercase tracking-wide">Count</p>
+                          <p className="text-lg font-semibold">{seg.count}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-text-muted uppercase tracking-wide text-right">Avg EXI</p>
+                          <p className="text-lg font-semibold text-right">{seg.avg_exi.toFixed(1)}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </GlassCard>
                 ))}
-              </ul>
-            </div>
-          </div>
-        </div>
-      )}
+              </div>
+            )}
 
-      {activeTab === 'overview' && (
-        <>
-          {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <Card className="p-6 flex flex-col items-center justify-center">
-              {exi?.available && exi.overall_exi !== undefined ? (
-                <EXIGauge value={exi.overall_exi} />
-              ) : (
-                <div className="text-center text-text-muted">No EXI data</div>
-              )}
-              <p className="text-xs text-text-muted mt-2">Experience Index</p>
-            </Card>
-
-            <Card className="p-6">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 bg-accent/10 rounded-lg">
-                  <Users className="w-5 h-5 text-accent" />
-                </div>
-                <span className="text-sm text-text-secondary">Total Employees</span>
-              </div>
-              <p className="text-2xl font-bold">{summary?.total_employees || 0}</p>
-            </Card>
-
-            <Card className="p-6">
-              <div className="flex items-center gap-3 mb-2">
-                <div className={cn(
-                  "p-2 rounded-lg",
-                  summary?.health_indicator === 'Healthy' ? 'bg-success/10' :
-                  summary?.health_indicator === 'Moderate' ? 'bg-warning/10' :
-                  'bg-danger/10'
-                )}>
-                  <Heart className={cn(
-                    "w-5 h-5",
-                    summary?.health_indicator === 'Healthy' ? 'text-success' :
-                    summary?.health_indicator === 'Moderate' ? 'text-warning' :
-                    'text-danger'
-                  )} />
-                </div>
-                <span className="text-sm text-text-secondary">Health Status</span>
-              </div>
-              <p className="text-xl font-bold">{summary?.health_indicator || 'Unknown'}</p>
-            </Card>
-
-            <Card className="p-6">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 bg-danger/10 rounded-lg">
-                  <AlertTriangle className="w-5 h-5 text-danger" />
-                </div>
-                <span className="text-sm text-text-secondary">At Risk</span>
-              </div>
-              <p className="text-2xl font-bold text-danger">{summary?.at_risk_count || 0}</p>
-            </Card>
-          </div>
-
-          {/* Segment Distribution */}
-          {segments?.available && segments.segments && (
-            <Card title="Engagement Distribution" subtitle="Workforce segmented by experience level">
-              <div className="p-4">
-                <SegmentBar segments={segments.segments} />
-              </div>
-            </Card>
-          )}
-
-          {/* Signals Available */}
-          <Card title="Available Signals" subtitle="Experience data sources detected in your data">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4">
-              <div className={cn(
-                "p-3 rounded-lg border",
-                signals?.has_enps ? 'border-success/30 bg-success/5' : 'border-border bg-surface-secondary'
-              )}>
-                <p className="text-sm font-medium">eNPS</p>
-                <Badge variant={signals?.has_enps ? 'success' : 'outline'}>
-                  {signals?.has_enps ? 'Available' : 'Not Found'}
-                </Badge>
-              </div>
-              <div className={cn(
-                "p-3 rounded-lg border",
-                signals?.has_pulse ? 'border-success/30 bg-success/5' : 'border-border bg-surface-secondary'
-              )}>
-                <p className="text-sm font-medium">Pulse Survey</p>
-                <Badge variant={signals?.has_pulse ? 'success' : 'outline'}>
-                  {signals?.has_pulse ? 'Available' : 'Not Found'}
-                </Badge>
-              </div>
-              <div className="p-3 rounded-lg border border-border bg-surface-secondary">
-                <p className="text-sm font-medium">Total Signals</p>
-                <Badge variant="info">{signals?.total_signals || 0}</Badge>
-              </div>
-            </div>
-            {signals?.recommendations && signals.recommendations.length > 0 && (
-              <div className="px-4 pb-4">
-                <p className="text-xs text-text-muted mb-2">Recommendations:</p>
-                <ul className="text-sm text-text-secondary space-y-1">
-                  {signals.recommendations.map((r, i) => (
-                    <li key={i} className="flex items-start gap-2">
-                      <ChevronRight className="w-4 h-4 text-accent mt-0.5" />
-                      {r}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <GlassCard>
+                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-accent" />
+                  Key Recommendations
+                </h3>
+                <ul className="space-y-4">
+                  {data?.recommendations?.slice(0, 3).map((rec, i) => (
+                    <li key={i} className="flex items-start gap-4 p-4 rounded-xl bg-white/5 border border-white/10">
+                      <div className="w-6 h-6 rounded-full bg-accent/20 text-accent flex items-center justify-center flex-shrink-0 text-xs font-bold mt-0.5">
+                        {i + 1}
+                      </div>
+                      <p className="text-sm text-text-secondary">{rec}</p>
                     </li>
                   ))}
                 </ul>
-              </div>
-            )}
-          </Card>
-        </>
-      )}
+              </GlassCard>
 
-      {activeTab === 'segments' && segments?.available && segments.segments && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {segments.segments.map((seg) => (
-            <Card key={seg.segment} className="p-6">
-              <div className="flex justify-between items-start mb-4">
-                <div>
-                  <h3 className="font-bold text-lg">{seg.segment}</h3>
-                  <p className="text-sm text-text-muted">
-                    {seg.segment === 'Thriving' && 'Highly engaged advocates (80-100)'}
-                    {seg.segment === 'Content' && 'Satisfied employees (60-79)'}
-                    {seg.segment === 'Neutral' && 'Neither engaged nor disengaged (40-59)'}
-                    {seg.segment === 'Disengaged' && 'At risk, showing warning signs (20-39)'}
-                    {seg.segment === 'Critical' && 'Immediate intervention needed (0-19)'}
-                  </p>
-                </div>
-                <Badge variant={
-                  seg.segment === 'Thriving' ? 'success' :
-                  seg.segment === 'Content' ? 'info' :
-                  seg.segment === 'Neutral' ? 'outline' :
-                  seg.segment === 'Disengaged' ? 'warning' : 'danger'
-                }>
-                  {seg.percentage.toFixed(1)}%
-                </Badge>
-              </div>
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-text-secondary">Count</span>
-                  <span className="font-medium">{seg.count}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-text-secondary">Avg EXI</span>
-                  <span className="font-medium">{seg.avg_exi.toFixed(1)}</span>
-                </div>
-              </div>
-            </Card>
-          ))}
-        </div>
-      )}
-
-      {activeTab === 'drivers' && drivers?.available && drivers.drivers && (
-        <Card title="Experience Drivers" subtitle="Factors that correlate with experience scores">
-          <div className="divide-y divide-border">
-            {drivers.drivers.map((driver, idx) => (
-              <div key={driver.factor} className="flex items-center justify-between p-4">
-                <div className="flex items-center gap-4">
-                  <div className={cn(
-                    "w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm",
-                    idx < 3 ? 'bg-accent/20 text-accent' : 'bg-surface-secondary text-text-muted'
-                  )}>
-                    {idx + 1}
-                  </div>
-                  <div>
-                    <p className="font-medium">{driver.factor.replace(/_/g, ' ')}</p>
-                    <p className="text-xs text-text-muted">
-                      Correlation: {driver.correlation.toFixed(3)}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  {driver.direction === 'Positive' ? (
-                    <TrendingUp className="w-4 h-4 text-success" />
-                  ) : (
-                    <TrendingDown className="w-4 h-4 text-danger" />
-                  )}
-                  <Badge variant={
-                    driver.impact === 'High' ? 'danger' :
-                    driver.impact === 'Medium' ? 'warning' : 'outline'
-                  }>
-                    {driver.impact} Impact
-                  </Badge>
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
-      )}
-
-      {activeTab === 'watchlist' && atRisk?.available && (
-        <Card title={`At-Risk Employees (${atRisk.total_at_risk || 0})`} subtitle="Employees with low experience scores needing attention">
-          {atRisk.employees && atRisk.employees.length > 0 ? (
-            <div className="divide-y divide-border">
-              {atRisk.employees.map((emp) => (
-                <div key={emp.EmployeeID} className="p-4">
-                  <div className="flex items-start justify-between mb-3">
+              <GlassCard>
+                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <Eye className="w-5 h-5 text-red-500" />
+                  Attention Required
+                </h3>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-4 rounded-xl bg-red-500/5 border border-red-500/10">
                     <div>
-                      <p className="font-medium">{emp.EmployeeID}</p>
-                      <p className="text-sm text-text-muted">{emp.Dept || 'Unknown Dept'}</p>
+                      <p className="text-sm font-medium text-red-500">At-Risk Employees</p>
+                      <p className="text-xs text-text-muted">High flight risk & low engagement</p>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <EXIGauge value={emp.current_exi} size="small" />
-                    </div>
+                    <p className="text-2xl font-bold text-red-500">{summary?.at_risk_count || 0}</p>
                   </div>
-                  {emp.risk_factors.length > 0 && (
-                    <div className="mb-2">
-                      <p className="text-xs font-medium text-text-muted mb-1">Risk Factors:</p>
-                      <div className="flex flex-wrap gap-1">
-                        {emp.risk_factors.map((rf, i) => (
-                          <Badge key={i} variant="danger">{rf}</Badge>
-                        ))}
+                  <div className="flex items-center justify-between p-4 rounded-xl bg-amber-500/5 border border-amber-500/10">
+                    <div>
+                      <p className="text-sm font-medium text-amber-500">Warning Signals</p>
+                      <p className="text-xs text-text-muted">Anomalies detected in pulse data</p>
+                    </div>
+                    <p className="text-2xl font-bold text-amber-500">{data?.warnings?.length || 0}</p>
+                  </div>
+                  {data?.warnings && data.warnings.length > 0 && (
+                    <div className="mt-2 text-xs text-text-secondary dark:text-text-dark-secondary space-y-1 pl-1">
+                      {data.warnings.map((w, i) => (
+                        <p key={i} className="flex items-start gap-2">
+                          <span className="text-amber-500 mt-0.5">•</span>
+                          {w}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </GlassCard>
+            </div>
+          </div>
+        )}
+
+        {/* Combined Analysis Tab (Drivers + Lifecycle) */}
+        {activeTab === 'analysis' && (
+          <div className="space-y-6">
+            {/* Drivers Section */}
+            <div>
+              <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+                <Target className="w-5 h-5 text-accent" />
+                Experience Drivers
+              </h3>
+              {drivers?.available && drivers.drivers && (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                  {drivers.drivers.map((driver, idx) => (
+                    <GlassCard key={driver.factor} className="flex flex-col p-4 items-center text-center hover:scale-[1.02] transition-transform aspect-square justify-center group relative overflow-hidden">
+                      <div className={cn(
+                        "absolute top-0 right-0 p-2 opacity-50 transition-opacity",
+                        driver.direction === 'Positive' ? 'text-success' : 'text-danger'
+                      )}>
+                        {driver.direction === 'Positive' ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
                       </div>
-                    </div>
-                  )}
-                  {emp.recommended_actions.length > 0 && (
-                    <div>
-                      <p className="text-xs font-medium text-text-muted mb-1">Recommended Actions:</p>
-                      <ul className="text-sm text-text-secondary space-y-1">
-                        {emp.recommended_actions.map((action, i) => (
-                          <li key={i} className="flex items-start gap-2">
-                            <ChevronRight className="w-4 h-4 text-accent mt-0.5 flex-shrink-0" />
-                            {action}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="p-8 text-center text-text-muted">
-              No at-risk employees found
-            </div>
-          )}
-        </Card>
-      )}
+                      <div className={cn(
+                        "w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold shadow-glow mb-3 transition-colors",
+                        idx < 3 ? 'bg-accent text-white' : 'bg-white/5 text-text-muted group-hover:bg-white/10'
+                      )}>
+                        {idx + 1}
+                      </div>
 
-      {activeTab === 'lifecycle' && lifecycle?.available && lifecycle.stages && (
-        <Card title="Experience by Lifecycle Stage" subtitle="How experience varies by tenure">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-4">
-            {lifecycle.stages.map((stage) => (
-              <div key={stage.stage} className="p-4 rounded-lg border border-border bg-surface-secondary">
-                <h4 className="font-bold mb-2">{stage.stage}</h4>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-text-muted">Employees</span>
-                    <span className="font-medium">{stage.count}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-text-muted">Avg EXI</span>
-                    <span className={cn(
-                      "font-medium",
-                      stage.avg_exi >= 60 ? 'text-success' :
-                      stage.avg_exi >= 40 ? 'text-warning' : 'text-danger'
-                    )}>
-                      {stage.avg_exi.toFixed(1)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-text-muted">At Risk</span>
-                    <span className={cn(
-                      "font-medium",
-                      stage.at_risk_count > 0 ? 'text-danger' : 'text-success'
-                    )}>
-                      {stage.at_risk_count}
-                    </span>
-                  </div>
+                      <h4 className="text-sm font-bold text-text-primary dark:text-white capitalize leading-tight mb-2">
+                        {driver.factor.replace(/_/g, ' ')}
+                      </h4>
+
+                      <div className="mt-auto space-y-2 w-full">
+                        <Badge variant={driver.impact === 'High' ? 'danger' : 'warning'} className="text-[10px] px-2 py-0.5 w-full justify-center">
+                          {driver.impact} Impact
+                        </Badge>
+                        <div className="text-[10px] text-text-muted">
+                          Corr: {driver.correlation.toFixed(2)}
+                        </div>
+                      </div>
+                    </GlassCard>
+                  ))}
                 </div>
-              </div>
-            ))}
+              )}
+            </div>
+
+            {/* Lifecycle Section */}
+            <div>
+              <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+                <Clock className="w-5 h-5 text-accent" />
+                Employee Experience by Lifecycle
+              </h3>
+              {lifecycle?.available && lifecycle.stages && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  {lifecycle.stages.map((stage, idx) => (
+                    <GlassCard key={stage.stage} className="relative group">
+                      <div className="absolute top-2 right-2 text-4xl font-display font-bold text-white/5 z-0 group-hover:text-white/10 transition-colors">
+                        {idx + 1}
+                      </div>
+                      <div className="relative z-10">
+                        <h3 className="text-lg font-bold mb-4 shadow-glow inline-block px-2 py-1 bg-white/5 rounded-lg">{stage.stage}</h3>
+                        <div className="space-y-3">
+                          <div className="flex justify-between items-center text-sm">
+                            <span className="text-text-muted">EXI Score</span>
+                            <span className={cn(
+                              "font-bold",
+                              stage.avg_exi >= 60 ? 'text-success' : 'text-warning'
+                            )}>{stage.avg_exi.toFixed(1)}</span>
+                          </div>
+                          <div className="flex justify-between items-center text-sm">
+                            <span className="text-text-muted">Population</span>
+                            <span className="font-bold">{stage.count}</span>
+                          </div>
+                          <div className="flex justify-between items-center text-sm">
+                            <span className="text-text-muted">At Risk</span>
+                            <span className={cn(
+                              "font-bold",
+                              stage.at_risk_count > 0 ? 'text-danger' : 'text-text-secondary'
+                            )}>{stage.at_risk_count}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </GlassCard>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
-        </Card>
-      )}
-
-      {/* Recommendations */}
-      {data?.recommendations && data.recommendations.length > 0 && (
-        <Card title="Recommendations" subtitle="Data-driven suggestions to improve experience">
-          <ul className="divide-y divide-border">
-            {data.recommendations.map((rec, i) => (
-              <li key={i} className="flex items-start gap-3 p-4">
-                <div className="w-6 h-6 rounded-full bg-accent/20 text-accent flex items-center justify-center flex-shrink-0 text-sm font-bold">
-                  {i + 1}
-                </div>
-                <p className="text-sm text-text-secondary">{rec}</p>
-              </li>
-            ))}
-          </ul>
-        </Card>
-      )}
+        )}
+      </div>
     </div>
   )
 }

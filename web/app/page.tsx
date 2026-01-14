@@ -11,7 +11,9 @@ import { EmployeeDetailModal } from '../components/dashboard/employee-detail-mod
 import { PredictiveMathModal } from '../components/dashboard/predictive-math-modal'
 import { WorldMap } from '../components/dashboard/world-map'
 import { api } from '../lib/api-client'
-import { Card } from '../components/ui/card'
+import { GlassCard } from '../components/ui/glass-card'
+import { BentoGrid, BentoGridItem } from '../components/ui/bento-grid'
+import { AnimatedNumber } from '../components/ui/animated-number'
 import {
   Tooltip,
   TooltipContent,
@@ -110,23 +112,25 @@ export default function DashboardPage() {
 
   return (
     <TooltipProvider>
-      <div className="space-y-6">
+      <div className="space-y-8 animate-in fade-in duration-700 slide-in-from-bottom-4">
         {/* Header with Tabs */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-text-primary dark:text-text-dark-primary">Overview</h1>
-            <p className="text-text-secondary dark:text-text-dark-secondary mt-1">
-              Key metrics and insights across your organization
+            <h1 className="text-4xl font-display font-bold text-gradient bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400">
+              Overview
+            </h1>
+            <p className="text-text-secondary dark:text-text-dark-secondary mt-2 text-lg font-light">
+              Workforce intelligence at a glance
             </p>
           </div>
 
-          {/* Tab Navigation */}
-          <div className="flex bg-muted/50 rounded-lg p-1 border border-border dark:border-border-dark">
+          {/* Premium Tab Navigation */}
+          <div className="glass p-1.5 rounded-2xl flex gap-1">
             <button
               onClick={() => setActiveTab('dashboard')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${activeTab === 'dashboard'
-                ? 'bg-background dark:bg-background-dark shadow-sm text-text-primary dark:text-text-dark-primary'
-                : 'text-text-secondary dark:text-text-dark-secondary hover:text-text-primary dark:hover:text-text-dark-primary'
+              className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 ${activeTab === 'dashboard'
+                ? 'bg-white dark:bg-slate-800 shadow-lg text-text-primary dark:text-white scale-105'
+                : 'text-text-secondary dark:text-slate-400 hover:text-text-primary dark:hover:text-white hover:bg-white/10'
                 }`}
             >
               <LayoutDashboard className="w-4 h-4" />
@@ -134,161 +138,132 @@ export default function DashboardPage() {
             </button>
             <button
               onClick={() => setActiveTab('worldmap')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${activeTab === 'worldmap'
-                ? 'bg-background dark:bg-background-dark shadow-sm text-text-primary dark:text-text-dark-primary'
-                : 'text-text-secondary dark:text-text-dark-secondary hover:text-text-primary dark:hover:text-text-dark-primary'
+              className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 ${activeTab === 'worldmap'
+                ? 'bg-white dark:bg-slate-800 shadow-lg text-text-primary dark:text-white scale-105'
+                : 'text-text-secondary dark:text-slate-400 hover:text-text-primary dark:hover:text-white hover:bg-white/10'
                 }`}
             >
               <Globe className="w-4 h-4" />
-              Employee World Map
+              World Map
             </button>
           </div>
         </div>
 
         {/* Tab Content */}
         {activeTab === 'worldmap' ? (
-          <WorldMap />
+          <div className="glass-card p-6 min-h-[600px] flex flex-col">
+            <WorldMap />
+          </div>
         ) : (
-          <>
-            {/* Key Takeaways */}
+          <div className="space-y-8">
+            {/* Key Takeaways - Glass Panel */}
             {summary.takeaways && summary.takeaways.length > 0 && (
-              <div className="bg-gradient-to-br from-slate-900 to-slate-800 dark:from-slate-950 dark:to-slate-900 p-6 rounded-xl border-l-4 border-success shadow-lg">
-                <div className="flex justify-between items-start mb-3">
-                  <div className="text-xs font-bold text-success uppercase tracking-wider flex items-center gap-2">
-                    <Star className="w-4 h-4" />
-                    Key Insights
+              <div className="glass p-6 rounded-2xl border-l-4 border-accent shadow-shine">
+                <div className="flex justify-between items-start mb-4">
+                  <div className="text-xs font-bold text-accent uppercase tracking-widest flex items-center gap-2">
+                    <Brain className="w-4 h-4 animate-pulse" />
+                    Strategic Insights
                   </div>
-                  <Tooltip>
-                    <TooltipTrigger>
-                      <Info className="w-4 h-4 text-slate-400 cursor-help" />
-                    </TooltipTrigger>
-                    <TooltipContent className="bg-slate-800 text-slate-100 border-slate-700">
-                      <p className="text-xs">AI-generated patterns from your current dataset and trends.</p>
-                    </TooltipContent>
-                  </Tooltip>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
                   {summary.takeaways.map((takeaway, i) => (
-                    <div key={i} className="text-slate-200 text-sm flex gap-2 items-start">
-                      <span className="text-success mt-1">•</span>
-                      <span>{takeaway}</span>
+                    <div key={i} className="text-text-secondary dark:text-slate-200 text-sm flex gap-3 items-start group">
+                      <span className="text-accent mt-1.5 h-1.5 w-1.5 rounded-full bg-accent group-hover:scale-150 transition-transform" />
+                      <span className="leading-relaxed">{takeaway}</span>
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Main KPI Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <KPICard
-                title="Total Headcount"
-                value={summary.headcount}
-                icon={Users}
-                insight={summary.insights?.headcount || "Current total number of active employees across the organization."}
+            {/* Bento Grid Layout for Metrics */}
+            <BentoGrid>
+              {/* Headcount - Large Card */}
+              <BentoGridItem
+                title="Active Headcount"
+                header={<AnimatedNumber value={summary.active_count || summary.headcount} className="text-5xl font-display font-bold text-text-primary dark:text-white" />}
+                icon={<Users className="w-6 h-6 text-accent" />}
+                description={`Currently active workforce (${summary.headcount} total records including attrition)`}
+                className="md:col-span-1 border-l-4 border-accent"
               />
-              <KPICard
-                title={
-                  <div className="flex items-center gap-2">
-                    Departure Rate
-                    <Tooltip>
-                      <TooltipTrigger><Info className="w-3.5 h-3.5 opacity-50" /></TooltipTrigger>
-                      <TooltipContent>The percentage of employees who left during the period.</TooltipContent>
-                    </Tooltip>
+
+              {/* Turnover - Critical Metric */}
+              <BentoGridItem
+                title="Departure Rate"
+                header={
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-5xl font-display font-bold text-text-primary dark:text-white">
+                      {summary.turnover_rate ? (summary.turnover_rate * 100).toFixed(1) : '0'}
+                    </span>
+                    <span className="text-xl text-text-muted">%</span>
                   </div>
                 }
-                value={summary.turnover_rate ? `${(summary.turnover_rate * 100).toFixed(1)}%` : '0%'}
-                icon={TrendingDown}
-                variant={summary.turnover_rate && summary.turnover_rate > 0.15 ? 'danger' : 'default'}
-                insight={summary.insights?.turnover_rate || "Percentage of employees leaving, showing overall stability."}
+                icon={<TrendingDown className={summary.turnover_rate && summary.turnover_rate > 0.15 ? "w-6 h-6 text-red-500" : "w-6 h-6 text-green-500"} />}
+                description={summary.insights?.turnover_rate || "Annualized turnover"}
+                className={summary.turnover_rate && summary.turnover_rate > 0.15 ? "border-l-4 border-red-500 bg-red-50/10" : "border-l-4 border-green-500"}
               />
-              <KPICard
+
+              {/* Risk Prediction - AI Feature */}
+              <BentoGridItem
+                title="At-Risk Employees"
+                header={
+                  <div className="flex items-baseline gap-2">
+                    <AnimatedNumber value={predictions?.distribution?.high_risk || 0} className="text-5xl font-display font-bold text-text-primary dark:text-white" />
+                    <span className="text-sm font-medium px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                      AI Forecast
+                    </span>
+                  </div>
+                }
+                icon={<AlertTriangle className="w-6 h-6 text-amber-500" />}
+                description="High probability of departure"
+                className="md:col-span-1 border-l-4 border-amber-500"
+              />
+
+              {/* Secondary Metrics Row */}
+              <BentoGridItem
                 title="Avg Tenure"
-                value={summary.tenure_mean ? `${summary.tenure_mean.toFixed(1)} yrs` : '0 yrs'}
-                icon={Clock}
-                subtitle="Time with company"
-                insight={summary.insights?.tenure_mean || "Average time employees have stayed with the company."}
+                header={<div className="text-3xl font-display font-bold">{summary.tenure_mean ? summary.tenure_mean.toFixed(1) : '0'} <span className="text-sm text-muted-foreground font-normal">years</span></div>}
+                icon={<Clock className="w-5 h-5 text-purple-500" />}
+                description="Average loyalty"
+                className="md:col-span-1"
               />
-              <KPICard
+
+              <BentoGridItem
                 title="Avg Salary"
-                value={summary.salary_mean ? `$${Math.round(summary.salary_mean).toLocaleString()}` : '$0'}
-                icon={DollarSign}
-                subtitle="Across workforce"
-                insight="Average annual compensation across all employees in the current dataset."
+                header={<div className="text-3xl font-display font-bold">${summary.salary_mean ? Math.round(summary.salary_mean / 1000) : '0'}k</div>}
+                icon={<DollarSign className="w-5 h-5 text-emerald-500" />}
+                description="Mean compensation"
+                className="md:col-span-1"
               />
-            </div>
 
-            {/* Supporting Metrics Row */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <KPICard
-                title="Avg Performance"
-                value={summary.lastrating_mean ? summary.lastrating_mean.toFixed(1) : '0.0'}
-                icon={Star}
-                subtitle="Recent ratings"
-                variant="success"
-                insight="Average score from the most recent performance review cycle."
+              <BentoGridItem
+                title="Performance"
+                header={<div className="text-3xl font-display font-bold">{summary.lastrating_mean ? summary.lastrating_mean.toFixed(1) : '0.0'} <span className="text-sm text-muted-foreground font-normal">/ 5.0</span></div>}
+                icon={<Star className="w-5 h-5 text-yellow-500" />}
+                description="Average rating"
+                className="md:col-span-1"
               />
-              <KPICard
-                title="Avg Age"
-                value={summary.age_mean ? `${summary.age_mean.toFixed(0)} yrs` : '0 yrs'}
-                icon={Users}
-                insight="The average age of employees, helping identify generational trends."
-              />
-              <KPICard
-                title={
-                  <div className="flex items-center justify-between w-full">
-                    <div className="flex items-center gap-2">
-                      Anticipated Risk
-                      <Tooltip>
-                        <TooltipTrigger><Brain className="w-3.5 h-3.5 opacity-50" /></TooltipTrigger>
-                        <TooltipContent>AI-identified employees with high probability of departure.</TooltipContent>
-                      </Tooltip>
-                    </div>
-                    <button
-                      onClick={() => setShowMathModal(true)}
-                      className="text-[10px] bg-accent/10 hover:bg-accent/20 text-accent px-1.5 py-0.5 rounded flex items-center gap-1 transition-colors"
-                    >
-                      <Calculator className="w-3 h-3" />
-                      How it works
-                    </button>
-                  </div>
-                }
-                value={predictions?.distribution?.high_risk || 0}
-                icon={AlertTriangle}
-                variant={(predictions?.distribution?.high_risk || 0) > 5 ? 'danger' : 'default'}
-                subtitle="High-risk targets"
-                insight="Number of employees whose patterns strongly match previous departures."
-              />
-              <KPICard
-                title="Data Health"
-                value="High"
-                icon={Info}
-                subtitle="Data quality audit"
-                variant="default"
-                insight="Ensures your data is complete and accurate for reliable analysis."
-              />
-            </div>
+            </BentoGrid>
 
-            {/* Charts Row */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card title="Headcount by Department">
+            {/* Charts Section - Two Column Glass Layout */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <GlassCard className="min-h-[400px]">
+                <h3 className="text-lg font-semibold mb-6 flex items-center gap-2">
+                  <div className="w-1 h-6 bg-blue-500 rounded-full" />
+                  Headcount by Department
+                </h3>
                 {departments.length > 0 ? (
                   <DepartmentBarChart data={departments} />
                 ) : (
                   <div className="h-64 flex items-center justify-center text-text-muted">No data available</div>
                 )}
-              </Card>
+              </GlassCard>
 
-              <Card
-                title={
-                  <div className="flex items-center gap-2">
-                    Risk Distribution
-                    <Tooltip>
-                      <TooltipTrigger><Info className="w-3.5 h-3.5 opacity-50" /></TooltipTrigger>
-                      <TooltipContent>ML grouping of workforce by attrition probability.</TooltipContent>
-                    </Tooltip>
-                  </div>
-                }
-              >
+              <GlassCard className="min-h-[400px]">
+                <h3 className="text-lg font-semibold mb-6 flex items-center gap-2">
+                  <div className="w-1 h-6 bg-indigo-500 rounded-full" />
+                  Risk Distribution (AI)
+                </h3>
                 {predictions?.distribution ? (
                   <RiskDistributionPie data={predictions.distribution} />
                 ) : (
@@ -296,20 +271,28 @@ export default function DashboardPage() {
                     ML Training required for risk distribution
                   </div>
                 )}
-              </Card>
+              </GlassCard>
             </div>
 
-            {/* Selection Row */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card title="Tenure Distribution">
+            {/* Deep Dives */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              <GlassCard className="lg:col-span-1 min-h-[350px]">
+                <h3 className="text-lg font-semibold mb-6 flex items-center gap-2">
+                  <div className="w-1 h-6 bg-teal-500 rounded-full" />
+                  Tenure Profile
+                </h3>
                 {distributions?.tenure ? (
                   <TenureDistributionChart data={distributions.tenure} />
                 ) : (
-                  <div className="h-64 flex items-center justify-center text-text-muted">No tenure data found</div>
+                  <div className="h-64 flex items-center justify-center text-text-muted">No tenure data</div>
                 )}
-              </Card>
+              </GlassCard>
 
-              <Card title="High Risk Employees" subtitle="Click an employee for deep-dive analysis">
+              <GlassCard className="lg:col-span-2 min-h-[350px]">
+                <h3 className="text-lg font-semibold mb-6 flex items-center gap-2">
+                  <div className="w-1 h-6 bg-rose-500 rounded-full" />
+                  High Risk Employees
+                </h3>
                 {highRiskEmployees?.employees ? (
                   <HighRiskTable
                     employees={highRiskEmployees.employees}
@@ -320,7 +303,7 @@ export default function DashboardPage() {
                     Predictive analysis ready once data with Attrition is provided
                   </div>
                 )}
-              </Card>
+              </GlassCard>
             </div>
 
             {/* Modals */}
@@ -334,7 +317,7 @@ export default function DashboardPage() {
             {showMathModal && (
               <PredictiveMathModal onClose={() => setShowMathModal(false)} />
             )}
-          </>
+          </div>
         )}
       </div>
     </TooltipProvider>

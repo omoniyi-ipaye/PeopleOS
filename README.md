@@ -13,21 +13,21 @@ Unlike traditional cloud tools, PeopleOS runs entirely on your local machine. Th
 *   **Strategic AI Advisor**: Get executive-level summaries and actionable recommendations powered by a local AI engine (no external data sharing).
 *   **Workforce Health Mapping**: Visualize department-level health, pay equity, and promotional gaps in a single, premium dashboard.
 
-![PeopleOS Summary Dashboard](assets/docs/dashboard_demo.webp)
+![PeopleOS Summary Dashboard](assets/docs/dashboard_v2.webp)
 
 ---
 
 ## 🛠 Features
 
 ### 1. Retention Forecast (Predictive)
-![Retention Forecasting](assets/docs/retention_forecast_demo.webp)
+![Retention Forecasting](assets/docs/retention_v2.webp)
 
 *   **At-Risk Employee Watchlist**: See who is most likely to depart and why.
 *   **Risk Factors**: Understand the "drivers" behind departures (e.g., tenure stagnation, pay gaps, or performance trends).
 *   **Survival Curves**: Graphically see how long different groups (e.g., Departments or Hire Sources) typically stay with the company.
 
 ### 2. Quality of Hire (Diagnostic)
-![Quality of Hire Analysis](assets/docs/risk_analysis_demo.webp)
+![Quality of Hire Analysis](assets/docs/quality_v2.webp)
 
 *   **Source ROI**: Compare the value of different hiring channels.
 *   **Interview Predictors**: Identify which interview dimensions (Technical, Cultural, Leadership) actually correlate with long-term performance.
@@ -39,10 +39,17 @@ Unlike traditional cloud tools, PeopleOS runs entirely on your local machine. Th
 *   **Tenure Tracking**: Monitor "role stagnation" to prevent burnout.
 
 ### 4. Strategic Advisor (Prescriptive)
-![Strategic AI Advisor](assets/docs/advisor_demo.webp)
+![Strategic AI Advisor](assets/docs/advisor_v2.webp)
 
 *   **Executive Briefings**: AI-generated reports that summarize your workforce data into strategic bullet points.
 *   **Smart Actions**: Categorized recommendations (Immediate, Strategic, Cultural) to improve team health.
+
+### 5. Advanced Analytics (Enterprise-Grade ML)
+
+*   **Causal Inference**: Answer "What-If" questions like *"If we increase salary by 10%, will turnover decrease?"* using DoWhy.
+*   **Organizational Network Analysis (ONA)**: Identify key influencers and connectors whose departure would impact operations.
+*   **Workforce Segmentation**: AI-driven employee personas ("Star Performers", "At-Risk Veterans") for targeted interventions.
+*   **Trend Forecasting**: 12-month projections for headcount and average salary using Holt-Winters time series.
 
 ---
 

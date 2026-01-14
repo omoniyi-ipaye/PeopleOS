@@ -7,7 +7,7 @@ All exports are user-initiated only.
 
 import io
 from datetime import datetime
-from typing import Any, Optional
+from typing import Optional
 
 import pandas as pd
 

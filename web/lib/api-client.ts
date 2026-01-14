@@ -56,6 +56,14 @@ export const api = {
     getCorrelations: (limit = 10) =>
       fetchAPI(`/api/analytics/correlations?limit=${limit}`),
     getHighRiskDepartments: () => fetchAPI('/api/analytics/high-risk-departments'),
+    getClusters: (nClusters = 3) =>
+      fetchAPI(`/api/analytics/clusters?n_clusters=${nClusters}`),
+    getForecast: (metric = 'headcount', periods = 12) =>
+      fetchAPI(`/api/analytics/forecast?metric=${metric}&periods=${periods}`),
+    compareGroups: (groupBy: string, metric: string) =>
+      fetchAPI(`/api/analytics/compare-groups?group_by=${encodeURIComponent(groupBy)}&metric=${encodeURIComponent(metric)}`),
+    getClusterMembers: (clusterId: number, nClusters: number = 4) =>
+      fetchAPI(`/api/analytics/cluster-members/${clusterId}?n_clusters=${nClusters}`),
   },
 
   // Predictions endpoints
@@ -383,6 +391,20 @@ export const api = {
   geo: {
     getDistribution: () => fetchAPI<Array<{ country: string; count: number; percentage: number }>>('/api/geo/distribution'),
     getSummary: () => fetchAPI<{ total_employees: number; countries_represented: number; remote_workers: number; remote_percentage: number }>('/api/geo/summary'),
+  },
+
+  // Causal Inference endpoints
+  causal: {
+    getImpact: (treatment: string, outcome = 'Attrition') =>
+      fetchAPI(`/api/causal/impact?treatment=${encodeURIComponent(treatment)}&outcome=${encodeURIComponent(outcome)}`),
+    getRecommendations: () => fetchAPI('/api/causal/recommendations'),
+  },
+
+  // Network Analysis endpoints
+  network: {
+    getInfluencers: (limit = 10) => fetchAPI(`/api/network/influencers?limit=${limit}`),
+    getIsolated: (limit = 10) => fetchAPI(`/api/network/isolated?limit=${limit}`),
+    getSummary: () => fetchAPI('/api/network/summary'),
   },
 
   // General status

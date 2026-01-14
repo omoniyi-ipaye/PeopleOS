@@ -2,11 +2,11 @@
 
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Card } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+import { GlassCard } from '@/components/ui/glass-card'
 import { Badge } from '@/components/ui/badge'
 import { api } from '@/lib/api-client'
-import { Search, FileText, AlertTriangle } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { Search, FileText, AlertTriangle, Sparkles, Command, ArrowRight } from 'lucide-react'
 
 import {
   SearchResult,
@@ -16,6 +16,7 @@ import {
 export default function SearchPage() {
   const [query, setQuery] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
+  const [isFocused, setIsFocused] = useState(false)
 
   const { data: searchStatus } = useQuery<SearchStatus>({
     queryKey: ['search', 'status'],
@@ -35,121 +36,170 @@ export default function SearchPage() {
     }
   }
 
-  if (!searchStatus?.available) {
+  // Unavailable State
+  if (searchStatus?.available === false) {
     return (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-text-primary dark:text-text-dark-primary">Semantic Search</h1>
-          <p className="text-text-secondary dark:text-text-dark-secondary mt-1">
-            Search performance reviews using AI
-          </p>
+      <div className="h-[calc(100vh-100px)] flex flex-col items-center justify-center text-center p-6">
+        <div className="p-6 rounded-full bg-warning/10 mb-6 relative">
+          <div className="absolute inset-0 bg-warning/20 blur-xl rounded-full" />
+          <AlertTriangle className="w-16 h-16 text-warning relative z-10" />
         </div>
-
-        <div className="flex flex-col items-center justify-center h-64 gap-4 text-center">
-          <AlertTriangle className="w-12 h-12 text-warning" />
-          <h2 className="text-xl font-semibold text-text-primary dark:text-text-dark-primary">Search Unavailable</h2>
-          <p className="text-text-secondary dark:text-text-dark-secondary max-w-md">
-            {searchStatus?.reason ||
-              'Upload data with PerformanceText column to enable semantic search.'}
-          </p>
-        </div>
+        <h2 className="text-3xl font-display font-bold text-text-primary dark:text-white mb-3">Search Unavailable</h2>
+        <p className="text-text-secondary dark:text-text-dark-secondary max-w-md text-lg leading-relaxed">
+          {searchStatus?.reason || 'Upload data with a "PerformanceText" column to enable semantic search.'}
+        </p>
       </div>
     )
   }
 
+  const hasResults = searchResults?.results && searchResults.results.length > 0
+
   return (
-    <div className="space-y-6">
-      {/* Page Title */}
-      <div>
-        <h1 className="text-2xl font-bold text-text-primary dark:text-text-dark-primary">Semantic Search</h1>
-        <p className="text-text-secondary dark:text-text-dark-secondary mt-1">
-          Search performance reviews using natural language
-        </p>
-      </div>
+    <div className="h-[calc(100vh-100px)] flex flex-col relative overflow-hidden">
+      {/* Background Decor */}
+      <div className="absolute top-0 right-0 w-96 h-96 bg-accent/5 rounded-full blur-3xl -z-10 animate-pulse-subtle" />
+      <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-500/5 rounded-full blur-3xl -z-10" />
 
-      {/* Search Bar */}
-      <Card padding="lg">
-        <form onSubmit={handleSearch} className="flex gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-text-muted" />
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search performance reviews (e.g., 'leadership skills', 'needs improvement')..."
-              className="w-full pl-12 pr-4 py-3 bg-surface dark:bg-surface-dark border border-border dark:border-border-dark rounded-lg text-text-primary dark:text-text-dark-primary placeholder-text-muted dark:placeholder-text-dark-muted focus:outline-none focus:ring-2 focus:ring-accent/50 shadow-inner"
-            />
+      {/* Main Content Container with Scroll */}
+      <div className="flex-1 overflow-y-auto custom-scrollbar px-1 py-6">
+        <div className={cn(
+          "transition-all duration-700 ease-in-out flex flex-col items-center",
+          hasResults || searchTerm ? "justify-start pt-4" : "justify-center h-full"
+        )}>
+
+          {/* Hero Section */}
+          <div className={cn(
+            "w-full max-w-3xl transition-all duration-700 text-center mb-8",
+            hasResults || searchTerm ? "scale-95 opacity-90" : "scale-100"
+          )}>
+            <h1 className={cn(
+              "font-display font-bold text-gradient bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-500 dark:from-white dark:to-gray-400 transition-all duration-500",
+              hasResults || searchTerm ? "text-3xl mb-4" : "text-5xl mb-6"
+            )}>
+              PeopleOS Research
+            </h1>
+            {!hasResults && !searchTerm && (
+              <p className="text-xl text-text-secondary dark:text-text-dark-secondary font-light max-w-xl mx-auto mb-10">
+                Ask questions about your workforce in natural language. Uncover hidden insights in performance reviews.
+              </p>
+            )}
           </div>
-          <Button type="submit" disabled={query.length < 3} isLoading={isLoading}>
-            Search
-          </Button>
-        </form>
 
-        <div className="flex items-center gap-2 mt-4 text-sm text-text-muted dark:text-text-dark-muted">
-          <FileText className="w-4 h-4" />
-          <span>{searchStatus.indexed_records} reviews indexed</span>
-        </div>
-      </Card>
-
-      {/* Search Results */}
-      {searchResults?.results && searchResults.results.length > 0 && (
-        <Card title={`Search Results for "${searchTerm}"`}>
-          <div className="space-y-4">
-            {searchResults.results.map((result: any, index: number) => (
-              <div
-                key={`${result.employee_id}-${index}`}
-                className="p-4 rounded-lg bg-surface hover:bg-surface-hover dark:bg-surface-dark hover:dark:bg-surface-dark-hover border border-border dark:border-border-dark transition-colors shadow-sm"
-              >
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-text-primary dark:text-text-dark-primary">{result.employee_id}</span>
-                    <Badge variant="info" size="sm">
-                      {result.dept}
-                    </Badge>
-                  </div>
-                  <div className="text-sm font-medium text-text-muted dark:text-text-dark-muted">
-                    Similarity: {(result.similarity_score * 100).toFixed(0)}%
-                  </div>
+          {/* Search Bar */}
+          <div className="w-full max-w-2xl relative z-20">
+            <form onSubmit={handleSearch} className="relative">
+              <div className={cn(
+                "p-2 flex items-center bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xl transition-all duration-300",
+                isFocused ? "ring-2 ring-accent/20 border-accent" : ""
+              )}>
+                <div className="pl-4 pr-3 text-text-muted">
+                  <Search className={cn("w-6 h-6 transition-colors", isFocused ? "text-accent" : "")} />
                 </div>
-                <p className="text-sm text-text-secondary dark:text-text-dark-secondary leading-relaxed">
-                  {result.text}
-                </p>
+                <input
+                  type="text"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  onFocus={() => setIsFocused(true)}
+                  onBlur={() => setIsFocused(false)}
+                  placeholder="e.g. 'Show me employees with strong leadership potential'..."
+                  className="flex-1 bg-transparent border-none outline-none text-lg h-14 text-text-primary dark:text-white placeholder:text-text-muted/50"
+                />
+                <div className="pr-1">
+                  <button
+                    type="submit"
+                    disabled={query.length < 3 || isLoading}
+                    className="bg-accent hover:bg-accent/90 text-white p-3 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
+                  >
+                    {isLoading ? (
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <ArrowRight className="w-5 h-5" />
+                    )}
+                  </button>
+                </div>
               </div>
-            ))}
+            </form>
+
+            {/* Search Stats / Hints */}
+            <div className="mt-4 flex items-center justify-between text-sm px-4">
+              <div className="flex items-center gap-2 text-text-secondary">
+                <FileText className="w-4 h-4" />
+                <span>{searchStatus?.indexed_records || 0} documents indexed</span>
+              </div>
+              {!hasResults && !searchTerm && (
+                <div className="flex items-center gap-2 text-text-muted">
+                  <Command className="w-3.5 h-3.5" />
+                  <span>Try "High performer"</span>
+                </div>
+              )}
+            </div>
           </div>
-        </Card>
-      )}
 
-      {/* No Results */}
-      {searchTerm && searchResults?.results?.length === 0 && !isLoading && (
-        <div className="text-center py-12 text-text-secondary dark:text-text-dark-secondary">
-          No results found for "{searchTerm}"
+          {/* Results Grid */}
+          <div className="w-full max-w-5xl mt-12 space-y-6">
+            {hasResults && (
+              <div className="animate-in fade-in slide-in-from-bottom-8 duration-700">
+                <div className="flex items-center justify-between mb-4 px-2">
+                  <h3 className="text-lg font-bold text-text-secondary">
+                    Results for <span className="text-text-primary dark:text-white">"{searchTerm}"</span>
+                  </h3>
+                  <Badge variant="outline" className="bg-accent/5 text-accent border-accent/20">
+                    {searchResults?.results.length} matches found
+                  </Badge>
+                </div>
+
+                <div className="grid gap-4">
+                  {searchResults.results.map((result, i) => (
+                    <GlassCard key={`${result.employee_id}-${i}`} className="group hover:border-accent/30 transition-all duration-300">
+                      <div className="p-5 flex gap-4">
+                        {/* Score Indicator */}
+                        <div className="flex flex-col items-center justify-center p-3 bg-surface-secondary/50 rounded-xl border border-white/5 h-fit min-w-[80px]">
+                          <span className={cn(
+                            "text-2xl font-bold font-display",
+                            result.similarity_score > 0.8 ? "text-success" :
+                              result.similarity_score > 0.6 ? "text-warning" : "text-text-secondary"
+                          )}>
+                            {(result.similarity_score * 100).toFixed(0)}%
+                          </span>
+                          <span className="text-[10px] text-text-muted uppercase tracking-wider">Match</span>
+                        </div>
+
+                        {/* Content */}
+                        <div className="flex-1 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <h4 className="font-bold text-lg text-text-primary dark:text-white group-hover:text-accent transition-colors">
+                                {result.employee_id}
+                              </h4>
+                              <Badge variant="outline" className="bg-surface-secondary dark:bg-white/5">
+                                {result.dept}
+                              </Badge>
+                            </div>
+                          </div>
+                          <p className="text-text-secondary dark:text-text-dark-secondary leading-relaxed text-sm">
+                            "{result.text}"
+                          </p>
+                        </div>
+                      </div>
+                    </GlassCard>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Empty State */}
+            {searchTerm && !hasResults && !isLoading && (
+              <div className="text-center py-20 animate-in fade-in zoom-in-95 duration-500">
+                <div className="inline-flex p-6 rounded-full bg-surface-secondary/50 mb-6">
+                  <Search className="w-12 h-12 text-text-muted" />
+                </div>
+                <h3 className="text-xl font-bold mb-2">No matches found</h3>
+                <p className="text-text-secondary">Try adjusting your search terms or be less specific.</p>
+              </div>
+            )}
+          </div>
         </div>
-      )}
-
-      {/* Search Tips */}
-      {!searchTerm && (
-        <Card title="Search Tips" className="max-w-2xl">
-          <ul className="space-y-2 text-sm text-text-secondary dark:text-text-dark-secondary">
-            <li className="flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-accent shadow-sm" />
-              Use natural language queries like "strong team player"
-            </li>
-            <li className="flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-accent shadow-sm" />
-              Search for skills: "communication", "leadership", "technical"
-            </li>
-            <li className="flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-accent shadow-sm" />
-              Find improvement areas: "needs development", "growth opportunity"
-            </li>
-            <li className="flex items-center gap-2 text-text-muted dark:text-text-dark-muted">
-              <span className="w-1.5 h-1.5 rounded-full bg-border shadow-sm" />
-              Minimum 3 characters required
-            </li>
-          </ul>
-        </Card>
-      )}
+      </div>
     </div>
   )
 }

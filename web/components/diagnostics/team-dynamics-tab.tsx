@@ -513,7 +513,7 @@ export function TeamDynamicsTab() {
               <StatCard title="Avg Tenure" value={metrics.avg_tenure ? `${metrics.avg_tenure.toFixed(1)} yrs` : 'N/A'} icon={Clock} />
               <StatCard title="Avg Rating" value={metrics.avg_rating?.toFixed(2) || 'N/A'} icon={Star} variant={metrics.avg_rating && metrics.avg_rating >= 4 ? 'success' : 'default'} />
               <StatCard title="Top Performers" value={`${metrics.top_performers_pct}%`} subtitle={`${metrics.top_performers_count} employees`} icon={TrendingUp} variant="success" />
-              <StatCard title="Attrition Rate" value={metrics.attrition_rate ? `${metrics.attrition_rate}%` : 'N/A'} icon={AlertTriangle} variant={metrics.attrition_rate && metrics.attrition_rate > 15 ? 'danger' : 'default'} />
+              <StatCard title="Attrition Rate" value={metrics.attrition_rate !== null && metrics.attrition_rate !== undefined ? `${metrics.attrition_rate}%` : 'N/A'} icon={AlertTriangle} variant={metrics.attrition_rate !== null && metrics.attrition_rate !== undefined && metrics.attrition_rate > 15 ? 'danger' : 'default'} />
             </div>
 
             {/* New Hires vs Veterans */}

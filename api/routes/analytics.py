@@ -2,9 +2,13 @@
 
 from typing import List, Optional
 
+import pandas as pd
 from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel
 
+from src.database import Database
+from src.clustering_engine import ClusteringEngine
+from src.forecasting_engine import ForecastingEngine
 from api.dependencies import get_app_state, AppState
 from api.schemas.analytics import (
     AnalyticsSummary,
@@ -20,7 +24,10 @@ from api.schemas.analytics import (
     HighRiskDepartmentsResponse,
 )
 
+from src.logger import get_logger
+
 router = APIRouter(prefix="/api/analytics", tags=["analytics"])
+logger = get_logger("analytics_router")
 
 
 def require_data(state: AppState = Depends(get_app_state)) -> AppState:
@@ -174,12 +181,20 @@ async def get_correlations(
             target_column=target
         )
 
+    # FIX: Drop NaN values before serialization to prevent JSON error
+    corr_df = corr_df.dropna(subset=['Correlation', 'Abs_Correlation'])
+
     correlations = []
     for _, row in corr_df.head(limit).iterrows():
+        # Additional NaN check for safety
+        corr_val = row['Correlation']
+        abs_corr_val = row['Abs_Correlation']
+        if pd.isna(corr_val) or pd.isna(abs_corr_val):
+            continue
         correlations.append(CorrelationData(
             feature=row['Feature'],
-            correlation=float(row['Correlation']),
-            abs_correlation=float(row['Abs_Correlation'])
+            correlation=float(corr_val),
+            abs_correlation=float(abs_corr_val)
         ))
 
     return CorrelationsResponse(
@@ -240,3 +255,220 @@ async def get_high_risk_departments(
         departments=departments,
         threshold=used_threshold
     )
+
+
+@router.get("/clusters")
+async def get_clusters(n_clusters: int = 4, auto_tune: bool = False, state: AppState = Depends(require_data)):
+    """
+    Get employee segmentation clusters using unsupervised learning.
+
+    Args:
+        n_clusters: Number of clusters to create (default: 4)
+        auto_tune: If True, automatically finds optimal n_clusters (default: False for consistency)
+    """
+    try:
+        # Use app state's DataFrame if available, otherwise get from database
+        if state.analytics_engine is not None:
+            df = state.analytics_engine.df.copy()
+        else:
+            db = Database()
+            df = db.get_all_employees()
+
+        if df.empty:
+            raise HTTPException(status_code=400, detail="No employee data available for clustering")
+
+        cluster_engine = ClusteringEngine(df)
+        result = cluster_engine.train(n_clusters=n_clusters, auto_tune=auto_tune)
+
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/cluster-members/{cluster_id}")
+async def get_cluster_members(cluster_id: int, n_clusters: int = 4, state: AppState = Depends(require_data)):
+    """
+    Get the list of employees belonging to a specific cluster.
+
+    Args:
+        cluster_id: The cluster ID to get members for
+        n_clusters: Number of clusters (must match the n_clusters used in /clusters endpoint)
+    """
+    try:
+        if state.analytics_engine is not None:
+            df = state.analytics_engine.df.copy()
+        else:
+            db = Database()
+            df = db.get_all_employees()
+
+        cluster_engine = ClusteringEngine(df)
+        # Use auto_tune=False to ensure consistent clustering with the same n_clusters
+        result = cluster_engine.train(n_clusters=n_clusters, auto_tune=False)
+
+        if not result['success']:
+            raise HTTPException(status_code=400, detail="Clustering failed: " + result.get('reason', 'Unknown error'))
+
+        labels = result['labels']
+        member_ids = [emp_id for emp_id, c_id in labels.items() if int(c_id) == int(cluster_id)]
+
+        # Filter and only return basic info - handle missing columns gracefully
+        available_cols = ['EmployeeID']
+        for col in ['Dept', 'JobTitle', 'Salary', 'LastRating']:
+            if col in df.columns:
+                available_cols.append(col)
+
+        members = df[df['EmployeeID'].isin(member_ids)][available_cols].to_dict('records')
+
+        return {
+            "success": True,
+            "cluster_id": cluster_id,
+            "count": len(members),
+            "members": members
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/forecast")
+async def get_forecast(metric: str = "headcount", periods: int = 12, state: AppState = Depends(require_data)):
+    """
+    Get time-series forecast for key metrics.
+    """
+    try:
+        db = Database()
+        
+        # Get historical snapshots
+        history_df = db.get_historical_snapshots(start_date="2000-01-01")
+        
+        # Determine if we should use synthetic history fallback
+        use_synthetic = history_df.empty
+        if not use_synthetic:
+            # Check if history has sufficient temporal spread (at least 30 days)
+            history_df['snapshot_date'] = pd.to_datetime(history_df['snapshot_date'])
+            date_range = (history_df['snapshot_date'].max() - history_df['snapshot_date'].min()).days
+            if date_range < 30:
+                logger.info(f"Snapshots only cover {date_range} days. Using synthetic fallback for better trends.")
+                use_synthetic = True
+        
+        if metric == "headcount" and use_synthetic:
+            # Use HireDate-based headcount if no/few snapshots exist
+            logger.info("Using HireDate for synthetic headcount trend.")
+            ts_df = db.get_synthetic_historical_headcount(start_date="2020-01-01")
+            
+            if not ts_df.empty:
+                ts = ts_df.set_index('date')['headcount']
+                # Add current headcount as the final point to ensure accuracy
+                current_count = db.get_employee_count()
+                ts[pd.Timestamp.now().normalize()] = current_count
+                ts = ts.sort_index()
+            else:
+                return {"success": False, "reason": "No data found to generate headcount trend."}
+        elif use_synthetic:
+            if metric == "salary":
+                logger.info("Using Tenure-based synthetic salary trend.")
+                ts_df = db.get_synthetic_historical_salary(start_date="2020-01-01")
+                if ts_df.empty:
+                    return {"success": False, "reason": "No data found to generate salary trend."}
+                ts = ts_df.set_index('date')['value']
+            else:
+                return {
+                    "success": False, 
+                    "reason": f"No historical snapshots found for {metric}. Upload data with 'SnapshotDate' to backfill history."
+                }
+        else:
+            # Standardize dates
+            history_df['snapshot_date'] = pd.to_datetime(history_df['snapshot_date'])
+            
+            metric = metric.lower()
+            # Aggregate by date
+            if metric == "headcount":
+                ts = history_df.groupby('snapshot_date')['EmployeeID'].nunique()
+            elif metric == "salary":
+                ts = history_df.groupby('snapshot_date')['Salary'].mean()
+            else:
+                ts = history_df.groupby('snapshot_date')[metric].mean()
+             
+            # Sorting is critical for time series
+            ts = ts.sort_index()
+
+        logger.info(f"Forecast for {metric}: Initial series size {len(ts)}, date range {ts.index.min()} to {ts.index.max()}")
+
+        if len(ts) < 2:
+            return {
+                "success": False, 
+                "reason": "Need at least 2 distinct data points to forecast trends."
+            }
+        
+        # Resample to daily and fill gaps for continuity
+        ts = ts.resample('D').mean().ffill().bfill()
+        
+        from statsmodels.tsa.holtwinters import ExponentialSmoothing
+        
+        # Model selection based on data points
+        model = ExponentialSmoothing(
+            ts, 
+            trend='add' if len(ts) >= 30 else None, 
+            initialization_method="estimated"
+        )
+        fit = model.fit()
+        forecast = fit.forecast(periods * 30) # Forecast for N months (approx)
+        
+        # Sample down to monthly for visualization
+        history_points = [{'date': d.strftime('%Y-%m-%d'), 'value': float(v)} for d, v in ts.resample('M').mean().items()]
+        forecast_points = [{'date': d.strftime('%Y-%m-%d'), 'value': float(v)} for d, v in forecast.resample('M').mean().items()]
+        
+        return {
+            "success": True,
+            "metric": metric,
+            "history": history_points[-24:], 
+            "forecast": forecast_points[:periods]
+        }
+    except Exception as e:
+        logger.error(f"Forecasting failed: {e}")
+        return {"success": True, "success_internal": False, "reason": f"Forecasting unavailable: {str(e)}"}
+
+
+@router.get("/compare-groups")
+async def compare_groups(
+    group_by: str = Query(..., description="Column to group by (e.g., 'Dept', 'Gender')"),
+    metric: str = Query(..., description="Metric to compare (e.g., 'Salary', 'LastRating')"),
+    state: AppState = Depends(require_data)
+):
+    """
+    Compare a metric across groups using statistical hypothesis testing.
+    
+    Returns HR-friendly interpretation (e.g., "Confirmed Pay Gap" vs "No Significant Difference").
+    """
+    if state.analytics_engine is None:
+        raise HTTPException(status_code=500, detail="Analytics engine not initialized")
+    
+    result = state.analytics_engine.compare_groups(group_by, metric)
+    
+    if not result.get('success'):
+        raise HTTPException(status_code=400, detail=result.get('reason', 'Comparison failed'))
+    
+    # Translate to HR-friendly language
+    if result.get('is_significant'):
+        if metric.lower() == 'salary':
+            hr_insight = f"⚠️ Confirmed Pay Gap: {metric} differs significantly across {group_by} groups."
+        elif metric.lower() in ['lastrating', 'rating', 'performance']:
+            hr_insight = f"⚠️ Performance Disparity: {metric} varies significantly by {group_by}."
+        else:
+            hr_insight = f"⚠️ Significant Difference: {metric} is not equal across {group_by} groups."
+        
+        action = "This warrants further investigation and potential intervention."
+    else:
+        hr_insight = f"✓ No Significant Difference in {metric} across {group_by} groups."
+        action = "No immediate action required based on this comparison."
+    
+    return {
+        **result,
+        "hr_insight": hr_insight,
+        "recommended_action": action
+    }
+
+

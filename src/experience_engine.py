@@ -17,9 +17,8 @@ Engine automatically detects available signals and adjusts calculations.
 import pandas as pd
 import numpy as np
 from typing import Dict, Any, List, Optional
-from datetime import datetime
 
-from src.utils import load_config, safe_divide
+from src.utils import load_config
 from src.logger import get_logger
 
 
@@ -268,11 +267,20 @@ class ExperienceEngine:
                 exi = weighted_sum / total_weight
             else:
                 # Fallback: derive from tenure/rating patterns
+                # PA-2 FIX: Mark this as estimated, not actual survey data
                 exi = self._derive_exi_from_patterns(idx)
                 components['derived'] = True
+                components['_warning'] = 'EXI estimated from tenure/rating patterns - no survey data available'
 
             self.df.at[idx, '_exi_score'] = round(exi, 1)
             self.df.at[idx, '_exi_components'] = str(components)
+
+        # PA-2: Log warning about derived EXI
+        derived_count = len(self.df[self.df['_exi_components'].str.contains('derived', na=False)])
+        if derived_count > 0:
+            self.logger.warning(
+                f"{derived_count}/{len(self.df)} employees have EXI derived from patterns, not survey data"
+            )
 
         self.logger.info(
             f"Computed EXI for {len(self.df)} employees. "
@@ -438,7 +446,8 @@ class ExperienceEngine:
         components_str = row.get('_exi_components')
         if components_str and components_str != 'None':
             try:
-                result['components'] = eval(components_str)
+                import ast
+                result['components'] = ast.literal_eval(components_str)
             except Exception:
                 pass
 

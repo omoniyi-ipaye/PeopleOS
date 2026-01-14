@@ -127,6 +127,7 @@ class AppState:
             )
             self.features_enabled['predictive'] = True
         else:
+            logger.warning(f"Predictive features disabled: 'Attrition' column not found in dataset. Available columns: {list(self.raw_df.columns)}")
             self.processed_df, self.preprocessing_metadata = self.preprocessor.fit_transform(
                 self.raw_df
             )
@@ -214,7 +215,7 @@ class AppState:
                     self.features_df = pd.concat([self.features_df, interview_df], axis=1)
 
                 self.target_series = self.processed_df['Attrition']
-                
+
                 # Train model
                 self.model_metrics = self.ml_engine.train_model(
                     self.features_df,
@@ -233,8 +234,10 @@ class AppState:
                     'ci_upper': risk_with_confidence['ci_upper'].values,
                     'confidence_level': risk_with_confidence['confidence_level'].values
                 })
+                logger.info(f"ML Engine initialized. Risk distribution: {self.risk_scores['risk_category'].value_counts().to_dict()}")
 
-            except Exception:
+            except Exception as e:
+                logger.error(f"Failed to initialize ML Engine: {type(e).__name__}: {str(e)}")
                 self.ml_engine = None
                 self.model_metrics = None
                 self.risk_scores = None
@@ -300,8 +303,12 @@ class AppState:
         if 'Tenure' in self.raw_df.columns and 'Attrition' in self.raw_df.columns:
             try:
                 self.survival_engine = SurvivalEngine(self.raw_df)
+                logger.info("Survival Engine initialized successfully")
             except Exception as e:
+                logger.error(f"Failed to initialize Survival Engine: {type(e).__name__}: {str(e)}")
                 self.survival_engine = None
+        else:
+            logger.warning(f"Survival Engine skipped: Missing columns. Has Tenure: {'Tenure' in self.raw_df.columns}, Has Attrition: {'Attrition' in self.raw_df.columns}")
 
         # Quality of Hire engine (requires HireSource or interview scores)
         cols_lower = [c.lower() for c in self.raw_df.columns]

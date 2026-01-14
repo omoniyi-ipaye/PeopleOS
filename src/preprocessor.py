@@ -7,7 +7,6 @@ and outlier handling.
 
 from typing import Any
 
-import numpy as np
 import pandas as pd
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 

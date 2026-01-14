@@ -4,12 +4,9 @@ Vector Engine module for PeopleOS.
 Provides local semantic search using FAISS and sentence-transformers.
 """
 
-import os
 from typing import Any, Optional
 
 import faiss
-import numpy as np
-import pandas as pd
 from sentence_transformers import SentenceTransformer
 
 from src.logger import get_logger

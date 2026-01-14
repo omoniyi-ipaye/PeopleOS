@@ -33,6 +33,8 @@ from api.routes.experience import router as experience_router
 from api.routes.scenario import router as scenario_router
 from api.routes.model_lab import router as model_lab_router
 from api.routes.geo import router as geo_router
+from api.routes.causal import router as causal_router
+from api.routes.network import router as network_router
 from api.dependencies import get_app_state
 
 
@@ -53,6 +55,7 @@ app = FastAPI(
     - **AI Advisor**: LLM-powered strategic insights
     - **Survival Analysis**: Kaplan-Meier curves, Cox PH flight risk modeling
     - **Quality of Hire**: Pre-hire to post-hire correlation analysis
+    - **Causal Inference**: Intervention impact estimation (What-If analysis)
     """,
     version="2.0.0",
     docs_url="/docs",
@@ -92,6 +95,8 @@ app.include_router(experience_router)
 app.include_router(scenario_router)
 app.include_router(model_lab_router)
 app.include_router(geo_router)
+app.include_router(causal_router)
+app.include_router(network_router)
 
 
 @app.get("/")

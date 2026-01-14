@@ -6,10 +6,8 @@ upload history, and historical snapshots.
 """
 
 import sqlite3
-import json
-from datetime import datetime
 from pathlib import Path
-from typing import Optional, List, Dict, Any, Tuple
+from typing import Optional, List, Dict, Any
 from contextlib import contextmanager
 
 import pandas as pd
@@ -276,6 +274,7 @@ class Database:
                     last_rating as LastRating,
                     age as Age,
                     attrition as Attrition,
+                    is_active as is_active,
                     gender as Gender,
                     job_title as JobTitle,
                     location as Location,
@@ -312,7 +311,7 @@ class Database:
                     created_at,
                     updated_at
                 FROM employees
-                WHERE is_active = 1
+                -- WHERE is_active = 1  <-- REMOVED to include terminated employees for analytics/ML
                 ORDER BY employee_id
             """
             df = pd.read_sql_query(query, conn)
@@ -427,9 +426,14 @@ class Database:
                         data['attrition'] = None
 
                     if existing:
+                        # Extract snapshot date if provided in row
+                        snapshot_date = row.get('SnapshotDate')
+                        if pd.isna(snapshot_date):
+                            snapshot_date = None
+
                         # Create snapshot before updating (if history enabled)
                         if self.keep_history:
-                            self._create_snapshot(cursor, emp_id, upload_id)
+                            self._create_snapshot(cursor, emp_id, upload_id, snapshot_date)
 
                         # Update existing employee
                         update_fields = [f"{col} = ?" for col in data.keys() if col != 'employee_id']
@@ -437,10 +441,12 @@ class Database:
                             UPDATE employees SET 
                                 {", ".join(update_fields)},
                                 updated_at = CURRENT_TIMESTAMP,
-                                is_active = 1
+                                is_active = ?
                             WHERE employee_id = ?
                         """
-                        update_params = [data[col] for col in data.keys() if col != 'employee_id'] + [emp_id]
+                        # Set is_active based on Attrition
+                        is_active = 0 if data.get('attrition', 0) == 1 else 1
+                        update_params = [data[col] for col in data.keys() if col != 'employee_id'] + [is_active, emp_id]
                         
                         # Handle SQL conversion for pandas types if needed
                         update_params = [
@@ -455,10 +461,11 @@ class Database:
                         cols = list(data.keys())
                         placeholders = ['?'] * len(cols)
                         insert_sql = f"""
-                            INSERT INTO employees ({", ".join(cols)})
-                            VALUES ({", ".join(placeholders)})
+                            INSERT INTO employees ({", ".join(cols)}, is_active)
+                            VALUES ({", ".join(placeholders)}, ?)
                         """
-                        insert_params = [data[col] for col in cols]
+                        is_active = 0 if data.get('attrition', 0) == 1 else 1
+                        insert_params = [data[col] for col in cols] + [is_active]
                         
                         # Handle SQL conversion for pandas types if needed
                         insert_params = [
@@ -469,9 +476,14 @@ class Database:
                         cursor.execute(insert_sql, insert_params)
                         added += 1
 
+                        # Extract snapshot date if provided in row
+                        snapshot_date = row.get('SnapshotDate')
+                        if pd.isna(snapshot_date):
+                            snapshot_date = None
+
                         # Create initial snapshot for new employee
                         if self.keep_history:
-                            self._create_snapshot(cursor, emp_id, upload_id)
+                            self._create_snapshot(cursor, emp_id, upload_id, snapshot_date)
 
                 except Exception as e:
                     logger.warning(f"Error processing employee {emp_id}: {e}")
@@ -497,19 +509,32 @@ class Database:
         logger.info(f"Upsert completed: {result}")
         return result
 
-    def _create_snapshot(self, cursor, employee_id: str, upload_id: int) -> None:
+    def _create_snapshot(self, cursor, employee_id: str, upload_id: int, snapshot_date: Optional[str] = None) -> None:
         """Create a historical snapshot of an employee's current state."""
-        cursor.execute("""
-            INSERT INTO employee_snapshots (
-                employee_id, dept, tenure, salary, last_rating, age, attrition, 
-                hire_source, interview_score, upload_id
-            )
-            SELECT
-                employee_id, dept, tenure, salary, last_rating, age, attrition,
-                hire_source, interview_score, ?
-            FROM employees
-            WHERE employee_id = ?
-        """, (upload_id, employee_id))
+        if snapshot_date:
+            cursor.execute("""
+                INSERT INTO employee_snapshots (
+                    employee_id, dept, tenure, salary, last_rating, age, attrition, 
+                    hire_source, interview_score, upload_id, snapshot_date
+                )
+                SELECT
+                    employee_id, dept, tenure, salary, last_rating, age, attrition,
+                    hire_source, interview_score, ?, ?
+                FROM employees
+                WHERE employee_id = ?
+            """, (upload_id, snapshot_date, employee_id))
+        else:
+            cursor.execute("""
+                INSERT INTO employee_snapshots (
+                    employee_id, dept, tenure, salary, last_rating, age, attrition, 
+                    hire_source, interview_score, upload_id
+                )
+                SELECT
+                    employee_id, dept, tenure, salary, last_rating, age, attrition,
+                    hire_source, interview_score, ?
+                FROM employees
+                WHERE employee_id = ?
+            """, (upload_id, employee_id))
 
     def get_employee_history(self, employee_id: str) -> pd.DataFrame:
         """
@@ -619,26 +644,80 @@ class Database:
             """
             return pd.read_sql_query(query, conn, params=(months,))
 
-    def get_salary_progression(self, employee_id: str) -> pd.DataFrame:
+    def get_synthetic_historical_headcount(self, start_date: str) -> pd.DataFrame:
         """
-        Get salary changes over time for an employee.
-
+        Derive historical headcount trends from HireDate and Attrition if snapshots are missing.
+        
         Args:
-            employee_id: The employee's ID.
-
+            start_date: Start date for the trend.
+            
         Returns:
-            DataFrame with date and salary columns.
+            DataFrame with 'date' and 'headcount'.
         """
-        with self._get_connection() as conn:
-            query = """
-                SELECT
-                    DATE(snapshot_date) as date,
-                    salary
-                FROM employee_snapshots
-                WHERE employee_id = ?
-                ORDER BY snapshot_date ASC
-            """
-            return pd.read_sql_query(query, conn, params=(employee_id,))
+        employees = self.get_all_employees()
+        if employees.empty or 'HireDate' not in employees.columns:
+            return pd.DataFrame(columns=['date', 'headcount'])
+            
+        employees['HireDate'] = pd.to_datetime(employees['HireDate'])
+        
+        # Estimate Termination Date for attrited employees: HireDate + Tenure (converted to days)
+        # Tenure is usually in years, so we multiply by 365.25
+        employees['EstimatedTerminationDate'] = employees.apply(
+            lambda x: x['HireDate'] + pd.Timedelta(days=x['Tenure'] * 365.25) if x['Attrition'] == 1 else pd.Timestamp.max,
+            axis=1
+        )
+        
+        # Generate monthly range
+        dates = pd.date_range(start=start_date, end=pd.Timestamp.now(), freq='MS')
+        
+        counts = []
+        for d in dates:
+            # Headcount at date d = (Hired before or on d) AND (Still at company on date d)
+            active_at_date = employees[
+                (employees['HireDate'] <= d) & 
+                (employees['EstimatedTerminationDate'] > d)
+            ]
+            counts.append({'date': d, 'headcount': len(active_at_date)})
+            
+        return pd.DataFrame(counts)
+    def get_synthetic_historical_salary(self, start_date: str) -> pd.DataFrame:
+        """
+        Derive historical salary trends from current Salary and Tenure if snapshots are missing.
+        Assumes a 3% annual growth rate backward from current salary.
+        """
+        employees = self.get_all_employees()
+        if employees.empty or 'Salary' not in employees.columns or 'HireDate' not in employees.columns:
+            return pd.DataFrame(columns=['date', 'value'])
+            
+        employees['HireDate'] = pd.to_datetime(employees['HireDate'])
+        
+        # Monthly range
+        dates = pd.date_range(start=start_date, end=pd.Timestamp.now(), freq='MS')
+        
+        results = []
+        for d in dates:
+            # Active at date d
+            active = employees[employees['HireDate'] <= d]
+            if active.empty:
+                results.append({'date': d, 'value': 0.0})
+                continue
+                
+            # For each active employee, estimate their salary at date d
+            # Years from hire to date d
+            salaries_at_date = []
+            for _, emp in active.iterrows():
+                # Estimate current growth relative to HireDate
+                # If they have been there 5 years, and today is 2 years after HireDate:
+                # tenure_at_d = (d - HireDate).years
+                tenure_years_at_d = (d - emp['HireDate']).days / 365.25
+                # Assume 3% growth: Sal_at_start * (1.03 ^ current_tenure) = Sal_current
+                # So Sal_at_d = Sal_current / (1.03 ^ (current_tenure - tenure_at_d))
+                sal_at_d = emp['Salary'] / (1.03 ** (max(0, emp['Tenure'] - tenure_years_at_d)))
+                salaries_at_date.append(sal_at_d)
+                
+            results.append({'date': d, 'value': sum(salaries_at_date) / len(salaries_at_date)})
+            
+        return pd.DataFrame(results)
 
     def soft_delete_employee(self, employee_id: str) -> bool:
         """

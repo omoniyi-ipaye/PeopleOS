@@ -8,8 +8,7 @@ Analyzes organizational structure including:
 """
 
 import pandas as pd
-import numpy as np
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List, Optional
 from scipy import stats
 
 from src.utils import load_config

@@ -6,7 +6,7 @@ Model-agnostic design allows any Ollama-compatible model.
 """
 
 import json
-from typing import Any, Optional
+from typing import Any
 
 from src.logger import get_logger
 from src.utils import load_config

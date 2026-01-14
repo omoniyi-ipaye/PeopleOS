@@ -1,6 +1,7 @@
 """Succession planning route handlers."""
 
 from typing import List, Dict, Any
+import pandas as pd
 
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
@@ -230,3 +231,34 @@ async def get_9box_summary(
         ))
 
     return summaries
+
+
+@router.get("/summary")
+async def get_succession_summary(
+    state: AppState = Depends(require_succession)
+) -> Dict[str, Any]:
+    """
+    Get overall succession planning summary.
+    """
+    # Analyze all succession metrics
+    analysis = state.succession_engine.analyze_all()
+    
+    # helper to safely serialize potential DataFrames
+    def safe_serialize(obj):
+        if isinstance(obj, pd.DataFrame):
+            return obj.to_dict('records')
+        if isinstance(obj, (list, dict, int, float, str, bool, type(None))):
+            return obj
+        return str(obj)
+
+    # Extract key summary metrics
+    summary = {
+        "total_employees": int(len(state.succession_engine.df)),
+        "high_potentials_count": len(analysis.get("high_potentials", [])),
+        "ready_now_count": sum(1 for s in analysis.get("readiness_scores", []).to_dict('records') if s.get("ReadinessLevel") == "Ready Now") if isinstance(analysis.get("readiness_scores"), pd.DataFrame) else 0,
+        "critical_gaps": len(analysis.get("critical_gaps", [])),
+        "nine_box_summary": safe_serialize(analysis.get("nine_box_summary")),
+        "bench_strength": safe_serialize(analysis.get("bench_strength")),
+    }
+    
+    return summary

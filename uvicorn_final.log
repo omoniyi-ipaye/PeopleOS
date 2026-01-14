@@ -1,0 +1,1855 @@
+INFO:     Will watch for changes in these directories: ['/Users/omoniyi/Downloads/PeopleOS']
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [7638] using WatchFiles
+/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/redis/connection.py:72: UserWarning: redis-py works best with hiredis. Please consider installing
+  warnings.warn(msg)
+/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/pydantic/_internal/_fields.py:149: UserWarning: Field "model_name" has conflict with protected namespace "model_".
+
+You may be able to resolve this warning by setting `model_config['protected_namespaces'] = ()`.
+  warnings.warn(
+2026-01-14 10:36:04,708 | WARNING | causal_engine | DoWhy library not available. Causal inference will use heuristic fallback.
+INFO:     Started server process [7678]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+2026-01-14 10:37:04,447 | INFO | analytics | No in-memory data found, attempting database load
+2026-01-14 10:37:04,461 | INFO | database | Database schema initialized
+2026-01-14 10:37:04,461 | INFO | database | Database initialized at data/peopleos.db
+2026-01-14 10:37:04,465 | INFO | data_loader | Loaded 250 employees from database
+2026-01-14 10:37:04,466 | WARNING | preprocessor | Dropping columns with >90.0% nulls: ['RatingHistory', 'StartingSalary']
+2026-01-14 10:37:04,467 | INFO | preprocessor | Numeric columns: ['Tenure', 'Salary', 'LastRating', 'Age', 'YearsInCurrentRole', 'YearsSinceLastPromotion', 'PromotionCount', 'InterviewScore', 'AssessmentScore', 'InterviewScore_Technical', 'InterviewScore_Cultural', 'InterviewScore_Curiosity', 'InterviewScore_Communication', 'InterviewScore_Leadership', 'JobLevel', 'CompaRatio', 'PriorExperienceYears', 'ManagerChangeCount', 'eNPS_Score', 'Pulse_Score', 'ManagerSatisfaction', 'WorkLifeBalance', 'CareerGrowthSatisfaction', 'Onboarding_30d', 'Onboarding_60d', 'Onboarding_90d']
+2026-01-14 10:37:04,467 | INFO | preprocessor | Categorical columns: ['Dept', 'Gender', 'JobTitle', 'Location', 'Country', 'HireDate', 'ManagerID', 'HireSource', 'PerformanceText', 'PromotionDate']
+2026-01-14 10:37:04,485 | INFO | preprocessor | Imputed Onboarding_30d with median: 3.8
+2026-01-14 10:37:04,485 | INFO | preprocessor | Imputed Onboarding_60d with median: 3.7
+2026-01-14 10:37:04,485 | INFO | preprocessor | Imputed Onboarding_90d with median: 3.6
+2026-01-14 10:37:04,486 | INFO | preprocessor | Imputed PromotionDate with mode: 2023-01-01
+2026-01-14 10:37:04,486 | INFO | preprocessor | Capped 10 outliers in Tenure
+2026-01-14 10:37:04,487 | INFO | preprocessor | Capped 3 outliers in Salary
+2026-01-14 10:37:04,487 | INFO | preprocessor | Capped 3 outliers in LastRating
+2026-01-14 10:37:04,488 | INFO | preprocessor | Capped 15 outliers in YearsInCurrentRole
+2026-01-14 10:37:04,489 | INFO | preprocessor | Capped 6 outliers in YearsSinceLastPromotion
+2026-01-14 10:37:04,489 | INFO | preprocessor | Capped 28 outliers in PromotionCount
+2026-01-14 10:37:04,490 | INFO | preprocessor | Capped 1 outliers in InterviewScore
+2026-01-14 10:37:04,491 | INFO | preprocessor | Capped 1 outliers in AssessmentScore
+2026-01-14 10:37:04,494 | INFO | preprocessor | Capped 5 outliers in eNPS_Score
+2026-01-14 10:37:04,495 | INFO | preprocessor | Capped 3 outliers in ManagerSatisfaction
+2026-01-14 10:37:04,495 | INFO | preprocessor | Capped 1 outliers in WorkLifeBalance
+2026-01-14 10:37:04,496 | INFO | preprocessor | Capped 83 outliers in Onboarding_30d
+2026-01-14 10:37:04,497 | INFO | preprocessor | Capped 84 outliers in Onboarding_60d
+2026-01-14 10:37:04,497 | INFO | preprocessor | Capped 84 outliers in Onboarding_90d
+2026-01-14 10:37:04,498 | INFO | preprocessor | Capped 1 outliers in PromotionLag
+2026-01-14 10:37:04,501 | INFO | preprocessor | Scaled columns: ['Tenure', 'Salary', 'YearsInCurrentRole', 'YearsSinceLastPromotion', 'PromotionCount', 'InterviewScore', 'AssessmentScore', 'InterviewScore_Technical', 'InterviewScore_Cultural', 'InterviewScore_Curiosity', 'InterviewScore_Communication', 'InterviewScore_Leadership', 'JobLevel', 'CompaRatio', 'PriorExperienceYears', 'ManagerChangeCount', 'eNPS_Score', 'Pulse_Score', 'ManagerSatisfaction', 'WorkLifeBalance', 'CareerGrowthSatisfaction', 'Onboarding_30d', 'Onboarding_60d', 'Onboarding_90d', 'PromotionLag']
+2026-01-14 10:37:04,501 | INFO | preprocessor | Preprocessing complete. Shape: (250, 42)
+2026-01-14 10:37:04,517 | INFO | compensation_engine | CompensationEngine initialized with 250 employees
+2026-01-14 10:37:04,534 | INFO | ml_engine | Evaluating model candidates: ['random_forest', 'xgboost']
+2026-01-14 10:37:05,410 | INFO | ml_engine | Model selection results: {'random_forest': 0.09333333333333334, 'xgboost': 0.08529741863075196}
+2026-01-14 10:37:05,411 | INFO | ml_engine | Selected best model: random_forest
+2026-01-14 10:37:07,183 | INFO | ml_engine | Final model trained with SMOTE-resampled data
+2026-01-14 10:37:07,195 | INFO | ml_engine | Model trained. Best: random_forest, F1: 0.200, Reliability: High
+2026-01-14 10:37:08,122 | INFO | ml_engine | SHAP explainer prepared with 100 samples
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+2026-01-14 10:37:08,166 | INFO | dependencies | ML Engine initialized. Risk distribution: {'Low': 181, 'Medium': 69}
+2026-01-14 10:37:08,172 | INFO | succession_engine | SuccessionEngine initialized with 250 employees
+2026-01-14 10:37:08,179 | INFO | team_dynamics_engine | TeamDynamicsEngine initialized with 250 employees
+2026-01-14 10:37:08,187 | INFO | fairness_engine | FairnessEngine initialized. Available protected attrs: ['Gender', 'Age_Group', 'Dept', 'Location']
+`clean_up_tokenization_spaces` was not set. It will be set to `True` by default. This behavior will be depracted in transformers v4.45, and will be then set to `False` by default. For more details check this issue: https://github.com/huggingface/transformers/issues/31884
+INFO:     127.0.0.1:51521 - "GET /api/predictions/high-risk-employees?limit=5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51523 - "GET /api/predictions/feature-importance?limit=5 HTTP/1.1" 200 OK
+2026-01-14 10:37:09,765 | INFO | vector_engine | Loaded embedding model: all-MiniLM-L6-v2
+2026-01-14 10:37:09,770 | INFO | vector_engine | Generating embeddings for 250 records...
+2026-01-14 10:37:10,436 | INFO | vector_engine | Successfully built FAISS index with dimension 384
+2026-01-14 10:37:10,570 | INFO | llm_client | Ollama available at http://localhost:11434 with model gemma3:4b
+2026-01-14 10:37:10,577 | INFO | nlp_engine | NLPEngine initialized. LLM available: True
+2026-01-14 10:37:10,578 | INFO | insight_interpreter | InsightInterpreter initialized. LLM available: True
+2026-01-14 10:37:10,584 | INFO | survival_engine | Dynamically identified 8 covariates for Cox model: ['Salary', 'LastRating', 'Age', 'YearsInCurrentRole', 'YearsSinceLastPromotion', 'PromotionCount', 'InterviewScore', 'AssessmentScore']
+Attempting to convert an unexpected datatype 'object' to float. Suggestion: 1) use `lifelines.utils.datetimes_to_durations` to do conversions or 2) manually convert to floats/booleans.
+2026-01-14 10:37:10,697 | INFO | survival_engine | SurvivalEngine initialized with 250 employees, Attrition available: True
+2026-01-14 10:37:10,697 | INFO | dependencies | Survival Engine initialized successfully
+2026-01-14 10:37:10,813 | INFO | quality_of_hire_engine | QualityOfHireEngine initialized with 250 employees
+2026-01-14 10:37:10,813 | INFO | dependencies | QualityOfHireEngine initialized successfully
+2026-01-14 10:37:10,852 | INFO | experience_engine | Computed EXI for 250 employees. Mean EXI: 59.5
+2026-01-14 10:37:10,852 | INFO | dependencies | ExperienceEngine initialized successfully
+The default of observed=False is deprecated and will be changed to True in a future version of pandas. Pass observed=False to retain current behavior or observed=True to adopt the future default and silence this warning.
+The default of observed=False is deprecated and will be changed to True in a future version of pandas. Pass observed=False to retain current behavior or observed=True to adopt the future default and silence this warning.
+2026-01-14 10:37:10,861 | INFO | scenario_engine | Data-driven elasticity: 0.4462 (Q1 attrition: 20.6%, Q4 attrition: 11.1%)
+2026-01-14 10:37:10,862 | INFO | scenario_engine | Logistic regression salary coefficient: -0.1995
+2026-01-14 10:37:10,862 | INFO | dependencies | ScenarioEngine initialized successfully
+2026-01-14 10:37:10,862 | INFO | analytics | Successfully recovered data from database
+2026-01-14 10:37:10,864 | INFO | analytics_engine | Calculated correlations for 20 features
+INFO:     127.0.0.1:51517 - "GET /api/analytics/correlations?limit=5 HTTP/1.1" 200 OK
+2026-01-14 10:37:14,411 | INFO | succession_engine | Running full succession analysis
+2026-01-14 10:37:14,449 | INFO | succession_engine | Succession analysis complete
+INFO:     127.0.0.1:51527 - "GET /api/succession/summary HTTP/1.1" 200 OK
+2026-01-14 10:39:00,147 | INFO | analytics_engine | Generated summary statistics (Active-First)
+WARNING:  WatchFiles detected changes in 'debug_api_logic.py'. Reloading...
+INFO:     127.0.0.1:51574 - "GET /api/analytics/summary HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [7678]
+/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/redis/connection.py:72: UserWarning: redis-py works best with hiredis. Please consider installing
+  warnings.warn(msg)
+/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/pydantic/_internal/_fields.py:149: UserWarning: Field "model_name" has conflict with protected namespace "model_".
+
+You may be able to resolve this warning by setting `model_config['protected_namespaces'] = ()`.
+  warnings.warn(
+2026-01-14 10:39:18,051 | WARNING | causal_engine | DoWhy library not available. Causal inference will use heuristic fallback.
+INFO:     Started server process [8574]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+2026-01-14 11:12:32,628 | INFO | database | Database schema initialized
+2026-01-14 11:12:32,628 | INFO | database | Database initialized at data/peopleos.db
+2026-01-14 11:12:32,634 | INFO | data_loader | Loaded 250 employees from database
+2026-01-14 11:12:32,634 | WARNING | preprocessor | Dropping columns with >90.0% nulls: ['RatingHistory', 'StartingSalary']
+2026-01-14 11:12:32,635 | INFO | preprocessor | Numeric columns: ['Tenure', 'Salary', 'LastRating', 'Age', 'YearsInCurrentRole', 'YearsSinceLastPromotion', 'PromotionCount', 'InterviewScore', 'AssessmentScore', 'InterviewScore_Technical', 'InterviewScore_Cultural', 'InterviewScore_Curiosity', 'InterviewScore_Communication', 'InterviewScore_Leadership', 'JobLevel', 'CompaRatio', 'PriorExperienceYears', 'ManagerChangeCount', 'eNPS_Score', 'Pulse_Score', 'ManagerSatisfaction', 'WorkLifeBalance', 'CareerGrowthSatisfaction', 'Onboarding_30d', 'Onboarding_60d', 'Onboarding_90d']
+2026-01-14 11:12:32,635 | INFO | preprocessor | Categorical columns: ['Dept', 'Gender', 'JobTitle', 'Location', 'Country', 'HireDate', 'ManagerID', 'HireSource', 'PerformanceText', 'PromotionDate']
+2026-01-14 11:12:32,652 | INFO | preprocessor | Imputed Onboarding_30d with median: 3.8
+2026-01-14 11:12:32,653 | INFO | preprocessor | Imputed Onboarding_60d with median: 3.7
+2026-01-14 11:12:32,653 | INFO | preprocessor | Imputed Onboarding_90d with median: 3.6
+2026-01-14 11:12:32,654 | INFO | preprocessor | Imputed PromotionDate with mode: 2023-01-01
+2026-01-14 11:12:32,654 | INFO | preprocessor | Capped 10 outliers in Tenure
+2026-01-14 11:12:32,655 | INFO | preprocessor | Capped 3 outliers in Salary
+2026-01-14 11:12:32,655 | INFO | preprocessor | Capped 3 outliers in LastRating
+2026-01-14 11:12:32,656 | INFO | preprocessor | Capped 15 outliers in YearsInCurrentRole
+2026-01-14 11:12:32,657 | INFO | preprocessor | Capped 6 outliers in YearsSinceLastPromotion
+2026-01-14 11:12:32,657 | INFO | preprocessor | Capped 28 outliers in PromotionCount
+2026-01-14 11:12:32,658 | INFO | preprocessor | Capped 1 outliers in InterviewScore
+2026-01-14 11:12:32,658 | INFO | preprocessor | Capped 1 outliers in AssessmentScore
+2026-01-14 11:12:32,662 | INFO | preprocessor | Capped 5 outliers in eNPS_Score
+2026-01-14 11:12:32,663 | INFO | preprocessor | Capped 3 outliers in ManagerSatisfaction
+2026-01-14 11:12:32,663 | INFO | preprocessor | Capped 1 outliers in WorkLifeBalance
+2026-01-14 11:12:32,664 | INFO | preprocessor | Capped 83 outliers in Onboarding_30d
+2026-01-14 11:12:32,664 | INFO | preprocessor | Capped 84 outliers in Onboarding_60d
+2026-01-14 11:12:32,665 | INFO | preprocessor | Capped 84 outliers in Onboarding_90d
+2026-01-14 11:12:32,665 | INFO | preprocessor | Capped 1 outliers in PromotionLag
+2026-01-14 11:12:32,669 | INFO | preprocessor | Scaled columns: ['Tenure', 'Salary', 'YearsInCurrentRole', 'YearsSinceLastPromotion', 'PromotionCount', 'InterviewScore', 'AssessmentScore', 'InterviewScore_Technical', 'InterviewScore_Cultural', 'InterviewScore_Curiosity', 'InterviewScore_Communication', 'InterviewScore_Leadership', 'JobLevel', 'CompaRatio', 'PriorExperienceYears', 'ManagerChangeCount', 'eNPS_Score', 'Pulse_Score', 'ManagerSatisfaction', 'WorkLifeBalance', 'CareerGrowthSatisfaction', 'Onboarding_30d', 'Onboarding_60d', 'Onboarding_90d', 'PromotionLag']
+2026-01-14 11:12:32,669 | INFO | preprocessor | Preprocessing complete. Shape: (250, 42)
+2026-01-14 11:12:32,682 | INFO | compensation_engine | CompensationEngine initialized with 250 employees
+2026-01-14 11:12:32,697 | INFO | ml_engine | Evaluating model candidates: ['random_forest', 'xgboost']
+2026-01-14 11:12:33,537 | INFO | ml_engine | Model selection results: {'random_forest': 0.09333333333333334, 'xgboost': 0.08529741863075196}
+2026-01-14 11:12:33,537 | INFO | ml_engine | Selected best model: random_forest
+2026-01-14 11:12:35,392 | INFO | ml_engine | Final model trained with SMOTE-resampled data
+2026-01-14 11:12:35,404 | INFO | ml_engine | Model trained. Best: random_forest, F1: 0.200, Reliability: High
+2026-01-14 11:12:36,587 | INFO | ml_engine | SHAP explainer prepared with 100 samples
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+2026-01-14 11:12:36,632 | INFO | dependencies | ML Engine initialized. Risk distribution: {'Low': 181, 'Medium': 69}
+2026-01-14 11:12:36,639 | INFO | succession_engine | SuccessionEngine initialized with 250 employees
+2026-01-14 11:12:36,646 | INFO | team_dynamics_engine | TeamDynamicsEngine initialized with 250 employees
+2026-01-14 11:12:36,653 | INFO | fairness_engine | FairnessEngine initialized. Available protected attrs: ['Gender', 'Age_Group', 'Dept', 'Location']
+`clean_up_tokenization_spaces` was not set. It will be set to `True` by default. This behavior will be depracted in transformers v4.45, and will be then set to `False` by default. For more details check this issue: https://github.com/huggingface/transformers/issues/31884
+2026-01-14 11:12:38,320 | INFO | vector_engine | Loaded embedding model: all-MiniLM-L6-v2
+2026-01-14 11:12:38,324 | INFO | vector_engine | Generating embeddings for 250 records...
+2026-01-14 11:12:39,113 | INFO | vector_engine | Successfully built FAISS index with dimension 384
+2026-01-14 11:12:39,248 | INFO | llm_client | Ollama available at http://localhost:11434 with model gemma3:4b
+2026-01-14 11:12:39,255 | INFO | nlp_engine | NLPEngine initialized. LLM available: True
+2026-01-14 11:12:39,255 | INFO | insight_interpreter | InsightInterpreter initialized. LLM available: True
+2026-01-14 11:12:39,262 | INFO | survival_engine | Dynamically identified 8 covariates for Cox model: ['Salary', 'LastRating', 'Age', 'YearsInCurrentRole', 'YearsSinceLastPromotion', 'PromotionCount', 'InterviewScore', 'AssessmentScore']
+Attempting to convert an unexpected datatype 'object' to float. Suggestion: 1) use `lifelines.utils.datetimes_to_durations` to do conversions or 2) manually convert to floats/booleans.
+2026-01-14 11:12:39,521 | INFO | survival_engine | SurvivalEngine initialized with 250 employees, Attrition available: True
+2026-01-14 11:12:39,521 | INFO | dependencies | Survival Engine initialized successfully
+2026-01-14 11:12:39,529 | INFO | quality_of_hire_engine | QualityOfHireEngine initialized with 250 employees
+2026-01-14 11:12:39,529 | INFO | dependencies | QualityOfHireEngine initialized successfully
+2026-01-14 11:12:39,570 | INFO | experience_engine | Computed EXI for 250 employees. Mean EXI: 59.5
+2026-01-14 11:12:39,571 | INFO | dependencies | ExperienceEngine initialized successfully
+The default of observed=False is deprecated and will be changed to True in a future version of pandas. Pass observed=False to retain current behavior or observed=True to adopt the future default and silence this warning.
+The default of observed=False is deprecated and will be changed to True in a future version of pandas. Pass observed=False to retain current behavior or observed=True to adopt the future default and silence this warning.
+2026-01-14 11:12:39,579 | INFO | scenario_engine | Data-driven elasticity: 0.4462 (Q1 attrition: 20.6%, Q4 attrition: 11.1%)
+2026-01-14 11:12:39,581 | INFO | scenario_engine | Logistic regression salary coefficient: -0.1995
+2026-01-14 11:12:39,581 | INFO | dependencies | ScenarioEngine initialized successfully
+INFO:     127.0.0.1:52220 - "GET /api/upload/status HTTP/1.1" 200 OK
+2026-01-14 11:12:39,583 | INFO | analytics_engine | Generated active-first department aggregates for 8 departments
+INFO:     127.0.0.1:52222 - "GET /api/analytics/departments HTTP/1.1" 200 OK
+2026-01-14 11:12:39,585 | INFO | analytics_engine | Generated summary statistics (Active-First)
+INFO:     127.0.0.1:52221 - "GET /api/analytics/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52223 - "GET /api/predictions/risk?limit=100 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52225 - "GET /api/predictions/high-risk-employees?limit=20 HTTP/1.1" 200 OK
+The default of observed=False is deprecated and will be changed to True in a future version of pandas. Pass observed=False to retain current behavior or observed=True to adopt the future default and silence this warning.
+INFO:     127.0.0.1:52224 - "GET /api/analytics/distributions HTTP/1.1" 200 OK
+2026-01-14 11:14:33,333 | INFO | analytics_engine | Calculated correlations for 20 features
+INFO:     127.0.0.1:52282 - "GET /api/analytics/correlations?limit=15 HTTP/1.1" 200 OK
+2026-01-14 11:14:33,337 | INFO | analytics_engine | Generated active-first department aggregates for 8 departments
+INFO:     127.0.0.1:52285 - "GET /api/analytics/departments HTTP/1.1" 200 OK
+2026-01-14 11:14:33,346 | INFO | analytics_engine | Generated active-first department aggregates for 8 departments
+2026-01-14 11:14:33,348 | INFO | analytics_engine | Generated summary statistics (Active-First)
+2026-01-14 11:14:33,349 | INFO | analytics_engine | Generated summary statistics (Active-First)
+2026-01-14 11:14:33,350 | INFO | analytics_engine | Generated summary statistics (Active-First)
+INFO:     127.0.0.1:52286 - "GET /api/analytics/high-risk-departments HTTP/1.1" 200 OK
+2026-01-14 11:14:38,738 | INFO | compensation_engine | Running full compensation analysis
+2026-01-14 11:14:38,777 | WARNING | compensation_engine | 68 employees are significantly below their salary band midpoint
+2026-01-14 11:14:38,777 | WARNING | compensation_engine | 76 employees are significantly above their salary band midpoint
+2026-01-14 11:14:38,789 | INFO | compensation_engine | Compensation analysis complete. Warnings: 2
+INFO:     127.0.0.1:52291 - "GET /api/compensation/analysis HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52298 - "GET /api/succession/9box/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52300 - "GET /api/succession/bench-strength HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52302 - "GET /api/succession/gaps HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52303 - "GET /api/succession/high-potentials HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52314 - "GET /api/team/filters HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52315 - "GET /api/team/comprehensive HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52317 - "GET /api/team/health HTTP/1.1" 200 OK
+2026-01-14 11:14:44,748 | INFO | nlp_engine | Starting full NLP processing pipeline
+2026-01-14 11:14:44,749 | INFO | nlp_engine | Running sentiment analysis...
+INFO:     127.0.0.1:52347 - "GET /api/analytics/clusters?n_clusters=4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52361 - "GET /api/analytics/cluster-members/0?n_clusters=4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52372 - "GET /api/analytics/cluster-members/2?n_clusters=4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52484 - "GET /api/team/filters HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52485 - "GET /api/team/comprehensive HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52488 - "GET /api/team/health HTTP/1.1" 200 OK
+2026-01-14 11:18:28,238 | INFO | nlp_engine | Starting full NLP processing pipeline
+2026-01-14 11:18:28,239 | INFO | nlp_engine | Running sentiment analysis...
+INFO:     127.0.0.1:52502 - "GET /api/succession/9box/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52503 - "GET /api/succession/bench-strength HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52506 - "GET /api/succession/gaps HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52507 - "GET /api/succession/high-potentials HTTP/1.1" 200 OK
+2026-01-14 11:18:37,660 | INFO | compensation_engine | Running full compensation analysis
+2026-01-14 11:18:37,700 | WARNING | compensation_engine | 68 employees are significantly below their salary band midpoint
+2026-01-14 11:18:37,700 | WARNING | compensation_engine | 76 employees are significantly above their salary band midpoint
+2026-01-14 11:18:37,711 | INFO | compensation_engine | Compensation analysis complete. Warnings: 2
+INFO:     127.0.0.1:52510 - "GET /api/compensation/analysis HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52526 - "GET /api/experience/analysis HTTP/1.1" 200 OK
+2026-01-14 11:19:58,826 | INFO | nlp_engine | Extracting skills...
+INFO:     127.0.0.1:52565 - "GET /api/predictions/model-metrics HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52566 - "GET /api/predictions/feature-importance?limit=10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52567 - "GET /api/predictions/risk?limit=100 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52570 - "GET /api/predictions/high-risk-employees?limit=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52571 - "GET /api/succession/9box/summary HTTP/1.1" 200 OK
+2026-01-14 11:20:29,434 | INFO | nlp_engine | Extracting topics...
+2026-01-14 11:20:29,486 | INFO | analytics_engine | Generated active-first department aggregates for 8 departments
+INFO:     127.0.0.1:52590 - "GET /api/analytics/departments HTTP/1.1" 200 OK
+2026-01-14 11:20:29,492 | INFO | analytics_engine | Calculated correlations for 20 features
+INFO:     127.0.0.1:52592 - "GET /api/analytics/correlations?limit=15 HTTP/1.1" 200 OK
+2026-01-14 11:20:29,500 | INFO | analytics_engine | Generated active-first department aggregates for 8 departments
+2026-01-14 11:20:29,502 | INFO | analytics_engine | Generated summary statistics (Active-First)
+2026-01-14 11:20:29,502 | INFO | analytics_engine | Generated summary statistics (Active-First)
+2026-01-14 11:20:29,503 | INFO | analytics_engine | Generated summary statistics (Active-First)
+INFO:     127.0.0.1:52594 - "GET /api/analytics/high-risk-departments HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52597 - "GET /api/analytics/clusters?n_clusters=4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52600 - "GET /api/analytics/cluster-members/0?n_clusters=4 HTTP/1.1" 200 OK
+2026-01-14 11:21:03,623 | INFO | nlp_engine | NLP processing complete
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/uvicorn/protocols/http/httptools_impl.py", line 419, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/uvicorn/middleware/proxy_headers.py", line 84, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/fastapi/applications.py", line 1054, in __call__
+    await super().__call__(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/starlette/applications.py", line 123, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/starlette/middleware/errors.py", line 186, in __call__
+    raise exc
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/starlette/middleware/errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/starlette/middleware/cors.py", line 83, in __call__
+    await self.app(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/starlette/middleware/exceptions.py", line 62, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/starlette/_exception_handler.py", line 64, in wrapped_app
+    raise exc
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    await app(scope, receive, sender)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/starlette/routing.py", line 762, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/starlette/routing.py", line 782, in app
+    await route.handle(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/starlette/routing.py", line 297, in handle
+    await self.app(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/starlette/routing.py", line 77, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/starlette/_exception_handler.py", line 64, in wrapped_app
+    raise exc
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    await app(scope, receive, sender)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/starlette/routing.py", line 72, in app
+    response = await func(request)
+               ^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/fastapi/routing.py", line 299, in app
+    raise e
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/fastapi/routing.py", line 294, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/fastapi/routing.py", line 193, in run_endpoint_function
+    return await run_in_threadpool(dependant.call, **values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/starlette/concurrency.py", line 40, in run_in_threadpool
+    return await anyio.to_thread.run_sync(func, *args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/anyio/to_thread.py", line 56, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/anyio/_backends/_asyncio.py", line 2485, in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/anyio/_backends/_asyncio.py", line 976, in run
+    result = context.run(func, *args)
+             ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/omoniyi/Downloads/PeopleOS/api/routes/nlp.py", line 80, in get_nlp_analysis
+    'sentiment_summary': analysis['sentiment_summary'],
+                         ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^
+TypeError: 'NoneType' object is not subscriptable
+INFO:     127.0.0.1:52672 - "GET /api/analytics/cluster-members/2?n_clusters=4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52688 - "GET /api/analytics/clusters?n_clusters=4 HTTP/1.1" 200 OK
+2026-01-14 11:23:59,408 | INFO | nlp_engine | Extracting skills...
+2026-01-14 11:24:10,150 | INFO | nlp_engine | Extracting topics...
+INFO:     127.0.0.1:52701 - "GET /api/analytics/cluster-members/0?n_clusters=4 HTTP/1.1" 200 OK
+2026-01-14 11:24:22,846 | INFO | nlp_engine | NLP processing complete
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/uvicorn/protocols/http/httptools_impl.py", line 419, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/uvicorn/middleware/proxy_headers.py", line 84, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/fastapi/applications.py", line 1054, in __call__
+    await super().__call__(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/starlette/applications.py", line 123, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/starlette/middleware/errors.py", line 186, in __call__
+    raise exc
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/starlette/middleware/errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/starlette/middleware/cors.py", line 83, in __call__
+    await self.app(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/starlette/middleware/exceptions.py", line 62, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/starlette/_exception_handler.py", line 64, in wrapped_app
+    raise exc
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    await app(scope, receive, sender)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/starlette/routing.py", line 762, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/starlette/routing.py", line 782, in app
+    await route.handle(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/starlette/routing.py", line 297, in handle
+    await self.app(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/starlette/routing.py", line 77, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/starlette/_exception_handler.py", line 64, in wrapped_app
+    raise exc
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    await app(scope, receive, sender)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/starlette/routing.py", line 72, in app
+    response = await func(request)
+               ^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/fastapi/routing.py", line 299, in app
+    raise e
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/fastapi/routing.py", line 294, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/fastapi/routing.py", line 193, in run_endpoint_function
+    return await run_in_threadpool(dependant.call, **values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/starlette/concurrency.py", line 40, in run_in_threadpool
+    return await anyio.to_thread.run_sync(func, *args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/anyio/to_thread.py", line 56, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/anyio/_backends/_asyncio.py", line 2485, in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/anyio/_backends/_asyncio.py", line 976, in run
+    result = context.run(func, *args)
+             ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/omoniyi/Downloads/PeopleOS/api/routes/nlp.py", line 80, in get_nlp_analysis
+    'sentiment_summary': analysis['sentiment_summary'],
+                         ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^
+TypeError: 'NoneType' object is not subscriptable
+2026-01-14 11:25:50,948 | INFO | compensation_engine | Running full compensation analysis
+2026-01-14 11:25:50,987 | WARNING | compensation_engine | 68 employees are significantly below their salary band midpoint
+2026-01-14 11:25:50,988 | WARNING | compensation_engine | 76 employees are significantly above their salary band midpoint
+2026-01-14 11:25:51,001 | INFO | compensation_engine | Compensation analysis complete. Warnings: 2
+INFO:     127.0.0.1:52753 - "GET /api/compensation/analysis HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52762 - "GET /api/succession/9box/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52763 - "GET /api/succession/bench-strength HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52765 - "GET /api/succession/gaps HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52766 - "GET /api/succession/high-potentials HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52774 - "GET /api/team/filters HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52776 - "GET /api/team/comprehensive HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52777 - "GET /api/team/health HTTP/1.1" 200 OK
+2026-01-14 11:25:54,588 | INFO | nlp_engine | Starting full NLP processing pipeline
+2026-01-14 11:25:54,588 | INFO | nlp_engine | Running sentiment analysis...
+INFO:     127.0.0.1:52786 - "GET /api/analytics/clusters?n_clusters=4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52794 - "GET /api/predictions/model-metrics HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52796 - "GET /api/predictions/feature-importance?limit=10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52797 - "GET /api/predictions/risk?limit=100 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52800 - "GET /api/predictions/high-risk-employees?limit=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52801 - "GET /api/succession/9box/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52805 - "GET /api/experience/analysis HTTP/1.1" 200 OK
+2026-01-14 11:26:14,143 | INFO | analytics_engine | Generated active-first department aggregates for 8 departments
+INFO:     127.0.0.1:52810 - "GET /api/analytics/departments HTTP/1.1" 200 OK
+2026-01-14 11:26:14,148 | INFO | analytics_engine | Calculated correlations for 20 features
+INFO:     127.0.0.1:52812 - "GET /api/analytics/correlations?limit=15 HTTP/1.1" 200 OK
+2026-01-14 11:26:14,153 | INFO | analytics_engine | Generated active-first department aggregates for 8 departments
+2026-01-14 11:26:14,155 | INFO | analytics_engine | Generated summary statistics (Active-First)
+2026-01-14 11:26:14,155 | INFO | analytics_engine | Generated summary statistics (Active-First)
+2026-01-14 11:26:14,156 | INFO | analytics_engine | Generated summary statistics (Active-First)
+INFO:     127.0.0.1:52814 - "GET /api/analytics/high-risk-departments HTTP/1.1" 200 OK
+2026-01-14 11:27:17,065 | INFO | analytics_engine | Generated active-first department aggregates for 8 departments
+INFO:     127.0.0.1:52837 - "GET /api/analytics/departments HTTP/1.1" 200 OK
+2026-01-14 11:28:25,527 | INFO | survival_engine | Running full survival analysis
+Attempting to convert an unexpected datatype 'object' to float. Suggestion: 1) use `lifelines.utils.datetimes_to_durations` to do conversions or 2) manually convert to floats/booleans.
+Attempting to convert an unexpected datatype 'object' to float. Suggestion: 1) use `lifelines.utils.datetimes_to_durations` to do conversions or 2) manually convert to floats/booleans.
+Attempting to convert an unexpected datatype 'object' to float. Suggestion: 1) use `lifelines.utils.datetimes_to_durations` to do conversions or 2) manually convert to floats/booleans.
+Attempting to convert an unexpected datatype 'object' to float. Suggestion: 1) use `lifelines.utils.datetimes_to_durations` to do conversions or 2) manually convert to floats/booleans.
+Attempting to convert an unexpected datatype 'object' to float. Suggestion: 1) use `lifelines.utils.datetimes_to_durations` to do conversions or 2) manually convert to floats/booleans.
+Attempting to convert an unexpected datatype 'object' to float. Suggestion: 1) use `lifelines.utils.datetimes_to_durations` to do conversions or 2) manually convert to floats/booleans.
+Attempting to convert an unexpected datatype 'object' to float. Suggestion: 1) use `lifelines.utils.datetimes_to_durations` to do conversions or 2) manually convert to floats/booleans.
+Attempting to convert an unexpected datatype 'object' to float. Suggestion: 1) use `lifelines.utils.datetimes_to_durations` to do conversions or 2) manually convert to floats/booleans.
+Attempting to convert an unexpected datatype 'object' to float. Suggestion: 1) use `lifelines.utils.datetimes_to_durations` to do conversions or 2) manually convert to floats/booleans.
+Attempting to convert an unexpected datatype 'object' to float. Suggestion: 1) use `lifelines.utils.datetimes_to_durations` to do conversions or 2) manually convert to floats/booleans.
+Attempting to convert an unexpected datatype 'object' to float. Suggestion: 1) use `lifelines.utils.datetimes_to_durations` to do conversions or 2) manually convert to floats/booleans.
+Attempting to convert an unexpected datatype 'object' to float. Suggestion: 1) use `lifelines.utils.datetimes_to_durations` to do conversions or 2) manually convert to floats/booleans.
+2026-01-14 11:28:27,110 | INFO | survival_engine | Survival analysis complete. Warnings: 0
+INFO:     127.0.0.1:52879 - "GET /api/survival/analysis HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52880 - "GET /api/survival/at-risk?limit=100 HTTP/1.1" 200 OK
+2026-01-14 11:28:44,273 | INFO | database | Database schema initialized
+2026-01-14 11:28:44,273 | INFO | database | Database initialized at data/peopleos.db
+2026-01-14 11:28:44,281 | INFO | analytics | Snapshots only cover 0 days. Using synthetic fallback for better trends.
+2026-01-14 11:28:44,282 | INFO | analytics | Using HireDate for synthetic headcount trend.
+2026-01-14 11:28:44,312 | INFO | analytics | Forecast for headcount: Initial series size 74, date range 2020-01-01 00:00:00 to 2026-01-14 00:00:00
+INFO:     127.0.0.1:52900 - "GET /api/analytics/forecast?metric=headcount&periods=12 HTTP/1.1" 200 OK
+2026-01-14 11:28:56,883 | INFO | database | Database schema initialized
+2026-01-14 11:28:56,883 | INFO | database | Database initialized at data/peopleos.db
+2026-01-14 11:28:56,887 | INFO | analytics | Snapshots only cover 0 days. Using synthetic fallback for better trends.
+INFO:     127.0.0.1:52911 - "GET /api/analytics/forecast?metric=Salary&periods=12 HTTP/1.1" 200 OK
+2026-01-14 11:30:05,191 | INFO | quality_of_hire_engine | Running full quality of hire analysis
+2026-01-14 11:30:05,236 | INFO | quality_of_hire_engine | Quality of hire analysis complete. Warnings: 0
+INFO:     127.0.0.1:52943 - "GET /api/quality-of-hire/analysis HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52945 - "GET /api/quality-of-hire/new-hire-risks?months=6 HTTP/1.1" 200 OK
+2026-01-14 11:30:14,073 | INFO | nlp_engine | Extracting skills...
+2026-01-14 11:30:23,032 | INFO | nlp_engine | Extracting topics...
+2026-01-14 11:30:36,133 | INFO | nlp_engine | NLP processing complete
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/uvicorn/protocols/http/httptools_impl.py", line 419, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/uvicorn/middleware/proxy_headers.py", line 84, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/fastapi/applications.py", line 1054, in __call__
+    await super().__call__(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/starlette/applications.py", line 123, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/starlette/middleware/errors.py", line 186, in __call__
+    raise exc
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/starlette/middleware/errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/starlette/middleware/cors.py", line 83, in __call__
+    await self.app(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/starlette/middleware/exceptions.py", line 62, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/starlette/_exception_handler.py", line 64, in wrapped_app
+    raise exc
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    await app(scope, receive, sender)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/starlette/routing.py", line 762, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/starlette/routing.py", line 782, in app
+    await route.handle(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/starlette/routing.py", line 297, in handle
+    await self.app(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/starlette/routing.py", line 77, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/starlette/_exception_handler.py", line 64, in wrapped_app
+    raise exc
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    await app(scope, receive, sender)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/starlette/routing.py", line 72, in app
+    response = await func(request)
+               ^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/fastapi/routing.py", line 299, in app
+    raise e
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/fastapi/routing.py", line 294, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/fastapi/routing.py", line 193, in run_endpoint_function
+    return await run_in_threadpool(dependant.call, **values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/starlette/concurrency.py", line 40, in run_in_threadpool
+    return await anyio.to_thread.run_sync(func, *args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/anyio/to_thread.py", line 56, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/anyio/_backends/_asyncio.py", line 2485, in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/anyio/_backends/_asyncio.py", line 976, in run
+    result = context.run(func, *args)
+             ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/omoniyi/Downloads/PeopleOS/api/routes/nlp.py", line 80, in get_nlp_analysis
+    'sentiment_summary': analysis['sentiment_summary'],
+                         ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^
+TypeError: 'NoneType' object is not subscriptable
+WARNING:  WatchFiles detected changes in 'src/clustering_engine.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [8574]
+/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/redis/connection.py:72: UserWarning: redis-py works best with hiredis. Please consider installing
+  warnings.warn(msg)
+/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/pydantic/_internal/_fields.py:149: UserWarning: Field "model_name" has conflict with protected namespace "model_".
+
+You may be able to resolve this warning by setting `model_config['protected_namespaces'] = ()`.
+  warnings.warn(
+2026-01-14 11:35:21,588 | WARNING | causal_engine | DoWhy library not available. Causal inference will use heuristic fallback.
+INFO:     Started server process [12133]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  WatchFiles detected changes in 'src/ml_engine.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [12133]
+/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/redis/connection.py:72: UserWarning: redis-py works best with hiredis. Please consider installing
+  warnings.warn(msg)
+/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/pydantic/_internal/_fields.py:149: UserWarning: Field "model_name" has conflict with protected namespace "model_".
+
+You may be able to resolve this warning by setting `model_config['protected_namespaces'] = ()`.
+  warnings.warn(
+2026-01-14 11:36:02,153 | WARNING | causal_engine | DoWhy library not available. Causal inference will use heuristic fallback.
+INFO:     Started server process [12197]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  WatchFiles detected changes in 'api/routes/analytics.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [12197]
+/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/redis/connection.py:72: UserWarning: redis-py works best with hiredis. Please consider installing
+  warnings.warn(msg)
+/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/pydantic/_internal/_fields.py:149: UserWarning: Field "model_name" has conflict with protected namespace "model_".
+
+You may be able to resolve this warning by setting `model_config['protected_namespaces'] = ()`.
+  warnings.warn(
+2026-01-14 11:36:56,186 | WARNING | causal_engine | DoWhy library not available. Causal inference will use heuristic fallback.
+INFO:     Started server process [12302]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  WatchFiles detected changes in 'src/quality_of_hire_engine.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [12302]
+/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/redis/connection.py:72: UserWarning: redis-py works best with hiredis. Please consider installing
+  warnings.warn(msg)
+/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/pydantic/_internal/_fields.py:149: UserWarning: Field "model_name" has conflict with protected namespace "model_".
+
+You may be able to resolve this warning by setting `model_config['protected_namespaces'] = ()`.
+  warnings.warn(
+2026-01-14 11:41:12,856 | WARNING | causal_engine | DoWhy library not available. Causal inference will use heuristic fallback.
+INFO:     Started server process [12726]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+2026-01-14 11:46:35,964 | INFO | analytics | No in-memory data found, attempting database load
+2026-01-14 11:46:35,964 | INFO | analytics | No in-memory data found, attempting database load
+2026-01-14 11:46:35,988 | INFO | analytics | No in-memory data found, attempting database load
+2026-01-14 11:46:35,997 | INFO | database | Database schema initialized
+2026-01-14 11:46:35,997 | INFO | database | Database schema initialized
+2026-01-14 11:46:35,997 | INFO | database | Database initialized at data/peopleos.db
+2026-01-14 11:46:35,997 | INFO | database | Database initialized at data/peopleos.db
+2026-01-14 11:46:35,998 | INFO | database | Database schema initialized
+2026-01-14 11:46:35,998 | INFO | database | Database schema initialized
+2026-01-14 11:46:35,998 | INFO | database | Database schema initialized
+2026-01-14 11:46:35,998 | INFO | database | Database initialized at data/peopleos.db
+2026-01-14 11:46:35,998 | INFO | database | Database initialized at data/peopleos.db
+2026-01-14 11:46:35,999 | INFO | database | Database initialized at data/peopleos.db
+2026-01-14 11:46:36,040 | INFO | data_loader | Loaded 250 employees from database
+2026-01-14 11:46:36,041 | WARNING | preprocessor | Dropping columns with >90.0% nulls: ['RatingHistory', 'StartingSalary']
+2026-01-14 11:46:36,042 | INFO | preprocessor | Numeric columns: ['Tenure', 'Salary', 'LastRating', 'Age', 'YearsInCurrentRole', 'YearsSinceLastPromotion', 'PromotionCount', 'InterviewScore', 'AssessmentScore', 'InterviewScore_Technical', 'InterviewScore_Cultural', 'InterviewScore_Curiosity', 'InterviewScore_Communication', 'InterviewScore_Leadership', 'JobLevel', 'CompaRatio', 'PriorExperienceYears', 'ManagerChangeCount', 'eNPS_Score', 'Pulse_Score', 'ManagerSatisfaction', 'WorkLifeBalance', 'CareerGrowthSatisfaction', 'Onboarding_30d', 'Onboarding_60d', 'Onboarding_90d']
+2026-01-14 11:46:36,042 | INFO | preprocessor | Categorical columns: ['Dept', 'Gender', 'JobTitle', 'Location', 'Country', 'HireDate', 'ManagerID', 'HireSource', 'PerformanceText', 'PromotionDate']
+2026-01-14 11:46:36,060 | INFO | preprocessor | Imputed Onboarding_30d with median: 3.8
+2026-01-14 11:46:36,060 | INFO | preprocessor | Imputed Onboarding_60d with median: 3.7
+2026-01-14 11:46:36,061 | INFO | preprocessor | Imputed Onboarding_90d with median: 3.6
+2026-01-14 11:46:36,062 | INFO | preprocessor | Imputed PromotionDate with mode: 2023-01-01
+2026-01-14 11:46:36,063 | INFO | preprocessor | Capped 10 outliers in Tenure
+2026-01-14 11:46:36,064 | INFO | preprocessor | Capped 3 outliers in Salary
+2026-01-14 11:46:36,065 | INFO | preprocessor | Capped 3 outliers in LastRating
+2026-01-14 11:46:36,068 | INFO | preprocessor | Capped 15 outliers in YearsInCurrentRole
+2026-01-14 11:46:36,069 | INFO | preprocessor | Capped 6 outliers in YearsSinceLastPromotion
+2026-01-14 11:46:36,071 | INFO | data_loader | Loaded 250 employees from database
+2026-01-14 11:46:36,072 | INFO | preprocessor | Capped 28 outliers in PromotionCount
+2026-01-14 11:46:36,073 | WARNING | preprocessor | Dropping columns with >90.0% nulls: ['RatingHistory', 'StartingSalary']
+2026-01-14 11:46:36,074 | INFO | preprocessor | Capped 1 outliers in InterviewScore
+2026-01-14 11:46:36,074 | INFO | preprocessor | Numeric columns: ['Tenure', 'Salary', 'LastRating', 'Age', 'YearsInCurrentRole', 'YearsSinceLastPromotion', 'PromotionCount', 'InterviewScore', 'AssessmentScore', 'InterviewScore_Technical', 'InterviewScore_Cultural', 'InterviewScore_Curiosity', 'InterviewScore_Communication', 'InterviewScore_Leadership', 'JobLevel', 'CompaRatio', 'PriorExperienceYears', 'ManagerChangeCount', 'eNPS_Score', 'Pulse_Score', 'ManagerSatisfaction', 'WorkLifeBalance', 'CareerGrowthSatisfaction', 'Onboarding_30d', 'Onboarding_60d', 'Onboarding_90d']
+2026-01-14 11:46:36,076 | INFO | preprocessor | Capped 1 outliers in AssessmentScore
+2026-01-14 11:46:36,077 | INFO | data_loader | Loaded 250 employees from database
+2026-01-14 11:46:36,077 | INFO | data_loader | Loaded 250 employees from database
+2026-01-14 11:46:36,077 | INFO | preprocessor | Categorical columns: ['Dept', 'Gender', 'JobTitle', 'Location', 'Country', 'HireDate', 'ManagerID', 'HireSource', 'PerformanceText', 'PromotionDate']
+2026-01-14 11:46:36,077 | WARNING | preprocessor | Dropping columns with >90.0% nulls: ['RatingHistory', 'StartingSalary']
+2026-01-14 11:46:36,083 | WARNING | preprocessor | Dropping columns with >90.0% nulls: ['RatingHistory', 'StartingSalary']
+2026-01-14 11:46:36,095 | INFO | preprocessor | Numeric columns: ['Tenure', 'Salary', 'LastRating', 'Age', 'YearsInCurrentRole', 'YearsSinceLastPromotion', 'PromotionCount', 'InterviewScore', 'AssessmentScore', 'InterviewScore_Technical', 'InterviewScore_Cultural', 'InterviewScore_Curiosity', 'InterviewScore_Communication', 'InterviewScore_Leadership', 'JobLevel', 'CompaRatio', 'PriorExperienceYears', 'ManagerChangeCount', 'eNPS_Score', 'Pulse_Score', 'ManagerSatisfaction', 'WorkLifeBalance', 'CareerGrowthSatisfaction', 'Onboarding_30d', 'Onboarding_60d', 'Onboarding_90d']
+2026-01-14 11:46:36,096 | INFO | preprocessor | Imputed Onboarding_30d with median: 3.8
+2026-01-14 11:46:36,097 | INFO | preprocessor | Numeric columns: ['Tenure', 'Salary', 'LastRating', 'Age', 'YearsInCurrentRole', 'YearsSinceLastPromotion', 'PromotionCount', 'InterviewScore', 'AssessmentScore', 'InterviewScore_Technical', 'InterviewScore_Cultural', 'InterviewScore_Curiosity', 'InterviewScore_Communication', 'InterviewScore_Leadership', 'JobLevel', 'CompaRatio', 'PriorExperienceYears', 'ManagerChangeCount', 'eNPS_Score', 'Pulse_Score', 'ManagerSatisfaction', 'WorkLifeBalance', 'CareerGrowthSatisfaction', 'Onboarding_30d', 'Onboarding_60d', 'Onboarding_90d']
+2026-01-14 11:46:36,098 | INFO | preprocessor | Categorical columns: ['Dept', 'Gender', 'JobTitle', 'Location', 'Country', 'HireDate', 'ManagerID', 'HireSource', 'PerformanceText', 'PromotionDate']
+2026-01-14 11:46:36,098 | INFO | preprocessor | Imputed Onboarding_60d with median: 3.7
+2026-01-14 11:46:36,100 | INFO | preprocessor | Categorical columns: ['Dept', 'Gender', 'JobTitle', 'Location', 'Country', 'HireDate', 'ManagerID', 'HireSource', 'PerformanceText', 'PromotionDate']
+2026-01-14 11:46:36,100 | INFO | preprocessor | Capped 5 outliers in eNPS_Score
+2026-01-14 11:46:36,117 | INFO | preprocessor | Imputed Onboarding_30d with median: 3.8
+2026-01-14 11:46:36,117 | INFO | preprocessor | Imputed Onboarding_90d with median: 3.6
+2026-01-14 11:46:36,134 | INFO | preprocessor | Imputed Onboarding_30d with median: 3.8
+2026-01-14 11:46:36,135 | INFO | preprocessor | Imputed Onboarding_60d with median: 3.7
+2026-01-14 11:46:36,135 | INFO | preprocessor | Capped 3 outliers in ManagerSatisfaction
+2026-01-14 11:46:36,136 | INFO | preprocessor | Imputed PromotionDate with mode: 2023-01-01
+2026-01-14 11:46:36,137 | INFO | preprocessor | Imputed Onboarding_60d with median: 3.7
+2026-01-14 11:46:36,137 | INFO | data_loader | Loaded 250 employees from database
+2026-01-14 11:46:36,138 | WARNING | preprocessor | Dropping columns with >90.0% nulls: ['RatingHistory', 'StartingSalary']
+2026-01-14 11:46:36,138 | INFO | preprocessor | Imputed Onboarding_90d with median: 3.6
+2026-01-14 11:46:36,139 | INFO | preprocessor | Capped 1 outliers in WorkLifeBalance
+2026-01-14 11:46:36,139 | INFO | preprocessor | Capped 10 outliers in Tenure
+2026-01-14 11:46:36,139 | INFO | preprocessor | Imputed Onboarding_90d with median: 3.6
+2026-01-14 11:46:36,140 | INFO | preprocessor | Numeric columns: ['Tenure', 'Salary', 'LastRating', 'Age', 'YearsInCurrentRole', 'YearsSinceLastPromotion', 'PromotionCount', 'InterviewScore', 'AssessmentScore', 'InterviewScore_Technical', 'InterviewScore_Cultural', 'InterviewScore_Curiosity', 'InterviewScore_Communication', 'InterviewScore_Leadership', 'JobLevel', 'CompaRatio', 'PriorExperienceYears', 'ManagerChangeCount', 'eNPS_Score', 'Pulse_Score', 'ManagerSatisfaction', 'WorkLifeBalance', 'CareerGrowthSatisfaction', 'Onboarding_30d', 'Onboarding_60d', 'Onboarding_90d']
+2026-01-14 11:46:36,140 | INFO | preprocessor | Imputed PromotionDate with mode: 2023-01-01
+2026-01-14 11:46:36,142 | INFO | preprocessor | Capped 83 outliers in Onboarding_30d
+2026-01-14 11:46:36,142 | INFO | preprocessor | Capped 3 outliers in Salary
+2026-01-14 11:46:36,142 | INFO | preprocessor | Imputed PromotionDate with mode: 2023-01-01
+2026-01-14 11:46:36,143 | INFO | preprocessor | Categorical columns: ['Dept', 'Gender', 'JobTitle', 'Location', 'Country', 'HireDate', 'ManagerID', 'HireSource', 'PerformanceText', 'PromotionDate']
+2026-01-14 11:46:36,143 | INFO | preprocessor | Capped 10 outliers in Tenure
+2026-01-14 11:46:36,144 | INFO | preprocessor | Capped 84 outliers in Onboarding_60d
+2026-01-14 11:46:36,144 | INFO | preprocessor | Capped 3 outliers in LastRating
+2026-01-14 11:46:36,145 | INFO | preprocessor | Capped 10 outliers in Tenure
+2026-01-14 11:46:36,162 | INFO | preprocessor | Imputed Onboarding_30d with median: 3.8
+2026-01-14 11:46:36,162 | INFO | preprocessor | Capped 3 outliers in Salary
+2026-01-14 11:46:36,163 | INFO | preprocessor | Capped 84 outliers in Onboarding_90d
+2026-01-14 11:46:36,164 | INFO | preprocessor | Capped 15 outliers in YearsInCurrentRole
+2026-01-14 11:46:36,164 | INFO | preprocessor | Capped 3 outliers in Salary
+2026-01-14 11:46:36,165 | INFO | preprocessor | Imputed Onboarding_60d with median: 3.7
+2026-01-14 11:46:36,165 | INFO | preprocessor | Capped 3 outliers in LastRating
+2026-01-14 11:46:36,166 | INFO | preprocessor | Capped 1 outliers in PromotionLag
+2026-01-14 11:46:36,166 | INFO | preprocessor | Capped 6 outliers in YearsSinceLastPromotion
+2026-01-14 11:46:36,167 | INFO | preprocessor | Capped 3 outliers in LastRating
+2026-01-14 11:46:36,167 | INFO | preprocessor | Imputed Onboarding_90d with median: 3.6
+2026-01-14 11:46:36,172 | INFO | preprocessor | Capped 28 outliers in PromotionCount
+2026-01-14 11:46:36,173 | INFO | preprocessor | Capped 15 outliers in YearsInCurrentRole
+2026-01-14 11:46:36,174 | INFO | preprocessor | Imputed PromotionDate with mode: 2023-01-01
+2026-01-14 11:46:36,174 | INFO | preprocessor | Capped 15 outliers in YearsInCurrentRole
+2026-01-14 11:46:36,175 | INFO | preprocessor | Scaled columns: ['Tenure', 'Salary', 'YearsInCurrentRole', 'YearsSinceLastPromotion', 'PromotionCount', 'InterviewScore', 'AssessmentScore', 'InterviewScore_Technical', 'InterviewScore_Cultural', 'InterviewScore_Curiosity', 'InterviewScore_Communication', 'InterviewScore_Leadership', 'JobLevel', 'CompaRatio', 'PriorExperienceYears', 'ManagerChangeCount', 'eNPS_Score', 'Pulse_Score', 'ManagerSatisfaction', 'WorkLifeBalance', 'CareerGrowthSatisfaction', 'Onboarding_30d', 'Onboarding_60d', 'Onboarding_90d', 'PromotionLag']
+2026-01-14 11:46:36,175 | INFO | preprocessor | Capped 1 outliers in InterviewScore
+2026-01-14 11:46:36,176 | INFO | preprocessor | Capped 6 outliers in YearsSinceLastPromotion
+2026-01-14 11:46:36,177 | INFO | preprocessor | Capped 10 outliers in Tenure
+2026-01-14 11:46:36,177 | INFO | preprocessor | Preprocessing complete. Shape: (250, 42)
+2026-01-14 11:46:36,177 | INFO | preprocessor | Capped 6 outliers in YearsSinceLastPromotion
+2026-01-14 11:46:36,178 | INFO | preprocessor | Capped 1 outliers in AssessmentScore
+2026-01-14 11:46:36,179 | INFO | preprocessor | Capped 28 outliers in PromotionCount
+2026-01-14 11:46:36,179 | INFO | preprocessor | Capped 3 outliers in Salary
+2026-01-14 11:46:36,186 | INFO | preprocessor | Capped 28 outliers in PromotionCount
+2026-01-14 11:46:36,188 | INFO | preprocessor | Capped 1 outliers in InterviewScore
+2026-01-14 11:46:36,189 | INFO | preprocessor | Capped 3 outliers in LastRating
+2026-01-14 11:46:36,196 | INFO | compensation_engine | CompensationEngine initialized with 250 employees
+2026-01-14 11:46:36,204 | INFO | preprocessor | Capped 1 outliers in AssessmentScore
+2026-01-14 11:46:36,204 | INFO | preprocessor | Capped 1 outliers in InterviewScore
+2026-01-14 11:46:36,214 | INFO | preprocessor | Capped 15 outliers in YearsInCurrentRole
+2026-01-14 11:46:36,216 | INFO | preprocessor | Capped 1 outliers in AssessmentScore
+2026-01-14 11:46:36,217 | INFO | preprocessor | Capped 6 outliers in YearsSinceLastPromotion
+2026-01-14 11:46:36,219 | INFO | preprocessor | Capped 5 outliers in eNPS_Score
+2026-01-14 11:46:36,221 | INFO | preprocessor | Capped 28 outliers in PromotionCount
+2026-01-14 11:46:36,222 | INFO | ml_engine | Evaluating model candidates: ['random_forest', 'xgboost']
+2026-01-14 11:46:36,223 | INFO | preprocessor | Capped 3 outliers in ManagerSatisfaction
+2026-01-14 11:46:36,228 | INFO | preprocessor | Capped 1 outliers in InterviewScore
+2026-01-14 11:46:36,228 | INFO | preprocessor | Capped 5 outliers in eNPS_Score
+2026-01-14 11:46:36,230 | INFO | preprocessor | Capped 1 outliers in WorkLifeBalance
+2026-01-14 11:46:36,232 | INFO | preprocessor | Capped 1 outliers in AssessmentScore
+2026-01-14 11:46:36,247 | INFO | preprocessor | Capped 3 outliers in ManagerSatisfaction
+2026-01-14 11:46:36,247 | INFO | preprocessor | Capped 83 outliers in Onboarding_30d
+2026-01-14 11:46:36,249 | INFO | preprocessor | Capped 1 outliers in WorkLifeBalance
+2026-01-14 11:46:36,249 | INFO | preprocessor | Capped 5 outliers in eNPS_Score
+2026-01-14 11:46:36,253 | INFO | preprocessor | Capped 84 outliers in Onboarding_60d
+2026-01-14 11:46:36,256 | INFO | preprocessor | Capped 83 outliers in Onboarding_30d
+2026-01-14 11:46:36,257 | INFO | preprocessor | Capped 3 outliers in ManagerSatisfaction
+2026-01-14 11:46:36,258 | INFO | preprocessor | Capped 84 outliers in Onboarding_90d
+2026-01-14 11:46:36,259 | INFO | preprocessor | Capped 5 outliers in eNPS_Score
+2026-01-14 11:46:36,260 | INFO | preprocessor | Capped 84 outliers in Onboarding_60d
+2026-01-14 11:46:36,260 | INFO | preprocessor | Capped 1 outliers in WorkLifeBalance
+2026-01-14 11:46:36,262 | INFO | preprocessor | Capped 1 outliers in PromotionLag
+2026-01-14 11:46:36,262 | INFO | preprocessor | Capped 84 outliers in Onboarding_90d
+2026-01-14 11:46:36,263 | INFO | preprocessor | Capped 3 outliers in ManagerSatisfaction
+2026-01-14 11:46:36,267 | INFO | preprocessor | Capped 83 outliers in Onboarding_30d
+2026-01-14 11:46:36,269 | INFO | preprocessor | Capped 1 outliers in PromotionLag
+2026-01-14 11:46:36,270 | INFO | preprocessor | Capped 1 outliers in WorkLifeBalance
+2026-01-14 11:46:36,270 | INFO | preprocessor | Scaled columns: ['Tenure', 'Salary', 'YearsInCurrentRole', 'YearsSinceLastPromotion', 'PromotionCount', 'InterviewScore', 'AssessmentScore', 'InterviewScore_Technical', 'InterviewScore_Cultural', 'InterviewScore_Curiosity', 'InterviewScore_Communication', 'InterviewScore_Leadership', 'JobLevel', 'CompaRatio', 'PriorExperienceYears', 'ManagerChangeCount', 'eNPS_Score', 'Pulse_Score', 'ManagerSatisfaction', 'WorkLifeBalance', 'CareerGrowthSatisfaction', 'Onboarding_30d', 'Onboarding_60d', 'Onboarding_90d', 'PromotionLag']
+2026-01-14 11:46:36,271 | INFO | preprocessor | Capped 84 outliers in Onboarding_60d
+2026-01-14 11:46:36,276 | INFO | preprocessor | Capped 83 outliers in Onboarding_30d
+2026-01-14 11:46:36,276 | INFO | preprocessor | Preprocessing complete. Shape: (250, 42)
+2026-01-14 11:46:36,278 | INFO | preprocessor | Scaled columns: ['Tenure', 'Salary', 'YearsInCurrentRole', 'YearsSinceLastPromotion', 'PromotionCount', 'InterviewScore', 'AssessmentScore', 'InterviewScore_Technical', 'InterviewScore_Cultural', 'InterviewScore_Curiosity', 'InterviewScore_Communication', 'InterviewScore_Leadership', 'JobLevel', 'CompaRatio', 'PriorExperienceYears', 'ManagerChangeCount', 'eNPS_Score', 'Pulse_Score', 'ManagerSatisfaction', 'WorkLifeBalance', 'CareerGrowthSatisfaction', 'Onboarding_30d', 'Onboarding_60d', 'Onboarding_90d', 'PromotionLag']
+2026-01-14 11:46:36,278 | INFO | preprocessor | Capped 84 outliers in Onboarding_90d
+2026-01-14 11:46:36,279 | INFO | preprocessor | Capped 84 outliers in Onboarding_60d
+2026-01-14 11:46:36,285 | INFO | preprocessor | Preprocessing complete. Shape: (250, 42)
+2026-01-14 11:46:36,294 | INFO | preprocessor | Capped 1 outliers in PromotionLag
+2026-01-14 11:46:36,295 | INFO | compensation_engine | CompensationEngine initialized with 250 employees
+2026-01-14 11:46:36,296 | INFO | preprocessor | Capped 84 outliers in Onboarding_90d
+2026-01-14 11:46:36,320 | INFO | preprocessor | Capped 1 outliers in PromotionLag
+2026-01-14 11:46:36,320 | INFO | compensation_engine | CompensationEngine initialized with 250 employees
+2026-01-14 11:46:36,339 | INFO | preprocessor | Scaled columns: ['Tenure', 'Salary', 'YearsInCurrentRole', 'YearsSinceLastPromotion', 'PromotionCount', 'InterviewScore', 'AssessmentScore', 'InterviewScore_Technical', 'InterviewScore_Cultural', 'InterviewScore_Curiosity', 'InterviewScore_Communication', 'InterviewScore_Leadership', 'JobLevel', 'CompaRatio', 'PriorExperienceYears', 'ManagerChangeCount', 'eNPS_Score', 'Pulse_Score', 'ManagerSatisfaction', 'WorkLifeBalance', 'CareerGrowthSatisfaction', 'Onboarding_30d', 'Onboarding_60d', 'Onboarding_90d', 'PromotionLag']
+2026-01-14 11:46:36,340 | INFO | preprocessor | Scaled columns: ['Tenure', 'Salary', 'YearsInCurrentRole', 'YearsSinceLastPromotion', 'PromotionCount', 'InterviewScore', 'AssessmentScore', 'InterviewScore_Technical', 'InterviewScore_Cultural', 'InterviewScore_Curiosity', 'InterviewScore_Communication', 'InterviewScore_Leadership', 'JobLevel', 'CompaRatio', 'PriorExperienceYears', 'ManagerChangeCount', 'eNPS_Score', 'Pulse_Score', 'ManagerSatisfaction', 'WorkLifeBalance', 'CareerGrowthSatisfaction', 'Onboarding_30d', 'Onboarding_60d', 'Onboarding_90d', 'PromotionLag']
+2026-01-14 11:46:36,340 | INFO | preprocessor | Preprocessing complete. Shape: (250, 42)
+2026-01-14 11:46:36,349 | INFO | preprocessor | Preprocessing complete. Shape: (250, 42)
+2026-01-14 11:46:36,349 | INFO | ml_engine | Evaluating model candidates: ['random_forest', 'xgboost']
+2026-01-14 11:46:36,381 | INFO | compensation_engine | CompensationEngine initialized with 250 employees
+2026-01-14 11:46:36,382 | INFO | compensation_engine | CompensationEngine initialized with 250 employees
+2026-01-14 11:46:36,383 | INFO | ml_engine | Evaluating model candidates: ['random_forest', 'xgboost']
+2026-01-14 11:46:36,417 | INFO | ml_engine | Evaluating model candidates: ['random_forest', 'xgboost']
+2026-01-14 11:46:36,422 | INFO | ml_engine | Evaluating model candidates: ['random_forest', 'xgboost']
+2026-01-14 11:46:37,712 | WARNING | ml_engine | SMOTE in CV failed: 
+All the 3 fits failed.
+It is very likely that your model is misconfigured.
+You can try to debug the error by setting error_score='raise'.
+
+Below are more details about the failures:
+--------------------------------------------------------------------------------
+3 fits failed with the following error:
+Traceback (most recent call last):
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/sklearn/model_selection/_validation.py", line 890, in _fit_and_score
+    estimator.fit(X_train, y_train, **fit_params)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/sklearn/base.py", line 1351, in wrapper
+    return fit_method(estimator, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/imblearn/pipeline.py", line 326, in fit
+    self._final_estimator.fit(Xt, yt, **last_step_params["fit"])
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/core.py", line 730, in inner_f
+    return func(**kwargs)
+           ^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/sklearn.py", line 1500, in fit
+    train_dmatrix, evals = _wrap_evaluation_matrices(
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/sklearn.py", line 521, in _wrap_evaluation_matrices
+    train_dmatrix = create_dmatrix(
+                    ^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/sklearn.py", line 958, in _create_dmatrix
+    return QuantileDMatrix(
+           ^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/core.py", line 730, in inner_f
+    return func(**kwargs)
+           ^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/core.py", line 1529, in __init__
+    self._init(
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/core.py", line 1588, in _init
+    it.reraise()
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/core.py", line 576, in reraise
+    raise exc  # pylint: disable=raising-bad-type
+    ^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/core.py", line 557, in _handle_exception
+    return fn()
+           ^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/core.py", line 641, in <lambda>
+    return self._handle_exception(lambda: self.next(input_data), 0)
+                                          ^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/data.py", line 1280, in next
+    input_data(**self.kwargs)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/core.py", line 730, in inner_f
+    return func(**kwargs)
+           ^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/core.py", line 633, in input_data
+    self.proxy.set_info(
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/core.py", line 730, in inner_f
+    return func(**kwargs)
+           ^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/core.py", line 946, in set_info
+    self.feature_names = feature_names
+    ^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/core.py", line 1313, in feature_names
+    raise ValueError(
+ValueError: feature_names must be unique. Duplicates found: ['InterviewScore_Communication', 'InterviewScore_Cultural', 'InterviewScore_Curiosity', 'InterviewScore_Leadership', 'InterviewScore_Technical']
+. Using model without SMOTE.
+2026-01-14 11:46:37,721 | ERROR | ml_engine | Model training failed: ValueError: 
+All the 3 fits failed.
+It is very likely that your model is misconfigured.
+You can try to debug the error by setting error_score='raise'.
+
+Below are more details about the failures:
+--------------------------------------------------------------------------------
+3 fits failed with the following error:
+Traceback (most recent call last):
+  File "/Users/omoniyi/Downloads/PeopleOS/src/ml_engine.py", line 378, in _evaluate_model_type_with_smote
+    scores = cross_val_score(pipeline, X, y, cv=3, scoring='f1')
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/sklearn/utils/_param_validation.py", line 213, in wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/sklearn/model_selection/_validation.py", line 714, in cross_val_score
+    cv_results = cross_validate(
+                 ^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/sklearn/utils/_param_validation.py", line 213, in wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/sklearn/model_selection/_validation.py", line 445, in cross_validate
+    _warn_or_raise_about_fit_failures(results, error_score)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/sklearn/model_selection/_validation.py", line 531, in _warn_or_raise_about_fit_failures
+    raise ValueError(all_fits_failed_message)
+ValueError: 
+All the 3 fits failed.
+It is very likely that your model is misconfigured.
+You can try to debug the error by setting error_score='raise'.
+
+Below are more details about the failures:
+--------------------------------------------------------------------------------
+3 fits failed with the following error:
+Traceback (most recent call last):
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/sklearn/model_selection/_validation.py", line 890, in _fit_and_score
+    estimator.fit(X_train, y_train, **fit_params)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/sklearn/base.py", line 1351, in wrapper
+    return fit_method(estimator, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/imblearn/pipeline.py", line 326, in fit
+    self._final_estimator.fit(Xt, yt, **last_step_params["fit"])
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/core.py", line 730, in inner_f
+    return func(**kwargs)
+           ^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/sklearn.py", line 1500, in fit
+    train_dmatrix, evals = _wrap_evaluation_matrices(
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/sklearn.py", line 521, in _wrap_evaluation_matrices
+    train_dmatrix = create_dmatrix(
+                    ^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/sklearn.py", line 958, in _create_dmatrix
+    return QuantileDMatrix(
+           ^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/core.py", line 730, in inner_f
+    return func(**kwargs)
+           ^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/core.py", line 1529, in __init__
+    self._init(
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/core.py", line 1588, in _init
+    it.reraise()
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/core.py", line 576, in reraise
+    raise exc  # pylint: disable=raising-bad-type
+    ^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/core.py", line 557, in _handle_exception
+    return fn()
+           ^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/core.py", line 641, in <lambda>
+    return self._handle_exception(lambda: self.next(input_data), 0)
+                                          ^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/data.py", line 1280, in next
+    input_data(**self.kwargs)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/core.py", line 730, in inner_f
+    return func(**kwargs)
+           ^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/core.py", line 633, in input_data
+    self.proxy.set_info(
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/core.py", line 730, in inner_f
+    return func(**kwargs)
+           ^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/core.py", line 946, in set_info
+    self.feature_names = feature_names
+    ^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/core.py", line 1313, in feature_names
+    raise ValueError(
+ValueError: feature_names must be unique. Duplicates found: ['InterviewScore_Communication', 'InterviewScore_Cultural', 'InterviewScore_Curiosity', 'InterviewScore_Leadership', 'InterviewScore_Technical']
+
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/sklearn/model_selection/_validation.py", line 890, in _fit_and_score
+    estimator.fit(X_train, y_train, **fit_params)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/core.py", line 730, in inner_f
+    return func(**kwargs)
+           ^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/sklearn.py", line 1500, in fit
+    train_dmatrix, evals = _wrap_evaluation_matrices(
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/sklearn.py", line 521, in _wrap_evaluation_matrices
+    train_dmatrix = create_dmatrix(
+                    ^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/sklearn.py", line 958, in _create_dmatrix
+    return QuantileDMatrix(
+           ^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/core.py", line 730, in inner_f
+    return func(**kwargs)
+           ^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/core.py", line 1529, in __init__
+    self._init(
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/core.py", line 1588, in _init
+    it.reraise()
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/core.py", line 576, in reraise
+    raise exc  # pylint: disable=raising-bad-type
+    ^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/core.py", line 557, in _handle_exception
+    return fn()
+           ^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/core.py", line 641, in <lambda>
+    return self._handle_exception(lambda: self.next(input_data), 0)
+                                          ^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/data.py", line 1280, in next
+    input_data(**self.kwargs)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/core.py", line 730, in inner_f
+    return func(**kwargs)
+           ^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/core.py", line 633, in input_data
+    self.proxy.set_info(
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/core.py", line 730, in inner_f
+    return func(**kwargs)
+           ^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/core.py", line 946, in set_info
+    self.feature_names = feature_names
+    ^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/core.py", line 1313, in feature_names
+    raise ValueError(
+ValueError: feature_names must be unique. Duplicates found: ['InterviewScore_Communication', 'InterviewScore_Cultural', 'InterviewScore_Curiosity', 'InterviewScore_Leadership', 'InterviewScore_Technical']
+
+2026-01-14 11:46:37,721 | ERROR | dependencies | Failed to initialize ML Engine: MLEngineError: Model training failed: 
+All the 3 fits failed.
+It is very likely that your model is misconfigured.
+You can try to debug the error by setting error_score='raise'.
+
+Below are more details about the failures:
+--------------------------------------------------------------------------------
+3 fits failed with the following error:
+Traceback (most recent call last):
+  File "/Users/omoniyi/Downloads/PeopleOS/src/ml_engine.py", line 378, in _evaluate_model_type_with_smote
+    scores = cross_val_score(pipeline, X, y, cv=3, scoring='f1')
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/sklearn/utils/_param_validation.py", line 213, in wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/sklearn/model_selection/_validation.py", line 714, in cross_val_score
+    cv_results = cross_validate(
+                 ^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/sklearn/utils/_param_validation.py", line 213, in wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/sklearn/model_selection/_validation.py", line 445, in cross_validate
+    _warn_or_raise_about_fit_failures(results, error_score)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/sklearn/model_selection/_validation.py", line 531, in _warn_or_raise_about_fit_failures
+    raise ValueError(all_fits_failed_message)
+ValueError: 
+All the 3 fits failed.
+It is very likely that your model is misconfigured.
+You can try to debug the error by setting error_score='raise'.
+
+Below are more details about the failures:
+--------------------------------------------------------------------------------
+3 fits failed with the following error:
+Traceback (most recent call last):
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/sklearn/model_selection/_validation.py", line 890, in _fit_and_score
+    estimator.fit(X_train, y_train, **fit_params)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/sklearn/base.py", line 1351, in wrapper
+    return fit_method(estimator, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/imblearn/pipeline.py", line 326, in fit
+    self._final_estimator.fit(Xt, yt, **last_step_params["fit"])
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/core.py", line 730, in inner_f
+    return func(**kwargs)
+           ^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/sklearn.py", line 1500, in fit
+    train_dmatrix, evals = _wrap_evaluation_matrices(
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/sklearn.py", line 521, in _wrap_evaluation_matrices
+    train_dmatrix = create_dmatrix(
+                    ^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/sklearn.py", line 958, in _create_dmatrix
+    return QuantileDMatrix(
+           ^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/core.py", line 730, in inner_f
+    return func(**kwargs)
+           ^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/core.py", line 1529, in __init__
+    self._init(
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/core.py", line 1588, in _init
+    it.reraise()
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/core.py", line 576, in reraise
+    raise exc  # pylint: disable=raising-bad-type
+    ^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/core.py", line 557, in _handle_exception
+    return fn()
+           ^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/core.py", line 641, in <lambda>
+    return self._handle_exception(lambda: self.next(input_data), 0)
+                                          ^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/data.py", line 1280, in next
+    input_data(**self.kwargs)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/core.py", line 730, in inner_f
+    return func(**kwargs)
+           ^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/core.py", line 633, in input_data
+    self.proxy.set_info(
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/core.py", line 730, in inner_f
+    return func(**kwargs)
+           ^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/core.py", line 946, in set_info
+    self.feature_names = feature_names
+    ^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/core.py", line 1313, in feature_names
+    raise ValueError(
+ValueError: feature_names must be unique. Duplicates found: ['InterviewScore_Communication', 'InterviewScore_Cultural', 'InterviewScore_Curiosity', 'InterviewScore_Leadership', 'InterviewScore_Technical']
+
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/sklearn/model_selection/_validation.py", line 890, in _fit_and_score
+    estimator.fit(X_train, y_train, **fit_params)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/core.py", line 730, in inner_f
+    return func(**kwargs)
+           ^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/sklearn.py", line 1500, in fit
+    train_dmatrix, evals = _wrap_evaluation_matrices(
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/sklearn.py", line 521, in _wrap_evaluation_matrices
+    train_dmatrix = create_dmatrix(
+                    ^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/sklearn.py", line 958, in _create_dmatrix
+    return QuantileDMatrix(
+           ^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/core.py", line 730, in inner_f
+    return func(**kwargs)
+           ^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/core.py", line 1529, in __init__
+    self._init(
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/core.py", line 1588, in _init
+    it.reraise()
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/core.py", line 576, in reraise
+    raise exc  # pylint: disable=raising-bad-type
+    ^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/core.py", line 557, in _handle_exception
+    return fn()
+           ^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/core.py", line 641, in <lambda>
+    return self._handle_exception(lambda: self.next(input_data), 0)
+                                          ^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/data.py", line 1280, in next
+    input_data(**self.kwargs)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/core.py", line 730, in inner_f
+    return func(**kwargs)
+           ^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/core.py", line 633, in input_data
+    self.proxy.set_info(
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/core.py", line 730, in inner_f
+    return func(**kwargs)
+           ^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/core.py", line 946, in set_info
+    self.feature_names = feature_names
+    ^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/xgboost/core.py", line 1313, in feature_names
+    raise ValueError(
+ValueError: feature_names must be unique. Duplicates found: ['InterviewScore_Communication', 'InterviewScore_Cultural', 'InterviewScore_Curiosity', 'InterviewScore_Leadership', 'InterviewScore_Technical']
+
+2026-01-14 11:46:37,728 | INFO | succession_engine | SuccessionEngine initialized with 250 employees
+2026-01-14 11:46:37,735 | INFO | team_dynamics_engine | TeamDynamicsEngine initialized with 250 employees
+2026-01-14 11:46:39,087 | INFO | ml_engine | Model selection results: {'random_forest': 0.09333333333333334, 'xgboost': 0.08529741863075196}
+2026-01-14 11:46:39,087 | INFO | ml_engine | Selected best model: random_forest
+2026-01-14 11:46:39,166 | INFO | ml_engine | Model selection results: {'random_forest': 0.09333333333333334, 'xgboost': 0.08529741863075196}
+2026-01-14 11:46:39,167 | INFO | ml_engine | Selected best model: random_forest
+2026-01-14 11:46:39,174 | INFO | ml_engine | Model selection results: {'random_forest': 0.09333333333333334, 'xgboost': 0.08529741863075196}
+2026-01-14 11:46:39,175 | INFO | ml_engine | Selected best model: random_forest
+2026-01-14 11:46:39,217 | INFO | ml_engine | Model selection results: {'random_forest': 0.09333333333333334, 'xgboost': 0.08529741863075196}
+2026-01-14 11:46:39,218 | INFO | ml_engine | Selected best model: random_forest
+/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/transformers/tokenization_utils_base.py:1601: FutureWarning: `clean_up_tokenization_spaces` was not set. It will be set to `True` by default. This behavior will be depracted in transformers v4.45, and will be then set to `False` by default. For more details check this issue: https://github.com/huggingface/transformers/issues/31884
+  warnings.warn(
+2026-01-14 11:46:41,075 | INFO | vector_engine | Loaded embedding model: all-MiniLM-L6-v2
+2026-01-14 11:46:41,084 | INFO | vector_engine | Generating embeddings for 250 records...
+2026-01-14 11:46:43,633 | INFO | vector_engine | Successfully built FAISS index with dimension 384
+2026-01-14 11:46:44,455 | INFO | llm_client | Ollama available at http://localhost:11434 with model gemma3:4b
+2026-01-14 11:46:44,465 | INFO | nlp_engine | NLPEngine initialized. LLM available: True
+2026-01-14 11:46:44,466 | INFO | insight_interpreter | InsightInterpreter initialized. LLM available: True
+2026-01-14 11:46:44,479 | INFO | survival_engine | Dynamically identified 8 covariates for Cox model: ['Salary', 'LastRating', 'Age', 'YearsInCurrentRole', 'YearsSinceLastPromotion', 'PromotionCount', 'InterviewScore', 'AssessmentScore']
+/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/lifelines/utils/__init__.py:1185: UserWarning: Attempting to convert an unexpected datatype 'object' to float. Suggestion: 1) use `lifelines.utils.datetimes_to_durations` to do conversions or 2) manually convert to floats/booleans.
+  warnings.warn(warning_text, UserWarning)
+2026-01-14 11:46:45,239 | INFO | survival_engine | SurvivalEngine initialized with 250 employees, Attrition available: True
+2026-01-14 11:46:45,240 | INFO | dependencies | Survival Engine initialized successfully
+2026-01-14 11:46:45,249 | INFO | quality_of_hire_engine | QualityOfHireEngine initialized with 250 employees
+2026-01-14 11:46:45,250 | INFO | dependencies | QualityOfHireEngine initialized successfully
+2026-01-14 11:46:45,336 | INFO | experience_engine | Computed EXI for 250 employees. Mean EXI: 59.5
+2026-01-14 11:46:45,339 | INFO | dependencies | ExperienceEngine initialized successfully
+/Users/omoniyi/Downloads/PeopleOS/src/scenario_engine.py:267: FutureWarning: The default of observed=False is deprecated and will be changed to True in a future version of pandas. Pass observed=False to retain current behavior or observed=True to adopt the future default and silence this warning.
+  quartile_rates = valid.groupby('salary_quartile')['Attrition'].mean()
+/Users/omoniyi/Downloads/PeopleOS/src/scenario_engine.py:276: FutureWarning: The default of observed=False is deprecated and will be changed to True in a future version of pandas. Pass observed=False to retain current behavior or observed=True to adopt the future default and silence this warning.
+  salary_quartiles = valid.groupby('salary_quartile')['Salary'].median()
+2026-01-14 11:46:45,369 | INFO | scenario_engine | Data-driven elasticity: 0.4462 (Q1 attrition: 20.6%, Q4 attrition: 11.1%)
+2026-01-14 11:46:45,375 | INFO | scenario_engine | Logistic regression salary coefficient: -0.1995
+2026-01-14 11:46:45,377 | INFO | dependencies | ScenarioEngine initialized successfully
+INFO:     127.0.0.1:53477 - "GET /api/predictions/high-risk-employees?limit=20 HTTP/1.1" 400 Bad Request
+INFO:     127.0.0.1:53493 - "GET /api/predictions/high-risk-employees?limit=20 HTTP/1.1" 400 Bad Request
+2026-01-14 11:46:47,721 | INFO | ml_engine | Final model trained with SMOTE-resampled data
+2026-01-14 11:46:47,744 | INFO | ml_engine | Final model trained with SMOTE-resampled data
+2026-01-14 11:46:47,755 | INFO | ml_engine | Final model trained with SMOTE-resampled data
+2026-01-14 11:46:47,778 | INFO | ml_engine | Calibration error 0.25 but sample size 50 too small to warn.
+2026-01-14 11:46:47,785 | INFO | ml_engine | Model trained. Best: random_forest, F1: 0.200, Reliability: High
+2026-01-14 11:46:47,786 | INFO | ml_engine | Calibration error 0.25 but sample size 50 too small to warn.
+2026-01-14 11:46:47,786 | INFO | ml_engine | Calibration error 0.25 but sample size 50 too small to warn.
+2026-01-14 11:46:47,795 | INFO | ml_engine | Model trained. Best: random_forest, F1: 0.200, Reliability: High
+2026-01-14 11:46:47,798 | INFO | ml_engine | Model trained. Best: random_forest, F1: 0.200, Reliability: High
+2026-01-14 11:46:47,830 | INFO | ml_engine | Final model trained with SMOTE-resampled data
+2026-01-14 11:46:47,839 | INFO | ml_engine | Calibration error 0.25 but sample size 50 too small to warn.
+2026-01-14 11:46:47,844 | INFO | ml_engine | Model trained. Best: random_forest, F1: 0.200, Reliability: High
+INFO:     127.0.0.1:53497 - "GET /api/predictions/high-risk-employees?limit=20 HTTP/1.1" 400 Bad Request
+2026-01-14 11:46:48,691 | INFO | ml_engine | SHAP explainer prepared with 100 samples
+2026-01-14 11:46:48,696 | INFO | ml_engine | SHAP explainer prepared with 100 samples
+2026-01-14 11:46:48,701 | ERROR | dependencies | Failed to initialize ML Engine: AttributeError: 'NoneType' object has no attribute 'predict_risk'
+2026-01-14 11:46:48,696 | INFO | ml_engine | SHAP explainer prepared with 100 samples
+2026-01-14 11:46:48,725 | ERROR | dependencies | Failed to initialize ML Engine: AttributeError: 'NoneType' object has no attribute 'predict_risk'
+2026-01-14 11:46:48,701 | INFO | ml_engine | SHAP explainer prepared with 100 samples
+2026-01-14 11:46:48,726 | ERROR | dependencies | Failed to initialize ML Engine: AttributeError: 'NoneType' object has no attribute 'predict_risk'
+2026-01-14 11:46:48,732 | INFO | succession_engine | SuccessionEngine initialized with 250 employees
+2026-01-14 11:46:48,733 | ERROR | dependencies | Failed to initialize ML Engine: AttributeError: 'NoneType' object has no attribute 'predict_risk'
+2026-01-14 11:46:48,739 | INFO | succession_engine | SuccessionEngine initialized with 250 employees
+2026-01-14 11:46:48,746 | INFO | team_dynamics_engine | TeamDynamicsEngine initialized with 250 employees
+2026-01-14 11:46:48,759 | INFO | succession_engine | SuccessionEngine initialized with 250 employees
+2026-01-14 11:46:48,772 | INFO | succession_engine | SuccessionEngine initialized with 250 employees
+2026-01-14 11:46:48,773 | INFO | team_dynamics_engine | TeamDynamicsEngine initialized with 250 employees
+2026-01-14 11:46:48,786 | INFO | team_dynamics_engine | TeamDynamicsEngine initialized with 250 employees
+2026-01-14 11:46:48,792 | INFO | team_dynamics_engine | TeamDynamicsEngine initialized with 250 employees
+`clean_up_tokenization_spaces` was not set. It will be set to `True` by default. This behavior will be depracted in transformers v4.45, and will be then set to `False` by default. For more details check this issue: https://github.com/huggingface/transformers/issues/31884
+2026-01-14 11:46:50,310 | INFO | vector_engine | Loaded embedding model: all-MiniLM-L6-v2
+2026-01-14 11:46:50,318 | INFO | vector_engine | Generating embeddings for 250 records...
+2026-01-14 11:46:50,320 | INFO | vector_engine | Loaded embedding model: all-MiniLM-L6-v2
+2026-01-14 11:46:50,320 | INFO | vector_engine | Loaded embedding model: all-MiniLM-L6-v2
+2026-01-14 11:46:50,322 | INFO | vector_engine | Loaded embedding model: all-MiniLM-L6-v2
+2026-01-14 11:46:50,327 | INFO | vector_engine | Generating embeddings for 250 records...
+2026-01-14 11:46:50,331 | INFO | vector_engine | Generating embeddings for 250 records...
+2026-01-14 11:46:50,336 | INFO | vector_engine | Generating embeddings for 250 records...
+2026-01-14 11:46:51,083 | INFO | vector_engine | Successfully built FAISS index with dimension 384
+2026-01-14 11:46:51,096 | INFO | vector_engine | Successfully built FAISS index with dimension 384
+2026-01-14 11:46:51,107 | INFO | vector_engine | Successfully built FAISS index with dimension 384
+2026-01-14 11:46:51,108 | INFO | vector_engine | Successfully built FAISS index with dimension 384
+2026-01-14 11:46:51,143 | INFO | llm_client | Ollama available at http://localhost:11434 with model gemma3:4b
+2026-01-14 11:46:51,144 | INFO | llm_client | Ollama available at http://localhost:11434 with model gemma3:4b
+2026-01-14 11:46:51,157 | INFO | nlp_engine | NLPEngine initialized. LLM available: True
+2026-01-14 11:46:51,158 | INFO | nlp_engine | NLPEngine initialized. LLM available: True
+2026-01-14 11:46:51,158 | INFO | insight_interpreter | InsightInterpreter initialized. LLM available: True
+2026-01-14 11:46:51,159 | INFO | llm_client | Ollama available at http://localhost:11434 with model gemma3:4b
+2026-01-14 11:46:51,159 | INFO | insight_interpreter | InsightInterpreter initialized. LLM available: True
+2026-01-14 11:46:51,173 | INFO | survival_engine | Dynamically identified 8 covariates for Cox model: ['Salary', 'LastRating', 'Age', 'YearsInCurrentRole', 'YearsSinceLastPromotion', 'PromotionCount', 'InterviewScore', 'AssessmentScore']
+2026-01-14 11:46:51,175 | INFO | llm_client | Ollama available at http://localhost:11434 with model gemma3:4b
+2026-01-14 11:46:51,180 | INFO | survival_engine | Dynamically identified 8 covariates for Cox model: ['Salary', 'LastRating', 'Age', 'YearsInCurrentRole', 'YearsSinceLastPromotion', 'PromotionCount', 'InterviewScore', 'AssessmentScore']
+2026-01-14 11:46:51,181 | INFO | nlp_engine | NLPEngine initialized. LLM available: True
+Attempting to convert an unexpected datatype 'object' to float. Suggestion: 1) use `lifelines.utils.datetimes_to_durations` to do conversions or 2) manually convert to floats/booleans.
+Attempting to convert an unexpected datatype 'object' to float. Suggestion: 1) use `lifelines.utils.datetimes_to_durations` to do conversions or 2) manually convert to floats/booleans.
+2026-01-14 11:46:51,205 | INFO | insight_interpreter | InsightInterpreter initialized. LLM available: True
+2026-01-14 11:46:51,206 | INFO | nlp_engine | NLPEngine initialized. LLM available: True
+2026-01-14 11:46:51,213 | INFO | insight_interpreter | InsightInterpreter initialized. LLM available: True
+2026-01-14 11:46:51,225 | INFO | survival_engine | Dynamically identified 8 covariates for Cox model: ['Salary', 'LastRating', 'Age', 'YearsInCurrentRole', 'YearsSinceLastPromotion', 'PromotionCount', 'InterviewScore', 'AssessmentScore']
+2026-01-14 11:46:51,234 | INFO | survival_engine | Dynamically identified 8 covariates for Cox model: ['Salary', 'LastRating', 'Age', 'YearsInCurrentRole', 'YearsSinceLastPromotion', 'PromotionCount', 'InterviewScore', 'AssessmentScore']
+Attempting to convert an unexpected datatype 'object' to float. Suggestion: 1) use `lifelines.utils.datetimes_to_durations` to do conversions or 2) manually convert to floats/booleans.
+Attempting to convert an unexpected datatype 'object' to float. Suggestion: 1) use `lifelines.utils.datetimes_to_durations` to do conversions or 2) manually convert to floats/booleans.
+2026-01-14 11:46:51,273 | INFO | survival_engine | SurvivalEngine initialized with 250 employees, Attrition available: True
+2026-01-14 11:46:51,280 | INFO | dependencies | Survival Engine initialized successfully
+2026-01-14 11:46:51,288 | INFO | survival_engine | SurvivalEngine initialized with 250 employees, Attrition available: True
+2026-01-14 11:46:51,289 | INFO | dependencies | Survival Engine initialized successfully
+2026-01-14 11:46:51,298 | INFO | quality_of_hire_engine | QualityOfHireEngine initialized with 250 employees
+2026-01-14 11:46:51,306 | INFO | quality_of_hire_engine | QualityOfHireEngine initialized with 250 employees
+2026-01-14 11:46:51,307 | INFO | dependencies | QualityOfHireEngine initialized successfully
+2026-01-14 11:46:51,309 | INFO | dependencies | QualityOfHireEngine initialized successfully
+2026-01-14 11:46:51,361 | INFO | survival_engine | SurvivalEngine initialized with 250 employees, Attrition available: True
+2026-01-14 11:46:51,374 | INFO | survival_engine | SurvivalEngine initialized with 250 employees, Attrition available: True
+2026-01-14 11:46:51,374 | INFO | dependencies | Survival Engine initialized successfully
+2026-01-14 11:46:51,399 | INFO | experience_engine | Computed EXI for 250 employees. Mean EXI: 59.5
+2026-01-14 11:46:51,423 | INFO | experience_engine | Computed EXI for 250 employees. Mean EXI: 59.5
+2026-01-14 11:46:51,423 | INFO | dependencies | ExperienceEngine initialized successfully
+2026-01-14 11:46:51,423 | INFO | dependencies | Survival Engine initialized successfully
+2026-01-14 11:46:51,429 | INFO | dependencies | ExperienceEngine initialized successfully
+2026-01-14 11:46:51,431 | INFO | quality_of_hire_engine | QualityOfHireEngine initialized with 250 employees
+2026-01-14 11:46:51,431 | INFO | dependencies | QualityOfHireEngine initialized successfully
+The default of observed=False is deprecated and will be changed to True in a future version of pandas. Pass observed=False to retain current behavior or observed=True to adopt the future default and silence this warning.
+The default of observed=False is deprecated and will be changed to True in a future version of pandas. Pass observed=False to retain current behavior or observed=True to adopt the future default and silence this warning.
+2026-01-14 11:46:51,448 | INFO | scenario_engine | Data-driven elasticity: 0.4462 (Q1 attrition: 20.6%, Q4 attrition: 11.1%)
+2026-01-14 11:46:51,461 | INFO | quality_of_hire_engine | QualityOfHireEngine initialized with 250 employees
+The default of observed=False is deprecated and will be changed to True in a future version of pandas. Pass observed=False to retain current behavior or observed=True to adopt the future default and silence this warning.
+The default of observed=False is deprecated and will be changed to True in a future version of pandas. Pass observed=False to retain current behavior or observed=True to adopt the future default and silence this warning.
+2026-01-14 11:46:51,465 | INFO | dependencies | QualityOfHireEngine initialized successfully
+2026-01-14 11:46:51,473 | INFO | scenario_engine | Logistic regression salary coefficient: -0.1995
+2026-01-14 11:46:51,473 | INFO | scenario_engine | Data-driven elasticity: 0.4462 (Q1 attrition: 20.6%, Q4 attrition: 11.1%)
+2026-01-14 11:46:51,473 | INFO | dependencies | ScenarioEngine initialized successfully
+2026-01-14 11:46:51,475 | INFO | analytics | Successfully recovered data from database
+2026-01-14 11:46:51,487 | INFO | scenario_engine | Logistic regression salary coefficient: -0.1995
+2026-01-14 11:46:51,505 | INFO | experience_engine | Computed EXI for 250 employees. Mean EXI: 59.5
+2026-01-14 11:46:51,510 | INFO | dependencies | ExperienceEngine initialized successfully
+2026-01-14 11:46:51,511 | INFO | analytics_engine | Generated active-first department aggregates for 8 departments
+2026-01-14 11:46:51,518 | INFO | dependencies | ScenarioEngine initialized successfully
+INFO:     127.0.0.1:53472 - "GET /api/analytics/departments HTTP/1.1" 200 OK
+2026-01-14 11:46:51,542 | INFO | experience_engine | Computed EXI for 250 employees. Mean EXI: 59.5
+2026-01-14 11:46:51,542 | INFO | analytics | Successfully recovered data from database
+2026-01-14 11:46:51,549 | INFO | dependencies | ExperienceEngine initialized successfully
+The default of observed=False is deprecated and will be changed to True in a future version of pandas. Pass observed=False to retain current behavior or observed=True to adopt the future default and silence this warning.
+The default of observed=False is deprecated and will be changed to True in a future version of pandas. Pass observed=False to retain current behavior or observed=True to adopt the future default and silence this warning.
+2026-01-14 11:46:51,551 | INFO | scenario_engine | Data-driven elasticity: 0.4462 (Q1 attrition: 20.6%, Q4 attrition: 11.1%)
+2026-01-14 11:46:51,551 | INFO | analytics_engine | Generated summary statistics (Active-First)
+The default of observed=False is deprecated and will be changed to True in a future version of pandas. Pass observed=False to retain current behavior or observed=True to adopt the future default and silence this warning.
+2026-01-14 11:46:51,561 | INFO | scenario_engine | Logistic regression salary coefficient: -0.1995
+The default of observed=False is deprecated and will be changed to True in a future version of pandas. Pass observed=False to retain current behavior or observed=True to adopt the future default and silence this warning.
+2026-01-14 11:46:51,561 | INFO | dependencies | ScenarioEngine initialized successfully
+2026-01-14 11:46:51,562 | INFO | scenario_engine | Data-driven elasticity: 0.4462 (Q1 attrition: 20.6%, Q4 attrition: 11.1%)
+2026-01-14 11:46:51,562 | INFO | analytics | Successfully recovered data from database
+2026-01-14 11:46:51,563 | INFO | scenario_engine | Logistic regression salary coefficient: -0.1995
+2026-01-14 11:46:51,563 | INFO | dependencies | ScenarioEngine initialized successfully
+INFO:     127.0.0.1:53471 - "GET /api/analytics/summary HTTP/1.1" 200 OK
+The default of observed=False is deprecated and will be changed to True in a future version of pandas. Pass observed=False to retain current behavior or observed=True to adopt the future default and silence this warning.
+INFO:     127.0.0.1:53476 - "GET /api/analytics/distributions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53473 - "GET /api/predictions/risk?limit=100 HTTP/1.1" 400 Bad Request
+INFO:     127.0.0.1:53518 - "GET /api/predictions/high-risk-employees?limit=20 HTTP/1.1" 400 Bad Request
+INFO:     127.0.0.1:53522 - "GET /api/predictions/risk?limit=100 HTTP/1.1" 400 Bad Request
+INFO:     127.0.0.1:53525 - "GET /api/predictions/risk?limit=100 HTTP/1.1" 400 Bad Request
+INFO:     127.0.0.1:53528 - "GET /api/predictions/risk?limit=100 HTTP/1.1" 400 Bad Request
+2026-01-14 11:48:12,863 | INFO | analytics_engine | Generated active-first department aggregates for 8 departments
+INFO:     127.0.0.1:53753 - "GET /api/analytics/departments HTTP/1.1" 200 OK
+2026-01-14 11:48:12,871 | INFO | analytics_engine | Calculated correlations for 20 features
+INFO:     127.0.0.1:53754 - "GET /api/analytics/correlations?limit=15 HTTP/1.1" 200 OK
+2026-01-14 11:48:12,879 | INFO | analytics_engine | Generated active-first department aggregates for 8 departments
+2026-01-14 11:48:12,881 | INFO | analytics_engine | Generated summary statistics (Active-First)
+2026-01-14 11:48:12,882 | INFO | analytics_engine | Generated summary statistics (Active-First)
+2026-01-14 11:48:12,885 | INFO | analytics_engine | Generated summary statistics (Active-First)
+INFO:     127.0.0.1:53756 - "GET /api/analytics/high-risk-departments HTTP/1.1" 200 OK
+2026-01-14 11:48:20,647 | INFO | compensation_engine | Running full compensation analysis
+2026-01-14 11:48:20,685 | WARNING | compensation_engine | 68 employees are significantly below their salary band midpoint
+2026-01-14 11:48:20,685 | WARNING | compensation_engine | 76 employees are significantly above their salary band midpoint
+2026-01-14 11:48:20,697 | INFO | compensation_engine | Compensation analysis complete. Warnings: 2
+INFO:     127.0.0.1:53789 - "GET /api/compensation/analysis HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53799 - "GET /api/succession/9box/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53800 - "GET /api/succession/bench-strength HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53801 - "GET /api/succession/gaps HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53803 - "GET /api/succession/high-potentials HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53816 - "GET /api/team/filters HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53817 - "GET /api/team/comprehensive HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53818 - "GET /api/team/health HTTP/1.1" 200 OK
+2026-01-14 11:48:27,115 | INFO | nlp_engine | Starting full NLP processing pipeline
+2026-01-14 11:48:27,115 | INFO | nlp_engine | Running sentiment analysis...
+INFO:     127.0.0.1:53825 - "GET /api/analytics/clusters?n_clusters=4 HTTP/1.1" 200 OK
+2026-01-14 11:49:14,959 | INFO | quality_of_hire_engine | Running full quality of hire analysis
+2026-01-14 11:49:15,005 | INFO | quality_of_hire_engine | Quality of hire analysis complete. Warnings: 0
+INFO:     127.0.0.1:53838 - "GET /api/quality-of-hire/analysis HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53840 - "GET /api/quality-of-hire/new-hire-risks?months=6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53897 - "GET /api/predictions/model-metrics HTTP/1.1" 400 Bad Request
+INFO:     127.0.0.1:53899 - "GET /api/predictions/feature-importance?limit=10 HTTP/1.1" 400 Bad Request
+INFO:     127.0.0.1:53900 - "GET /api/predictions/risk?limit=100 HTTP/1.1" 400 Bad Request
+INFO:     127.0.0.1:53903 - "GET /api/predictions/high-risk-employees?limit=20 HTTP/1.1" 400 Bad Request
+INFO:     127.0.0.1:53904 - "GET /api/succession/9box/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53909 - "GET /api/predictions/model-metrics HTTP/1.1" 400 Bad Request
+INFO:     127.0.0.1:53913 - "GET /api/predictions/feature-importance?limit=10 HTTP/1.1" 400 Bad Request
+INFO:     127.0.0.1:53912 - "GET /api/predictions/risk?limit=100 HTTP/1.1" 400 Bad Request
+INFO:     127.0.0.1:53916 - "GET /api/predictions/high-risk-employees?limit=20 HTTP/1.1" 400 Bad Request
+INFO:     127.0.0.1:53924 - "GET /api/predictions/risk?limit=100 HTTP/1.1" 400 Bad Request
+INFO:     127.0.0.1:53925 - "GET /api/predictions/feature-importance?limit=10 HTTP/1.1" 400 Bad Request
+INFO:     127.0.0.1:53926 - "GET /api/predictions/model-metrics HTTP/1.1" 400 Bad Request
+INFO:     127.0.0.1:53928 - "GET /api/predictions/high-risk-employees?limit=20 HTTP/1.1" 400 Bad Request
+INFO:     127.0.0.1:53935 - "GET /api/predictions/risk?limit=100 HTTP/1.1" 400 Bad Request
+INFO:     127.0.0.1:53938 - "GET /api/predictions/model-metrics HTTP/1.1" 400 Bad Request
+INFO:     127.0.0.1:53940 - "GET /api/predictions/feature-importance?limit=10 HTTP/1.1" 400 Bad Request
+INFO:     127.0.0.1:53941 - "GET /api/predictions/high-risk-employees?limit=20 HTTP/1.1" 400 Bad Request
+INFO:     127.0.0.1:53951 - "GET /api/predictions/model-metrics HTTP/1.1" 400 Bad Request
+INFO:     127.0.0.1:53954 - "GET /api/predictions/model-metrics HTTP/1.1" 400 Bad Request
+INFO:     127.0.0.1:53962 - "GET /api/predictions/model-metrics HTTP/1.1" 400 Bad Request
+INFO:     127.0.0.1:53982 - "GET /api/predictions/model-metrics HTTP/1.1" 400 Bad Request
+2026-01-14 11:52:50,147 | INFO | nlp_engine | Extracting skills...
+2026-01-14 11:53:02,287 | INFO | nlp_engine | Extracting topics...
+WARNING:  WatchFiles detected changes in 'src/data_loader.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
+2026-01-14 11:53:14,983 | INFO | nlp_engine | NLP processing complete
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/uvicorn/protocols/http/httptools_impl.py", line 419, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/uvicorn/middleware/proxy_headers.py", line 84, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/fastapi/applications.py", line 1054, in __call__
+    await super().__call__(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/starlette/applications.py", line 123, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/starlette/middleware/errors.py", line 186, in __call__
+    raise exc
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/starlette/middleware/errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/starlette/middleware/cors.py", line 83, in __call__
+    await self.app(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/starlette/middleware/exceptions.py", line 62, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/starlette/_exception_handler.py", line 64, in wrapped_app
+    raise exc
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    await app(scope, receive, sender)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/starlette/routing.py", line 762, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/starlette/routing.py", line 782, in app
+    await route.handle(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/starlette/routing.py", line 297, in handle
+    await self.app(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/starlette/routing.py", line 77, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/starlette/_exception_handler.py", line 64, in wrapped_app
+    raise exc
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    await app(scope, receive, sender)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/starlette/routing.py", line 72, in app
+    response = await func(request)
+               ^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/fastapi/routing.py", line 299, in app
+    raise e
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/fastapi/routing.py", line 294, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/fastapi/routing.py", line 193, in run_endpoint_function
+    return await run_in_threadpool(dependant.call, **values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/starlette/concurrency.py", line 40, in run_in_threadpool
+    return await anyio.to_thread.run_sync(func, *args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/anyio/to_thread.py", line 56, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/anyio/_backends/_asyncio.py", line 2485, in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/anyio/_backends/_asyncio.py", line 976, in run
+    result = context.run(func, *args)
+             ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/omoniyi/Downloads/PeopleOS/api/routes/nlp.py", line 80, in get_nlp_analysis
+    'sentiment_summary': analysis['sentiment_summary'],
+                         ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^
+TypeError: 'NoneType' object is not subscriptable
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [12726]
+WARNING:  WatchFiles detected changes in 'api/dependencies.py'. Reloading...
+/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/redis/connection.py:72: UserWarning: redis-py works best with hiredis. Please consider installing
+  warnings.warn(msg)
+/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/pydantic/_internal/_fields.py:149: UserWarning: Field "model_name" has conflict with protected namespace "model_".
+
+You may be able to resolve this warning by setting `model_config['protected_namespaces'] = ()`.
+  warnings.warn(
+2026-01-14 11:53:20,607 | WARNING | causal_engine | DoWhy library not available. Causal inference will use heuristic fallback.
+INFO:     Started server process [14556]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+2026-01-14 11:53:22,492 | INFO | database | Database schema initialized
+2026-01-14 11:53:22,492 | INFO | database | Database initialized at data/peopleos.db
+2026-01-14 11:53:22,498 | INFO | data_loader | Loaded 250 employees from database
+2026-01-14 11:53:22,498 | WARNING | preprocessor | Dropping columns with >90.0% nulls: ['RatingHistory', 'StartingSalary']
+2026-01-14 11:53:22,499 | INFO | preprocessor | Numeric columns: ['Tenure', 'Salary', 'LastRating', 'Age', 'YearsInCurrentRole', 'YearsSinceLastPromotion', 'PromotionCount', 'InterviewScore', 'AssessmentScore', 'InterviewScore_Technical', 'InterviewScore_Cultural', 'InterviewScore_Curiosity', 'InterviewScore_Communication', 'InterviewScore_Leadership', 'JobLevel', 'CompaRatio', 'PriorExperienceYears', 'ManagerChangeCount', 'eNPS_Score', 'Pulse_Score', 'ManagerSatisfaction', 'WorkLifeBalance', 'CareerGrowthSatisfaction', 'Onboarding_30d', 'Onboarding_60d', 'Onboarding_90d']
+2026-01-14 11:53:22,499 | INFO | preprocessor | Categorical columns: ['Dept', 'Gender', 'JobTitle', 'Location', 'Country', 'HireDate', 'ManagerID', 'HireSource', 'PerformanceText', 'PromotionDate']
+2026-01-14 11:53:22,525 | INFO | preprocessor | Imputed Onboarding_30d with median: 3.8
+2026-01-14 11:53:22,526 | INFO | preprocessor | Imputed Onboarding_60d with median: 3.7
+2026-01-14 11:53:22,526 | INFO | preprocessor | Imputed Onboarding_90d with median: 3.6
+2026-01-14 11:53:22,526 | INFO | preprocessor | Imputed PromotionDate with mode: 2023-01-01
+2026-01-14 11:53:22,527 | INFO | preprocessor | Capped 10 outliers in Tenure
+2026-01-14 11:53:22,528 | INFO | preprocessor | Capped 3 outliers in Salary
+2026-01-14 11:53:22,528 | INFO | preprocessor | Capped 3 outliers in LastRating
+2026-01-14 11:53:22,529 | INFO | preprocessor | Capped 15 outliers in YearsInCurrentRole
+2026-01-14 11:53:22,530 | INFO | preprocessor | Capped 6 outliers in YearsSinceLastPromotion
+2026-01-14 11:53:22,531 | INFO | preprocessor | Capped 28 outliers in PromotionCount
+2026-01-14 11:53:22,532 | INFO | preprocessor | Capped 1 outliers in InterviewScore
+2026-01-14 11:53:22,533 | INFO | preprocessor | Capped 1 outliers in AssessmentScore
+2026-01-14 11:53:22,538 | INFO | preprocessor | Capped 5 outliers in eNPS_Score
+2026-01-14 11:53:22,539 | INFO | preprocessor | Capped 3 outliers in ManagerSatisfaction
+2026-01-14 11:53:22,540 | INFO | preprocessor | Capped 1 outliers in WorkLifeBalance
+2026-01-14 11:53:22,541 | INFO | preprocessor | Capped 83 outliers in Onboarding_30d
+2026-01-14 11:53:22,541 | INFO | preprocessor | Capped 84 outliers in Onboarding_60d
+2026-01-14 11:53:22,542 | INFO | preprocessor | Capped 84 outliers in Onboarding_90d
+2026-01-14 11:53:22,542 | INFO | preprocessor | Capped 1 outliers in PromotionLag
+2026-01-14 11:53:22,546 | INFO | preprocessor | Scaled columns: ['Tenure', 'Salary', 'YearsInCurrentRole', 'YearsSinceLastPromotion', 'PromotionCount', 'InterviewScore', 'AssessmentScore', 'InterviewScore_Technical', 'InterviewScore_Cultural', 'InterviewScore_Curiosity', 'InterviewScore_Communication', 'InterviewScore_Leadership', 'JobLevel', 'CompaRatio', 'PriorExperienceYears', 'ManagerChangeCount', 'eNPS_Score', 'Pulse_Score', 'ManagerSatisfaction', 'WorkLifeBalance', 'CareerGrowthSatisfaction', 'Onboarding_30d', 'Onboarding_60d', 'Onboarding_90d', 'PromotionLag']
+2026-01-14 11:53:22,546 | INFO | preprocessor | Preprocessing complete. Shape: (250, 42)
+2026-01-14 11:53:22,561 | INFO | compensation_engine | CompensationEngine initialized with 250 employees
+2026-01-14 11:53:22,578 | INFO | ml_engine | Evaluating model candidates: ['random_forest', 'xgboost']
+2026-01-14 11:53:23,415 | INFO | ml_engine | Model selection results: {'random_forest': 0.09333333333333334, 'xgboost': 0.08529741863075196}
+2026-01-14 11:53:23,415 | INFO | ml_engine | Selected best model: random_forest
+2026-01-14 11:53:25,289 | INFO | ml_engine | Final model trained with SMOTE-resampled data
+2026-01-14 11:53:25,299 | INFO | ml_engine | Calibration error 0.25 but sample size 50 too small to warn.
+2026-01-14 11:53:25,303 | INFO | ml_engine | Model trained. Best: random_forest, F1: 0.200, Reliability: High
+2026-01-14 11:53:26,333 | INFO | ml_engine | SHAP explainer prepared with 100 samples
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+X has feature names, but DecisionTreeClassifier was fitted without feature names
+2026-01-14 11:53:26,377 | INFO | dependencies | ML Engine initialized. Risk distribution: {'Low': 181, 'Medium': 69}
+2026-01-14 11:53:26,384 | INFO | succession_engine | SuccessionEngine initialized with 250 employees
+2026-01-14 11:53:26,391 | INFO | team_dynamics_engine | TeamDynamicsEngine initialized with 250 employees
+2026-01-14 11:53:26,400 | INFO | fairness_engine | FairnessEngine initialized. Available protected attrs: ['Gender', 'Age_Group', 'Dept', 'Location']
+`clean_up_tokenization_spaces` was not set. It will be set to `True` by default. This behavior will be depracted in transformers v4.45, and will be then set to `False` by default. For more details check this issue: https://github.com/huggingface/transformers/issues/31884
+2026-01-14 11:53:28,098 | INFO | vector_engine | Loaded embedding model: all-MiniLM-L6-v2
+2026-01-14 11:53:28,102 | INFO | vector_engine | Generating embeddings for 250 records...
+2026-01-14 11:53:28,802 | INFO | vector_engine | Successfully built FAISS index with dimension 384
+2026-01-14 11:53:28,952 | INFO | llm_client | Ollama available at http://localhost:11434 with model gemma3:4b
+2026-01-14 11:53:28,959 | INFO | nlp_engine | NLPEngine initialized. LLM available: True
+2026-01-14 11:53:28,959 | INFO | insight_interpreter | InsightInterpreter initialized. LLM available: True
+2026-01-14 11:53:28,966 | INFO | survival_engine | Dynamically identified 8 covariates for Cox model: ['Salary', 'LastRating', 'Age', 'YearsInCurrentRole', 'YearsSinceLastPromotion', 'PromotionCount', 'InterviewScore', 'AssessmentScore']
+Attempting to convert an unexpected datatype 'object' to float. Suggestion: 1) use `lifelines.utils.datetimes_to_durations` to do conversions or 2) manually convert to floats/booleans.
+2026-01-14 11:53:29,069 | INFO | survival_engine | SurvivalEngine initialized with 250 employees, Attrition available: True
+2026-01-14 11:53:29,069 | INFO | dependencies | Survival Engine initialized successfully
+2026-01-14 11:53:29,183 | INFO | quality_of_hire_engine | QualityOfHireEngine initialized with 250 employees
+2026-01-14 11:53:29,183 | INFO | dependencies | QualityOfHireEngine initialized successfully
+2026-01-14 11:53:29,221 | INFO | experience_engine | Computed EXI for 250 employees. Mean EXI: 59.5
+2026-01-14 11:53:29,222 | INFO | dependencies | ExperienceEngine initialized successfully
+The default of observed=False is deprecated and will be changed to True in a future version of pandas. Pass observed=False to retain current behavior or observed=True to adopt the future default and silence this warning.
+The default of observed=False is deprecated and will be changed to True in a future version of pandas. Pass observed=False to retain current behavior or observed=True to adopt the future default and silence this warning.
+2026-01-14 11:53:29,230 | INFO | scenario_engine | Data-driven elasticity: 0.4462 (Q1 attrition: 20.6%, Q4 attrition: 11.1%)
+2026-01-14 11:53:29,232 | INFO | scenario_engine | Logistic regression salary coefficient: -0.1995
+2026-01-14 11:53:29,232 | INFO | dependencies | ScenarioEngine initialized successfully
+INFO:     127.0.0.1:54550 - "GET /api/predictions/model-metrics HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54636 - "GET /api/upload/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54637 - "GET /api/predictions/model-metrics HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54638 - "GET /api/predictions/feature-importance?limit=10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54639 - "GET /api/predictions/risk?limit=100 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54641 - "GET /api/predictions/high-risk-employees?limit=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54643 - "GET /api/succession/9box/summary HTTP/1.1" 200 OK
+2026-01-14 11:53:51,952 | INFO | analytics_engine | Generated summary statistics (Active-First)
+INFO:     127.0.0.1:54669 - "GET /api/analytics/summary HTTP/1.1" 200 OK
+2026-01-14 11:54:01,499 | INFO | analytics_engine | Generated active-first department aggregates for 8 departments
+INFO:     127.0.0.1:54670 - "GET /api/analytics/departments HTTP/1.1" 200 OK
+The default of observed=False is deprecated and will be changed to True in a future version of pandas. Pass observed=False to retain current behavior or observed=True to adopt the future default and silence this warning.
+INFO:     127.0.0.1:54672 - "GET /api/analytics/distributions HTTP/1.1" 200 OK

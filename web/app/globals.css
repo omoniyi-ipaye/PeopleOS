@@ -50,6 +50,40 @@
   .text-balance {
     text-wrap: balance;
   }
+
+  .glass {
+    @apply bg-white/70 dark:bg-black/30 backdrop-blur-xl border border-white/10 dark:border-white/5 shadow-xl;
+  }
+
+  .glass-card {
+    @apply relative overflow-hidden rounded-2xl border border-white/10 dark:border-white/5 bg-[var(--glass-surface)] backdrop-blur-md shadow-lg transition-all duration-300 hover:shadow-xl hover:bg-opacity-20;
+  }
+
+  .glass-panel {
+    @apply bg-white/50 dark:bg-black/40 backdrop-blur-2xl border-r border-white/20 dark:border-white/5;
+  }
+
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400;
+  }
+
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+}
+
+@keyframes float {
+  0% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-10px);
+  }
+
+  100% {
+    transform: translateY(0px);
+  }
 }
 
 /* Base styles */

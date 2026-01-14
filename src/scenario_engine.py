@@ -20,7 +20,6 @@ from typing import Dict, Any, List, Optional, Tuple, TYPE_CHECKING
 from dataclasses import dataclass, asdict
 from datetime import datetime
 import uuid
-from scipy import stats
 
 from src.utils import load_config, safe_divide
 from src.logger import get_logger

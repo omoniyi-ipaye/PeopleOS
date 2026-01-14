@@ -8,9 +8,7 @@ Processes employee sentiment data including:
 """
 
 import pandas as pd
-import numpy as np
-from typing import Dict, Any, List, Optional, Tuple
-from datetime import datetime, timedelta
+from typing import Dict, Any, List, Optional
 
 from src.utils import load_config
 from src.logger import get_logger

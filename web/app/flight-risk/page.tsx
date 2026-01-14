@@ -2,9 +2,8 @@
 
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Card } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { KPICard } from '@/components/dashboard/kpi-card'
+import { GlassCard } from '@/components/ui/glass-card'
+import { BentoGrid, BentoGridItem } from '@/components/ui/bento-grid'
 import { FeatureImportanceChart } from '@/components/charts/feature-importance-chart'
 import { RiskDistributionPie } from '@/components/charts/risk-distribution-pie'
 import { NineBoxGrid } from '@/components/charts/nine-box-grid'
@@ -22,6 +21,7 @@ import type {
 } from '@/types/api'
 
 export default function FlightRiskPage() {
+  const [activeTab, setActiveTab] = useState<'overview' | 'analysis' | 'employees'>('overview')
   const [selectedEmployee, setSelectedEmployee] = useState<string | null>(null)
   const [showExplanation, setShowExplanation] = useState(false)
 
@@ -94,22 +94,61 @@ export default function FlightRiskPage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Page Title */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="space-y-6 h-[calc(100vh-100px)] flex flex-col animate-in fade-in duration-700 slide-in-from-bottom-4">
+      {/* Header with Tabs */}
+      <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between flex-shrink-0">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary dark:text-text-dark-primary">Flight Risk</h1>
-          <p className="text-text-secondary dark:text-text-dark-secondary mt-1">
-            AI-powered predictions of potential departures and retention insights
+          <h1 className="text-4xl font-display font-bold text-gradient bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400">
+            Flight Risk
+          </h1>
+          <p className="text-text-secondary dark:text-text-dark-secondary mt-2 text-lg font-light">
+            AI-powered retention intelligence
           </p>
         </div>
-        <button
-          onClick={() => setShowExplanation(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-accent/10 text-accent rounded-lg font-medium hover:bg-accent/20 transition-all active:scale-95"
-        >
-          <Info className="w-4 h-4" />
-          How it works
-        </button>
+
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => setShowExplanation(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-accent/10 text-accent rounded-xl font-medium hover:bg-accent/20 transition-all active:scale-95 text-sm"
+          >
+            <Info className="w-4 h-4" />
+            How it works
+          </button>
+
+          {/* Premium Tab Navigation */}
+          <div className="glass p-1.5 rounded-2xl flex gap-1">
+            <button
+              onClick={() => setActiveTab('overview')}
+              className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 ${activeTab === 'overview'
+                ? 'bg-white dark:bg-slate-800 shadow-lg text-text-primary dark:text-white scale-105'
+                : 'text-text-secondary dark:text-slate-400 hover:text-text-primary dark:hover:text-white hover:bg-white/10'
+                }`}
+            >
+              <Target className="w-4 h-4" />
+              Overview
+            </button>
+            <button
+              onClick={() => setActiveTab('analysis')}
+              className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 ${activeTab === 'analysis'
+                ? 'bg-white dark:bg-slate-800 shadow-lg text-text-primary dark:text-white scale-105'
+                : 'text-text-secondary dark:text-slate-400 hover:text-text-primary dark:hover:text-white hover:bg-white/10'
+                }`}
+            >
+              <Brain className="w-4 h-4" />
+              Analysis
+            </button>
+            <button
+              onClick={() => setActiveTab('employees')}
+              className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 ${activeTab === 'employees'
+                ? 'bg-white dark:bg-slate-800 shadow-lg text-text-primary dark:text-white scale-105'
+                : 'text-text-secondary dark:text-slate-400 hover:text-text-primary dark:hover:text-white hover:bg-white/10'
+                }`}
+            >
+              <ShieldAlert className="w-4 h-4" />
+              Employees
+            </button>
+          </div>
+        </div>
       </div>
 
       <PredictionExplanationModal
@@ -117,108 +156,156 @@ export default function FlightRiskPage() {
         onClose={() => setShowExplanation(false)}
       />
 
-      {/* Model Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <KPICard
-          title="Overall Accuracy"
-          value={`${(modelMetrics.accuracy * 100).toFixed(1)}%`}
-          icon={Target}
-          variant={modelMetrics.accuracy > 0.8 ? 'success' : 'warning'}
-          insight="How often our predictions match reality across all employees"
-        />
-        <KPICard
-          title="Model Confidence"
-          value={(modelMetrics.f1 * 100).toFixed(1) + '%'}
-          icon={CheckCircle}
-          insight={`Based on ${modelMetrics.best_model} algorithm`}
-        />
-        <KPICard
-          title="Detection Rate"
-          value={`${(modelMetrics.recall * 100).toFixed(1)}%`}
-          icon={Brain}
-          insight="The percentage of actual departures we correctly identified"
-        />
-        <KPICard
-          title="Reliability"
-          value={modelMetrics.reliability}
-          icon={ShieldAlert}
-          variant={
-            modelMetrics.reliability === 'High'
-              ? 'success'
-              : modelMetrics.reliability === 'Medium'
-                ? 'warning'
-                : 'danger'
-          }
-          insight="Current confidence level in the model's predictions"
-        />
-      </div>
+      {/* Tab Content Area */}
+      <div className="flex-1 min-h-0 overflow-y-auto pr-2 pb-4">
+        {activeTab === 'overview' && (
+          <div className="space-y-6">
+            <BentoGrid>
+              <BentoGridItem
+                title="Overall Accuracy"
+                header={<div className="text-4xl font-display font-bold text-text-primary dark:text-white">{(modelMetrics.accuracy * 100).toFixed(1)}%</div>}
+                icon={<Target className="w-5 h-5 text-accent" />}
+                description="Prediction match rate"
+                className={modelMetrics.accuracy > 0.8 ? "border-l-4 border-success" : "border-l-4 border-warning"}
+              />
+              <BentoGridItem
+                title="Confidence Score"
+                header={<div className="text-4xl font-display font-bold text-text-primary dark:text-white">{(modelMetrics.f1 * 100).toFixed(1)}%</div>}
+                icon={<CheckCircle className="w-5 h-5 text-blue-500" />}
+                description={`Algorithm: ${modelMetrics.best_model}`}
+                className="border-l-4 border-blue-500"
+              />
+              <BentoGridItem
+                title="Detection Rate"
+                header={<div className="text-4xl font-display font-bold text-text-primary dark:text-white">{(modelMetrics.recall * 100).toFixed(1)}%</div>}
+                icon={<Brain className="w-5 h-5 text-purple-500" />}
+                description="Actual leavers identified"
+                className="border-l-4 border-purple-500"
+              />
+              <BentoGridItem
+                title="Reliability"
+                header={<div className="text-4xl font-display font-bold text-text-primary dark:text-white">{modelMetrics.reliability}</div>}
+                icon={<ShieldAlert className="w-5 h-5 text-emerald-500" />}
+                description="Model stability"
+                className="border-l-4 border-emerald-500"
+              />
+            </BentoGrid>
 
-      {/* Model Warnings */}
-      {modelMetrics.warnings && modelMetrics.warnings.length > 0 && (
-        <div className="bg-warning/10 border border-warning/20 rounded-xl p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <AlertTriangle className="w-5 h-5 text-warning" />
-            <h3 className="font-medium text-warning">Model Warnings</h3>
+            {/* Risk Summary Grid */}
+            {predictions?.distribution && (
+              <GlassCard className="p-8">
+                <h3 className="text-lg font-semibold mb-6 flex items-center gap-2">
+                  <div className="w-1 h-6 bg-slate-500 rounded-full" />
+                  Risk Distribution Summary
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                  <div className="bg-red-500/10 dark:bg-red-500/5 p-6 rounded-2xl border border-red-500/20 text-center relative overflow-hidden group">
+                    <div className="absolute inset-0 bg-red-500/5 group-hover:bg-red-500/10 transition-colors" />
+                    <div className="relative text-5xl font-bold text-red-500 mb-2">{predictions.distribution.high_risk}</div>
+                    <div className="relative text-sm font-bold uppercase tracking-widest text-red-600/70 dark:text-red-400">High Risk</div>
+                    <div className="mt-2 text-xs text-text-muted">{predictions.distribution.high_risk_pct}% of workforce</div>
+                  </div>
+
+                  <div className="bg-amber-500/10 dark:bg-amber-500/5 p-6 rounded-2xl border border-amber-500/20 text-center relative overflow-hidden group">
+                    <div className="absolute inset-0 bg-amber-500/5 group-hover:bg-amber-500/10 transition-colors" />
+                    <div className="relative text-5xl font-bold text-amber-500 mb-2">{predictions.distribution.medium_risk}</div>
+                    <div className="relative text-sm font-bold uppercase tracking-widest text-amber-600/70 dark:text-amber-400">Medium Risk</div>
+                    <div className="mt-2 text-xs text-text-muted">{predictions.distribution.medium_risk_pct}% of workforce</div>
+                  </div>
+
+                  <div className="bg-emerald-500/10 dark:bg-emerald-500/5 p-6 rounded-2xl border border-emerald-500/20 text-center relative overflow-hidden group">
+                    <div className="absolute inset-0 bg-emerald-500/5 group-hover:bg-emerald-500/10 transition-colors" />
+                    <div className="relative text-5xl font-bold text-emerald-500 mb-2">{predictions.distribution.low_risk}</div>
+                    <div className="relative text-sm font-bold uppercase tracking-widest text-emerald-600/70 dark:text-emerald-400">Low Risk</div>
+                    <div className="mt-2 text-xs text-text-muted">{predictions.distribution.low_risk_pct}% of workforce</div>
+                  </div>
+                </div>
+              </GlassCard>
+            )}
+
+            {/* Warnings */}
+            {modelMetrics.warnings && modelMetrics.warnings.length > 0 && (
+              <div className="glass p-4 rounded-xl border-l-4 border-warning flex items-start gap-4">
+                <AlertTriangle className="w-5 h-5 text-warning flex-shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="font-semibold text-warning mb-1">Model Calibrations</h4>
+                  <ul className="list-disc list-inside space-y-1 text-sm text-text-secondary">
+                    {modelMetrics.warnings.map((warning, i) => (
+                      <li key={i}>{warning}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            )}
           </div>
-          <ul className="list-disc list-inside space-y-1 text-sm text-text-secondary">
-            {modelMetrics.warnings.map((warning: string, i: number) => (
-              <li key={i}>{warning}</li>
-            ))}
-          </ul>
-        </div>
-      )}
+        )}
 
-      {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Feature Importance */}
-        <Card title="What Drives Departures" subtitle="Top factors influencing employee flight risk">
-          {featureImportance?.features ? (
-            <FeatureImportanceChart data={featureImportance.features} />
-          ) : (
-            <div className="h-64 flex items-center justify-center text-text-secondary dark:text-text-dark-secondary">
-              No feature importance data
-            </div>
-          )}
-        </Card>
+        {activeTab === 'analysis' && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 h-full">
+            <GlassCard className="h-full flex flex-col min-h-[500px]">
+              <h3 className="text-lg font-semibold mb-6 flex items-center gap-2">
+                <div className="w-1 h-6 bg-teal-500 rounded-full" />
+                Key Risk Drivers
+              </h3>
+              <div className="flex-1">
+                {featureImportance?.features ? (
+                  <FeatureImportanceChart data={featureImportance.features} />
+                ) : (
+                  <div className="h-full flex items-center justify-center text-text-muted">No data</div>
+                )}
+              </div>
+            </GlassCard>
 
-        {/* Risk Distribution */}
-        <Card title="Risk Distribution" subtitle="Employee risk categories">
-          {predictions?.distribution ? (
-            <RiskDistributionPie data={predictions.distribution} />
-          ) : (
-            <div className="h-64 flex items-center justify-center text-text-secondary dark:text-text-dark-secondary">
-              No predictions available
-            </div>
-          )}
-        </Card>
-      </div>
+            <GlassCard className="h-full flex flex-col min-h-[500px]">
+              <h3 className="text-lg font-semibold mb-6 flex items-center gap-2">
+                <div className="w-1 h-6 bg-indigo-500 rounded-full" />
+                Risk Distribution
+              </h3>
+              <div className="flex-1">
+                {predictions?.distribution ? (
+                  <RiskDistributionPie data={predictions.distribution} />
+                ) : (
+                  <div className="h-full flex items-center justify-center text-text-muted">No data</div>
+                )}
+              </div>
+            </GlassCard>
+          </div>
+        )}
 
-      {/* Second Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* 9-Box Grid */}
-        <Card title="9-Box Matrix" subtitle="Performance vs Potential distribution">
-          {nineBox && nineBox.length > 0 ? (
-            <NineBoxGrid data={nineBox} />
-          ) : (
-            <div className="h-64 flex items-center justify-center text-text-secondary dark:text-text-dark-secondary">
-              No 9-box data available
-            </div>
-          )}
-        </Card>
+        {activeTab === 'employees' && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 h-full">
+            <GlassCard className="h-full flex flex-col min-h-[500px]">
+              <h3 className="text-lg font-semibold mb-6 flex items-center gap-2">
+                <div className="w-1 h-6 bg-purple-500 rounded-full" />
+                9-Box Matrix (Performance vs Potential)
+              </h3>
+              <div className="flex-1">
+                {nineBox && nineBox.length > 0 ? (
+                  <NineBoxGrid data={nineBox} />
+                ) : (
+                  <div className="h-full flex items-center justify-center text-text-muted">No data</div>
+                )}
+              </div>
+            </GlassCard>
 
-        {/* High Risk Employees */}
-        <Card title="High Risk Employees" subtitle="Click on an employee to view details">
-          {highRiskEmployees?.employees ? (
-            <HighRiskTable
-              employees={highRiskEmployees.employees}
-              onEmployeeClick={setSelectedEmployee}
-            />
-          ) : (
-            <div className="h-64 flex items-center justify-center text-text-secondary dark:text-text-dark-secondary">
-              No high-risk employees
-            </div>
-          )}
-        </Card>
+            <GlassCard className="h-full flex flex-col min-h-[500px]">
+              <h3 className="text-lg font-semibold mb-6 flex items-center gap-2">
+                <div className="w-1 h-6 bg-rose-500 rounded-full" />
+                High Risk Employees
+              </h3>
+              <div className="flex-1 overflow-auto">
+                {highRiskEmployees?.employees ? (
+                  <HighRiskTable
+                    employees={highRiskEmployees.employees}
+                    onEmployeeClick={setSelectedEmployee}
+                  />
+                ) : (
+                  <div className="h-full flex items-center justify-center text-text-muted">No high-risk employees</div>
+                )}
+              </div>
+            </GlassCard>
+          </div>
+        )}
       </div>
 
       {/* Employee Detail Modal */}
@@ -227,38 +314,6 @@ export default function FlightRiskPage() {
           employeeId={selectedEmployee}
           onClose={() => setSelectedEmployee(null)}
         />
-      )}
-
-      {/* Risk Stats Summary */}
-      {predictions?.distribution && (
-        <Card title="Risk Summary" padding="lg">
-          <div className="grid grid-cols-3 gap-8 text-center pb-2">
-            <div>
-              <div className="text-3xl font-bold text-danger drop-shadow-sm">
-                {predictions.distribution.high_risk}
-              </div>
-              <div className="text-xs font-semibold uppercase tracking-wider text-text-secondary dark:text-text-dark-secondary mt-2">
-                High Risk ({predictions.distribution.high_risk_pct}%)
-              </div>
-            </div>
-            <div>
-              <div className="text-3xl font-bold text-warning drop-shadow-sm">
-                {predictions.distribution.medium_risk}
-              </div>
-              <div className="text-xs font-semibold uppercase tracking-wider text-text-secondary dark:text-text-dark-secondary mt-2">
-                Medium Risk ({predictions.distribution.medium_risk_pct}%)
-              </div>
-            </div>
-            <div>
-              <div className="text-3xl font-bold text-success drop-shadow-sm">
-                {predictions.distribution.low_risk}
-              </div>
-              <div className="text-xs font-semibold uppercase tracking-wider text-text-secondary dark:text-text-dark-secondary mt-2">
-                Low Risk ({predictions.distribution.low_risk_pct}%)
-              </div>
-            </div>
-          </div>
-        </Card>
       )}
     </div>
   )

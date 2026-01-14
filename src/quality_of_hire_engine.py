@@ -16,9 +16,8 @@ Strategic Value:
 - Reduce cost-per-quality-hire
 """
 
-import numpy as np
 import pandas as pd
-from typing import Optional, Dict, List, Any, Tuple
+from typing import Dict, List, Any
 from datetime import datetime, timedelta
 from scipy import stats
 
@@ -780,7 +779,7 @@ class QualityOfHireEngine:
             'sources_analyzed': len(results['source_effectiveness']),
             'best_source': results['source_effectiveness'][0]['HireSource'] if results['source_effectiveness'] else None,
             'top_predictor': results['correlations'].get('best_predictors', [{}])[0].get('predictor') if results.get('correlations', {}).get('best_predictors') else None,
-            'new_hires_at_risk': len([r for r in results['new_hire_risks'] if r.get('risk_category') == 'High'])
+            'new_hires_at_risk': len([r for r in results['new_hire_risks'] if r.get('risk_category') in ['High', 'Medium']])
         }
 
         # Compile recommendations

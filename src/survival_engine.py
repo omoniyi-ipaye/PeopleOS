@@ -19,8 +19,7 @@ Mathematical Foundation:
 
 import numpy as np
 import pandas as pd
-from typing import Optional, Dict, List, Any, Tuple
-from datetime import datetime, timedelta
+from typing import Optional, Dict, List, Any
 
 from src.logger import get_logger
 from src.utils import load_config
@@ -337,7 +336,7 @@ class SurvivalEngine:
         if len(self.available_covariates) == 0:
             return {
                 'available': False,
-                'reason': f'No Cox covariates available. Check that your data includes numeric columns like Salary, Age, YearsInCurrentRole, etc.'
+                'reason': 'No Cox covariates available. Check that your data includes numeric columns like Salary, Age, YearsInCurrentRole, etc.'
             }
 
         df = self.df.copy()

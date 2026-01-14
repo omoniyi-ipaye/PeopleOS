@@ -6,7 +6,7 @@ insights that HR professionals can immediately understand and act upon.
 Uses local LLM (Ollama) for contextual explanations.
 """
 
-from typing import Any, Optional
+from typing import Any
 import json
 
 from src.logger import get_logger
