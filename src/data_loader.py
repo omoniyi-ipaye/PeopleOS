@@ -28,7 +28,8 @@ GOLDEN_SCHEMA = {
         'Attrition', 'PerformanceText', 'RatingHistory', 'PromotionDate', 
         'StartingSalary', 'YearsInCurrentRole', 'YearsSinceLastPromotion',
         'PromotionCount', 'InterviewScore', 'AssessmentScore', 'HireSource',
-        'SnapshotDate'
+        'SnapshotDate', 'Country', 'JobLevel', 'CompaRatio', 
+        'PriorExperienceYears', 'ManagerChangeCount'
     ]
 }
 

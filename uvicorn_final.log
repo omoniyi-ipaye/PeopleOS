@@ -1853,3 +1853,18 @@ INFO:     127.0.0.1:54669 - "GET /api/analytics/summary HTTP/1.1" 200 OK
 INFO:     127.0.0.1:54670 - "GET /api/analytics/departments HTTP/1.1" 200 OK
 The default of observed=False is deprecated and will be changed to True in a future version of pandas. Pass observed=False to retain current behavior or observed=True to adopt the future default and silence this warning.
 INFO:     127.0.0.1:54672 - "GET /api/analytics/distributions HTTP/1.1" 200 OK
+WARNING:  WatchFiles detected changes in 'src/data_loader.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [14556]
+/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/redis/connection.py:72: UserWarning: redis-py works best with hiredis. Please consider installing
+  warnings.warn(msg)
+/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/pydantic/_internal/_fields.py:149: UserWarning: Field "model_name" has conflict with protected namespace "model_".
+
+You may be able to resolve this warning by setting `model_config['protected_namespaces'] = ()`.
+  warnings.warn(
+2026-01-14 11:58:45,906 | WARNING | causal_engine | DoWhy library not available. Causal inference will use heuristic fallback.
+INFO:     Started server process [15531]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
