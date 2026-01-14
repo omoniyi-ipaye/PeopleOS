@@ -250,7 +250,8 @@ class MLEngine:
                 'f1': float(f1_score(y_test, y_pred, zero_division=0)),
                 'best_model': best_model_type,
                 'train_size': len(X_train),
-                'test_size': len(X_test)
+                'test_size': len(X_test),
+                'warnings': []
             }
             
             if y_proba is not None and len(y.unique()) == 2:
