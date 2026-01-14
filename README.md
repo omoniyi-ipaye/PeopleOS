@@ -147,4 +147,19 @@ PeopleOS uses a "Golden Schema" for data mapping. You can download a **Sample Te
 ---
 
 ## ⚖️ License
-Internal Use Only. Confidential.
+
+**Apache License 2.0 with Commercial Use Restriction**
+
+Copyright (c) 2024-2026 Omoniyi Ipaye.
+
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License. You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+**COMMERCIAL USE RESTRICTION:**
+Notwithstanding the terms of the Apache License 2.0, **any use of this software for commercial purposes is strictly prohibited without the express written permission of Omoniyi Ipaye.**
+
+Commercial purpose includes, but is not limited to:
+*   Using the software to provide paid services to third parties.
+*   Selling, licensing, or renting the software.
+*   Integrating the software into a commercial product.
