@@ -18,7 +18,10 @@ web/.env.local
 # Application Data (Sensitive HR Data)
 data/*.db
 data/peopleos.db
-logs/*.log
+data/peopleos.db
+logs/
+*.log
+*.swp
 sessions/
 results/
 artifacts/
