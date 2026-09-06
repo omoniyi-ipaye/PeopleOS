@@ -1,0 +1,94 @@
+{
+  "system": "PeopleOS Local Distribution",
+  "status": "TRANSITION",
+  "primary_mode": "local_first",
+  "hosted_role": "synthetic_demo_only_initially",
+  "experience_goal": "download_install_open_add_data_without_developer_setup",
+  "actors": [
+    {
+      "id": "people_professional",
+      "role": "primary_user",
+      "requires_cli": false,
+      "requires_python": false,
+      "requires_node": false,
+      "requires_docker": false,
+      "requires_llm": false
+    }
+  ],
+  "runtime": {
+    "bind": "127.0.0.1",
+    "port": "ephemeral",
+    "ui": "next_static_export",
+    "api": "fastapi_bundled",
+    "ui_api_origin": "same_origin",
+    "launcher": "self_contained_executable",
+    "initial_shell": "system_browser",
+    "future_shell": "thin_native_webview_optional"
+  },
+  "storage": {
+    "mutable_data_outside_bundle": true,
+    "override": "PEOPLEOS_HOME",
+    "paths": {
+      "database": "data/peopleos.db",
+      "registry": "control-plane/workspaces.json",
+      "datasets": "datasets/",
+      "models": "models/",
+      "investigations": "investigations/",
+      "exports": "exports/",
+      "backups": "backups/",
+      "logs": "logs/",
+      "config": "config/"
+    }
+  },
+  "first_run": {
+    "choices": ["explore_sample", "add_workforce_data"],
+    "privacy_message": "workforce_data_stays_on_this_computer",
+    "model_download_required": false,
+    "deterministic_analysis_available": true
+  },
+  "capability_tiers": {
+    "always": [
+      "deterministic_analytics",
+      "compensation_screening",
+      "fairness_screening",
+      "cohort_survival",
+      "quality_of_hire_association",
+      "scenario_exploration",
+      "people_intelligence_deterministic"
+    ],
+    "optional": [
+      "predictive_training",
+      "predictive_inference",
+      "semantic_search",
+      "local_llm_synthesis"
+    ]
+  },
+  "packaging": {
+    "tool": "pyinstaller",
+    "targets": ["windows_x64", "macos_arm64", "linux_x64"],
+    "smoke_test": ["api_health", "static_ui_root"],
+    "ci_artifacts": true,
+    "signed_installers": "PROPOSED"
+  },
+  "invariants": [
+    "installed_bundle_is_immutable",
+    "user_data_survives_upgrade",
+    "loopback_only_runtime",
+    "no_cloud_dependency_for_core_analysis",
+    "no_llm_dependency_for_first_run",
+    "optional_capabilities_fail_closed_without_breaking_core",
+    "one_click_runtime_start",
+    "packaged_binary_serves_ui_and_api"
+  ],
+  "readiness": {
+    "verdict": "BUILD_READY_WITH_ASSUMPTIONS",
+    "remaining": [
+      "cross_platform_packaged_binary_green",
+      "restart_restore_e2e",
+      "predictive_dependency_size_split",
+      "signed_installer_packaging",
+      "backup_export_ui",
+      "optional_native_shell"
+    ]
+  }
+}
