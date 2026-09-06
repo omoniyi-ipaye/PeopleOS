@@ -20,6 +20,8 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
+from src.local_paths import get_peopleos_paths
+
 
 def _utcnow() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -107,12 +109,14 @@ class WorkspaceStore:
 
     The local workspace is created automatically. Writes are serialized and
     performed through os.replace so interruption cannot leave a partial file.
+    By default the registry lives in the OS-native PeopleOS application-data
+    directory; PEOPLEOS_WORKSPACE_REGISTRY can override it explicitly.
     """
 
     DEFAULT_WORKSPACE_ID = "local"
 
     def __init__(self, path: Optional[str] = None):
-        default_path = os.getenv("PEOPLEOS_WORKSPACE_REGISTRY", ".peopleos/workspaces.json")
+        default_path = os.getenv("PEOPLEOS_WORKSPACE_REGISTRY") or str(get_peopleos_paths().registry)
         self.path = Path(path or default_path)
         self._lock = threading.RLock()
         self.path.parent.mkdir(parents=True, exist_ok=True)
