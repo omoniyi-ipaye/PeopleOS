@@ -61,7 +61,7 @@ def main() -> None:
         page.screenshot(path=str(ARTIFACT_DIR / "01-upload.png"), full_page=True)
 
         if page.get_by_text("System Data Active").count() == 0:
-            page.get_by_text("Load Sample Data", exact=True).click()
+            page.get_by_role("button", name="Load Sample Data").click()
             page.get_by_text("Upload Complete").wait_for(timeout=240_000)
 
         page.get_by_text("System Data Active").wait_for(timeout=60_000)
