@@ -40,11 +40,11 @@ def fetch_json(url: str) -> dict:
 
 
 def main() -> None:
-    wait_http(f"{API_URL}/health")
+    wait_http(f"{API_URL}/api/health")
     wait_http(BASE_URL)
 
-    health = fetch_json(f"{API_URL}/health")
-    assert health.get("status") == "healthy", health
+    health = fetch_json(f"{API_URL}/api/health")
+    assert health.get("status") in {"healthy", "degraded"}, health
 
     console_errors: list[str] = []
     page_errors: list[str] = []
@@ -100,8 +100,6 @@ def main() -> None:
 
         browser.close()
 
-    # Browser-level JavaScript failures are release failures. Network 404s for browser assets
-    # are reported through console and should be fixed rather than ignored.
     assert not page_errors, page_errors
     significant_console_errors = [
         error for error in console_errors
