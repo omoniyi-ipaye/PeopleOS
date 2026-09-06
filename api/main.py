@@ -37,6 +37,7 @@ from api.routes.network import router as network_router
 from api.routes.intelligence import router as intelligence_router
 from api.routes.platform import router as platform_router
 from api.dependencies import get_app_state
+from api.runtime_registry import get_local_state, get_workspace_state
 from api.security import local_first_access_guard
 from src.logger import get_logger
 from src.platform.health import SystemHealthMonitor
@@ -83,6 +84,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Central transition boundary: every existing route that declares
+# Depends(get_app_state) now receives a workspace-scoped runtime instance.
+# This removes process-global state sharing without changing route contracts.
+app.dependency_overrides[get_app_state] = get_workspace_state
+
 app.include_router(upload_router)
 app.include_router(analytics_router)
 app.include_router(predictions_router)
@@ -120,7 +126,7 @@ async def root():
 
 @app.get("/api/health")
 async def health_check():
-    state = get_app_state()
+    state = get_local_state()
     platform_health = SystemHealthMonitor(WorkspaceStore()).check()
     return {
         "status": "healthy" if platform_health["status"] == "healthy" else "degraded",
@@ -133,7 +139,7 @@ async def health_check():
 @app.get("/api/status")
 async def api_status():
     """Return operational capability state without exposing dataset schema or model metrics."""
-    state = get_app_state()
+    state = get_local_state()
     workspace = WorkspaceStore().get_workspace("local")
 
     return {
