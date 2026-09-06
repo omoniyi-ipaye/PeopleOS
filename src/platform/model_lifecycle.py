@@ -1,15 +1,14 @@
 """Explicit model lifecycle with evaluation gate.
 
 Training is a deliberate operation. Activation is blocked until deterministic
-evaluation criteria pass. The service works with the existing MLEngine but no
-request path trains a model implicitly.
+evaluation criteria pass. Heavy legacy ML dependencies are imported only when
+an explicit training operation executes, keeping the control plane lightweight.
 """
 
 from __future__ import annotations
 
 from typing import Any, Dict
 
-from src.ml_engine import MLEngine
 from .workspace import ModelState, ModelVersion, WorkspaceStore
 
 
@@ -43,6 +42,11 @@ class ModelLifecycleService:
         record = self.store.create_model(workspace_id=workspace_id, dataset_id=dataset_id)
         self.store.update_model(workspace_id, record.model_id, state=ModelState.TRAINING)
         try:
+            # Import the legacy implementation only across the explicit training
+            # boundary. Listing workspaces, checking health, or investigating a
+            # question must never require the scientific training stack.
+            from src.ml_engine import MLEngine
+
             engine = MLEngine()
             metrics = engine.train_model(features, target)
             self.store.update_model(workspace_id, record.model_id, state=ModelState.EVALUATING, metrics=metrics)
