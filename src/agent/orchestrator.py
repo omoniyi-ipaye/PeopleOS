@@ -170,7 +170,7 @@ class PeopleIntelligenceAgent:
             return self._deterministic_answer(question, bundle), None
 
         evidence_lines = [
-            f"- [{item.source_tool}] {item.claim} | confidence={item.confidence:.2f}"
+            f"- [{item.source_tool}] {self._format_evidence(item)} | confidence={item.confidence:.2f}"
             for item in bundle.evidence_items()
         ]
         unknown_lines = [f"- {item}" for item in bundle.unknowns]
@@ -244,6 +244,39 @@ Respond in concise executive language with:
         selected.extend(remaining[: max(0, limit - len(selected))])
         return selected
 
+    @staticmethod
+    def _format_evidence(item: EvidenceItem) -> str:
+        """Render evidence as decision-readable text while preserving raw values in the ledger."""
+        value = item.value
+        metric = item.metric or ""
+        if value is None:
+            return item.claim
+
+        try:
+            number = float(value)
+        except (TypeError, ValueError):
+            return item.claim
+
+        if metric in {"headcount", "active_count", "department_count", "high_risk_count", "medium_risk_count", "low_risk_count"}:
+            label = item.claim.split(":", 1)[0]
+            return f"{label}: {int(round(number)):,}"
+        if metric in {"turnover_rate", "department_turnover_rate", "mean_risk_score", "model_f1"}:
+            if metric == "department_turnover_rate":
+                department = item.metadata.get("department") if item.metadata else None
+                return f"{department or 'Department'} turnover rate: {number:.1%}"
+            label = item.claim.split(":", 1)[0]
+            return f"{label}: {number:.1%}"
+        if metric == "salary_mean":
+            return f"Average active-employee salary: {number:,.0f}"
+        if metric == "tenure_mean":
+            return f"Average active-employee tenure: {number:.1f} years"
+        if metric == "lastrating_mean":
+            return f"Average active-employee rating: {number:.1f}/5"
+        if metric == "pay_equity_score":
+            department = item.metadata.get("department") if item.metadata else None
+            return f"{department or 'Department'} pay-equity score: {number:.2f}"
+        return item.claim
+
     def _deterministic_answer(self, question: str, bundle: EvidenceBundle, prefix: Optional[str] = None) -> str:
         lines: List[str] = []
         if prefix:
@@ -254,7 +287,7 @@ Respond in concise executive language with:
         if items:
             lines.append("Evidence:")
             for item in items:
-                lines.append(f"- {item.claim}")
+                lines.append(f"- {self._format_evidence(item)}")
         else:
             lines.append("Evidence: No sufficient aggregate evidence was available for this question.")
 
