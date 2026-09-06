@@ -11,6 +11,7 @@ on:
       - 'src/platform/**'
       - 'api/**'
       - 'web/**'
+      - 'tests/local_restart_probe.py'
       - 'requirements-desktop.txt'
       - 'requirements-predictive.txt'
       - 'config.yaml'
@@ -78,6 +79,13 @@ jobs:
 
       - name: Verify predictive training stack is optional
         run: python -c "import importlib.util; assert importlib.util.find_spec('xgboost') is None; assert importlib.util.find_spec('optuna') is None; assert importlib.util.find_spec('streamlit') is None; print('Slim desktop capability boundary: PASS')"
+
+      - name: Verify workspace survives process restart
+        env:
+          PEOPLEOS_HOME: ${{ runner.temp }}/peopleos-restart-home
+        run: |
+          python tests/local_restart_probe.py load
+          python tests/local_restart_probe.py restore
 
       - name: Build self-contained PeopleOS executable
         run: pyinstaller --noconfirm --clean desktop/peopleos.spec
