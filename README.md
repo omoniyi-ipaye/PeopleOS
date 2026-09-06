@@ -107,7 +107,9 @@ PeopleOS intentionally keeps the deterministic analytics engines responsible for
 - Node.js 22 recommended for the current Next.js 16 frontend
 - Ollama is optional; core analytics and deterministic agent fallback do not require it
 
-### Install dependencies
+### Install the default core runtime
+
+The default installation intentionally excludes the transformer/GPU/vector-search stack. It includes the API, deterministic analytics, predictive/statistical engines, governed agent runtime, local Ollama client and the transitional legacy Streamlit dependency required by the current ML module.
 
 ```bash
 pip install -r requirements.txt
@@ -116,6 +118,16 @@ cd web
 npm install
 cd ..
 ```
+
+### Optional advanced embeddings and semantic search
+
+Install the advanced tier only when you want local sentence-transformer embeddings, FAISS semantic search, or the legacy LangChain integration:
+
+```bash
+pip install -r requirements-advanced.txt
+```
+
+The advanced tier includes the core runtime automatically. A normal PeopleOS install does not require Torch, sentence-transformers or FAISS.
 
 ### Optional local AI synthesis
 
@@ -166,7 +178,7 @@ Additional fields unlock additional analytical capabilities, for example:
 - `PerformanceText` for NLP/sentiment capabilities;
 - `HireSource` and interview scores for quality-of-hire analytics.
 
-When data is uploaded, PeopleOS records a dataset version containing its content hash, row count, columns, basic quality metrics and lifecycle state. Activating a new version supersedes the prior active version in the same workspace.
+When data is uploaded, PeopleOS validates and preprocesses it, records a dataset version containing its content hash, row count, columns and basic quality metrics, and activates that dataset version. Predictive training and advanced vector indexing are not implicitly authorized by the upload action; they belong to their explicit lifecycle boundaries.
 
 ---
 
@@ -204,7 +216,8 @@ The CI release gates cover:
 - workspace/data/model/session lifecycle invariants;
 - RBAC, job idempotency and bounded recovery;
 - canonical system-model validation;
-- Next.js 16 / React 19 lint and production build.
+- Next.js 16 / React 19 lint and production build;
+- a browser-level user journey that boots the core runtime without Torch/sentence-transformers, activates sample data, opens System Health and runs a governed People Intelligence investigation.
 
 The current architecture target is **BUILD READY WITH ASSUMPTIONS** while the legacy AppState routes remain in the transition layer. The repository must not be described as fully migrated until that debt is removed.
 
