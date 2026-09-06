@@ -1,0 +1,42 @@
+{
+  "system_id": "peopleos-design-system",
+  "stage": "TRANSITION",
+  "purpose": "Provide governed, accessible, semantically consistent UI foundations for PeopleOS decision workflows.",
+  "layers": [
+    {"id":"DS-L1","name":"Foundations","includes":["tokens","typography","semantic color","spacing","radius","elevation","motion","focus"]},
+    {"id":"DS-L2","name":"Primitives","includes":["Button","Surface","Card","StatusBadge","StatusDot","Tooltip"]},
+    {"id":"DS-L3","name":"Semantic components","includes":["MetricCard","EmptyState","StateSummary","PageHeader","SectionHeader"]},
+    {"id":"DS-L4","name":"Patterns","includes":["decision briefing","evidence","trust","dataset lifecycle","model lifecycle"]},
+    {"id":"DS-L5","name":"Compositions","includes":["Decision Cockpit","People Intelligence","Data & Sources","Trust Center","Retention Signals","Saved Investigations"]}
+  ],
+  "semantic_states": {
+    "neutral":"structure or descriptive information",
+    "accent":"product navigation or action",
+    "info":"contextual information",
+    "success":"healthy, verified, or available",
+    "warning":"partial, attention, not-applicable, or governed action required",
+    "danger":"failed, destructive, or blocked"
+  },
+  "controls": [
+    {"id":"DS-C01","rule":"Product pages do not invent health or lifecycle color semantics."},
+    {"id":"DS-C02","rule":"Model absence is never represented as success."},
+    {"id":"DS-C03","rule":"Coverage and confidence are displayed as separate concepts."},
+    {"id":"DS-C04","rule":"Interactive controls expose focus, disabled and async loading states."},
+    {"id":"DS-C05","rule":"Status is never communicated by color alone."},
+    {"id":"DS-C06","rule":"Technical identifiers are progressive disclosure."},
+    {"id":"DS-C07","rule":"Consequential employment actions are never primary automated CTAs."},
+    {"id":"DS-C08","rule":"Charts require a textual finding or interpretation context."}
+  ],
+  "compatibility": {
+    "deprecated_for_new_work":["GlassCard","page-local panel primitives","arbitrary radius values","decorative full-screen splash loaders"],
+    "transition_only":["BentoGrid","legacy diagnostics UI helpers"]
+  },
+  "accessibility": {
+    "target":"WCAG 2.2 AA",
+    "requirements":["visible keyboard focus","semantic heading order","accessible names","non-color status cues","reduced-motion compatibility","focus-managed overlays"]
+  },
+  "readiness": {
+    "verdict":"BUILD READY WITH ASSUMPTIONS",
+    "assumptions":["Legacy analytics and diagnostic screens remain to be migrated to semantic primitives."]
+  }
+}
