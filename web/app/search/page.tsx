@@ -1,205 +1,44 @@
 'use client'
 
-import { useState } from 'react'
+import { FormEvent, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { GlassCard } from '@/components/ui/glass-card'
-import { Badge } from '@/components/ui/badge'
 import { api } from '@/lib/api-client'
-import { cn } from '@/lib/utils'
-import { Search, FileText, AlertTriangle, Sparkles, Command, ArrowRight } from 'lucide-react'
-
-import {
-  SearchResult,
-  SearchStatus,
-} from '@/types/api'
+import { Button, EmptyState, Input, Page, PageHeader, SectionHeader, StateSummary, StatusBadge, Surface } from '@/components/ui'
+import { ArrowRight, FileText, Search } from 'lucide-react'
+import type { SearchResult, SearchStatus } from '@/types/api'
 
 export default function SearchPage() {
   const [query, setQuery] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
-  const [isFocused, setIsFocused] = useState(false)
+  const { data: status } = useQuery<SearchStatus>({ queryKey: ['search', 'status'], queryFn: () => api.search.getStatus() as Promise<SearchStatus> })
+  const { data, isLoading } = useQuery<SearchResult>({ queryKey: ['search', 'results', searchTerm], queryFn: () => api.search.search(searchTerm, 10) as Promise<SearchResult>, enabled: searchTerm.length >= 3 })
 
-  const { data: searchStatus } = useQuery<SearchStatus>({
-    queryKey: ['search', 'status'],
-    queryFn: api.search.getStatus as any,
-  })
+  const submit = (event: FormEvent) => { event.preventDefault(); if (query.trim().length >= 3) setSearchTerm(query.trim()) }
 
-  const { data: searchResults, isLoading } = useQuery<SearchResult>({
-    queryKey: ['search', 'results', searchTerm],
-    queryFn: (() => api.search.search(searchTerm, 10)) as any,
-    enabled: !!searchTerm && searchTerm.length >= 3,
-  })
+  if (status?.available === false) return <Page><PageHeader eyebrow="Investigate · Research" title="Search is not available for this dataset" description="Semantic research only appears when the relevant text source is present and the optional indexing capability is available." /><StateSummary title="Capability unavailable" description={status.reason || 'Add a supported text source to enable semantic research.'} tone="warning" /></Page>
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (query.length >= 3) {
-      setSearchTerm(query)
-    }
-  }
-
-  // Unavailable State
-  if (searchStatus?.available === false) {
-    return (
-      <div className="h-[calc(100vh-100px)] flex flex-col items-center justify-center text-center p-6">
-        <div className="p-6 rounded-full bg-warning/10 mb-6 relative">
-          <div className="absolute inset-0 bg-warning/20 blur-xl rounded-full" />
-          <AlertTriangle className="w-16 h-16 text-warning relative z-10" />
-        </div>
-        <h2 className="text-3xl font-display font-bold text-text-primary dark:text-white mb-3">Search Unavailable</h2>
-        <p className="text-text-secondary dark:text-text-dark-secondary max-w-md text-lg leading-relaxed">
-          {searchStatus?.reason || 'Upload data with a "PerformanceText" column to enable semantic search.'}
-        </p>
-      </div>
-    )
-  }
-
-  const hasResults = searchResults?.results && searchResults.results.length > 0
+  const results = data?.results ?? []
 
   return (
-    <div className="h-[calc(100vh-100px)] flex flex-col relative overflow-hidden">
-      {/* Background Decor */}
-      <div className="absolute top-0 right-0 w-96 h-96 bg-accent/5 rounded-full blur-3xl -z-10 animate-pulse-subtle" />
-      <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-500/5 rounded-full blur-3xl -z-10" />
+    <Page>
+      <PageHeader eyebrow="Investigate · Research" title="Search the evidence in workforce text" description="Use semantic retrieval to find relevant passages. Search results are evidence candidates, not conclusions or employee decisions." />
 
-      {/* Main Content Container with Scroll */}
-      <div className="flex-1 overflow-y-auto custom-scrollbar px-1 py-6">
-        <div className={cn(
-          "transition-all duration-700 ease-in-out flex flex-col items-center",
-          hasResults || searchTerm ? "justify-start pt-4" : "justify-center h-full"
-        )}>
+      <Surface padding="lg">
+        <form onSubmit={submit} className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+          <Input label="Research query" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="e.g. leadership potential, manager support, career growth" leading={<Search className="h-4 w-4" />} />
+          <Button type="submit" disabled={query.trim().length < 3} isLoading={isLoading}>Search evidence <ArrowRight className="h-4 w-4" /></Button>
+        </form>
+        <div className="mt-4 flex items-center gap-2 text-xs text-text-muted"><FileText className="h-3.5 w-3.5" />{status?.indexed_records ?? 0} indexed records</div>
+      </Surface>
 
-          {/* Hero Section */}
-          <div className={cn(
-            "w-full max-w-3xl transition-all duration-700 text-center mb-8",
-            hasResults || searchTerm ? "scale-95 opacity-90" : "scale-100"
-          )}>
-            <h1 className={cn(
-              "font-display font-bold text-gradient bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-500 dark:from-white dark:to-gray-400 transition-all duration-500",
-              hasResults || searchTerm ? "text-3xl mb-4" : "text-5xl mb-6"
-            )}>
-              PeopleOS Research
-            </h1>
-            {!hasResults && !searchTerm && (
-              <p className="text-xl text-text-secondary dark:text-text-dark-secondary font-light max-w-xl mx-auto mb-10">
-                Ask questions about your workforce in natural language. Uncover hidden insights in performance reviews.
-              </p>
-            )}
-          </div>
-
-          {/* Search Bar */}
-          <div className="w-full max-w-2xl relative z-20">
-            <form onSubmit={handleSearch} className="relative">
-              <div className={cn(
-                "p-2 flex items-center bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xl transition-all duration-300",
-                isFocused ? "ring-2 ring-accent/20 border-accent" : ""
-              )}>
-                <div className="pl-4 pr-3 text-text-muted">
-                  <Search className={cn("w-6 h-6 transition-colors", isFocused ? "text-accent" : "")} />
-                </div>
-                <input
-                  type="text"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  onFocus={() => setIsFocused(true)}
-                  onBlur={() => setIsFocused(false)}
-                  placeholder="e.g. 'Show me employees with strong leadership potential'..."
-                  className="flex-1 bg-transparent border-none outline-none text-lg h-14 text-text-primary dark:text-white placeholder:text-text-muted/50"
-                />
-                <div className="pr-1">
-                  <button
-                    type="submit"
-                    disabled={query.length < 3 || isLoading}
-                    className="bg-accent hover:bg-accent/90 text-white p-3 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
-                  >
-                    {isLoading ? (
-                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    ) : (
-                      <ArrowRight className="w-5 h-5" />
-                    )}
-                  </button>
-                </div>
-              </div>
-            </form>
-
-            {/* Search Stats / Hints */}
-            <div className="mt-4 flex items-center justify-between text-sm px-4">
-              <div className="flex items-center gap-2 text-text-secondary">
-                <FileText className="w-4 h-4" />
-                <span>{searchStatus?.indexed_records || 0} documents indexed</span>
-              </div>
-              {!hasResults && !searchTerm && (
-                <div className="flex items-center gap-2 text-text-muted">
-                  <Command className="w-3.5 h-3.5" />
-                  <span>Try "High performer"</span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Results Grid */}
-          <div className="w-full max-w-5xl mt-12 space-y-6">
-            {hasResults && (
-              <div className="animate-in fade-in slide-in-from-bottom-8 duration-700">
-                <div className="flex items-center justify-between mb-4 px-2">
-                  <h3 className="text-lg font-bold text-text-secondary">
-                    Results for <span className="text-text-primary dark:text-white">"{searchTerm}"</span>
-                  </h3>
-                  <Badge variant="outline" className="bg-accent/5 text-accent border-accent/20">
-                    {searchResults?.results.length} matches found
-                  </Badge>
-                </div>
-
-                <div className="grid gap-4">
-                  {searchResults.results.map((result, i) => (
-                    <GlassCard key={`${result.employee_id}-${i}`} className="group hover:border-accent/30 transition-all duration-300">
-                      <div className="p-5 flex gap-4">
-                        {/* Score Indicator */}
-                        <div className="flex flex-col items-center justify-center p-3 bg-surface-secondary/50 rounded-xl border border-white/5 h-fit min-w-[80px]">
-                          <span className={cn(
-                            "text-2xl font-bold font-display",
-                            result.similarity_score > 0.8 ? "text-success" :
-                              result.similarity_score > 0.6 ? "text-warning" : "text-text-secondary"
-                          )}>
-                            {(result.similarity_score * 100).toFixed(0)}%
-                          </span>
-                          <span className="text-[10px] text-text-muted uppercase tracking-wider">Match</span>
-                        </div>
-
-                        {/* Content */}
-                        <div className="flex-1 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <h4 className="font-bold text-lg text-text-primary dark:text-white group-hover:text-accent transition-colors">
-                                {result.employee_id}
-                              </h4>
-                              <Badge variant="outline" className="bg-surface-secondary dark:bg-white/5">
-                                {result.dept}
-                              </Badge>
-                            </div>
-                          </div>
-                          <p className="text-text-secondary dark:text-text-dark-secondary leading-relaxed text-sm">
-                            "{result.text}"
-                          </p>
-                        </div>
-                      </div>
-                    </GlassCard>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Empty State */}
-            {searchTerm && !hasResults && !isLoading && (
-              <div className="text-center py-20 animate-in fade-in zoom-in-95 duration-500">
-                <div className="inline-flex p-6 rounded-full bg-surface-secondary/50 mb-6">
-                  <Search className="w-12 h-12 text-text-muted" />
-                </div>
-                <h3 className="text-xl font-bold mb-2">No matches found</h3>
-                <p className="text-text-secondary">Try adjusting your search terms or be less specific.</p>
-              </div>
-            )}
-          </div>
+      {searchTerm ? <Surface padding="lg">
+        <SectionHeader title={`Results for “${searchTerm}”`} description="Ranked by semantic similarity. Review the underlying text before drawing a conclusion." />
+        <div className="mt-5 space-y-3">
+          {isLoading ? <StateSummary title="Searching evidence" description="Comparing your query with the indexed workforce text." tone="info" /> : results.length ? results.map((result, index) => <article key={`${result.employee_id}-${index}`} className="rounded-2xl border border-border p-5"><div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"><div><div className="flex flex-wrap items-center gap-2"><span className="font-semibold">Record {index + 1}</span>{result.dept ? <StatusBadge tone="neutral">{result.dept}</StatusBadge> : null}</div><p className="mt-3 text-sm leading-7 text-text-secondary">{result.text}</p></div><StatusBadge tone={result.similarity_score >= .8 ? 'success' : result.similarity_score >= .6 ? 'info' : 'neutral'}>{(result.similarity_score * 100).toFixed(0)}% match</StatusBadge></div></article>) : <EmptyState title="No relevant evidence found" description="Try a broader concept or different wording." />}
         </div>
-      </div>
-    </div>
+      </Surface> : <Surface padding="lg"><EmptyState icon={Search} title="Start with a workforce question" description="Search works best for concepts and themes rather than exact employee identifiers." /></Surface>}
+
+      <StateSummary title="Privacy and interpretation" description="Semantic search retrieves text evidence. It does not assign performance labels, recommend employment action, or convert similarity into a factual claim." tone="info" />
+    </Page>
   )
 }
