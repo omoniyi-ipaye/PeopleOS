@@ -43,20 +43,16 @@ class AppState:
         self.data_loader = DataLoader()
         self.preprocessor = Preprocessor()
 
-        # Population state
         self.historical_df: Optional[pd.DataFrame] = None
         self.raw_df: Optional[pd.DataFrame] = None
         self.active_df: Optional[pd.DataFrame] = None
         self.population_resolution: Any = None
 
-        # Compatibility preprocessing state. This transform must never be reused
-        # as the evaluation transform for predictive training.
         self.processed_df: Optional[pd.DataFrame] = None
         self.features_df: Optional[pd.DataFrame] = None
         self.target_series: Optional[pd.Series] = None
         self.preprocessing_metadata: Optional[Dict[str, Any]] = None
 
-        # Runtime engines are typed loosely to keep optional scientific stacks lazy.
         self.analytics_engine: Any = None
         self.ml_engine: Any = None
         self.compensation_engine: Any = None
@@ -77,7 +73,6 @@ class AppState:
         self.enps_df: Optional[pd.DataFrame] = None
         self.onboarding_df: Optional[pd.DataFrame] = None
 
-        # Predictive runtime appears only after governed model activation.
         self.model_metrics: Optional[Dict[str, Any]] = None
         self.risk_scores: Optional[pd.DataFrame] = None
         self.nlp_results: Optional[Dict[str, Any]] = None
@@ -88,22 +83,38 @@ class AppState:
     def load_data(self, file_path: str, file_name: str = 'upload') -> Dict[str, Any]:
         """Load a file through the same governed activation path used by upload."""
         from src.platform.runtime_loader import load_dataset
-
         return load_dataset(self, file_path, file_name)
 
     def load_from_database(self) -> bool:
-        """Reload persistent rows without implicitly fitting or activating a model."""
+        """Restore the durable active local dataset, then fall back to legacy SQLite.
+
+        Canonical dataset artifacts preserve full snapshot histories and therefore
+        take precedence over the one-row-per-employee compatibility database.
+        """
+        from src.platform.runtime_loader import activate_dataframe
+
+        try:
+            from src.platform.local_dataset_store import load_dataset_artifact
+            from src.platform.workspace import WorkspaceStore
+
+            workspace = WorkspaceStore().get_workspace('local')
+            if workspace.active_dataset_id:
+                persisted = load_dataset_artifact(workspace.active_dataset_id)
+                if persisted is not None and not persisted.empty:
+                    # Reconstruct feature availability from the persisted source.
+                    feature_flags = {
+                        'predictive': 'Attrition' in persisted.columns,
+                        'nlp': 'PerformanceText' in persisted.columns and persisted['PerformanceText'].notna().any(),
+                    }
+                    activate_dataframe(self, persisted, feature_flags=feature_flags)
+                    return True
+        except Exception as exc:
+            logger.warning('Canonical dataset restore unavailable; trying SQLite fallback: %s', exc)
+
         df = self.data_loader.load_from_database()
         if df is None or df.empty:
             return False
-
-        from src.platform.runtime_loader import activate_dataframe
-
-        activate_dataframe(
-            self,
-            df,
-            feature_flags=self.data_loader.features_enabled.copy(),
-        )
+        activate_dataframe(self, df, feature_flags=self.data_loader.features_enabled.copy())
         return True
 
     def _initialize_engines(self) -> None:
@@ -137,8 +148,6 @@ class AppState:
             'risk_score': float(row['risk_score']),
             'risk_category': row['risk_category'],
         }
-        # Older stored artifacts may contain non-calibrated uncertainty columns;
-        # preserve them only for compatibility and never label them confidence.
         for column in ('uncertainty_lower', 'uncertainty_upper', 'ci_lower', 'ci_upper'):
             if column in row.index and pd.notna(row[column]):
                 result[column] = float(row[column])
