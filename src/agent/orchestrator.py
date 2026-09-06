@@ -17,7 +17,7 @@ from src.agent.adapters import (
     WorkforceSummaryTool,
 )
 from src.agent.aggregator import EvidenceAggregator
-from src.agent.evidence import EvidenceBundle, ToolResult, ToolResultStatus
+from src.agent.evidence import EvidenceBundle, EvidenceItem, ToolResult, ToolResultStatus
 from src.agent.planner import EvidencePlanner
 from src.agent.policy import HRAdvicePolicy, PolicyViolation
 from src.agent.registry import ToolRegistry
@@ -94,8 +94,6 @@ class PeopleIntelligenceAgent:
         try:
             answer = self.policy.enforce_text(answer)
         except PolicyViolation:
-            # Fail closed and provide a safe, evidence-oriented alternative rather
-            # than exposing disallowed model output.
             answer = self._deterministic_answer(
                 question,
                 bundle,
@@ -173,6 +171,41 @@ Respond in concise executive language with:
         except Exception:
             return self._deterministic_answer(question, bundle), None
 
+    def _representative_evidence(self, bundle: EvidenceBundle, limit: int = 8) -> List[EvidenceItem]:
+        """Select high-confidence evidence while preserving tool coverage.
+
+        A global confidence sort can hide a material specialist signal behind
+        baseline metrics. Select the strongest item from every contributing tool
+        first, then fill remaining slots by confidence.
+        """
+        items = bundle.evidence_items()
+        if not items:
+            return []
+
+        by_tool: dict[str, List[EvidenceItem]] = {}
+        for item in items:
+            by_tool.setdefault(item.source_tool, []).append(item)
+
+        selected: List[EvidenceItem] = []
+        selected_ids: set[str] = set()
+        for result in bundle.tool_results:
+            tool_items = by_tool.get(result.tool_id, [])
+            if not tool_items:
+                continue
+            strongest = max(tool_items, key=lambda evidence: evidence.confidence)
+            selected.append(strongest)
+            selected_ids.add(strongest.evidence_id)
+            if len(selected) >= limit:
+                return selected
+
+        remaining = sorted(
+            (item for item in items if item.evidence_id not in selected_ids),
+            key=lambda evidence: evidence.confidence,
+            reverse=True,
+        )
+        selected.extend(remaining[: max(0, limit - len(selected))])
+        return selected
+
     def _deterministic_answer(
         self,
         question: str,
@@ -185,10 +218,10 @@ Respond in concise executive language with:
             lines.append("")
         lines.append(f"Finding: PeopleOS evaluated the available evidence for: {question}")
 
-        items = bundle.evidence_items()
+        items = self._representative_evidence(bundle)
         if items:
             lines.append("Evidence:")
-            for item in sorted(items, key=lambda e: e.confidence, reverse=True)[:8]:
+            for item in items:
                 lines.append(f"- {item.claim}")
         else:
             lines.append("Evidence: No sufficient aggregate evidence was available for this question.")
