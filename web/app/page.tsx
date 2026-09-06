@@ -1,9 +1,9 @@
 'use client'
 
 import Link from 'next/link'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api-client'
-import { Activity, ArrowRight, Brain, Database, Sparkles, TrendingDown, Users } from 'lucide-react'
+import { Activity, ArrowRight, Brain, Database, ShieldCheck, Sparkles, TrendingDown, Users } from 'lucide-react'
 import type { AnalyticsSummary, DepartmentList } from '@/types/api'
 
 interface PlatformStatus {
@@ -18,14 +18,19 @@ function percentage(value?: number) {
 }
 
 export default function DecisionCockpitPage() {
+  const queryClient = useQueryClient()
   const { data: status, isLoading: statusLoading } = useQuery<PlatformStatus>({ queryKey: ['platform', 'status'], queryFn: () => api.getStatus() as Promise<PlatformStatus> })
   const hasData = Boolean(status?.data?.loaded)
   const { data: summary, isLoading: summaryLoading } = useQuery<AnalyticsSummary>({ queryKey: ['analytics', 'summary'], queryFn: () => api.analytics.getSummary() as Promise<AnalyticsSummary>, enabled: hasData })
   const { data: departmentData } = useQuery<DepartmentList>({ queryKey: ['analytics', 'departments'], queryFn: () => api.analytics.getDepartments() as Promise<DepartmentList>, enabled: hasData })
+  const sample = useMutation({
+    mutationFn: () => api.upload.loadSample(),
+    onSuccess: async () => { await queryClient.invalidateQueries() },
+  })
 
-  if (statusLoading) return <div className="grid min-h-[65vh] place-items-center"><div className="text-center"><div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-2xl bg-violet-100 text-violet-600 dark:bg-violet-500/10 dark:text-violet-300"><Sparkles className="h-6 w-6 animate-pulse" /></div><div className="font-medium text-slate-700 dark:text-slate-200">Preparing your workforce briefing…</div></div></div>
+  if (statusLoading) return <div className="grid min-h-[65vh] place-items-center"><div className="text-center"><div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-2xl bg-violet-100 text-violet-600 dark:bg-violet-500/10 dark:text-violet-300"><Sparkles className="h-6 w-6 animate-pulse" /></div><div className="font-medium text-slate-700 dark:text-slate-200">Preparing PeopleOS…</div></div></div>
 
-  if (!hasData) return <div className="mx-auto flex min-h-[70vh] max-w-4xl items-center justify-center p-4"><div className="w-full rounded-3xl border border-slate-200 bg-white p-8 shadow-xl shadow-slate-200/40 dark:border-white/10 dark:bg-slate-900 dark:shadow-none md:p-12"><div className="mb-6 grid h-14 w-14 place-items-center rounded-2xl bg-violet-600 text-white shadow-lg shadow-violet-600/20"><Database className="h-7 w-7" /></div><div className="max-w-2xl"><div className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-violet-600 dark:text-violet-300">Start here</div><h1 className="text-3xl font-semibold tracking-tight text-slate-950 dark:text-white md:text-4xl">Give PeopleOS a workforce dataset.</h1><p className="mt-4 text-base leading-7 text-slate-600 dark:text-slate-300">PeopleOS will validate the data, establish the current population, tell you which evidence is available immediately, and keep predictive or causal capabilities behind explicit governed boundaries.</p></div><div className="mt-8 flex flex-wrap gap-3"><Link href="/upload" className="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-violet-600/20 transition hover:bg-violet-500">Add workforce data <ArrowRight className="h-4 w-4" /></Link><Link href="/advisor" className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5">See how investigations work</Link></div></div></div>
+  if (!hasData) return <div className="mx-auto flex min-h-[72vh] max-w-5xl items-center justify-center p-4"><div className="w-full rounded-3xl border border-slate-200 bg-white p-8 shadow-xl shadow-slate-200/40 dark:border-white/10 dark:bg-slate-900 dark:shadow-none md:p-12"><div className="mb-6 grid h-14 w-14 place-items-center rounded-2xl bg-violet-600 text-white shadow-lg shadow-violet-600/20"><Database className="h-7 w-7" /></div><div className="max-w-2xl"><div className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-violet-600 dark:text-violet-300">Welcome to PeopleOS</div><h1 className="text-3xl font-semibold tracking-tight text-slate-950 dark:text-white md:text-4xl">Start with your workforce, or explore first.</h1><p className="mt-4 text-base leading-7 text-slate-600 dark:text-slate-300">PeopleOS turns workforce data into clear, evidence-backed analysis. Start with a safe sample, or add your own CSV or JSON when you are ready.</p></div><div className="mt-8 flex flex-wrap gap-3"><button type="button" disabled={sample.isPending} onClick={() => sample.mutate()} className="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-violet-600/20 transition hover:bg-violet-500 disabled:cursor-wait disabled:opacity-60"><Sparkles className={`h-4 w-4 ${sample.isPending ? 'animate-pulse' : ''}`} />{sample.isPending ? 'Preparing sample…' : 'Explore with sample data'}</button><Link href="/upload" className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5">Add my workforce data <ArrowRight className="h-4 w-4" /></Link></div>{sample.isError && <p className="mt-4 text-sm text-red-600 dark:text-red-300">The sample could not be prepared. You can still add your own workforce data.</p>}<div className="mt-8 flex items-center gap-2 border-t border-slate-100 pt-5 text-xs text-slate-400 dark:border-white/10"><ShieldCheck className="h-3.5 w-3.5" /><span>Your workforce data stays in this PeopleOS installation on your computer.</span></div></div></div>
 
   const departments = departmentData?.departments ?? []
   const largestDepartment = [...departments].sort((a, b) => b.headcount - a.headcount)[0]
