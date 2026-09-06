@@ -73,7 +73,19 @@ export function ActionLink({ children }: { children: ReactNode }) {
 
 export function StateSummary(props: ({ label: string; value: string; tone?: SemanticTone } | { title: string; description: ReactNode; tone?: SemanticTone })) {
   if ('title' in props) {
-    return <Surface tone={props.tone ?? 'neutral'} padding="compact"><div className="font-semibold text-slate-950 dark:text-white">{props.title}</div><div className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-400">{props.description}</div></Surface>
+    const tone = props.tone ?? 'neutral'
+    const needsAttention = tone === 'warning' || tone === 'danger'
+
+    if (needsAttention) {
+      return <Surface tone={tone} padding="compact"><div className="font-semibold text-slate-950 dark:text-white">{props.title}</div><div className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-400">{props.description}</div></Surface>
+    }
+
+    return (
+      <div className="border-l-2 border-slate-200 py-1 pl-3 dark:border-white/10">
+        <div className="text-xs font-semibold text-slate-600 dark:text-slate-300">{props.title}</div>
+        <div className="mt-0.5 text-xs leading-5 text-slate-500 dark:text-slate-400">{props.description}</div>
+      </div>
+    )
   }
   return <div className="flex items-center justify-between gap-4 border-b border-slate-100 py-3 last:border-0 dark:border-white/5"><span className="text-sm text-slate-600 dark:text-slate-300">{props.label}</span><StatusBadge tone={props.tone ?? 'neutral'}>{props.value}</StatusBadge></div>
 }
