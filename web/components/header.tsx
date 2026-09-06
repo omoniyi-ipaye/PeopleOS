@@ -1,9 +1,10 @@
 'use client'
 
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Database, RefreshCw, ShieldCheck, Sparkles } from 'lucide-react'
 import { api } from '@/lib/api-client'
 import { Button } from '@/components/ui/button'
-import { Database, RefreshCw, ShieldCheck, Sparkles } from 'lucide-react'
+import { StatusBadge } from '@/components/ui/status'
 
 interface PlatformStatus {
   status: string
@@ -14,7 +15,6 @@ interface PlatformStatus {
 
 export function Header() {
   const queryClient = useQueryClient()
-
   const { data: status } = useQuery<PlatformStatus>({
     queryKey: ['platform', 'status'],
     queryFn: () => api.getStatus() as Promise<PlatformStatus>,
@@ -26,24 +26,23 @@ export function Header() {
   const llm = Boolean(status?.capabilities?.llm)
 
   return (
-    <header className="flex min-h-16 items-center justify-between gap-4 border-b border-slate-200/80 bg-white/90 px-5 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/90 md:px-7">
+    <header className="flex min-h-16 items-center justify-between gap-4 border-b border-slate-200/80 bg-white/90 px-5 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/90 md:px-7" aria-label="PeopleOS context">
       <div className="flex min-w-0 flex-wrap items-center gap-2">
-        <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 shadow-sm dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300">
-          <Database className={hasData ? 'h-3.5 w-3.5 text-emerald-500' : 'h-3.5 w-3.5 text-slate-400'} />
+        <StatusBadge tone={hasData ? 'success' : 'warning'}>
+          <Database className="h-3.5 w-3.5" aria-hidden="true" />
           {hasData ? `${status?.data?.row_count?.toLocaleString() ?? 0} people` : 'No active dataset'}
-        </div>
-        <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 shadow-sm dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300">
-          <Sparkles className={activeModel ? 'h-3.5 w-3.5 text-violet-500' : 'h-3.5 w-3.5 text-slate-400'} />
+        </StatusBadge>
+        <StatusBadge tone={activeModel ? 'success' : hasData ? 'warning' : 'neutral'}>
+          <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
           {activeModel ? 'Model active' : hasData ? 'Model not active' : 'Model unavailable'}
-        </div>
-        <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 shadow-sm dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300">
-          <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
+        </StatusBadge>
+        <StatusBadge tone={llm ? 'info' : 'neutral'}>
+          <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
           {llm ? 'Local AI available' : 'Deterministic fallback'}
-        </div>
+        </StatusBadge>
       </div>
-
-      <Button variant="ghost" size="sm" aria-label="Refresh PeopleOS context" onClick={() => queryClient.invalidateQueries()}>
-        <RefreshCw className="h-4 w-4" />
+      <Button variant="ghost" size="icon" aria-label="Refresh PeopleOS context" onClick={() => queryClient.invalidateQueries()}>
+        <RefreshCw className="h-4 w-4" aria-hidden="true" />
       </Button>
     </header>
   )
