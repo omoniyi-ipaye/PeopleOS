@@ -46,13 +46,24 @@ def require_llm(state: AppState = Depends(get_app_state)) -> AppState:
     return state
 
 
+def _generate_safe(state: AppState, prompt: str) -> str:
+    """Generate advisor output and enforce the shared LLM safety policy."""
+    response = state.llm_client.generate(prompt)
+    is_valid, cleaned = state.llm_client._validate_response(response)
+    if not is_valid:
+        logger.warning("Advisor response blocked by LLM safety policy")
+        raise HTTPException(
+            status_code=422,
+            detail="AI advisor response was blocked by the safety policy."
+        )
+    return cleaned
+
+
 @router.get("/status", response_model=AdvisorStatus)
 async def get_advisor_status(
     state: AppState = Depends(get_app_state)
 ) -> AdvisorStatus:
-    """
-    Check if AI advisor (Ollama) is available.
-    """
+    """Check if AI advisor (Ollama) is available."""
     if state.llm_client is None:
         return AdvisorStatus(
             available=False,
@@ -78,13 +89,9 @@ async def get_advisor_status(
 async def get_strategic_summary(
     state: AppState = Depends(require_llm)
 ) -> StrategicSummary:
-    """
-    Get AI-generated strategic summary of HR analytics.
-    """
-    # Gather context for the LLM
+    """Get AI-generated strategic summary of HR analytics."""
     context = _build_analytics_context(state)
 
-    # Generate summary using LLM
     prompt = f"""
     You are an HR analytics expert. Based on the following HR metrics, provide a strategic summary
     with key insights and recommended actions.
@@ -106,9 +113,7 @@ async def get_strategic_summary(
     """
 
     try:
-        response = state.llm_client.generate(prompt)
-
-        # Parse response
+        response = _generate_safe(state, prompt)
         summary, insights, actions = _parse_llm_response(response)
 
         return StrategicSummary(
@@ -118,6 +123,8 @@ async def get_strategic_summary(
             generated_by=state.llm_client.model
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate summary: {str(e)}")
 
@@ -127,10 +134,7 @@ async def ask_advisor(
     question: str,
     state: AppState = Depends(require_llm)
 ) -> Dict[str, Any]:
-    """
-    Ask the AI advisor a specific question about the HR data.
-    """
-    # Gather context
+    """Ask the AI advisor a specific question about the HR data."""
     context = _build_analytics_context(state)
 
     prompt = f"""
@@ -145,7 +149,7 @@ async def ask_advisor(
     """
 
     try:
-        response = state.llm_client.generate(prompt)
+        response = _generate_safe(state, prompt)
 
         return {
             'question': question,
@@ -153,6 +157,8 @@ async def ask_advisor(
             'model': state.llm_client.model
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate response: {str(e)}")
 
@@ -161,7 +167,6 @@ def _build_analytics_context(state: AppState) -> str:
     """Build context string from current analytics."""
     context_parts = []
 
-    # Summary stats
     if state.analytics_engine:
         stats = state.analytics_engine.get_summary_statistics()
         context_parts.append(f"Headcount: {stats.get('headcount', 'N/A')}")
@@ -172,13 +177,11 @@ def _build_analytics_context(state: AppState) -> str:
         if stats.get('salary_mean'):
             context_parts.append(f"Average Salary: ${stats['salary_mean']:,.0f}")
 
-    # Risk distribution
     if state.risk_scores is not None:
         high_risk = len(state.risk_scores[state.risk_scores['risk_category'] == 'High'])
         total = len(state.risk_scores)
         context_parts.append(f"High-Risk Employees: {high_risk} ({high_risk/total*100:.1f}%)")
 
-    # Model performance
     if state.model_metrics:
         context_parts.append(f"Model F1 Score: {state.model_metrics.get('f1', 0):.2f}")
 
@@ -191,7 +194,7 @@ def _parse_llm_response(response: str) -> tuple[str, List[str], List[str]]:
     insights = []
     actions = []
 
-    current_section = 'summary'  # Assume summary starts first
+    current_section = 'summary'
 
     for line in response.split('\n'):
         line = line.strip()
@@ -217,7 +220,6 @@ def _parse_llm_response(response: str) -> tuple[str, List[str], List[str]]:
                 elif current_section == 'actions':
                     actions.append(item)
                 else:
-                    # If we found a bullet but no section, assume insights
                     insights.append(item)
         elif current_section == 'summary':
             if summary:
@@ -225,21 +227,18 @@ def _parse_llm_response(response: str) -> tuple[str, List[str], List[str]]:
             else:
                 summary = line
 
-    # Fallback: if summary is still empty, use first few lines
     if not summary and response:
         lines = [l.strip() for l in response.split('\n') if l.strip()]
         summary = " ".join(lines[:2])
 
-    # Final validation - be more lenient but log failures
     if not summary:
         summary = "Strategic summary unavailable. Review the key metrics below."
-    
+
     if not insights and not actions:
         logger.warning(f"Failed to parse insights/actions from response: {response[:100]}")
         insights = ["Monitor workforce trends closely", "Review department-level turnover"]
         actions = ["Validate data consistency", "Schedule workforce review session"]
 
-    # Sanitize markdown bold markers (**) from final strings
     summary = summary.replace('**', '')
     insights = [i.replace('**', '') for i in insights]
     actions = [a.replace('**', '') for a in actions]
