@@ -1,427 +1,220 @@
-"""
-Fairness and Bias Detection Engine for PeopleOS.
+"""Outcome-disparity and predictive-fairness diagnostics for PeopleOS.
 
-Provides algorithmic fairness metrics, bias detection, and
-disparity analysis for HR decision-making systems.
-
-Based on industry standards:
-- Demographic parity
-- Equalized odds
-- Four-fifths rule (80% rule from EEOC)
-- Statistical parity difference
+These metrics are screening signals, not legal or causal determinations of
+fairness/bias. Protected-attribute analyses enforce minimum group sizes. The
+four-fifths calculation is always performed on a favorable outcome rate; for
+Attrition that favorable outcome is retention (1 - Attrition).
 """
 
+from __future__ import annotations
+
+from typing import Any, Dict, Optional
+
+import numpy as np
 import pandas as pd
-from typing import Optional, Dict, Any
 
 from src.logger import get_logger
+from src.population import resolve_current_population
 from src.utils import load_config
 
 logger = get_logger('fairness_engine')
-
-# EEOC Four-Fifths Rule threshold
 FOUR_FIFTHS_THRESHOLD = 0.8
+DEFAULT_MIN_GROUP_SIZE = 10
 
 
 class FairnessEngineError(Exception):
-    """Custom exception for fairness engine errors."""
     pass
 
 
 class FairnessEngine:
-    """
-    Fairness and bias detection engine for HR analytics.
-
-    Analyzes ML predictions and HR outcomes for potential bias
-    across protected characteristics.
-    """
-
     def __init__(self, df: pd.DataFrame, predictions: Optional[pd.DataFrame] = None):
-        """
-        Initialize Fairness Engine.
-
-        Args:
-            df: DataFrame with employee data including demographic columns.
-            predictions: Optional DataFrame with ML predictions (risk_score, etc.).
-        """
-        self.df = df.copy()
-        self.predictions = predictions
+        self.df, self.population_resolution = resolve_current_population(df)
+        self.predictions = predictions if isinstance(predictions, pd.DataFrame) else None
         self.config = load_config()
-        self.fairness_config = self.config.get('fairness', {})
-
-        # Protected attributes to check (configurable)
-        self.protected_attributes = self.fairness_config.get(
-            'protected_attributes',
-            ['Gender', 'Age_Group', 'Dept']  # Dept as proxy for potential systemic issues
-        )
-
+        config = self.config.get('fairness', {})
+        self.min_group_size = int(config.get('min_group_size', DEFAULT_MIN_GROUP_SIZE))
+        self.protected_attributes = config.get('protected_attributes', ['Gender', 'Age_Group'])
+        self.monitoring_dimensions = config.get('monitoring_dimensions', ['Dept', 'Location', 'Education'])
+        self.available_protected_attributes: list[str] = []
+        self.available_monitoring_dimensions: list[str] = []
         self._identify_available_attributes()
-        logger.info(f"FairnessEngine initialized. Available protected attrs: {self.available_attributes}")
+        # Compatibility alias used by existing UI/API code.
+        self.available_attributes = self.available_protected_attributes + self.available_monitoring_dimensions
 
     def _identify_available_attributes(self) -> None:
-        """Identify which protected attributes are available in the data."""
-        self.available_attributes = []
-        for attr in self.protected_attributes:
-            if attr in self.df.columns:
-                self.available_attributes.append(attr)
-            elif attr == 'Age_Group' and 'Age' in self.df.columns:
-                # Create age groups if Age is available
-                self.df['Age_Group'] = pd.cut(
-                    self.df['Age'],
-                    bins=[0, 30, 40, 50, 60, 100],
-                    labels=['Under 30', '30-39', '40-49', '50-59', '60+']
-                )
-                self.available_attributes.append('Age_Group')
+        if 'Age_Group' in self.protected_attributes and 'Age_Group' not in self.df.columns and 'Age' in self.df.columns:
+            self.df['Age_Group'] = pd.cut(pd.to_numeric(self.df['Age'], errors='coerce'), bins=[0, 30, 40, 50, 60, float('inf')], labels=['Under 30', '30-39', '40-49', '50-59', '60+'])
+        self.available_protected_attributes = [a for a in self.protected_attributes if a in self.df.columns]
+        self.available_monitoring_dimensions = [a for a in self.monitoring_dimensions if a in self.df.columns and a not in self.available_protected_attributes]
 
-        # Also check for Location as potential proxy for bias
-        if 'Location' in self.df.columns and 'Location' not in self.available_attributes:
-            self.available_attributes.append('Location')
+    def _dimension_type(self, attr: str) -> str:
+        return 'protected_attribute' if attr in self.available_protected_attributes else 'monitoring_dimension'
 
-        # Check for Education level
-        if 'Education' in self.df.columns and 'Education' not in self.available_attributes:
-            self.available_attributes.append('Education')
+    def _eligible_group_rates(self, attr: str, outcome_col: str) -> tuple[pd.DataFrame, int]:
+        frame = self.df[[attr, outcome_col]].dropna().copy()
+        frame[outcome_col] = pd.to_numeric(frame[outcome_col], errors='coerce')
+        frame = frame[frame[outcome_col].isin([0, 1])]
+        grouped = frame.groupby(attr, observed=True)[outcome_col].agg(['mean', 'count']).reset_index()
+        suppressed = int((grouped['count'] < self.min_group_size).sum())
+        return grouped[grouped['count'] >= self.min_group_size].copy(), suppressed
 
     def calculate_demographic_parity(self, outcome_col: str) -> pd.DataFrame:
-        """
-        Calculate demographic parity across protected attributes.
+        """Compare observed outcome rates across eligible groups.
 
-        Demographic parity is satisfied when each group has the same
-        positive outcome rate.
-
-        Args:
-            outcome_col: Column name for the outcome (e.g., 'Attrition', 'Promoted').
-
-        Returns:
-            DataFrame with parity metrics per attribute.
+        For an unfavorable outcome such as Attrition, the returned `rate` remains
+        the raw unfavorable rate for transparency; callers must not interpret a
+        higher rate as favorable selection parity.
         """
         if outcome_col not in self.df.columns:
-            raise FairnessEngineError(f"Outcome column '{outcome_col}' not found in data")
-
-        results = []
-
+            raise FairnessEngineError(f"Outcome column '{outcome_col}' not found")
+        rows = []
+        known = pd.to_numeric(self.df[outcome_col], errors='coerce')
+        known = known[known.isin([0, 1])]
+        overall = float(known.mean()) if not known.empty else np.nan
         for attr in self.available_attributes:
-            group_rates = self.df.groupby(attr, observed=True)[outcome_col].agg(['mean', 'count'])
-            group_rates.columns = ['rate', 'count']
-            group_rates = group_rates.reset_index()
-
-            overall_rate = self.df[outcome_col].mean()
-
-            # Calculate disparity from overall rate
-            group_rates['disparity'] = (group_rates['rate'] - overall_rate).abs()
-            # Safe division: when overall rate is 0, all groups have parity (ratio = 1.0)
-            if overall_rate > 0:
-                group_rates['parity_ratio'] = group_rates['rate'] / overall_rate
-            else:
-                group_rates['parity_ratio'] = 1.0
-            group_rates['attribute'] = attr
-
-            results.append(group_rates)
-
-        if not results:
-            return pd.DataFrame()
-
-        combined = pd.concat(results, ignore_index=True)
-        combined = combined.rename(columns={combined.columns[0]: 'group'})
-
-        return combined
+            eligible, suppressed = self._eligible_group_rates(attr, outcome_col)
+            for _, row in eligible.iterrows():
+                rows.append({
+                    'group': row[attr], 'rate': float(row['mean']), 'count': int(row['count']),
+                    'disparity': float(abs(row['mean'] - overall)) if np.isfinite(overall) else None,
+                    'parity_ratio': float(row['mean'] / overall) if np.isfinite(overall) and overall > 0 else None,
+                    'attribute': attr, 'dimension_type': self._dimension_type(attr),
+                    'suppressed_group_count': suppressed,
+                    'metric_semantics': f'observed_{outcome_col.lower()}_rate_disparity',
+                })
+        return pd.DataFrame(rows)
 
     def calculate_four_fifths_rule(self, outcome_col: str, favorable: bool = False) -> pd.DataFrame:
-        """
-        Apply the EEOC Four-Fifths (80%) Rule.
-
-        The selection rate for any protected group should be at least
-        80% of the selection rate for the group with the highest rate.
-
-        Args:
-            outcome_col: Column name for the outcome.
-            favorable: If True, higher values are favorable (e.g., promotion).
-                      If False, lower values are favorable (e.g., attrition = bad).
-
-        Returns:
-            DataFrame with four-fifths rule analysis.
-        """
         if outcome_col not in self.df.columns:
-            raise FairnessEngineError(f"Outcome column '{outcome_col}' not found in data")
-
-        results = []
-
+            raise FairnessEngineError(f"Outcome column '{outcome_col}' not found")
+        rows = []
         for attr in self.available_attributes:
-            group_rates = self.df.groupby(attr, observed=True)[outcome_col].mean().reset_index()
-            group_rates.columns = ['group', 'rate']
-
-            if favorable:
-                reference_rate = group_rates['rate'].max()
-            else:
-                reference_rate = group_rates['rate'].min()
-
-            if reference_rate == 0:
-                group_rates['adverse_impact_ratio'] = 1.0
-            else:
-                if favorable:
-                    group_rates['adverse_impact_ratio'] = group_rates['rate'] / reference_rate
-                else:
-                    # For unfavorable outcomes (like attrition), invert the comparison
-                    # Lower rate is better, so we compare lowest to each group
-                    group_rates['adverse_impact_ratio'] = reference_rate / group_rates['rate'].replace(0, 0.001)
-
-            group_rates['passes_4_5_rule'] = group_rates['adverse_impact_ratio'] >= FOUR_FIFTHS_THRESHOLD
-            group_rates['attribute'] = attr
-
-            results.append(group_rates)
-
-        if not results:
-            return pd.DataFrame()
-
-        return pd.concat(results, ignore_index=True)
+            eligible, suppressed = self._eligible_group_rates(attr, outcome_col)
+            if eligible.empty:
+                continue
+            # Four-fifths is a favorable-outcome comparison. When the stored
+            # outcome is unfavorable (Attrition=1), convert to retention rate.
+            eligible['favorable_rate'] = eligible['mean'] if favorable else (1.0 - eligible['mean'])
+            reference = float(eligible['favorable_rate'].max())
+            for _, row in eligible.iterrows():
+                ratio = float(row['favorable_rate'] / reference) if reference > 0 else None
+                rows.append({
+                    'attribute': attr, 'dimension_type': self._dimension_type(attr), 'group': row[attr],
+                    'rate': float(row['mean']), 'favorable_rate': float(row['favorable_rate']), 'count': int(row['count']),
+                    'reference_favorable_rate': reference, 'adverse_impact_ratio': ratio,
+                    'passes_4_5_rule': bool(ratio >= FOUR_FIFTHS_THRESHOLD) if ratio is not None else None,
+                    'suppressed_group_count': suppressed,
+                    'metric_semantics': 'four_fifths_favorable_outcome_ratio',
+                })
+        return pd.DataFrame(rows)
 
     def analyze_prediction_fairness(self, risk_col: str = 'risk_score') -> Dict[str, Any]:
-        """
-        Analyze fairness of ML risk predictions.
-
-        Args:
-            risk_col: Column name for risk predictions.
-
-        Returns:
-            Dictionary with prediction fairness metrics.
-        """
         if self.predictions is None or self.predictions.empty:
-            return {'error': 'No predictions available for fairness analysis'}
-
-        # Merge predictions with employee data
+            return {'available': False, 'reason': 'No predictions available', 'warnings': []}
         if 'EmployeeID' in self.df.columns and 'EmployeeID' in self.predictions.columns:
             merged = self.df.merge(self.predictions, on='EmployeeID', how='inner')
         else:
-            # Assume same order
-            merged = self.df.copy()
-            merged[risk_col] = self.predictions[risk_col].values[:len(merged)]
+            return {'available': False, 'reason': 'Predictions require EmployeeID alignment', 'warnings': []}
+        if risk_col not in merged.columns:
+            return {'available': False, 'reason': f'{risk_col} unavailable', 'warnings': []}
 
-        results = {
-            'attribute_analysis': [],
-            'overall_disparities': [],
-            'warnings': []
-        }
-
+        warnings: list[str] = []
+        rows = []
+        risk = pd.to_numeric(merged[risk_col], errors='coerce')
+        overall = float(risk.mean()) if risk.notna().any() else np.nan
         for attr in self.available_attributes:
             if attr not in merged.columns:
                 continue
-
-            group_stats = merged.groupby(attr)[risk_col].agg(['mean', 'std', 'count'])
-            group_stats = group_stats.reset_index()
-            group_stats.columns = ['group', 'mean_risk', 'std_risk', 'count']
-
-            overall_mean = merged[risk_col].mean()
-
-            # Check for significant disparities
-            for _, row in group_stats.iterrows():
-                disparity = row['mean_risk'] - overall_mean
-                if abs(disparity) > 0.1:  # 10% difference threshold
-                    results['warnings'].append(
-                        f"Group '{row['group']}' has {disparity:.1%} higher risk score than average. "
-                        "This may indicate algorithmic bias."
-                    )
-
-            group_stats['attribute'] = attr
-            results['attribute_analysis'].append(group_stats)
-
-        if results['attribute_analysis']:
-            results['attribute_analysis'] = pd.concat(results['attribute_analysis'], ignore_index=True)
-        else:
-            results['attribute_analysis'] = pd.DataFrame()
-
-        return results
+            stats_df = merged.assign(_risk=risk).dropna(subset=[attr, '_risk']).groupby(attr)['_risk'].agg(['mean', 'std', 'count']).reset_index()
+            suppressed = int((stats_df['count'] < self.min_group_size).sum())
+            stats_df = stats_df[stats_df['count'] >= self.min_group_size]
+            for _, row in stats_df.iterrows():
+                disparity = float(row['mean'] - overall)
+                if abs(disparity) > .10:
+                    warnings.append(f"Prediction-disparity signal for {attr}='{row[attr]}': mean risk differs from the analysed population by {disparity:+.1%}. Investigate calibration, data mix and model behavior before drawing a bias conclusion.")
+                rows.append({
+                    'attribute': attr, 'dimension_type': self._dimension_type(attr), 'group': row[attr],
+                    'mean_risk': float(row['mean']), 'std_risk': float(row['std']) if pd.notna(row['std']) else None,
+                    'count': int(row['count']), 'difference_from_overall': disparity,
+                    'suppressed_group_count': suppressed,
+                })
+        return {'available': True, 'attribute_analysis': pd.DataFrame(rows), 'warnings': warnings, 'semantics': 'unadjusted_prediction_disparity_screen_not_bias_determination'}
 
     def calculate_equalized_odds(self, outcome_col: str, prediction_col: str = 'predicted') -> pd.DataFrame:
-        """
-        Calculate equalized odds across protected attributes.
-
-        Equalized odds requires that true positive rates and false positive
-        rates are equal across protected groups.
-
-        Args:
-            outcome_col: Column name for actual outcomes.
-            prediction_col: Column name for predicted outcomes.
-
-        Returns:
-            DataFrame with TPR and FPR by group.
-        """
-        if self.predictions is None:
+        if self.predictions is None or 'EmployeeID' not in self.predictions.columns or 'EmployeeID' not in self.df.columns:
             return pd.DataFrame()
-
-        # Merge data
-        if 'EmployeeID' in self.df.columns and 'EmployeeID' in self.predictions.columns:
-            merged = self.df.merge(self.predictions, on='EmployeeID', how='inner')
-        else:
-            return pd.DataFrame()
-
+        merged = self.df.merge(self.predictions, on='EmployeeID', how='inner')
         if outcome_col not in merged.columns or prediction_col not in merged.columns:
             return pd.DataFrame()
-
-        results = []
-
+        rows = []
         for attr in self.available_attributes:
             if attr not in merged.columns:
                 continue
-
-            for group in merged[attr].unique():
-                group_data = merged[merged[attr] == group]
-
-                # True Positive Rate (Recall)
-                positives = group_data[group_data[outcome_col] == 1]
-                tpr = positives[prediction_col].mean() if len(positives) > 0 else 0
-
-                # False Positive Rate
-                negatives = group_data[group_data[outcome_col] == 0]
-                fpr = negatives[prediction_col].mean() if len(negatives) > 0 else 0
-
-                results.append({
-                    'attribute': attr,
-                    'group': group,
-                    'tpr': round(tpr, 3),
-                    'fpr': round(fpr, 3),
-                    'count': len(group_data)
-                })
-
-        return pd.DataFrame(results)
+            for group, data in merged.groupby(attr, observed=True):
+                if len(data) < self.min_group_size:
+                    continue
+                positives = data[data[outcome_col] == 1]
+                negatives = data[data[outcome_col] == 0]
+                tpr = float(pd.to_numeric(positives[prediction_col], errors='coerce').mean()) if len(positives) else None
+                fpr = float(pd.to_numeric(negatives[prediction_col], errors='coerce').mean()) if len(negatives) else None
+                rows.append({'attribute': attr, 'dimension_type': self._dimension_type(attr), 'group': group, 'tpr': tpr, 'fpr': fpr, 'count': len(data), 'positive_n': len(positives), 'negative_n': len(negatives)})
+        return pd.DataFrame(rows)
 
     def get_fairness_summary(self, outcome_col: str = 'Attrition') -> Dict[str, Any]:
-        """
-        Generate comprehensive fairness summary.
-
-        Args:
-            outcome_col: Primary outcome column to analyze.
-
-        Returns:
-            Dictionary with complete fairness analysis.
-        """
-        summary = {
-            'overall_status': 'Unknown',
-            'issues_found': [],
-            'recommendations': [],
-            'metrics': {}
+        summary: Dict[str, Any] = {
+            'overall_status': 'Insufficient evidence', 'issues_found': [], 'recommendations': [],
+            'metrics': {}, 'minimum_group_size': self.min_group_size,
+            'protected_attributes': self.available_protected_attributes,
+            'monitoring_dimensions': self.available_monitoring_dimensions,
+            'interpretation_boundary': 'Disparity screening is not a legal, causal, or bias determination.',
         }
-
         try:
-            # Demographic parity
             if outcome_col in self.df.columns:
                 parity = self.calculate_demographic_parity(outcome_col)
-                if not parity.empty:
-                    summary['metrics']['demographic_parity'] = parity.to_dict('records')
-
-                    # Check for large disparities
-                    max_disparity = parity['disparity'].max()
-                    if max_disparity > 0.15:
-                        summary['issues_found'].append(
-                            f"Significant demographic disparity detected ({max_disparity:.1%})"
-                        )
-
-                # Four-fifths rule
-                four_fifths = self.calculate_four_fifths_rule(outcome_col, favorable=False)
-                if not four_fifths.empty:
-                    summary['metrics']['four_fifths_rule'] = four_fifths.to_dict('records')
-
-                    violations = four_fifths[~four_fifths['passes_4_5_rule']]
-                    if not violations.empty:
-                        for _, row in violations.iterrows():
-                            summary['issues_found'].append(
-                                f"Four-fifths rule violation: {row['attribute']}='{row['group']}' "
-                                f"(ratio: {row['adverse_impact_ratio']:.2f})"
-                            )
-
-            # Prediction fairness
+                four = self.calculate_four_fifths_rule(outcome_col, favorable=False)
+                summary['metrics']['outcome_disparity'] = parity.to_dict('records')
+                summary['metrics']['four_fifths_rule'] = four.to_dict('records')
+                protected_four = four[four['dimension_type'] == 'protected_attribute'] if not four.empty else four
+                violations = protected_four[protected_four['passes_4_5_rule'] == False] if not protected_four.empty else protected_four
+                for _, row in violations.iterrows():
+                    summary['issues_found'].append(f"Four-fifths screening signal: {row['attribute']}='{row['group']}' favorable-outcome ratio {row['adverse_impact_ratio']:.2f}")
+                if not protected_four.empty:
+                    summary['overall_status'] = 'Disparity signal detected' if not violations.empty else 'No material disparity detected in eligible groups'
             if self.predictions is not None:
-                pred_fairness = self.analyze_prediction_fairness()
-                if 'warnings' in pred_fairness:
-                    summary['issues_found'].extend(pred_fairness['warnings'])
-                summary['metrics']['prediction_fairness'] = pred_fairness
-
-            # Determine overall status
-            if not summary['issues_found']:
-                summary['overall_status'] = 'Fair'
-            elif len(summary['issues_found']) <= 2:
-                summary['overall_status'] = 'Needs Attention'
-            else:
-                summary['overall_status'] = 'Critical'
-
-            # Generate recommendations
+                pred = self.analyze_prediction_fairness()
+                summary['metrics']['prediction_fairness'] = pred
+                summary['issues_found'].extend(pred.get('warnings', []))
+                if pred.get('warnings') and summary['overall_status'] == 'No material disparity detected in eligible groups':
+                    summary['overall_status'] = 'Prediction disparity requires review'
             if summary['issues_found']:
                 summary['recommendations'] = [
-                    "Review hiring and promotion processes for potential bias",
-                    "Conduct deeper statistical analysis with HR stakeholders",
-                    "Consider bias mitigation techniques in ML pipeline",
-                    "Document findings and create action plan for remediation"
+                    'Validate group sample sizes, outcome definitions and data quality.',
+                    'Review calibration and error rates by protected group before operational use.',
+                    'Use qualified HR/legal/statistical review before consequential policy decisions.',
                 ]
-
-        except Exception as e:
-            logger.error(f"Fairness analysis failed: {str(e)}")
-            summary['overall_status'] = 'Error'
-            summary['issues_found'].append(f"Analysis failed: {str(e)}")
-
+        except Exception as exc:
+            logger.exception('Fairness analysis failed')
+            summary['overall_status'] = 'Analysis error'
+            summary['issues_found'].append('Fairness analysis could not be completed safely.')
+            summary['error_type'] = type(exc).__name__
         return summary
 
     def generate_fairness_report(self, outcome_col: str = 'Attrition') -> str:
-        """
-        Generate human-readable fairness report.
-
-        Args:
-            outcome_col: Primary outcome column to analyze.
-
-        Returns:
-            Formatted string report.
-        """
         summary = self.get_fairness_summary(outcome_col)
-
-        report = []
-        report.append("=" * 50)
-        report.append("FAIRNESS & BIAS ANALYSIS REPORT")
-        report.append("=" * 50)
-        report.append("")
-
-        report.append(f"Overall Status: {summary['overall_status']}")
-        report.append(f"Protected Attributes Analyzed: {', '.join(self.available_attributes)}")
-        report.append("")
-
+        lines = ['OUTCOME DISPARITY SCREENING REPORT', f"Status: {summary['overall_status']}", summary['interpretation_boundary']]
         if summary['issues_found']:
-            report.append("ISSUES DETECTED:")
-            for i, issue in enumerate(summary['issues_found'], 1):
-                report.append(f"  {i}. {issue}")
-            report.append("")
-
+            lines.append('Signals:')
+            lines.extend(f"- {item}" for item in summary['issues_found'])
         if summary['recommendations']:
-            report.append("RECOMMENDATIONS:")
-            for rec in summary['recommendations']:
-                report.append(f"  - {rec}")
-            report.append("")
-
-        report.append("=" * 50)
-        report.append("Note: This analysis is for guidance only. Consult HR/Legal")
-        report.append("professionals before making policy decisions.")
-        report.append("=" * 50)
-
-        return "\n".join(report)
+            lines.append('Next checks:')
+            lines.extend(f"- {item}" for item in summary['recommendations'])
+        return '\n'.join(lines)
 
     def analyze_all(self, outcome_col: str = 'Attrition') -> Dict[str, Any]:
-        """
-        Run comprehensive fairness analysis.
-
-        Args:
-            outcome_col: Primary outcome column to analyze.
-
-        Returns:
-            Dictionary with all fairness analysis results.
-        """
-        logger.info("Running comprehensive fairness analysis")
-
-        results = {
-            'summary': self.get_fairness_summary(outcome_col),
-            'report': self.generate_fairness_report(outcome_col)
-        }
-
+        result: Dict[str, Any] = {'summary': self.get_fairness_summary(outcome_col), 'report': self.generate_fairness_report(outcome_col)}
         if outcome_col in self.df.columns:
-            results['demographic_parity'] = self.calculate_demographic_parity(outcome_col)
-            results['four_fifths_rule'] = self.calculate_four_fifths_rule(outcome_col)
-
+            result['demographic_parity'] = self.calculate_demographic_parity(outcome_col)
+            result['four_fifths_rule'] = self.calculate_four_fifths_rule(outcome_col)
         if self.predictions is not None:
-            results['prediction_fairness'] = self.analyze_prediction_fairness()
-
-        logger.info(f"Fairness analysis complete. Status: {results['summary']['overall_status']}")
-        return results
+            result['prediction_fairness'] = self.analyze_prediction_fairness()
+        return result
