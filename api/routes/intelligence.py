@@ -2,9 +2,10 @@
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
+from api.authorization import require_permission
 from api.dependencies import AppState, get_app_state
 from src.agent.orchestrator import AgentAnswer, PeopleIntelligenceAgent
 from src.platform.workspace import WorkspaceStore
@@ -16,7 +17,6 @@ _store = WorkspaceStore()
 
 class InvestigationRequest(BaseModel):
     question: str = Field(min_length=3, max_length=2000)
-    actor_id: Optional[str] = None
     workspace_id: str = "local"
     dataset_version: Optional[str] = None
     session_id: Optional[str] = None
@@ -32,7 +32,8 @@ def require_dataset(state: AppState = Depends(get_app_state)) -> AppState:
 
 
 @router.get("/capabilities")
-async def capabilities(state: AppState = Depends(get_app_state)) -> dict:
+async def capabilities(request: Request, state: AppState = Depends(get_app_state)) -> dict:
+    require_permission(request, "workspace.read")
     agent = PeopleIntelligenceAgent(state)
     workspace = _store.ensure_workspace("local", "Local workspace")
     return {
@@ -40,10 +41,7 @@ async def capabilities(state: AppState = Depends(get_app_state)) -> dict:
         "mode": "governed-read-only",
         "tools": agent.registry.list_ids(),
         "policy": agent.policy.policy_id,
-        "llm_available": bool(
-            getattr(state, "llm_client", None)
-            and getattr(state.llm_client, "is_available", False)
-        ),
+        "llm_available": bool(getattr(state, "llm_client", None) and getattr(state.llm_client, "is_available", False)),
         "data_loaded": state.has_data(),
         "workspace": workspace.model_dump(mode="json"),
     }
@@ -51,35 +49,33 @@ async def capabilities(state: AppState = Depends(get_app_state)) -> dict:
 
 @router.post("/investigate", response_model=AgentAnswer)
 async def investigate(
-    request: InvestigationRequest,
+    payload: InvestigationRequest,
+    request: Request,
     state: AppState = Depends(require_dataset),
 ) -> AgentAnswer:
     """Investigate a workforce question through governed aggregate tools."""
-    workspace = _store.ensure_workspace(request.workspace_id)
-    session = None
-    if request.session_id:
-        session = next((item for item in workspace.sessions if item.session_id == request.session_id), None)
+    actor = require_permission(request, "investigate")
+    workspace = _store.ensure_workspace(payload.workspace_id)
+
+    if payload.session_id:
+        session = next((item for item in workspace.sessions if item.session_id == payload.session_id), None)
         if session is None:
             raise HTTPException(status_code=404, detail="Unknown investigation session")
     else:
         session = _store.open_session(
-            workspace_id=request.workspace_id,
-            dataset_id=request.dataset_version or workspace.active_dataset_id,
+            workspace_id=payload.workspace_id,
+            dataset_id=payload.dataset_version or workspace.active_dataset_id,
             model_id=workspace.active_model_id,
         )
 
-    dataset_id = request.dataset_version or session.dataset_id or workspace.active_dataset_id
-    agent = PeopleIntelligenceAgent(state)
-    answer = agent.investigate(
-        request.question,
-        actor_id=request.actor_id,
-        workspace_id=request.workspace_id,
+    dataset_id = payload.dataset_version or session.dataset_id or workspace.active_dataset_id
+    model_id = session.model_id or workspace.active_model_id
+    answer = PeopleIntelligenceAgent(state).investigate(
+        payload.question,
+        actor_id=actor.actor_id,
+        workspace_id=payload.workspace_id,
         dataset_version=dataset_id,
+        model_version=model_id,
     )
-    _store.record_request(
-        request.workspace_id,
-        session.session_id,
-        answer.request_id,
-        request.question,
-    )
+    _store.record_request(payload.workspace_id, session.session_id, answer.request_id, payload.question)
     return answer
