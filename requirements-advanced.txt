@@ -1,0 +1,12 @@
+# Optional PeopleOS advanced capabilities
+-r requirements-core.txt
+
+# Legacy Streamlit interface
+streamlit==1.31.0
+
+# Vector search / local embeddings
+faiss-cpu>=1.8.0
+sentence-transformers==2.3.1
+
+# Legacy LangChain integrations
+langchain-community==0.0.16
