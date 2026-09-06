@@ -11,6 +11,10 @@ interface Health { status: string; checks: Array<{ id: string; healthy: boolean 
 interface Fitness { status: string; checks: Record<string, boolean>; observed: { dataset_age_days?: number | null; model_age_days?: number | null; model_auc?: number | null } }
 interface Actor { actor_id: string; role: string; permissions: string[] }
 
+function isModelCheck(key: string) {
+  return key.includes('model')
+}
+
 export default function TrustCenterPage() {
   const [workspace, setWorkspace] = useState<Workspace | null>(null)
   const [health, setHealth] = useState<Health | null>(null)
@@ -49,7 +53,8 @@ export default function TrustCenterPage() {
 
   const activeDataset = workspace?.datasets.find((item) => item.dataset_id === workspace.active_dataset_id)
   const activeModel = workspace?.models.find((item) => item.model_id === workspace.active_model_id)
-  const failedChecks = fitness ? Object.entries(fitness.checks).filter(([, passed]) => !passed) : []
+  const relevantChecks = fitness ? Object.entries(fitness.checks).filter(([key]) => activeModel || !isModelCheck(key)) : []
+  const failedChecks = relevantChecks.filter(([, passed]) => !passed)
   const trustHealthy = health?.status === 'healthy' && failedChecks.length === 0
 
   return (
@@ -69,7 +74,7 @@ export default function TrustCenterPage() {
           <div>
             <div className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Current trust verdict</div>
             <h2 className="mt-1 text-2xl font-semibold text-slate-950 dark:text-white">{trustHealthy ? 'Core evidence path is healthy' : 'Some capabilities need attention'}</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-400">{activeModel ? 'A governed model is active in addition to deterministic evidence.' : 'No predictive model is active. People Intelligence will rely on deterministic aggregate evidence and clearly mark unavailable predictive capabilities.'}</p>
+            <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-400">{activeModel ? 'A governed model is active in addition to deterministic evidence.' : 'No predictive model is active. Model-specific checks are not applicable; People Intelligence will use deterministic aggregate evidence and clearly mark predictive capabilities as unavailable.'}</p>
           </div>
         </div>
       </section>
@@ -90,7 +95,10 @@ export default function TrustCenterPage() {
         </Panel>
 
         <Panel title="Fitness checks" subtitle="Deterministic checks, not AI judgement">
-          {fitness && Object.entries(fitness.checks).map(([key, passed]) => <TrustRow key={key} label={key.replaceAll('_', ' ')} state={passed ? 'Pass' : 'Attention'} good={passed} />)}
+          {fitness && Object.entries(fitness.checks).map(([key, passed]) => {
+            const notApplicable = !activeModel && isModelCheck(key)
+            return <TrustRow key={key} label={key.replaceAll('_', ' ')} state={notApplicable ? 'Not applicable' : passed ? 'Pass' : 'Attention'} good={passed} neutral={notApplicable} />
+          })}
           {!fitness && <div className="text-sm text-slate-500">No fitness result available.</div>}
         </Panel>
       </section>
@@ -103,17 +111,9 @@ export default function TrustCenterPage() {
 
         {advanced && (
           <div className="mt-6 grid gap-6 border-t border-slate-200 pt-6 dark:border-white/10 lg:grid-cols-2">
-            <div>
-              <div className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-emerald-600 dark:text-emerald-300">May recover automatically</div>
-              <ul className="space-y-2 text-sm leading-6 text-slate-600 dark:text-slate-400">{health?.autonomous_recovery_envelope?.map((item) => <li key={item}>• {item}</li>)}</ul>
-            </div>
-            <div>
-              <div className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-amber-600 dark:text-amber-300">Requires governed action</div>
-              <ul className="space-y-2 text-sm leading-6 text-slate-600 dark:text-slate-400">{health?.governed_only?.map((item) => <li key={item}>• {item}</li>)}</ul>
-            </div>
-            <div className="lg:col-span-2 rounded-2xl bg-slate-50 p-4 text-xs leading-6 text-slate-500 dark:bg-white/[0.04] dark:text-slate-400">
-              Active dataset: {activeDataset?.dataset_id ?? 'none'}<br />Active model: {activeModel?.model_id ?? 'none'}<br />Workspace: {workspace?.workspace_id ?? 'local'}
-            </div>
+            <div><div className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-emerald-600 dark:text-emerald-300">May recover automatically</div><ul className="space-y-2 text-sm leading-6 text-slate-600 dark:text-slate-400">{health?.autonomous_recovery_envelope?.map((item) => <li key={item}>• {item}</li>)}</ul></div>
+            <div><div className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-amber-600 dark:text-amber-300">Requires governed action</div><ul className="space-y-2 text-sm leading-6 text-slate-600 dark:text-slate-400">{health?.governed_only?.map((item) => <li key={item}>• {item}</li>)}</ul></div>
+            <div className="lg:col-span-2 rounded-2xl bg-slate-50 p-4 text-xs leading-6 text-slate-500 dark:bg-white/[0.04] dark:text-slate-400">Active dataset: {activeDataset?.dataset_id ?? 'none'}<br />Active model: {activeModel?.model_id ?? 'none'}<br />Workspace: {workspace?.workspace_id ?? 'local'}</div>
           </div>
         )}
       </section>
@@ -127,13 +127,15 @@ export default function TrustCenterPage() {
 }
 
 function Panel({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
-  return <section className="rounded-[28px] border border-slate-200 bg-white p-6 dark:border-white/10 dark:bg-slate-900"><h2 className="font-semibold text-slate-950 dark:text-white">{title}</h2><p className="mt-1 mb-4 text-xs text-slate-500 dark:text-slate-400">{subtitle}</p>{children}</section>
+  return <section className="rounded-[28px] border border-slate-200 bg-white p-6 dark:border-white/10 dark:bg-slate-900"><h2 className="font-semibold text-slate-950 dark:text-white">{title}</h2><p className="mb-4 mt-1 text-xs text-slate-500 dark:text-slate-400">{subtitle}</p>{children}</section>
 }
 
 function TrustMetric({ icon: Icon, label, value, detail, good }: { icon: React.ElementType; label: string; value: string; detail: string; good: boolean }) {
   return <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900"><div className="flex items-center justify-between"><Icon className="h-5 w-5 text-violet-500" />{good ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : <span className="h-2 w-2 rounded-full bg-slate-300 dark:bg-slate-600" />}</div><div className="mt-4 text-xs font-semibold text-slate-500 dark:text-slate-400">{label}</div><div className="mt-1 text-lg font-semibold text-slate-950 dark:text-white">{value}</div><div className="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">{detail}</div></div>
 }
 
-function TrustRow({ label, state, good }: { label: string; state: string; good: boolean }) {
-  return <div className="flex items-center justify-between gap-4 border-b border-slate-100 py-3 last:border-0 dark:border-white/5"><span className="text-sm capitalize text-slate-600 dark:text-slate-300">{label}</span><span className={`inline-flex items-center gap-2 text-xs font-semibold ${good ? 'text-emerald-600 dark:text-emerald-300' : 'text-amber-600 dark:text-amber-300'}`}><span className={`h-2 w-2 rounded-full ${good ? 'bg-emerald-500' : 'bg-amber-500'}`} />{state}</span></div>
+function TrustRow({ label, state, good, neutral = false }: { label: string; state: string; good: boolean; neutral?: boolean }) {
+  const tone = neutral ? 'text-slate-500 dark:text-slate-400' : good ? 'text-emerald-600 dark:text-emerald-300' : 'text-amber-600 dark:text-amber-300'
+  const dot = neutral ? 'bg-slate-300 dark:bg-slate-600' : good ? 'bg-emerald-500' : 'bg-amber-500'
+  return <div className="flex items-center justify-between gap-4 border-b border-slate-100 py-3 last:border-0 dark:border-white/5"><span className="text-sm capitalize text-slate-600 dark:text-slate-300">{label}</span><span className={`inline-flex items-center gap-2 text-xs font-semibold ${tone}`}><span className={`h-2 w-2 rounded-full ${dot}`} />{state}</span></div>
 }
