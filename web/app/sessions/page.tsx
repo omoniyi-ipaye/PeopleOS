@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import { Brain, CheckCircle2, Clock3, Database, FileClock } from 'lucide-react'
+import { Brain, CheckCircle2, Clock3, FileClock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { EmptyState, MetricCard } from '@/components/ui/data-display'
 import { Page, PageHeader, SectionHeader } from '@/components/ui/page'
@@ -43,21 +43,25 @@ export default function SavedInvestigationsPage() {
   }
 
   const sessions = [...(data?.sessions ?? [])].sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+  const openCount = sessions.filter((session) => session.state === 'open').length
+  const completeCount = sessions.filter((session) => session.state === 'complete').length
 
   return (
     <Page>
       <PageHeader
         eyebrow="Investigate · Saved work"
         title="Saved Investigations"
-        description="Review the governed investigation trail tied to the datasets and models that were active when each analysis ran."
+        description="Review the governed investigation trail tied to the evidence state that was active when each analysis ran."
         actions={<Link href="/advisor"><Button><Brain className="h-4 w-4" />New investigation</Button></Link>}
       />
 
       <section className="grid gap-3 sm:grid-cols-3">
         <MetricCard icon={<FileClock className="h-4 w-4" />} label="Investigations" value={sessions.length.toLocaleString()} />
-        <MetricCard icon={<Database className="h-4 w-4" />} label="Active dataset" value={data?.active_dataset_id ? 'Available' : 'None'} status={<StatusBadge tone={data?.active_dataset_id ? 'success' : 'warning'}>{data?.active_dataset_id ? 'Active' : 'Missing'}</StatusBadge>} />
-        <MetricCard icon={<CheckCircle2 className="h-4 w-4" />} label="Open investigations" value={sessions.filter((session) => session.state === 'open').length.toLocaleString()} />
+        <MetricCard icon={<Clock3 className="h-4 w-4" />} label="Open" value={openCount.toLocaleString()} />
+        <MetricCard icon={<CheckCircle2 className="h-4 w-4" />} label="Completed" value={completeCount.toLocaleString()} />
       </section>
+
+      <div className="text-xs text-text-muted">Current evidence context: {data?.active_dataset_id ? 'dataset active' : 'no active dataset'} · {data?.active_model_id ? 'predictive model active' : 'deterministic evidence'}</div>
 
       {sessions.length === 0 ? (
         <EmptyState
