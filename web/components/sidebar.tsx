@@ -126,18 +126,6 @@ export function Sidebar() {
           ))}
         </div>
       </nav>
-
-      <div className="border-t border-slate-200/70 p-4 dark:border-white/10">
-        <div className={cn('rounded-2xl bg-slate-50 p-3 dark:bg-white/[0.04]', collapsed && 'px-2')}>
-          <div className={cn('flex items-center gap-2', collapsed && 'justify-center')}>
-            <span className="relative flex h-2.5 w-2.5 shrink-0">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-40" />
-              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
-            </span>
-            {!collapsed && <span className="text-xs font-medium text-slate-600 dark:text-slate-300">Governed local workspace</span>}
-          </div>
-        </div>
-      </div>
     </aside>
   )
 }
