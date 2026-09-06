@@ -1,9 +1,38 @@
-"""Evidence aggregation, confidence, sufficiency and contradiction checks."""
+"""Evidence aggregation, heuristic quality, sufficiency and contradiction checks.
+
+PeopleOS evidence quality is an operational heuristic, not a calibrated probability
+that an answer is true. It combines tool contribution, evidence provenance/kind,
+known gaps and cross-tool consistency so synthesis can fail closed when support is
+thin.
+"""
 
 from collections import defaultdict
+from math import isclose
 from typing import Iterable, List, Optional
 
-from src.agent.evidence import EvidenceBundle, EvidenceItem, EvidenceSufficiency, ToolResult, ToolResultStatus
+from src.agent.evidence import (
+    EvidenceBundle,
+    EvidenceItem,
+    EvidenceKind,
+    EvidenceSufficiency,
+    ToolResult,
+    ToolResultStatus,
+)
+
+
+_KIND_WEIGHT = {
+    EvidenceKind.OBSERVED: 1.0,
+    EvidenceKind.DERIVED: 0.9,
+    EvidenceKind.ASSUMED: 0.4,
+    EvidenceKind.UNKNOWN: 0.0,
+}
+
+_STATUS_COVERAGE = {
+    ToolResultStatus.SUCCESS: 1.0,
+    ToolResultStatus.PARTIAL: 0.45,
+    ToolResultStatus.BLOCKED: 0.0,
+    ToolResultStatus.FAILED: 0.0,
+}
 
 
 class EvidenceAggregator:
@@ -25,29 +54,43 @@ class EvidenceAggregator:
 
         for result in results:
             if result.status in {ToolResultStatus.PARTIAL, ToolResultStatus.BLOCKED, ToolResultStatus.FAILED}:
-                reason = result.error or "; ".join([w for w in result.warnings if w]) or result.summary
+                reason = result.error or "; ".join(w for w in result.warnings if w) or result.summary
                 unknowns.append(f"{result.tool_id}: {reason}")
-            if result.status == ToolResultStatus.SUCCESS:
+            elif result.status == ToolResultStatus.SUCCESS:
                 notes.append(f"{result.tool_id} completed successfully")
+                if not result.evidence:
+                    # Successful empty results may be meaningful (for example no
+                    # hotspots), but they do not provide positive support for a claim.
+                    notes.append(f"{result.tool_id} returned no positive evidence items")
 
-        successful = sum(r.status == ToolResultStatus.SUCCESS for r in results)
-        coverage = successful / len(results) if results else 0.0
-        confidence = self._confidence(items, results)
+        coverage = self._coverage(results)
+        quality = self._quality(items, coverage)
         contradictions = self._detect_contradictions(items)
-        if contradictions:
-            confidence = max(0.0, confidence - min(0.25, 0.05 * len(contradictions)))
 
-        if not items or coverage < 0.5 or confidence < 0.45:
+        # Known gaps and contradictions reduce the heuristic quality score. These
+        # penalties are intentionally conservative and explicitly non-probabilistic.
+        if unknowns:
+            quality -= min(0.20, 0.04 * len(unknowns))
+        if contradictions:
+            quality -= min(0.30, 0.08 * len(contradictions))
+        quality = max(0.0, min(1.0, quality))
+
+        has_only_assumed = bool(items) and all(item.kind in {EvidenceKind.ASSUMED, EvidenceKind.UNKNOWN} for item in items)
+        has_supported_item = any(item.kind in {EvidenceKind.OBSERVED, EvidenceKind.DERIVED} for item in items)
+
+        if not has_supported_item or coverage < 0.5 or quality < 0.45 or has_only_assumed:
             sufficiency = EvidenceSufficiency.INSUFFICIENT
-        elif coverage < 1.0 or unknowns or contradictions or confidence < 0.70:
+        elif coverage < 0.8 or unknowns or contradictions or quality < 0.70:
             sufficiency = EvidenceSufficiency.LIMITED
         else:
             sufficiency = EvidenceSufficiency.SUFFICIENT
 
+        notes.append("overall_confidence is a heuristic evidence-quality score, not a probability of truth")
+
         return EvidenceBundle(
             question=question,
             tool_results=results,
-            overall_confidence=round(confidence, 3),
+            overall_confidence=round(quality, 3),
             coverage_score=round(coverage, 3),
             sufficiency=sufficiency,
             contradictions=contradictions,
@@ -60,33 +103,67 @@ class EvidenceAggregator:
             },
         )
 
-    def _confidence(self, items: List[EvidenceItem], results: List[ToolResult]) -> float:
+    def _coverage(self, results: List[ToolResult]) -> float:
         if not results:
             return 0.0
+        return sum(_STATUS_COVERAGE[result.status] for result in results) / len(results)
+
+    def _quality(self, items: List[EvidenceItem], coverage: float) -> float:
         if not items:
-            return 0.35 if any(r.status == ToolResultStatus.SUCCESS for r in results) else 0.1
-        evidence_confidence = sum(item.confidence for item in items) / len(items)
-        successful = sum(r.status == ToolResultStatus.SUCCESS for r in results)
-        coverage = successful / len(results)
-        return max(0.0, min(1.0, evidence_confidence * 0.8 + coverage * 0.2))
+            # A successfully completed investigation with no positive evidence is
+            # useful operationally but must not look like strong support.
+            return min(0.35, coverage * 0.35)
+        weighted = []
+        for item in items:
+            kind_weight = _KIND_WEIGHT.get(item.kind, 0.0)
+            weighted.append(float(item.confidence) * kind_weight)
+        evidence_quality = sum(weighted) / len(weighted)
+        return max(0.0, min(1.0, evidence_quality * 0.85 + coverage * 0.15))
+
+    def _scope_key(self, item: EvidenceItem) -> tuple:
+        metadata = item.metadata or {}
+        # Only fields that materially define the population/scope should be used.
+        keys = (
+            "population",
+            "department",
+            "attribute",
+            "group",
+            "segment",
+            "cohort",
+            "time_window",
+            "outcome",
+        )
+        scope = tuple((key, str(metadata[key])) for key in keys if key in metadata)
+        return (item.dataset_version, scope)
+
+    @staticmethod
+    def _meaningfully_different(left, right) -> bool:
+        if isinstance(left, bool) or isinstance(right, bool):
+            return left != right
+        if isinstance(left, (int, float)) and isinstance(right, (int, float)):
+            # Ignore tiny rounding differences; contradictions should represent
+            # materially different claims, not serialization precision.
+            return not isclose(float(left), float(right), rel_tol=0.01, abs_tol=1e-6)
+        return str(left) != str(right)
 
     def _detect_contradictions(self, items: List[EvidenceItem]) -> List[str]:
         grouped = defaultdict(list)
         for item in items:
-            if not item.metric:
+            if not item.metric or item.value is None:
                 continue
-            scope = tuple(sorted((item.metadata or {}).items()))
-            try:
-                hash(scope)
-            except TypeError:
-                scope = ()
-            grouped[(item.metric, scope)].append(item)
+            grouped[(item.metric, self._scope_key(item))].append(item)
 
         contradictions: List[str] = []
         for (metric, _scope), metric_items in grouped.items():
-            values = [item.value for item in metric_items if isinstance(item.value, (int, float, str, bool))]
-            if len(values) > 1 and len(set(values)) > 1:
-                sources = {item.source_tool for item in metric_items}
-                if len(sources) > 1:
-                    contradictions.append(f"Conflicting values observed for metric '{metric}' across tools.")
+            sources = {item.source_tool for item in metric_items}
+            if len(sources) < 2:
+                continue
+            values = [item.value for item in metric_items]
+            different = any(
+                self._meaningfully_different(values[i], values[j])
+                for i in range(len(values))
+                for j in range(i + 1, len(values))
+            )
+            if different:
+                contradictions.append(f"Materially conflicting values observed for metric '{metric}' across tools in the same scope.")
         return contradictions
