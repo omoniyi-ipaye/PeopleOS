@@ -1,9 +1,4 @@
-"""Canonical evidence contracts for PeopleOS agent workflows.
-
-The agent layer must reason over structured evidence rather than opaque prose.
-These models are intentionally domain-neutral enough to wrap existing PeopleOS
-analytics engines without changing their internal implementations first.
-"""
+"""Canonical evidence contracts for PeopleOS agent workflows."""
 
 from enum import Enum
 from typing import Any, Dict, List, Optional
@@ -13,8 +8,6 @@ from pydantic import BaseModel, Field
 
 
 class EvidenceKind(str, Enum):
-    """How strongly an evidence item is grounded in the underlying system."""
-
     OBSERVED = "observed"
     DERIVED = "derived"
     ASSUMED = "assumed"
@@ -22,17 +15,19 @@ class EvidenceKind(str, Enum):
 
 
 class ToolResultStatus(str, Enum):
-    """Execution status for a governed PeopleOS tool call."""
-
     SUCCESS = "success"
     PARTIAL = "partial"
     BLOCKED = "blocked"
     FAILED = "failed"
 
 
-class EvidenceItem(BaseModel):
-    """One traceable fact, metric, inference, or material unknown."""
+class EvidenceSufficiency(str, Enum):
+    SUFFICIENT = "sufficient"
+    LIMITED = "limited"
+    INSUFFICIENT = "insufficient"
 
+
+class EvidenceItem(BaseModel):
     evidence_id: str = Field(default_factory=lambda: f"ev_{uuid4().hex}")
     kind: EvidenceKind
     claim: str
@@ -47,8 +42,6 @@ class EvidenceItem(BaseModel):
 
 
 class ToolResult(BaseModel):
-    """Canonical result returned by every governed PeopleOS agent tool."""
-
     result_id: str = Field(default_factory=lambda: f"tr_{uuid4().hex}")
     tool_id: str
     status: ToolResultStatus
@@ -61,27 +54,26 @@ class ToolResult(BaseModel):
 
 
 class EvidenceBundle(BaseModel):
-    """Evidence assembled for one People Intelligence Agent investigation."""
-
     bundle_id: str = Field(default_factory=lambda: f"eb_{uuid4().hex}")
     question: str
     tool_results: List[ToolResult] = Field(default_factory=list)
     overall_confidence: Optional[float] = Field(default=None, ge=0.0, le=1.0)
+    coverage_score: float = Field(default=0.0, ge=0.0, le=1.0)
+    sufficiency: EvidenceSufficiency = EvidenceSufficiency.INSUFFICIENT
     contradictions: List[str] = Field(default_factory=list)
     unknowns: List[str] = Field(default_factory=list)
     verification_notes: List[str] = Field(default_factory=list)
+    provenance: Dict[str, Optional[str]] = Field(default_factory=dict)
 
     def evidence_items(self) -> List[EvidenceItem]:
-        """Flatten all evidence items while preserving tool execution records."""
-        return [
-            item
-            for result in self.tool_results
-            for item in result.evidence
-        ]
+        return [item for result in self.tool_results for item in result.evidence]
 
     def has_failures(self) -> bool:
-        """Return whether any tool execution failed or was blocked."""
         return any(
             result.status in {ToolResultStatus.FAILED, ToolResultStatus.BLOCKED}
             for result in self.tool_results
         )
+
+    def can_synthesize(self) -> bool:
+        """Probabilistic synthesis is allowed only with at least limited evidence."""
+        return self.sufficiency != EvidenceSufficiency.INSUFFICIENT and bool(self.evidence_items())
