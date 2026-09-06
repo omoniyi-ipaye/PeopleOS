@@ -1,7 +1,7 @@
 """
 FastAPI application entry point for PeopleOS.
 
-Run with: uvicorn api.main:app --reload --port 8000
+Run locally with: uvicorn api.main:app --host 127.0.0.1 --port 8000 --reload
 """
 
 import os
@@ -38,7 +38,6 @@ from api.routes.network import router as network_router
 from api.dependencies import get_app_state
 
 
-# Create FastAPI app
 app = FastAPI(
     title="PeopleOS API",
     description="""
@@ -62,11 +61,10 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
-# CORS configuration for Next.js frontend
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:3000",  # Next.js dev server
+        "http://localhost:3000",
         "http://127.0.0.1:3000",
         "http://localhost:3001",
     ],
@@ -75,7 +73,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include routers
 app.include_router(upload_router)
 app.include_router(analytics_router)
 app.include_router(predictions_router)
@@ -155,7 +152,6 @@ async def api_status():
     return status
 
 
-# Exception handlers
 @app.exception_handler(Exception)
 async def global_exception_handler(request, exc):
     """Global exception handler."""
@@ -170,4 +166,9 @@ async def global_exception_handler(request, exc):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+
+    # Local-first default. Set PEOPLEOS_API_HOST explicitly (for example,
+    # 0.0.0.0) only when intentionally exposing the API beyond this machine.
+    api_host = os.getenv("PEOPLEOS_API_HOST", "127.0.0.1")
+    api_port = int(os.getenv("PEOPLEOS_API_PORT", "8000"))
+    uvicorn.run(app, host=api_host, port=api_port, reload=True)
