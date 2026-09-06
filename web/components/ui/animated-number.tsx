@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef } from "react"
 import { useInView, useMotionValue, useSpring } from "framer-motion"
 
 export function AnimatedNumber({
@@ -24,16 +24,17 @@ export function AnimatedNumber({
 
     useEffect(() => {
         if (isInView) {
-            setTimeout(() => {
+            const timeout = window.setTimeout(() => {
                 motionValue.set(direction === "down" ? 0 : value)
             }, delay * 1000)
+            return () => window.clearTimeout(timeout)
         }
     }, [motionValue, isInView, delay, value, direction])
 
     useEffect(() => {
-        springValue.on("change", (latest) => {
+        return springValue.on("change", (latest) => {
             if (ref.current) {
-                ref.current.textContent = Intl.NumberFormat("en-US").format(latest.toFixed(0))
+                ref.current.textContent = Intl.NumberFormat("en-US").format(Math.round(latest))
             }
         })
     }, [springValue])
