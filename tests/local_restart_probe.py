@@ -16,6 +16,10 @@ import os
 import sys
 from pathlib import Path
 
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 import pandas as pd
 
 from api.dependencies import AppState
@@ -23,7 +27,7 @@ from api.routes.upload import _register_loaded_dataset
 from src.platform.workspace import WorkspaceStore
 
 
-SAMPLE = Path(__file__).resolve().parents[1] / "sample_hr_data.csv"
+SAMPLE = ROOT / "sample_hr_data.csv"
 
 
 def _snapshot_file() -> Path:
