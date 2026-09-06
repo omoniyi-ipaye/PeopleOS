@@ -33,12 +33,14 @@ jobs:
           python -m compileall -q
           src/agent
           src/platform
+          src/local_paths.py
           src/population.py
           src/preprocessor.py
           src/analytics_engine.py
           src/compensation_engine.py
           src/fairness_engine.py
           src/safe_llm_client.py
+          desktop
           api/dependencies.py
           api/security.py
           api/authorization.py
@@ -71,3 +73,4 @@ jobs:
           tests/test_platform_architecture.py
           tests/test_platform_operations.py
           tests/test_output_integrity.py
+          tests/test_local_distribution.py
