@@ -42,7 +42,7 @@ export default function PeopleIntelligencePage() {
   const [result, setResult] = useState<AgentAnswer | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [showEvidence, setShowEvidence] = useState(true)
+  const [showEvidence, setShowEvidence] = useState(false)
   const [showTrace, setShowTrace] = useState(false)
 
   const evidenceItems = useMemo(() => result?.evidence.tool_results.flatMap((tool) => tool.evidence) ?? [], [result])
