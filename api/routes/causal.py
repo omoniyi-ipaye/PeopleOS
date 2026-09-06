@@ -1,76 +1,43 @@
-"""Causal Inference API routes."""
+"""Causal inference routes.
 
-from fastapi import APIRouter, HTTPException, Depends, Query
-from typing import Optional, List
+Disabled in the governed enterprise product until an explicit identification
+strategy is provided (treatment definition, confounder set, overlap/positivity,
+model diagnostics and sensitivity analysis). Observational HR data alone does not
+justify causal intervention claims.
+"""
 
-from src.database import Database
-from src.causal_engine import CausalEngine
-from api.dependencies import get_app_state, AppState
+from fastapi import APIRouter, Depends, HTTPException, Query
+
+from api.dependencies import AppState, get_app_state
 
 router = APIRouter(prefix="/api/causal", tags=["causal"])
 
 
 def require_data(state: AppState = Depends(get_app_state)) -> AppState:
-    """Dependency that requires data to be loaded."""
     if not state.has_data():
         if not state.load_from_database():
-            raise HTTPException(
-                status_code=400,
-                detail="No data loaded. Please upload a file first."
-            )
+            raise HTTPException(status_code=400, detail="No data loaded. Please upload a file first.")
     return state
 
 
-@router.get("/impact")
+def _causal_unavailable() -> HTTPException:
+    return HTTPException(
+        status_code=409,
+        detail=(
+            "Causal intervention estimates are disabled until a validated identification design, confounder specification, overlap diagnostics, and sensitivity analysis are configured. Use observational association analysis instead."
+        ),
+    )
+
+
+@router.get("/impact", deprecated=True)
 async def get_causal_impact(
-    treatment: str = Query(..., description="Treatment variable (e.g., 'HighSalary', 'Tenure')"),
+    treatment: str = Query(..., description="Treatment variable"),
     outcome: str = Query(default="Attrition", description="Outcome variable"),
-    state: AppState = Depends(require_data)
+    state: AppState = Depends(require_data),
 ):
-    """
-    Estimate the causal impact of an intervention on an outcome.
-    
-    Returns HR-friendly interpretation with confidence levels.
-    
-    Example: `/api/causal/impact?treatment=HighSalary&outcome=Attrition`
-    """
-    try:
-        db = Database()
-        df = db.get_df()
-        
-        engine = CausalEngine(df)
-        result = engine.estimate_intervention_effect(treatment, outcome)
-        
-        if not result.get('success'):
-            raise HTTPException(status_code=400, detail=result.get('reason', 'Estimation failed'))
-        
-        return result
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    raise _causal_unavailable()
 
 
-@router.get("/recommendations")
-async def get_intervention_recommendations(
-    state: AppState = Depends(require_data)
-):
-    """
-    Get ranked list of intervention recommendations based on causal analysis.
-    
-    Tests common HR interventions and ranks by estimated impact on retention.
-    """
-    try:
-        db = Database()
-        df = db.get_df()
-        
-        engine = CausalEngine(df)
-        recommendations = engine.get_intervention_recommendations()
-        
-        return {
-            'success': True,
-            'recommendations': recommendations,
-            'count': len(recommendations)
-        }
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@router.get("/recommendations", deprecated=True)
+async def get_intervention_recommendations(state: AppState = Depends(require_data)):
+    raise _causal_unavailable()
