@@ -9,6 +9,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from api.dependencies import get_app_state, AppState
+from src.platform.runtime_loader import load_dataset
 from src.platform.workspace import WorkspaceStore
 
 router = APIRouter(prefix="/api/upload", tags=["upload"])
@@ -36,6 +37,7 @@ class UploadResponse(BaseModel):
     workspace_id: str = "local"
     dataset_id: Optional[str] = None
     dataset_version: Optional[int] = None
+    deferred: Dict[str, bool] = {}
 
 
 class DatabaseStatusResponse(BaseModel):
@@ -74,16 +76,17 @@ async def upload_file(file: UploadFile = File(...), state: AppState = Depends(ge
         with tempfile.NamedTemporaryFile(delete=False, suffix=f".{ext}") as tmp:
             tmp.write(content)
             tmp_path = tmp.name
-        result = state.load_data(tmp_path, file.filename)
+        result = load_dataset(state, tmp_path, file.filename)
         dataset = _register_loaded_dataset(state, file.filename, _store.hash_bytes(content))
         return UploadResponse(
             success=True,
-            message=f"Successfully loaded {result['rows_loaded']} employees as dataset v{dataset.version}",
+            message=f"Successfully activated {result['rows_loaded']} employees as dataset v{dataset.version}",
             rows_loaded=result['rows_loaded'],
             columns=result['columns'],
             features_enabled=result['features_enabled'],
             dataset_id=dataset.dataset_id,
             dataset_version=dataset.version,
+            deferred=result.get('deferred', {}),
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -123,16 +126,17 @@ async def load_sample_data(state: AppState = Depends(get_app_state)) -> UploadRe
         raise HTTPException(status_code=404, detail="Sample data file not found")
     try:
         content = open(sample_path, "rb").read()
-        result = state.load_data(sample_path, "sample_hr_data.csv")
+        result = load_dataset(state, sample_path, "sample_hr_data.csv")
         dataset = _register_loaded_dataset(state, "sample_hr_data.csv", _store.hash_bytes(content))
         return UploadResponse(
             success=True,
-            message=f"Successfully loaded {result['rows_loaded']} employees from sample data as dataset v{dataset.version}",
+            message=f"Successfully activated {result['rows_loaded']} employees from sample data as dataset v{dataset.version}",
             rows_loaded=result['rows_loaded'],
             columns=result['columns'],
             features_enabled=result['features_enabled'],
             dataset_id=dataset.dataset_id,
             dataset_version=dataset.version,
+            deferred=result.get('deferred', {}),
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
