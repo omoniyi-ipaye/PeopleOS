@@ -23,16 +23,19 @@ jobs:
           python-version: '3.11'
           cache: 'pip'
 
-      - name: Install agent test dependencies
+      - name: Install architecture test dependencies
         run: |
           python -m pip install --upgrade pip
           pip install pytest pandas pydantic pyyaml fastapi scikit-learn
 
       - name: Compile governed platform modules
-        run: python -m compileall -q src/agent src/platform src/safe_llm_client.py api/security.py api/routes/intelligence.py api/routes/platform.py
+        run: python -m compileall -q src/agent src/platform src/safe_llm_client.py api/security.py api/authorization.py api/routes/intelligence.py api/routes/platform.py
 
       - name: Validate canonical system model
         run: python scripts/validate_system_model.py
+
+      - name: Verify build readiness invariants
+        run: python scripts/check_build_readiness.py
 
       - name: Run agent and platform architecture tests
         run: >-
@@ -42,3 +45,4 @@ jobs:
           tests/test_safe_llm_client.py
           tests/test_agent_controls.py
           tests/test_platform_architecture.py
+          tests/test_platform_operations.py
