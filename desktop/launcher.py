@@ -102,10 +102,21 @@ def main() -> int:
     health_url = f"http://127.0.0.1:{port}/api/health"
     app_url = f"http://127.0.0.1:{port}/"
     _wait_until_ready(health_url)
+
+    if os.getenv("PEOPLEOS_SMOKE_TEST") == "1":
+        # Packaging CI proves both the API and exported UI are served by the
+        # final executable, then exits without opening an interactive browser.
+        with urllib.request.urlopen(app_url, timeout=3.0) as response:
+            body = response.read(4096).decode("utf-8", errors="ignore")
+            if response.status != 200 or "PeopleOS" not in body:
+                raise RuntimeError("Packaged PeopleOS UI smoke test failed")
+        server.should_exit = True
+        thread.join(timeout=5)
+        return 0
+
     webbrowser.open(app_url, new=1, autoraise=True)
 
     # Keep the local service alive while the launcher process is running.
-    # Packaged desktop builds use a windowless process on Windows/macOS.
     try:
         while thread.is_alive():
             time.sleep(0.5)
