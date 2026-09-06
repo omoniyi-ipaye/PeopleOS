@@ -1,0 +1,10 @@
+# Optional PeopleOS predictive-training capability
+# Install in addition to requirements-desktop.txt when governed predictive
+# model training / Model Lab is required.
+
+streamlit==1.31.0
+xgboost==2.0.3
+lightgbm>=4.0.0
+optuna==3.5.0
+imbalanced-learn==0.12.0
+shap==0.44.1
