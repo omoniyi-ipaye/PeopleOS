@@ -18,7 +18,7 @@ export default function SearchPage() {
 
   if (status?.available === false) return <Page>
     <PageHeader eyebrow="Investigate · Research" title="Search is not available for this dataset" description="Semantic research appears only when the active dataset contains supported workforce text and an evidence index has been prepared." />
-    <StateSummary title="Nothing is broken" description={status.reason || 'This dataset does not currently provide the text evidence required for semantic research.'} tone="warning" />
+    <StateSummary title="Structured evidence is still available" description={status.reason || 'This dataset does not currently provide the text evidence required for semantic research.'} tone="info" />
 
     <div className="grid gap-6 lg:grid-cols-3">
       <Surface padding="lg">
@@ -68,7 +68,7 @@ export default function SearchPage() {
         </div>
       </Surface> : <Surface padding="lg"><EmptyState icon={Search} title="Start with a workforce question" description="Search works best for concepts and themes rather than exact employee identifiers." /></Surface>}
 
-      <StateSummary title="Privacy and interpretation" description="Semantic search retrieves text evidence. It does not assign performance labels, recommend employment action, or convert similarity into a factual claim." tone="info" />
+      <StateSummary title="Privacy and interpretation" description="Semantic search retrieves text evidence; it does not turn similarity into a factual claim or employment recommendation." tone="info" />
     </Page>
   )
 }
