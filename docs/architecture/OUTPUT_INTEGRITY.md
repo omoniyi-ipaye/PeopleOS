@@ -1,8 +1,8 @@
 # PeopleOS Output Integrity
 
-Status: **TRANSITION — integrity remediation in progress**
+Status: **TARGET WITH EXPLICIT ASSUMPTIONS — verification pending on final SHA**
 
-This document is the canonical human-readable contract for how PeopleOS turns workforce data into user-visible results. The governing principle is: **a numerically correct calculation is not a trustworthy output if the population, denominator, statistical meaning, model quality, or UI label is wrong.**
+This document is the canonical human-readable contract for how PeopleOS turns workforce data into user-visible results. The governing principle is: **a numerically correct calculation is not a trustworthy output if the population, denominator, statistical meaning, model quality, governance boundary, or UI label is wrong.**
 
 ## End-to-end integrity chain
 
@@ -12,89 +12,115 @@ Every material output must preserve this chain.
 
 ## Population contracts
 
-### Historical population
-All validated source rows, including repeated employee snapshots. Historical rows are retained only for analyses that explicitly require time/history.
+**Historical population** retains validated source rows, including repeated snapshots, only for analyses that explicitly require history.
 
-### Current population
-Exactly one latest observation per `EmployeeID`. If `SnapshotDate` exists, the latest valid snapshot wins. Current-state analytics must never count historical snapshots as multiple people.
+**Current population** contains exactly one latest observation per `EmployeeID`. If `SnapshotDate` exists, the latest valid snapshot wins.
 
-### Active population
-Current population rows with normalized `Attrition == 0`. Current headcount, payroll, salary distribution, current experience, and current structural metrics use this population unless a metric explicitly declares otherwise.
+**Active population** is the current population with normalized `Attrition == 0`. Current headcount, payroll, salary distribution and active-workforce scoring use this population unless explicitly declared otherwise.
 
-### Unknown outcome
-Unrecognized Attrition labels remain unknown/missing. They are never silently coerced to active. Predictive training is disabled when the target is ambiguous or single-class.
+**Unknown outcome** stays missing. Unrecognized Attrition labels are never coerced to active, and predictive training is disabled when the target is ambiguous or single-class.
 
-## Metric contracts
+## Canonical metric contracts
 
-| Metric | Canonical meaning | Population | Important limitation |
+| Metric | Meaning | Population | Limitation |
 |---|---|---|---|
-| Headcount | Current active employees | Active | Not row count |
-| Record count | Current unique employee observations | Current | May include departed/unknown outcome rows |
-| Observed attrition share | Share of known current rows with Attrition=1 | Current known outcomes | **Not a period turnover rate** |
-| Current payroll | Sum of valid positive Salary | Active | Excludes departed and invalid salary rows |
-| Salary dispersion consistency | Within-department salary dispersion summary | Active | **Not adjusted pay equity** |
-| Gender pay gap | Descriptive raw and job-title-stratified disparity | Active eligible groups | Not causal/legal equity determination |
-| Department median ratio | Salary / department median when no true band midpoint exists | Active | **Not formal compa-ratio** |
-| Four-fifths ratio | Group favorable-outcome rate / highest favorable rate | Eligible groups | For Attrition, favorable outcome = retention |
-| Prediction distribution | Aggregate distribution from activated evaluated model | Active scoring population | Model probabilities require calibration review |
-| Evidence quality | Heuristic quality/coverage score for investigation evidence | Investigation | **Not probability that a conclusion is true** |
+| Headcount | Current active employees | Active | Not dataframe row count |
+| Record count | Current unique employee observations | Current | Can include departed/unknown outcomes |
+| Observed attrition share | Share of known current outcomes marked departed | Current known outcomes | **Not period turnover rate** |
+| Current payroll | Sum of valid positive salary | Active | Excludes departed/invalid salaries |
+| Salary dispersion consistency | Within-department dispersion summary | Active | **Not adjusted pay equity** |
+| Gender pay gap | Descriptive raw/stratified disparity | Active eligible groups | Not causal/legal determination |
+| Four-fifths ratio | Favorable rate / highest favorable rate | Eligible groups | Attrition context uses retention as favorable outcome |
+| Quality of Hire | Observed source/pre-hire associations + configurable descriptive composite | Qualified cohorts | Not causal source effectiveness |
+| Experience composite | Configured weighted composite of explicit measured experience signals | Measured-signal population | No HRIS-proxy-derived engagement score |
+| Survival | Cohort time-to-event survival from a defined origin | Valid survival cohort | Not individual next-period departure probability |
+| Scenario output | Sensitivity result under configured assumptions | Aggregate scenario scope | Not causal forecast or empirical probability |
+| Evidence quality | Heuristic support score | Investigation | **Not probability that conclusion is true** |
 
 ## Statistical integrity
 
-- Correlation is association, not percent uplift and not causation.
-- Group disparity is a screening signal, not proof of bias or discrimination.
-- Minimum group sizes are enforced before fairness/disparity comparison.
-- Undefined TPR/FPR values remain unknown rather than being written as zero.
-- Model evaluation uses an untouched holdout.
-- Learned preprocessing is fitted on training rows only.
-- SMOTE belongs inside cross-validation folds and training data only.
-- Brier score/calibration are evaluated separately from discrimination metrics such as ROC AUC/F1.
+- Correlation is association, not percent uplift or causation.
+- Statistical significance is not proof of unfairness, causation, practical importance, or absence of an issue.
+- Minimum group sizes are enforced for fairness/disparity screening.
+- Undefined fairness rates remain unknown rather than being represented as zero.
+- Learned preprocessing is fitted on training rows after the raw-row split.
+- Holdout data does not influence imputation, scaling, outlier bounds, category encoding, SMOTE, model selection, or tuning.
+- Brier score/calibration are reported separately from discrimination metrics such as F1/ROC AUC.
+- Kaplan–Meier output is cumulative survival from its time origin; it is not automatically a conditional future probability.
+- Cox hazard ratios are associations and are subject to proportional-hazards assumptions.
+- Forecasting requires genuine repeated dated observations; PeopleOS does not synthesize history from HireDate or tenure.
 
-## Predictive governance
+## Consequential-action boundaries
 
-- Training is explicit and never occurs during upload.
-- Candidate activation requires deterministic evaluation checks.
-- The exact evaluated runtime artifact must be available before activation.
-- A process restart without a durable model artifact fails closed.
-- Predictive API output is aggregate-first.
-- Individual risk-detail and high-risk employee ranking endpoints are disabled.
-- Feature importance describes model influence, not causal attrition drivers.
+PeopleOS does **not** expose or automate:
+
+- individual retention-risk ranking or employee risk-detail endpoints;
+- individual survival-risk ranking;
+- individual experience/engagement scoring;
+- manager experience ranking;
+- individual succession/high-potential/promotion-readiness ranking;
+- individual stagnation or named-manager span ranking;
+- employee salary-outlier or compa-ratio lists;
+- headcount-reduction selection by performance, tenure or cost;
+- risk-targeted retention interventions;
+- causal intervention recommendations without a validated identification design;
+- employee cluster membership.
+
+Aggregate screening remains available where it can support investigation without becoming an automated people decision.
+
+## Predictive lifecycle
+
+1. Dataset activation establishes current/active populations and initializes read-only analytics.
+2. Training is an explicit governed operation.
+3. Raw rows are split before learned preprocessing.
+4. Candidate evaluation occurs on an untouched holdout.
+5. Activation requires the exact evaluated runtime artifact.
+6. Only the active workforce is scored.
+7. Model fitness and calibration are displayed separately from aggregate score distribution.
+
+A process restart without durable predictive artifact persistence fails closed. Durable artifact persistence is still a production assumption/debt item.
 
 ## Evidence and synthesis
 
-`confidence` fields retained for compatibility represent a **heuristic evidence-quality weight**, not statistical confidence. Model F1 must never be converted into confidence that an individual model output or evidence claim is true. Statistical reliability belongs in explicit metadata (sample size, p-value, Brier score, calibration error, held-out metrics).
+`overall_confidence` and item `confidence` fields remain for compatibility, but their semantic contract is **heuristic evidence quality/reliability weight**. They are not statistical confidence and not probabilities of truth.
 
-## Integrity status labels
+Evidence quality now accounts for:
+- evidence kind (observed, derived, assumed, unknown),
+- usable tool contribution,
+- declared item reliability,
+- known gaps,
+- material cross-tool contradictions in the same scope.
 
-- **Observed** — directly verified in current code/runtime.
-- **Assumed** — necessary assumption not yet proven by source/runtime evidence.
-- **Unknown** — evidence not available.
-- **Proposed** — target behavior not yet implemented.
+Assumption-only evidence cannot become sufficient simply because a tool returned successfully.
 
-## Current remediation status
+## Output-boundary remediation completed
 
-### Implemented
-- canonical current/latest-snapshot population resolver
-- normalized Attrition outcome
-- conservative mapping for critical fields
-- snapshot-safe ingestion boundary
-- active-first headcount and compensation populations
-- observed attrition share semantic contract
-- salary-dispersion vs pay-equity distinction
-- retention-based four-fifths calculation and minimum group suppression
-- leakage-safe raw-row split before predictive preprocessing
-- model evaluation includes ROC AUC, Brier score and calibration signal
-- individual predictive ranking endpoints disabled
-- evidence `confidence` explicitly classified as heuristic quality
-- output-integrity regression tests wired into CI
+- snapshot-safe population resolution;
+- active-first headcount and compensation;
+- observed attrition-share terminology;
+- conservative critical-field mapping;
+- salary-dispersion vs pay-equity distinction;
+- fairness favorable-outcome ratios + group suppression;
+- leakage-safe predictive preprocessing/evaluation;
+- explicit model activation binding;
+- aggregate-only prediction/survival/experience/succession/structural/compensation boundaries;
+- measured-signal-only experience outputs;
+- observational Quality-of-Hire semantics;
+- exploratory Scenario Planner semantics;
+- unvalidated causal API disabled;
+- synthetic historical forecasting removed;
+- cluster-member exposure removed;
+- heuristic evidence-quality semantics enforced;
+- output-integrity tests and compile coverage wired into CI;
+- user-facing UI language aligned to these contracts.
 
-### Remaining review
-- survival-analysis censoring/time-origin definitions
-- scenario-planner causal/forecast assumptions
-- employee-experience composite weighting
-- quality-of-hire correlation language and recommendation thresholds
-- agent sufficiency/contradiction rules
-- all frontend labels for deprecated `turnover_rate` compatibility fields
-- durable predictive model artifact persistence/recovery
+## Explicit assumptions / remaining non-blocking debt
 
-The system must remain **BUILD READY WITH ASSUMPTIONS** until these remaining paths are reviewed and verified.
+- Observational HR data cannot identify causal intervention effects without an appropriate identification design.
+- Scenario response/cost parameters require organization-specific validation.
+- Configurable composite metrics require local validation before being treated as decision thresholds.
+- Predictive runtime artifacts are process-local; durable artifact persistence is required for resilient multi-process production deployment.
+- Several backward-compatible API field names (`turnover_rate`, `best_predictors`, `equity_scores`) remain until a future breaking API version.
+- Legacy engine methods that are unreachable behind governed API boundaries can be deleted in a later cleanup.
+
+Final readiness remains **BUILD READY WITH ASSUMPTIONS** because the explicit assumptions above are real product constraints, not unresolved semantic ambiguity.
