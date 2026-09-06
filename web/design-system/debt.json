@@ -1,5 +1,6 @@
 {
   "stage": "TARGET",
+  "integrityStage": "TARGET_WITH_EXPLICIT_ASSUMPTIONS",
   "allowedPrefixes": [],
   "allowedFiles": [],
   "rules": {
