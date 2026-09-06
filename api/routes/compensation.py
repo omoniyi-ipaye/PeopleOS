@@ -1,17 +1,22 @@
-"""Compensation analysis route handlers."""
+"""Governed aggregate compensation routes.
 
-from typing import List, Dict, Any
+Current compensation analytics use the active workforce. Department dispersion is
+a descriptive consistency metric, not adjusted pay equity. Individual salary
+outlier and employee compa-ratio lists are outside the enterprise aggregate
+boundary and are disabled.
+"""
 
-from fastapi import APIRouter, HTTPException, Depends
+from typing import Any, Dict, List
+
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from api.dependencies import get_app_state, AppState
+from api.dependencies import AppState, get_app_state
 
 router = APIRouter(prefix="/api/compensation", tags=["compensation"])
 
 
 class CompensationSummary(BaseModel):
-    """Compensation summary statistics."""
     total_payroll: float
     avg_salary: float
     median_salary: float
@@ -22,243 +27,121 @@ class CompensationSummary(BaseModel):
     headcount: int
 
 
-class PayEquityScore(BaseModel):
-    """Pay equity score for a department."""
+class SalaryDispersionScore(BaseModel):
     dept: str
     avg_salary: float
     std_dev: float
     cv: float
     gini: float
-    equity_score: float
+    equity_score: float  # compatibility field: salary-dispersion consistency score
     status: str
     headcount: int
-
-
-class SalaryOutlier(BaseModel):
-    """Salary outlier information."""
-    employee_id: str
-    dept: str
-    salary: float
-    dept_avg: float
-    deviation_pct: float
-    z_score: float
-    flag: str
-
-
-class CompaRatioEmployee(BaseModel):
-    """Compa-ratio for an employee."""
-    employee_id: str
-    dept: str
-    salary: float
-    band_midpoint: float
-    compa_ratio: float
-    compa_status: str
+    metric_semantics: str = "salary_dispersion_consistency_not_adjusted_pay_equity"
 
 
 class CompensationAnalysisResponse(BaseModel):
-    """Full compensation analysis response."""
     summary: CompensationSummary
-    equity_scores: List[PayEquityScore]
-    outliers: List[SalaryOutlier]
+    equity_scores: List[SalaryDispersionScore]
+    outliers: List[Dict[str, Any]] = []
     warnings: List[str]
 
 
 def require_compensation(state: AppState = Depends(get_app_state)) -> AppState:
-    """Dependency that requires compensation engine."""
     if not state.has_data():
         if not state.load_from_database():
-            raise HTTPException(
-                status_code=400,
-                detail="No data loaded. Please upload a file first."
-            )
-
+            raise HTTPException(status_code=400, detail="No data loaded. Please upload a file first.")
     if state.compensation_engine is None:
-        raise HTTPException(
-            status_code=500,
-            detail="Compensation engine not initialized"
-        )
-
+        raise HTTPException(status_code=400, detail="Compensation analysis is unavailable for the current dataset.")
     return state
 
 
-@router.get("/summary", response_model=CompensationSummary)
-async def get_compensation_summary(
-    state: AppState = Depends(require_compensation)
-) -> CompensationSummary:
-    """
-    Get overall compensation summary statistics.
-    """
-    summary = state.compensation_engine.get_compensation_summary()
-
+def _summary(engine) -> CompensationSummary:
+    raw = engine.get_compensation_summary()
     return CompensationSummary(
-        total_payroll=summary['total_payroll'],
-        avg_salary=summary['avg_salary'],
-        median_salary=summary['median_salary'],
-        min_salary=summary['min_salary'],
-        max_salary=summary['max_salary'],
-        salary_range=summary['salary_range'],
-        std_dev=summary['std_dev'],
-        headcount=summary['headcount']
+        total_payroll=raw['total_payroll'],
+        avg_salary=raw['avg_salary'],
+        median_salary=raw['median_salary'],
+        min_salary=raw['min_salary'],
+        max_salary=raw['max_salary'],
+        salary_range=raw['salary_range'],
+        std_dev=raw['std_dev'],
+        headcount=raw['headcount'],
     )
 
 
-@router.get("/equity", response_model=List[PayEquityScore])
-async def get_pay_equity(
-    state: AppState = Depends(require_compensation)
-) -> List[PayEquityScore]:
-    """
-    Get pay equity scores by department.
-    """
-    equity_df = state.compensation_engine.calculate_pay_equity_score()
-
-    scores = []
-    for _, row in equity_df.iterrows():
-        scores.append(PayEquityScore(
+def _dispersion(engine) -> List[SalaryDispersionScore]:
+    frame = engine.calculate_pay_equity_score()
+    output = []
+    for _, row in frame.iterrows():
+        output.append(SalaryDispersionScore(
             dept=row['Dept'],
             avg_salary=float(row['AvgSalary']),
             std_dev=float(row['StdDev']),
             cv=float(row['CV']),
             gini=float(row['Gini']),
-            equity_score=float(row['EquityScore']),
+            equity_score=float(row.get('SalaryDispersionScore', row.get('EquityScore'))),
             status=row['Status'],
-            headcount=int(row['Headcount'])
+            headcount=int(row['Headcount']),
         ))
-
-    return scores
-
-
-@router.get("/outliers", response_model=List[SalaryOutlier])
-async def get_salary_outliers(
-    state: AppState = Depends(require_compensation)
-) -> List[SalaryOutlier]:
-    """
-    Get employees with outlier salaries.
-    """
-    outliers_df = state.compensation_engine.identify_salary_outliers()
-
-    outliers = []
-    for _, row in outliers_df.iterrows():
-        outliers.append(SalaryOutlier(
-            employee_id=row['EmployeeID'],
-            dept=row['Dept'],
-            salary=float(row['Salary']),
-            dept_avg=float(row['DeptAvg']),
-            deviation_pct=float(row['DeviationPct']),
-            z_score=float(row['ZScore']),
-            flag=row['Flag']
-        ))
-
-    return outliers
+    return output
 
 
-@router.get("/compa-ratio", response_model=List[CompaRatioEmployee])
-async def get_compa_ratios(
-    state: AppState = Depends(require_compensation)
-) -> List[CompaRatioEmployee]:
-    """
-    Get compa-ratio analysis for all employees.
-    """
-    compa_df = state.compensation_engine.calculate_compa_ratio()
+@router.get("/summary", response_model=CompensationSummary)
+async def get_compensation_summary(state: AppState = Depends(require_compensation)) -> CompensationSummary:
+    return _summary(state.compensation_engine)
 
-    ratios = []
-    for _, row in compa_df.iterrows():
-        ratios.append(CompaRatioEmployee(
-            employee_id=row['EmployeeID'],
-            dept=row.get('Dept', 'N/A'),
-            salary=float(row['Salary']),
-            band_midpoint=float(row['BandMidpoint']),
-            compa_ratio=float(row['CompaRatio']),
-            compa_status=row['CompaStatus']
-        ))
 
-    return ratios
+@router.get("/equity", response_model=List[SalaryDispersionScore])
+async def get_salary_dispersion(state: AppState = Depends(require_compensation)) -> List[SalaryDispersionScore]:
+    """Compatibility endpoint: returns department salary-dispersion screening, not a legal/adjusted pay-equity determination."""
+    return _dispersion(state.compensation_engine)
+
+
+@router.get("/outliers", deprecated=True)
+async def get_salary_outliers(state: AppState = Depends(require_compensation)):
+    raise HTTPException(status_code=403, detail="Individual salary-outlier lists are disabled. Use aggregate compensation disparity analysis.")
+
+
+@router.get("/compa-ratio", deprecated=True)
+async def get_compa_ratios(state: AppState = Depends(require_compensation)):
+    raise HTTPException(status_code=403, detail="Individual compa-ratio lists are disabled. Use aggregate compensation analysis.")
 
 
 @router.get("/gender-pay-gap")
-async def get_gender_pay_gap(
-    state: AppState = Depends(require_compensation)
-) -> Dict[str, Any]:
-    """
-    Get gender pay gap analysis (requires Gender column).
-    """
+async def get_gender_pay_gap(state: AppState = Depends(require_compensation)) -> Dict[str, Any]:
     result = state.compensation_engine.calculate_gender_pay_gap()
+    if isinstance(result, dict):
+        result.setdefault('metric_semantics', 'descriptive_pay_gap_screening_not_legal_equity_determination')
     return result
 
 
 @router.get("/by-tenure")
-async def get_salary_by_tenure(
-    state: AppState = Depends(require_compensation)
-) -> List[Dict[str, Any]]:
-    """
-    Get salary analysis by tenure bucket.
-    """
-    tenure_df = state.compensation_engine.get_salary_by_tenure()
-
-    results = []
-    for _, row in tenure_df.iterrows():
-        results.append({
+async def get_salary_by_tenure(state: AppState = Depends(require_compensation)) -> List[Dict[str, Any]]:
+    frame = state.compensation_engine.get_salary_by_tenure()
+    return [
+        {
             'tenure_bucket': str(row['TenureBucket']),
             'mean': float(row['Mean']),
             'median': float(row['Median']),
             'min': float(row['Min']),
             'max': float(row['Max']),
-            'count': int(row['Count'])
-        })
-
-    return results
+            'count': int(row['Count']),
+            'population': 'current_active_employees_with_valid_salary',
+        }
+        for _, row in frame.iterrows()
+    ]
 
 
 @router.get("/analysis", response_model=CompensationAnalysisResponse)
-async def get_full_analysis(
-    state: AppState = Depends(require_compensation)
-) -> CompensationAnalysisResponse:
-    """
-    Get full compensation analysis.
-    """
-    analysis = state.compensation_engine.analyze_all()
-
-    # Convert summary
-    summary = CompensationSummary(
-        total_payroll=analysis['summary']['total_payroll'],
-        avg_salary=analysis['summary']['avg_salary'],
-        median_salary=analysis['summary']['median_salary'],
-        min_salary=analysis['summary']['min_salary'],
-        max_salary=analysis['summary']['max_salary'],
-        salary_range=analysis['summary']['salary_range'],
-        std_dev=analysis['summary']['std_dev'],
-        headcount=analysis['summary']['headcount']
-    )
-
-    # Convert equity scores
-    equity_scores = []
-    for _, row in analysis['equity'].iterrows():
-        equity_scores.append(PayEquityScore(
-            dept=row['Dept'],
-            avg_salary=float(row['AvgSalary']),
-            std_dev=float(row['StdDev']),
-            cv=float(row['CV']),
-            gini=float(row['Gini']),
-            equity_score=float(row['EquityScore']),
-            status=row['Status'],
-            headcount=int(row['Headcount'])
-        ))
-
-    # Convert outliers
-    outliers = []
-    for _, row in analysis['outliers'].iterrows():
-        outliers.append(SalaryOutlier(
-            employee_id=row['EmployeeID'],
-            dept=row['Dept'],
-            salary=float(row['Salary']),
-            dept_avg=float(row['DeptAvg']),
-            deviation_pct=float(row['DeviationPct']),
-            z_score=float(row['ZScore']),
-            flag=row['Flag']
-        ))
-
+async def get_full_analysis(state: AppState = Depends(require_compensation)) -> CompensationAnalysisResponse:
+    engine = state.compensation_engine
     return CompensationAnalysisResponse(
-        summary=summary,
-        equity_scores=equity_scores,
-        outliers=outliers,
-        warnings=analysis.get('warnings', [])
+        summary=_summary(engine),
+        equity_scores=_dispersion(engine),
+        # Enterprise boundary intentionally suppresses individual salary records.
+        outliers=[],
+        warnings=list(getattr(engine, 'warnings', []) or []) + [
+            "Department consistency scores describe salary dispersion; they are not adjusted pay-equity findings.",
+            "Individual salary-outlier and compa-ratio rankings are not exposed through the governed aggregate API.",
+        ],
     )
