@@ -4,6 +4,7 @@ API routes for Quality of Hire endpoints.
 
 from fastapi import APIRouter, HTTPException, Depends, Query
 from typing import Optional, List
+import pandas as pd
 
 from api.dependencies import get_app_state, AppState
 from api.schemas.quality_of_hire import (
@@ -24,8 +25,26 @@ def require_quality_of_hire(state: AppState = Depends(get_app_state)) -> AppStat
     """Dependency that requires quality of hire engine to be available."""
     if not state.has_data():
         state.load_from_database()
-            
     return state
+
+
+def _normalize_correlation_inputs(state: AppState) -> None:
+    """Make statistical correlation inputs explicitly numeric and null-safe.
+
+    HR source datasets often contain numeric-looking object/string columns. SciPy's
+    pearsonr requires a concrete numeric dtype, so normalize only the fields used
+    by the quality-of-hire correlation engine before analysis. Invalid values become
+    null and are excluded by the engine's existing pairwise dropna logic.
+    """
+    engine = state.quality_of_hire_engine
+    if engine is None:
+        return
+
+    columns = set(getattr(engine, "prehire_columns", []))
+    columns.update({"LastRating", "Attrition"})
+    for column in columns:
+        if column in engine.df.columns:
+            engine.df[column] = pd.to_numeric(engine.df[column], errors="coerce").astype("float64")
 
 
 @router.get("/analysis", response_model=QualityOfHireAnalysisResponse)
@@ -54,8 +73,9 @@ async def get_quality_of_hire_analysis(
             warnings=["Quality of Hire engine not initialized. Check if data contains 'HireSource' or interview columns."]
         )
 
+    _normalize_correlation_inputs(state)
     results = state.quality_of_hire_engine.analyze_all()
-    # Convert correlation results
+
     correlations = None
     if results.get('correlations', {}).get('available'):
         corr_data = results['correlations']
@@ -97,51 +117,26 @@ async def get_quality_of_hire_analysis(
 async def get_source_effectiveness(
     state: AppState = Depends(require_quality_of_hire)
 ) -> List[SourceEffectiveness]:
-    """
-    Get effectiveness metrics for each hiring source.
-
-    Compares sources on:
-    - Performance ratings
-    - Retention rates
-    - Promotion rates
-    - Overall quality score
-    """
+    """Get effectiveness metrics for each hiring source."""
     if state.quality_of_hire_engine is None:
         return []
     source_df = state.quality_of_hire_engine.calculate_source_effectiveness()
-
     if source_df.empty:
         return []
-
     return [SourceEffectiveness(**row.to_dict()) for _, row in source_df.iterrows()]
 
 
 @router.get("/correlations", response_model=CorrelationAnalysisResponse)
 async def get_prehire_posthire_correlations(
-    outcome: str = Query(
-        default="LastRating",
-        description="Post-hire outcome to correlate against (e.g., 'LastRating', 'Attrition')"
-    ),
+    outcome: str = Query(default="LastRating", description="Post-hire outcome to correlate against"),
     state: AppState = Depends(require_quality_of_hire)
 ) -> CorrelationAnalysisResponse:
-    """
-    Get correlations between pre-hire signals and post-hire outcomes.
-
-    Identifies which interview dimensions and assessments predict actual performance.
-    """
     if state.quality_of_hire_engine is None:
-        return CorrelationAnalysisResponse(
-            available=False,
-            reason="Quality of Hire engine not initialized"
-        )
+        return CorrelationAnalysisResponse(available=False, reason="Quality of Hire engine not initialized")
+    _normalize_correlation_inputs(state)
     results = state.quality_of_hire_engine.correlate_prehire_posthire(outcome_column=outcome)
-
     if not results.get('available', False):
-        return CorrelationAnalysisResponse(
-            available=False,
-            reason=results.get('reason', 'Analysis not available')
-        )
-
+        return CorrelationAnalysisResponse(available=False, reason=results.get('reason', 'Analysis not available'))
     return CorrelationAnalysisResponse(
         available=True,
         outcome_column=results.get('outcome_column'),
@@ -156,81 +151,47 @@ async def get_prehire_posthire_correlations(
 async def get_hiring_insights(
     state: AppState = Depends(require_quality_of_hire)
 ) -> HiringInsights:
-    """
-    Get strategic hiring insights.
-
-    Combines source effectiveness and correlation analysis into actionable recommendations.
-    """
     if state.quality_of_hire_engine is None:
         raise HTTPException(status_code=404, detail="Hiring insights not available")
+    _normalize_correlation_inputs(state)
     results = state.quality_of_hire_engine.get_hiring_insights()
     return HiringInsights(**results)
 
 
 @router.get("/cohort-analysis", response_model=List[CohortPerformance])
 async def get_cohort_analysis(
-    cohort_by: str = Query(
-        default="HireSource",
-        description="Column to group by (e.g., 'HireSource', 'Dept')"
-    ),
-    min_tenure_months: int = Query(
-        default=6,
-        ge=0,
-        description="Minimum tenure in months to include"
-    ),
+    cohort_by: str = Query(default="HireSource", description="Column to group by"),
+    min_tenure_months: int = Query(default=6, ge=0, description="Minimum tenure in months to include"),
     state: AppState = Depends(require_quality_of_hire)
 ) -> List[CohortPerformance]:
-    """
-    Analyze performance by cohort.
-
-    Compare how different hiring cohorts perform over time.
-    """
     if state.quality_of_hire_engine is None:
         return []
     cohort_df = state.quality_of_hire_engine.analyze_cohort_performance(
         cohort_column=cohort_by,
         min_tenure_months=min_tenure_months
     )
-
     if cohort_df.empty:
         return []
-
     results = []
     for _, row in cohort_df.iterrows():
         cohort_name = row.get(cohort_by, 'Unknown')
         row_dict = row.to_dict()
-        # Remove the cohort column from dict to avoid duplicate
         if cohort_by in row_dict:
             del row_dict[cohort_by]
         results.append(CohortPerformance(cohort_name=str(cohort_name), **row_dict))
-
     return results
 
 
 @router.get("/new-hire-risks", response_model=List[NewHireRisk])
 async def get_new_hire_risks(
-    months: int = Query(
-        default=6,
-        ge=1,
-        le=24,
-        description="Look at hires within this many months"
-    ),
+    months: int = Query(default=6, ge=1, le=24, description="Look at hires within this many months"),
     state: AppState = Depends(require_quality_of_hire)
 ) -> List[NewHireRisk]:
-    """
-    Get risk assessment for recent hires.
-
-    Identifies new hires who may need additional support based on pre-hire signals.
-    """
     if state.quality_of_hire_engine is None:
         return []
-    risk_df = state.quality_of_hire_engine.get_new_hire_risk_assessment(
-        months_since_hire=months
-    )
-
+    risk_df = state.quality_of_hire_engine.get_new_hire_risk_assessment(months_since_hire=months)
     if risk_df.empty:
         return []
-
     return [NewHireRisk(**row.to_dict()) for _, row in risk_df.iterrows()]
 
 
@@ -239,17 +200,11 @@ async def get_best_predictors(
     limit: int = Query(default=5, ge=1, le=20),
     state: AppState = Depends(require_quality_of_hire)
 ) -> List[PrehireCorrelation]:
-    """
-    Get the top predictors of post-hire performance.
-
-    Returns the pre-hire signals with strongest correlation to performance.
-    """
     if state.quality_of_hire_engine is None:
         return []
+    _normalize_correlation_inputs(state)
     results = state.quality_of_hire_engine.correlate_prehire_posthire()
-
     if not results.get('available', False):
         return []
-
     best = results.get('best_predictors', [])[:limit]
     return [PrehireCorrelation(**c) for c in best]
