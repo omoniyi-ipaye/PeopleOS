@@ -1,13 +1,17 @@
-"""Analytics-related Pydantic schemas."""
+"""Analytics API schemas with explicit metric semantics."""
 
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict
 from pydantic import BaseModel
 
 
 class AnalyticsSummary(BaseModel):
-    """Overall analytics summary."""
+    """Current-state analytics summary."""
     headcount: int
+    record_count: Optional[int] = None
+    observed_attrition_share: Optional[float] = None
+    # Backward-compatible alias. Semantics are observed attrition share, not period turnover.
     turnover_rate: Optional[float] = None
+    turnover_rate_semantics: Optional[str] = None
     department_count: int
     salary_mean: Optional[float] = None
     salary_median: Optional[float] = None
@@ -22,39 +26,37 @@ class AnalyticsSummary(BaseModel):
 
 
 class DepartmentStats(BaseModel):
-    """Department-level statistics."""
     dept: str
     headcount: int
+    total_records: Optional[int] = None
     avg_salary: Optional[float] = None
     median_salary: Optional[float] = None
     salary_std_dev: Optional[float] = None
     avg_tenure: Optional[float] = None
     avg_rating: Optional[float] = None
     avg_age: Optional[float] = None
-    turnover_rate: Optional[float] = None
+    observed_attrition_share: Optional[float] = None
+    turnover_rate: Optional[float] = None  # compatibility alias
 
 
 class DepartmentList(BaseModel):
-    """List of department statistics."""
     departments: List[DepartmentStats]
     total_departments: int
 
 
 class TenureDistribution(BaseModel):
-    """Tenure distribution bucket."""
     tenure_range: str
     count: int
-    turnover_rate: Optional[float] = None
+    observed_attrition_share: Optional[float] = None
+    turnover_rate: Optional[float] = None  # compatibility alias
 
 
 class AgeDistribution(BaseModel):
-    """Age distribution bucket."""
     age_range: str
     count: int
 
 
 class SalaryBand(BaseModel):
-    """Salary band information."""
     band: str
     lower: float
     upper: float
@@ -62,16 +64,17 @@ class SalaryBand(BaseModel):
 
 
 class CorrelationData(BaseModel):
-    """Feature correlation with target."""
+    """Observed association with target; not a causal driver."""
     feature: str
     correlation: float
     abs_correlation: float
 
 
 class HighRiskDepartment(BaseModel):
-    """High-risk department information."""
+    """Department above configured observed-attrition-share screening threshold."""
     dept: str
-    turnover_rate: float
+    observed_attrition_share: float
+    turnover_rate: float  # compatibility alias
     headcount: int
     avg_salary: Optional[float] = None
     avg_rating: Optional[float] = None
@@ -79,19 +82,18 @@ class HighRiskDepartment(BaseModel):
 
 
 class DistributionsResponse(BaseModel):
-    """All distributions data."""
     tenure: List[TenureDistribution]
     age: List[AgeDistribution]
     salary_bands: List[SalaryBand]
 
 
 class CorrelationsResponse(BaseModel):
-    """Correlations with attrition."""
     correlations: List[CorrelationData]
     target_column: str
+    metric_semantics: str = "observational_association_not_causal_effect"
 
 
 class HighRiskDepartmentsResponse(BaseModel):
-    """High-risk departments response."""
     departments: List[HighRiskDepartment]
     threshold: float
+    threshold_semantics: str = "observed_attrition_share_screening_threshold"
