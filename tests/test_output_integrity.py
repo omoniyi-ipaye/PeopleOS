@@ -7,6 +7,7 @@ import pandas as pd
 
 from api.routes.experience import _has_measured_signals, _safe_index
 from api.routes.scenario import _sanitize_result
+from api.schemas.survival import CoxCoefficient
 from src.agent.aggregator import EvidenceAggregator
 from src.agent.evidence import EvidenceItem, EvidenceKind, ToolResult, ToolResultStatus
 from src.analytics_engine import AnalyticsEngine
@@ -190,3 +191,20 @@ def test_json_safe_normalizes_numpy_scalars_and_nonfinite_numbers_recursively():
     assert safe['positive_infinity'] is None
     assert safe['negative_infinity'] is None
     assert safe['nested'] == [False, {'value': 2.5}]
+
+
+def test_unbounded_cox_estimates_are_represented_as_missing_not_zero():
+    coefficient = CoxCoefficient(
+        feature='is_active',
+        coefficient=1.2,
+        hazard_ratio=3.32,
+        p_value=.04,
+        is_significant=True,
+        ci_lower=.8,
+        ci_upper=None,
+        direction='increases',
+        interpretation='Observed association; upper confidence bound is not estimable.',
+    )
+    payload = coefficient.model_dump(mode='json')
+    assert payload['ci_upper'] is None
+    assert payload['hazard_ratio'] == 3.32
