@@ -11,14 +11,12 @@ import { UploadStatus, UploadResponse } from '@/types/api'
 import { cn } from '@/lib/utils'
 import {
   Upload,
-  FileText,
   CheckCircle,
   AlertTriangle,
   Database,
   Trash2,
   Download,
   Sparkles,
-  ArrowRight,
   Loader2
 } from 'lucide-react'
 
@@ -88,8 +86,6 @@ export default function UploadPage() {
 
       <div className="flex-1 overflow-y-auto custom-scrollbar px-4 pb-12">
         <div className="max-w-4xl mx-auto space-y-8">
-
-          {/* Active Data Status */}
           {status?.has_data && (
             <div className="animate-in fade-in slide-in-from-top-4">
               <GlassCard className="bg-success/5 border-success/20 p-4 flex items-center justify-between">
@@ -119,7 +115,6 @@ export default function UploadPage() {
             </div>
           )}
 
-          {/* Main Dropzone */}
           <div {...getRootProps()} className="group cursor-pointer">
             <input {...getInputProps()} />
             <GlassCard className={cn(
@@ -130,18 +125,14 @@ export default function UploadPage() {
                 "w-20 h-20 rounded-3xl bg-surface-secondary/50 flex items-center justify-center mb-6 transition-all duration-500",
                 isDragActive ? "bg-accent text-white rotate-12 scale-110" : "text-text-muted group-hover:text-accent group-hover:bg-accent/10"
               )}>
-                {uploadMutation.isPending ? (
-                  <Loader2 className="w-10 h-10 animate-spin" />
-                ) : (
-                  <Upload className="w-10 h-10" />
-                )}
+                {uploadMutation.isPending ? <Loader2 className="w-10 h-10 animate-spin" /> : <Upload className="w-10 h-10" />}
               </div>
 
               <h3 className="text-2xl font-bold mb-2 group-hover:text-accent transition-colors">
                 {isDragActive ? 'Drop file to upload' : 'Drag & Drop your dataset'}
               </h3>
               <p className="text-text-secondary mb-8 max-w-sm mx-auto leading-relaxed">
-                Support for standard HR CSV exports. <br /> Minimum 50 records required for ML analysis.
+                Support for standard HR CSV exports. <br /> Minimum 50 records required for predictive analysis.
               </p>
 
               <div className="flex items-center gap-4">
@@ -149,17 +140,13 @@ export default function UploadPage() {
                   Browse Files
                 </Button>
                 {uploadMutation.isPending && (
-                  <Badge variant="default" className="bg-accent/10 text-accent border-accent/20 animate-pulse">
-                    Processing...
-                  </Badge>
+                  <Badge variant="default" className="bg-accent/10 text-accent border-accent/20 animate-pulse">Processing...</Badge>
                 )}
               </div>
             </GlassCard>
           </div>
 
-          {/* Quick Actions */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Template Download */}
             <GlassCard
               className="p-6 cursor-pointer hover:border-accent/30 transition-all flex items-center justify-between group"
               onClick={() => api.upload.downloadTemplate()}
@@ -175,7 +162,6 @@ export default function UploadPage() {
               </div>
             </GlassCard>
 
-            {/* Load Sample */}
             <GlassCard
               className={cn(
                 "p-6 cursor-pointer hover:border-accent/30 transition-all flex items-center justify-between group",
@@ -189,14 +175,13 @@ export default function UploadPage() {
                 </div>
                 <div className="text-left">
                   <h4 className="font-bold group-hover:text-purple-400 transition-colors">Load Sample Data</h4>
-                  <p className="text-sm text-text-secondary">Try with 1,000 records</p>
+                  <p className="text-sm text-text-secondary">Try with the bundled sample dataset</p>
                 </div>
               </div>
               {loadSampleMutation.isPending && <Loader2 className="w-5 h-5 animate-spin text-purple-500" />}
             </GlassCard>
           </div>
 
-          {/* Result Message */}
           {uploadResult && (
             <div className="animate-in fade-in slide-in-from-bottom-4">
               <GlassCard className={cn("p-6 border-l-4", uploadResult.success ? "border-l-success" : "border-l-danger")}>
@@ -205,16 +190,16 @@ export default function UploadPage() {
                     {uploadResult.success ? <CheckCircle className="w-6 h-6" /> : <AlertTriangle className="w-6 h-6" />}
                   </div>
                   <div className="flex-1">
-                    <h3 className="font-bold text-lg">{uploadResult.success ? 'Upload Complete' : 'Upload Failed'}</h3>
+                    <h3 className="font-bold text-lg">{uploadResult.success ? 'Dataset Activated' : 'Upload Failed'}</h3>
                     <p className="text-text-secondary mt-1">{uploadResult.message}</p>
 
                     {uploadResult.success && (
                       <div className="flex gap-2 mt-4">
                         {uploadResult.features_enabled?.predictive && (
-                          <Badge variant="success" className="animate-in fade-in zoom-in">ML Ready</Badge>
+                          <Badge variant="success" className="animate-in fade-in zoom-in">Predictive data ready</Badge>
                         )}
                         {uploadResult.features_enabled?.nlp && (
-                          <Badge variant="success" className="animate-in fade-in zoom-in delay-100">NLP Ready</Badge>
+                          <Badge variant="default" className="animate-in fade-in zoom-in delay-100">Text data available</Badge>
                         )}
                       </div>
                     )}
