@@ -37,6 +37,7 @@ from api.routes.causal import router as causal_router
 from api.routes.network import router as network_router
 from api.routes.intelligence import router as intelligence_router
 from api.dependencies import get_app_state
+from api.security import local_first_access_guard
 
 
 app = FastAPI(
@@ -62,6 +63,11 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc"
 )
+
+# Any non-loopback request is denied unless PEOPLEOS_API_TOKEN is explicitly
+# configured and supplied as a Bearer token. This protects local-first data even
+# if the process is accidentally bound to a wider network interface.
+app.middleware("http")(local_first_access_guard)
 
 app.add_middleware(
     CORSMiddleware,
