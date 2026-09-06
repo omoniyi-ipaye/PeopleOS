@@ -1,9 +1,12 @@
-"""
-Preprocessor module for PeopleOS.
+"""Deterministic preprocessing for PeopleOS predictive models.
 
-Handles data preprocessing including imputation, encoding, scaling,
-and outlier handling.
+All fitted statistics (imputation, clipping, categorical encodings and scaling)
+are learned from the training population only and then reused unchanged for
+holdout/new data. This prevents evaluation leakage and makes model runs
+reproducible for a fixed dataset.
 """
+
+from __future__ import annotations
 
 from typing import Any
 
@@ -17,360 +20,212 @@ logger = get_logger('preprocessor')
 
 
 class PreprocessingError(Exception):
-    """Custom exception for preprocessing errors."""
     pass
 
 
 class Preprocessor:
-    """
-    Data preprocessing pipeline for PeopleOS.
-    
-    Handles missing values, encoding, scaling, and outlier detection.
-    """
-    
     def __init__(self):
-        """Initialize the Preprocessor with configuration."""
         self.config = load_config()
         self.label_encoders: dict[str, LabelEncoder] = {}
-        self.scaler: StandardScaler = StandardScaler()
+        self.scaler = StandardScaler()
         self.feature_metadata: dict[str, Any] = {}
         self.numeric_columns: list[str] = []
         self.categorical_columns: list[str] = []
         self.scaling_columns: list[str] = []
-    
+        self.impute_values: dict[str, Any] = {}
+        self.outlier_bounds: dict[str, tuple[float, float]] = {}
+        self.dropped_columns: list[str] = []
+        self.reference_date: pd.Timestamp | None = None
+        self._is_fitted = False
+
     def fit_transform(self, df: pd.DataFrame, target_column: str = 'Attrition') -> tuple[pd.DataFrame, dict]:
-        """
-        Fit and transform the data through the preprocessing pipeline.
-        
-        Args:
-            df: Input DataFrame.
-            target_column: Name of the target column for prediction.
-            
-        Returns:
-            Tuple of (processed DataFrame, feature metadata).
-        """
-        df = df.copy()
-        
-        # Step 1: Drop columns with >90% missing values
-        df = self._drop_high_null_columns(df, threshold=0.9)
-        
-        # Step 2: Identify column types
-        self._identify_column_types(df, target_column)
-        
-        # Step 2.5: Engineer temporal features
-        df = self._engineer_temporal_features(df)
-        
-        # Step 3: Impute missing values
-        df = self._impute_missing(df)
-        
-        # Step 4: Detect and cap outliers (IQR method)
-        df = self._cap_outliers(df)
-        
-        # Step 5: Encode categorical variables
-        df = self._encode_categorical(df, target_column)
-        
-        # Step 6: Scale numeric features
-        df = self._scale_features(df, target_column)
-        
-        # Store feature metadata
+        frame = df.copy()
+        frame = self._drop_high_null_columns(frame, threshold=0.9, fit=True)
+        self._identify_column_types(frame, target_column)
+        self.reference_date = self._resolve_reference_date(frame)
+        frame = self._engineer_temporal_features(frame, reference_date=self.reference_date)
+        # Engineered features may add numeric columns after initial identification.
+        self._refresh_engineered_numeric_columns(frame, target_column)
+        frame = self._impute_missing(frame, fit=True)
+        frame = self._cap_outliers(frame, fit=True)
+        frame = self._encode_categorical(frame, target_column, fit=True)
+        frame = self._scale_features(frame, target_column, fit=True)
+        self._is_fitted = True
         self.feature_metadata = {
-            'numeric_columns': self.numeric_columns,
-            'categorical_columns': self.categorical_columns,
-            'scaling_columns': self.scaling_columns,
+            'numeric_columns': list(self.numeric_columns),
+            'categorical_columns': list(self.categorical_columns),
+            'scaling_columns': list(self.scaling_columns),
             'label_encoders': list(self.label_encoders.keys()),
-            'processed_columns': list(df.columns)
+            'processed_columns': list(frame.columns),
+            'dropped_columns': list(self.dropped_columns),
+            'reference_date': self.reference_date.isoformat() if self.reference_date is not None else None,
+            'fit_scope': 'training_population',
         }
-        
-        logger.info(f"Preprocessing complete. Shape: {df.shape}")
-        return df, self.feature_metadata
-    
+        logger.info("Preprocessing fitted on %s rows. Shape: %s", len(df), frame.shape)
+        return frame, self.feature_metadata
+
     def transform(self, df: pd.DataFrame, target_column: str = 'Attrition') -> pd.DataFrame:
-        """
-        Transform new data using fitted preprocessor.
-        
-        Args:
-            df: Input DataFrame.
-            target_column: Name of the target column.
-            
-        Returns:
-            Transformed DataFrame.
-        """
-        df = df.copy()
-        
-        # Apply same transformations (using fitted encoders/scaler)
-        df = self._identify_column_types_transform(df, target_column)
-        df = self._engineer_temporal_features(df)
-        df = self._impute_missing(df)
-        df = self._cap_outliers(df)
-        df = self._encode_categorical(df, target_column, fit=False)
-        df = self._scale_features(df, target_column, fit=False)
-        
-        return df
-    
-    def _drop_high_null_columns(self, df: pd.DataFrame, threshold: float = 0.9) -> pd.DataFrame:
-        """
-        Drop columns with null ratio above threshold.
-        
-        Args:
-            df: Input DataFrame.
-            threshold: Maximum allowed null ratio.
-            
-        Returns:
-            DataFrame with high-null columns removed.
-        """
-        null_ratios = df.isna().sum() / len(df)
-        cols_to_drop = null_ratios[null_ratios > threshold].index.tolist()
-        
-        if cols_to_drop:
-            logger.warning(f"Dropping columns with >{threshold*100}% nulls: {cols_to_drop}")
-            df = df.drop(columns=cols_to_drop)
-        
-        return df
-    
+        if not self._is_fitted:
+            raise PreprocessingError('Preprocessor must be fitted before transform')
+        frame = df.copy()
+        frame = frame.drop(columns=[c for c in self.dropped_columns if c in frame.columns], errors='ignore')
+        frame = self._engineer_temporal_features(frame, reference_date=self.reference_date)
+        frame = self._impute_missing(frame, fit=False)
+        frame = self._cap_outliers(frame, fit=False)
+        frame = self._encode_categorical(frame, target_column, fit=False)
+        frame = self._scale_features(frame, target_column, fit=False)
+        return frame
+
+    def _drop_high_null_columns(self, df: pd.DataFrame, threshold: float = 0.9, fit: bool = False) -> pd.DataFrame:
+        if fit:
+            ratios = df.isna().mean()
+            self.dropped_columns = ratios[ratios > threshold].index.tolist()
+        if self.dropped_columns:
+            logger.warning("Dropping columns with >%s%% nulls: %s", threshold * 100, self.dropped_columns)
+        return df.drop(columns=[c for c in self.dropped_columns if c in df.columns], errors='ignore')
+
     def _identify_column_types(self, df: pd.DataFrame, target_column: str) -> None:
-        """
-        Identify numeric and categorical columns.
-        
-        Args:
-            df: Input DataFrame.
-            target_column: Name of target column to exclude.
-        """
         self.numeric_columns = []
         self.categorical_columns = []
-        
+        metadata = {target_column.lower(), 'employeeid', 'employee_id', 'created_at', 'updated_at', 'is_active', 'snapshotdate'}
         for col in df.columns:
-            # Case-insensitive check for metadata columns
-            is_metadata = col.lower() in [target_column.lower(), 'employeeid', 'employee_id', 'created_at', 'updated_at', 'is_active']
-            if is_metadata:
+            if col.lower() in metadata:
                 continue
-            
-            if df[col].dtype in ['int64', 'float64', 'int32', 'float32']:
+            if pd.api.types.is_numeric_dtype(df[col]):
                 self.numeric_columns.append(col)
             elif df[col].dtype == 'object' or df[col].dtype.name == 'category':
                 self.categorical_columns.append(col)
-        
-        # Columns to scale (continuous numeric features)
-        self.scaling_columns = [col for col in self.numeric_columns 
-                                if col not in ['Age', 'LastRating']]  # These are bounded already
-        
-        logger.info(f"Numeric columns: {self.numeric_columns}")
-        logger.info(f"Categorical columns: {self.categorical_columns}")
+        # Preserve bounded/raw meaning for Age and LastRating; other continuous features may be scaled.
+        self.scaling_columns = [c for c in self.numeric_columns if c not in {'Age', 'LastRating'}]
 
-    def _identify_column_types_transform(self, df: pd.DataFrame, target_column: str) -> pd.DataFrame:
-        """Helper to ensure engineered columns are tracked during transform."""
-        # Simple check for the features we know we engineer
-        for col in ['RatingVelocity', 'PromotionLag', 'SalaryGrowth']:
-            if col not in self.numeric_columns:
-                # We'll add them if they're about to be engineered
-                pass 
-        return df
+    def _refresh_engineered_numeric_columns(self, df: pd.DataFrame, target_column: str) -> None:
+        for col in ('RatingVelocity', 'PromotionLag', 'SalaryGrowth'):
+            if col in df.columns and col != target_column and col not in self.numeric_columns:
+                self.numeric_columns.append(col)
+                if col not in self.scaling_columns:
+                    self.scaling_columns.append(col)
 
-    def _engineer_temporal_features(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Calculate RatingVelocity, PromotionLag, and SalaryGrowth.
-        
-        Args:
-            df: Input DataFrame.
-            
-        Returns:
-            DataFrame with new features.
-        """
-        # RatingVelocity: slope of last 3 ratings
-        if 'RatingHistory' in df.columns:
+    def _resolve_reference_date(self, df: pd.DataFrame) -> pd.Timestamp:
+        if 'SnapshotDate' in df.columns:
+            dates = pd.to_datetime(df['SnapshotDate'], errors='coerce', utc=True)
+            if dates.notna().any():
+                return dates.max().tz_localize(None)
+        # HireDate is data-derived and stable for a fixed dataset. Use the latest
+        # observed date as the analysis as-of fallback instead of wall-clock time.
+        if 'HireDate' in df.columns:
+            dates = pd.to_datetime(df['HireDate'], errors='coerce', utc=True)
+            if dates.notna().any():
+                return dates.max().tz_localize(None)
+        return pd.Timestamp('1970-01-01')
+
+    def _engineer_temporal_features(self, df: pd.DataFrame, reference_date: pd.Timestamp | None) -> pd.DataFrame:
+        frame = df.copy()
+        if 'RatingHistory' in frame.columns:
             def calc_velocity(history):
                 if not isinstance(history, str) or not history:
                     return 0.0
                 try:
                     ratings = [float(r.strip()) for r in history.split(',') if r.strip()]
-                    if len(ratings) < 2:
-                        return 0.0
                     recent = ratings[-3:]
-                    if len(recent) < 2:
-                        return 0.0
-                    return (recent[-1] - recent[0]) / (len(recent) - 1)
-                except Exception:
+                    return (recent[-1] - recent[0]) / (len(recent) - 1) if len(recent) >= 2 else 0.0
+                except (TypeError, ValueError):
                     return 0.0
-            
-            df['RatingVelocity'] = df['RatingHistory'].apply(calc_velocity)
-            if 'RatingVelocity' not in self.numeric_columns:
-                self.numeric_columns.append('RatingVelocity')
-            if 'RatingVelocity' not in self.scaling_columns:
-                self.scaling_columns.append('RatingVelocity')
+            frame['RatingVelocity'] = frame['RatingHistory'].apply(calc_velocity)
 
-        # PromotionLag: months since last promotion
-        if 'PromotionDate' in df.columns:
-            def calc_lag(promo_date):
-                try:
-                    p_date = pd.to_datetime(promo_date)
-                    now = pd.Timestamp.now()
-                    return (now.year - p_date.year) * 12 + (now.month - p_date.month)
-                except Exception:
-                    return 0.0
-            
-            df['PromotionLag'] = df['PromotionDate'].apply(calc_lag)
-            df['PromotionLag'] = df['PromotionLag'].clip(lower=0)
-            if 'PromotionLag' not in self.numeric_columns:
-                self.numeric_columns.append('PromotionLag')
-            if 'PromotionLag' not in self.scaling_columns:
-                self.scaling_columns.append('PromotionLag')
+        if 'PromotionDate' in frame.columns:
+            as_of = reference_date or pd.Timestamp('1970-01-01')
+            promotion = pd.to_datetime(frame['PromotionDate'], errors='coerce', utc=True).dt.tz_localize(None)
+            months = (as_of.year - promotion.dt.year) * 12 + (as_of.month - promotion.dt.month)
+            frame['PromotionLag'] = months.fillna(0).clip(lower=0).astype(float)
 
-        # SalaryGrowth: annualized increase %
-        if 'Salary' in df.columns and 'StartingSalary' in df.columns and 'Tenure' in df.columns:
-            def calc_growth(row):
-                try:
-                    start = float(row['StartingSalary'])
-                    current = float(row['Salary'])
-                    tenure = float(row['Tenure'])
-                    if start <= 0 or tenure <= 0:
-                        return 0.0
-                    return ((current - start) / start) / tenure
-                except Exception:
-                    return 0.0
-            
-            df['SalaryGrowth'] = df.apply(calc_growth, axis=1)
-            if 'SalaryGrowth' not in self.numeric_columns:
-                self.numeric_columns.append('SalaryGrowth')
-            if 'SalaryGrowth' not in self.scaling_columns:
-                self.scaling_columns.append('SalaryGrowth')
-        
-        return df
-    
-    def _impute_missing(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Impute missing values.
-        
-        Strategy: median for numeric, mode for categorical.
-        
-        Args:
-            df: Input DataFrame.
-            
-        Returns:
-            DataFrame with imputed values.
-        """
-        # Numeric: median
+        if {'Salary', 'StartingSalary', 'Tenure'}.issubset(frame.columns):
+            start = pd.to_numeric(frame['StartingSalary'], errors='coerce')
+            current = pd.to_numeric(frame['Salary'], errors='coerce')
+            tenure = pd.to_numeric(frame['Tenure'], errors='coerce')
+            valid = (start > 0) & (tenure > 0)
+            growth = pd.Series(0.0, index=frame.index)
+            growth.loc[valid] = ((current.loc[valid] - start.loc[valid]) / start.loc[valid]) / tenure.loc[valid]
+            frame['SalaryGrowth'] = growth.replace([float('inf'), float('-inf')], 0).fillna(0)
+        return frame
+
+    def _impute_missing(self, df: pd.DataFrame, fit: bool) -> pd.DataFrame:
+        frame = df.copy()
         for col in self.numeric_columns:
-            if col in df.columns and df[col].isna().any():
-                median_val = df[col].median()
-                df[col] = df[col].fillna(median_val)
-                logger.info(f"Imputed {col} with median: {median_val}")
-        
-        # Categorical: mode
+            if col not in frame.columns:
+                continue
+            numeric = pd.to_numeric(frame[col], errors='coerce')
+            if fit:
+                median = numeric.median()
+                self.impute_values[col] = float(median) if pd.notna(median) else 0.0
+            frame[col] = numeric.fillna(self.impute_values.get(col, 0.0))
         for col in self.categorical_columns:
-            if col in df.columns and df[col].isna().any():
-                mode_val = df[col].mode()
-                if len(mode_val) > 0:
-                    df[col] = df[col].fillna(mode_val[0])
-                    logger.info(f"Imputed {col} with mode: {mode_val[0]}")
-        
-        return df
-    
-    def _cap_outliers(self, df: pd.DataFrame, iqr_multiplier: float = 1.5) -> pd.DataFrame:
-        """
-        Cap outliers using IQR method.
-        
-        Args:
-            df: Input DataFrame.
-            iqr_multiplier: Multiplier for IQR bounds.
-            
-        Returns:
-            DataFrame with capped outliers.
-        """
+            if col not in frame.columns:
+                continue
+            if fit:
+                mode = frame[col].dropna().astype(str).mode()
+                self.impute_values[col] = mode.iloc[0] if not mode.empty else '__UNKNOWN__'
+            frame[col] = frame[col].fillna(self.impute_values.get(col, '__UNKNOWN__')).astype(str)
+        return frame
+
+    def _cap_outliers(self, df: pd.DataFrame, fit: bool, iqr_multiplier: float = 1.5) -> pd.DataFrame:
+        frame = df.copy()
         for col in self.numeric_columns:
-            if col not in df.columns:
+            if col not in frame.columns:
                 continue
-            
-            q1 = df[col].quantile(0.25)
-            q3 = df[col].quantile(0.75)
-            iqr = q3 - q1
-            
-            lower_bound = q1 - (iqr_multiplier * iqr)
-            upper_bound = q3 + (iqr_multiplier * iqr)
-            
-            outliers_count = ((df[col] < lower_bound) | (df[col] > upper_bound)).sum()
-            
-            if outliers_count > 0:
-                df[col] = df[col].clip(lower=lower_bound, upper=upper_bound)
-                logger.info(f"Capped {outliers_count} outliers in {col}")
-        
-        return df
-    
-    def _encode_categorical(self, df: pd.DataFrame, target_column: str, fit: bool = True) -> pd.DataFrame:
-        """
-        Encode categorical variables using LabelEncoder.
-        
-        Args:
-            df: Input DataFrame.
-            target_column: Target column name.
-            fit: Whether to fit new encoders.
-            
-        Returns:
-            DataFrame with encoded categoricals.
-        """
+            if fit:
+                q1 = frame[col].quantile(0.25)
+                q3 = frame[col].quantile(0.75)
+                iqr = q3 - q1
+                lower = float(q1 - iqr_multiplier * iqr)
+                upper = float(q3 + iqr_multiplier * iqr)
+                self.outlier_bounds[col] = (lower, upper)
+            bounds = self.outlier_bounds.get(col)
+            if bounds:
+                frame[col] = frame[col].clip(lower=bounds[0], upper=bounds[1])
+        return frame
+
+    def _encode_categorical(self, df: pd.DataFrame, target_column: str, fit: bool) -> pd.DataFrame:
+        frame = df.copy()
         for col in self.categorical_columns:
-            if col not in df.columns:
+            if col not in frame.columns:
                 continue
-            
+            values = frame[col].astype(str)
             if fit:
                 encoder = LabelEncoder()
-                # Handle unseen values by adding a placeholder
-                df[col] = df[col].astype(str)
-                df[col] = encoder.fit_transform(df[col])
+                # Explicit unknown class avoids silently mapping a novel value to a real category.
+                encoder.fit(pd.concat([values, pd.Series(['__UNKNOWN__'])], ignore_index=True))
                 self.label_encoders[col] = encoder
-            else:
-                if col in self.label_encoders:
-                    encoder = self.label_encoders[col]
-                    df[col] = df[col].astype(str)
-                    # Handle unseen values
-                    known_classes = set(encoder.classes_)
-                    df[col] = df[col].apply(
-                        lambda x: x if x in known_classes else encoder.classes_[0]
-                    )
-                    df[col] = encoder.transform(df[col])
-        
-        # Encode target if present and categorical
-        if target_column in df.columns and df[target_column].dtype == 'object':
+            encoder = self.label_encoders.get(col)
+            if encoder is not None:
+                known = set(encoder.classes_)
+                values = values.where(values.isin(known), '__UNKNOWN__')
+                frame[col] = encoder.transform(values)
+
+        # Target encoding is intentionally narrow; callers should normalize Attrition before training.
+        if target_column in frame.columns and frame[target_column].dtype == 'object':
             if fit:
                 encoder = LabelEncoder()
-                df[target_column] = encoder.fit_transform(df[target_column].astype(str))
+                encoder.fit(frame[target_column].astype(str))
                 self.label_encoders[target_column] = encoder
-            elif target_column in self.label_encoders:
-                df[target_column] = self.label_encoders[target_column].transform(
-                    df[target_column].astype(str)
-                )
-        
-        return df
-    
-    def _scale_features(self, df: pd.DataFrame, target_column: str, fit: bool = True) -> pd.DataFrame:
-        """
-        Scale numeric features using StandardScaler.
-        
-        Args:
-            df: Input DataFrame.
-            target_column: Target column to exclude from scaling.
-            fit: Whether to fit the scaler.
-            
-        Returns:
-            DataFrame with scaled features.
-        """
-        cols_to_scale = [col for col in self.scaling_columns 
-                         if col in df.columns and col != target_column]
-        
-        if not cols_to_scale:
-            return df
-        
+            encoder = self.label_encoders.get(target_column)
+            if encoder is not None:
+                values = frame[target_column].astype(str)
+                unknown = ~values.isin(set(encoder.classes_))
+                if unknown.any():
+                    raise PreprocessingError(f'Unknown target label(s) in transform: {sorted(values[unknown].unique())}')
+                frame[target_column] = encoder.transform(values)
+        return frame
+
+    def _scale_features(self, df: pd.DataFrame, target_column: str, fit: bool) -> pd.DataFrame:
+        frame = df.copy()
+        cols = [c for c in self.scaling_columns if c in frame.columns and c != target_column]
+        if not cols:
+            return frame
         if fit:
-            df[cols_to_scale] = self.scaler.fit_transform(df[cols_to_scale])
+            frame[cols] = self.scaler.fit_transform(frame[cols])
         else:
-            df[cols_to_scale] = self.scaler.transform(df[cols_to_scale])
-        
-        logger.info(f"Scaled columns: {cols_to_scale}")
-        return df
-    
+            frame[cols] = self.scaler.transform(frame[cols])
+        return frame
+
     def get_feature_metadata(self) -> dict:
-        """
-        Get metadata about processed features.
-        
-        Returns:
-            Dictionary with feature metadata.
-        """
         return self.feature_metadata
