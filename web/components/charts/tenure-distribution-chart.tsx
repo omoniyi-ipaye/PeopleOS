@@ -21,7 +21,13 @@ interface TenureDistributionChartProps {
   data: TenureData[]
 }
 
-const COLORS = ['#22c55e', '#3b82f6', '#60a5fa', '#93c5fd', '#f59e0b']
+const COLORS = [
+  'var(--chart-success, var(--success))',
+  'var(--chart-accent, var(--accent))',
+  'var(--chart-accent-soft, var(--accent))',
+  'var(--chart-accent-muted, var(--accent))',
+  'var(--chart-warning, var(--warning))',
+]
 
 export function TenureDistributionChart({ data }: TenureDistributionChartProps) {
   const sortOrder = ['<1 year', '1-2 years', '2-5 years', '5-10 years', '10+ years']
@@ -39,7 +45,7 @@ export function TenureDistributionChart({ data }: TenureDistributionChartProps) 
           contentStyle={{
             backgroundColor: 'var(--surface)',
             border: '1px solid var(--border)',
-            borderRadius: '8px',
+            borderRadius: 'var(--radius-control, 8px)',
             color: 'var(--text-primary)',
           }}
           formatter={(value, name) => {
@@ -51,9 +57,7 @@ export function TenureDistributionChart({ data }: TenureDistributionChartProps) 
           }}
         />
         <Bar dataKey="count" radius={[4, 4, 0, 0]}>
-          {chartData.map((_, index) => (
-            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-          ))}
+          {chartData.map((_, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
         </Bar>
       </BarChart>
     </ResponsiveContainer>
