@@ -97,11 +97,10 @@ def main() -> None:
             ("/platform", "Can I trust this analysis?", "12-trust-center.png"),
             ("/sessions", "Saved Investigations", "13-saved-investigations.png"),
             ("/settings", "System configuration and capability state", "14-settings.png"),
-            ("/design-system", "PeopleOS Enterprise Design System", "15-design-system.png"),
+            ("/design-system", "Enterprise component reference", "15-design-system.png"),
         ]
 
         for path, heading, screenshot in routes:
-            # Capability-dependent routes may render a deliberate alternate heading.
             if path == "/search":
                 page.goto(f"{BASE_URL}{path}", wait_until="networkidle", timeout=120_000)
                 body = page.locator("body").inner_text()
