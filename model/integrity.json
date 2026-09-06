@@ -1,7 +1,7 @@
 {
   "system_id": "peopleos",
   "artifact": "output-integrity",
-  "stage": "TRANSITION",
+  "stage": "TARGET_WITH_EXPLICIT_ASSUMPTIONS",
   "principle": "No output is trustworthy unless population, denominator, calculation, statistical meaning, evidence quality, policy boundary and UI wording agree.",
   "layers": [
     "schema_mapping",
@@ -27,25 +27,45 @@
     "current_payroll": {"population": "active_valid_positive_salary", "meaning": "sum Salary"},
     "salary_dispersion_consistency": {"population": "active", "not": "adjusted_pay_equity"},
     "four_fifths_ratio": {"population": "eligible_groups", "meaning": "favorable_outcome_rate divided by highest favorable rate"},
-    "evidence_quality": {"meaning": "heuristic investigation quality score", "not": "probability conclusion is true"}
+    "experience_composite": {"requires": "explicit measured experience signals", "not": "proxy-derived engagement from HRIS fields"},
+    "quality_of_hire": {"meaning": "observational association and configurable composite screening", "not": "causal source effectiveness"},
+    "survival": {"meaning": "cohort time-to-event survival from defined origin", "not": "individual next-period departure probability"},
+    "scenario": {"meaning": "assumption sensitivity", "not": "empirical probability or causal forecast"},
+    "evidence_quality": {"meaning": "heuristic investigation support score", "not": "probability conclusion is true"}
   },
-  "controls": [
+  "predictive_contracts": {
+    "training": "raw rows split before learned preprocessing",
+    "holdout": "untouched by fitted preprocessing and SMOTE",
+    "activation": "requires exact evaluated runtime artifact",
+    "scoring_population": "current active workforce",
+    "individual_ranking": "disabled",
+    "uncertainty": "non-calibrated tree disagreement is not exposed as confidence interval"
+  },
+  "governance_controls": [
     "critical fields map only by exact/direct aliases",
     "latest snapshot resolves current state",
     "minimum fairness group size",
-    "raw-row split before learned model preprocessing",
-    "holdout untouched by fitted preprocessing",
-    "model activation requires evaluated in-process artifact",
-    "individual predictive ranking endpoints disabled"
+    "no individual predictive risk endpoints",
+    "no individual experience scoring or manager ranking",
+    "no employee succession or stagnation ranking",
+    "no individual compensation outlier or compa-ratio lists",
+    "headcount reduction and risk-targeted intervention scenarios disabled",
+    "causal intervention API disabled until identification design exists",
+    "forecasts require genuine repeated dated observations",
+    "clustering membership not exposed",
+    "agent evidence quality and coverage remain separate"
   ],
-  "remaining_reviews": [
-    "survival analysis",
-    "scenario planner",
-    "employee experience composite",
-    "quality of hire causal language",
-    "agent sufficiency and contradiction logic",
-    "frontend compatibility labels",
-    "durable predictive artifact persistence"
+  "explicit_assumptions": [
+    "observational HR data does not identify causal intervention effects without additional design assumptions",
+    "scenario cost and response parameters require organization-specific validation",
+    "configured composite scores such as experience or quality-of-hire are local heuristics unless separately validated",
+    "predictive model artifacts are currently process-local and require durable artifact persistence for multi-process production deployment"
+  ],
+  "remaining_non_blocking_debt": [
+    "rename backward-compatible turnover_rate fields in a future breaking API version",
+    "rename backward-compatible best_predictors and equity_scores fields in a future breaking API version",
+    "durable predictive artifact persistence across process restart",
+    "remove legacy engine methods that are now unreachable behind governed API boundaries"
   ],
   "readiness": "BUILD READY WITH ASSUMPTIONS"
 }
