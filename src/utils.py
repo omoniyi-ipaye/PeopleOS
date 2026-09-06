@@ -11,12 +11,11 @@ import yaml
 
 
 def load_config() -> dict:
-    """Load configuration and bind mutable desktop storage to PEOPLEOS_HOME.
+    """Load application configuration and resolve mutable local storage.
 
-    The source config remains immutable application configuration. When the
-    desktop/local product sets PEOPLEOS_HOME, mutable persistence is redirected
-    to the user's OS-native PeopleOS data directory so upgrades never write
-    into or depend on the installed application bundle.
+    When PEOPLEOS_HOME is set by the desktop launcher, persistence is redirected
+    to the user's application-data directory. The installed application bundle
+    therefore remains immutable across upgrades.
     """
     config_path = os.path.join(os.path.dirname(__file__), '..', 'config.yaml')
     with open(config_path, 'r', encoding='utf-8') as f:
@@ -85,5 +84,67 @@ def format_percentage(value: float, decimals: int = 1) -> str:
     Args:
         value: Decimal value (e.g., 0.25 for 25%).
         decimals: Number of decimal places.
+        
+    Returns:
+        Formatted percentage string (e.g., "25.0%").
     """
     return f"{value * 100:.{decimals}f}%"
+
+
+def is_valid_file_extension(file_path: str, allowed_extensions: list[str]) -> bool:
+    """
+    Check if a file has an allowed extension.
+    
+    Args:
+        file_path: Path to the file.
+        allowed_extensions: List of allowed extensions (without dots).
+        
+    Returns:
+        True if extension is allowed, False otherwise.
+    """
+    ext = os.path.splitext(file_path)[1].lower().lstrip('.')
+    return ext in allowed_extensions
+
+
+def get_file_extension(file_path: str) -> str:
+    """
+    Get the file extension without the dot.
+    
+    Args:
+        file_path: Path to the file.
+        
+    Returns:
+        File extension in lowercase.
+    """
+    return os.path.splitext(file_path)[1].lower().lstrip('.')
+
+
+# Error message templates - written in friendly, non-technical language for HR users
+ERROR_MESSAGES = {
+    "file_load_failed": "We couldn't read your file. Please make sure it's a CSV, Excel-exported CSV, JSON, or SQLite file and try again.",
+    "insufficient_data": "Your file has {count} employees, but we need at least 50 to spot meaningful patterns. Please upload a larger dataset.",
+    "missing_columns": "Your file is missing some important information: {columns}. You can rename your columns to match, or check the Data Format Guide below.",
+    "model_training_failed": "We couldn't analyze risk patterns right now, but you can still view workforce metrics in the Overview tab.",
+    "llm_unavailable": "The AI assistant isn't available right now. All analytics and predictions are still working.",
+    "duplicate_ids": "Found {count} employees with the same ID. Each employee needs a unique identifier - please check your data.",
+    "negative_values": "Found {count} rows with impossible values (like negative salary or age). We've automatically removed these.",
+    "invalid_data_types": "Some data was in an unexpected format. We've automatically fixed what we could - everything should work fine."
+}
+
+
+def get_error_message(error_key: str, **kwargs: Any) -> str:
+    """
+    Get a user-friendly error message.
+    
+    Args:
+        error_key: Key for the error message template.
+        **kwargs: Values to format into the message.
+        
+    Returns:
+        Formatted error message.
+    """
+    template = ERROR_MESSAGES.get(error_key, "An unexpected error occurred. Please try again.")
+    try:
+        return template.format(**kwargs)
+    except KeyError:
+        return template
