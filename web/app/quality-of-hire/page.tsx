@@ -13,8 +13,8 @@ export default function QualityOfHirePage() {
   const [tab, setTab] = useState<Tab>('overview')
   const { data, isLoading, isError, error, refetch } = useQuery<QualityOfHireAnalysisResult>({ queryKey: ['quality-of-hire', 'analysis'], queryFn: () => api.qualityOfHire.getAnalysis() as Promise<QualityOfHireAnalysisResult> })
 
-  if (isLoading) return <Page><StateSummary title="Evaluating hiring quality" description="Comparing source quality, performance signals and retention outcomes." tone="info" /></Page>
-  if (isError) return <Page><EmptyState title="Quality of Hire is unavailable" description={error instanceof Error ? error.message : 'Unable to load hiring analysis.'} action={<Button onClick={() => refetch()}>Retry</Button>} /></Page>
+  if (isLoading) return <Page><PageHeader eyebrow="Understand · Quality of Hire" title="Which hiring inputs are associated with better outcomes?" description="A source and signal view that keeps hiring evidence separate from individual employment decisions." /><StateSummary title="Evaluating hiring quality" description="Comparing source quality, performance signals and retention outcomes." tone="info" /></Page>
+  if (isError) return <Page><PageHeader eyebrow="Understand · Quality of Hire" title="Which hiring inputs are associated with better outcomes?" description="A source and signal view that keeps hiring evidence separate from individual employment decisions." /><EmptyState title="Quality of Hire analysis is temporarily unavailable" description={error instanceof Error ? error.message : 'PeopleOS could not complete the hiring analysis. Other workforce evidence remains available.'} action={<Button onClick={() => refetch()}>Retry analysis</Button>} tone="warning" /></Page>
 
   const summary = data?.summary
   const sources: SourceEffectiveness[] = data?.source_effectiveness ?? []
