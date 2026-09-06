@@ -1,13 +1,11 @@
-"""
-Pydantic schemas for Survival Analysis API endpoints.
-"""
+"""Pydantic schemas for governed cohort-level Survival Analysis API endpoints."""
 
 from pydantic import BaseModel, Field
-from typing import Optional, List, Dict, Any, Union
+from typing import Optional, List, Dict, Any
 
 
 class SurvivalPoint(BaseModel):
-    """Single point on survival curve."""
+    """Single point on a cohort survival curve."""
     model_config = {'protected_namespaces': ()}
     time_months: float
     time_years: float
@@ -16,7 +14,7 @@ class SurvivalPoint(BaseModel):
 
 
 class KaplanMeierResult(BaseModel):
-    """Kaplan-Meier survival curve result."""
+    """Kaplan-Meier cohort survival result."""
     model_config = {'protected_namespaces': ()}
     survival_function: List[SurvivalPoint]
     median_survival_months: Optional[float] = None
@@ -30,7 +28,7 @@ class KaplanMeierResult(BaseModel):
 
 
 class SegmentSurvival(BaseModel):
-    """Survival metrics for a segment (department, location, etc.)."""
+    """Survival metrics for an aggregate segment."""
     segment_name: str
     median_survival_months: Optional[float] = None
     sample_size: int
@@ -39,30 +37,35 @@ class SegmentSurvival(BaseModel):
 
 
 class CoxCoefficient(BaseModel):
-    """Cox model coefficient with interpretation."""
+    """Cox association estimate.
+
+    Statistical estimates and confidence bounds are nullable because sparse or
+    separated data can make an estimate undefined or unbounded. Null is the
+    truthful representation; PeopleOS must never substitute a fabricated zero.
+    """
     feature: str
-    coefficient: float
-    hazard_ratio: float
-    p_value: float
-    is_significant: bool
-    ci_lower: float
-    ci_upper: float
-    direction: str  # 'increases' or 'decreases'
+    coefficient: Optional[float] = None
+    hazard_ratio: Optional[float] = None
+    p_value: Optional[float] = None
+    is_significant: bool = False
+    ci_lower: Optional[float] = None
+    ci_upper: Optional[float] = None
+    direction: str
     interpretation: str
 
 
 class CoxModelMetrics(BaseModel):
-    """Cox model performance metrics."""
-    concordance_index: float
-    log_likelihood: float
-    aic: float
+    """Cox model fitness metrics; undefined estimates remain null."""
+    concordance_index: Optional[float] = None
+    log_likelihood: Optional[float] = None
+    aic: Optional[float] = None
     sample_size: int
     events: int
     quality_interpretation: str
 
 
 class CoxModelResult(BaseModel):
-    """Full Cox Proportional Hazards model result."""
+    """Full Cox Proportional Hazards association result."""
     model_config = {'protected_namespaces': ()}
     available: bool
     reason: Optional[str] = None
@@ -73,7 +76,7 @@ class CoxModelResult(BaseModel):
 
 
 class CohortInsight(BaseModel):
-    """Insight for a specific employee cohort."""
+    """Insight for a workforce cohort."""
     cohort_description: str
     cohort_size: int
     filters_applied: Dict[str, Any]
@@ -91,7 +94,7 @@ class CohortInsight(BaseModel):
 
 
 class HazardPoint(BaseModel):
-    """Single point on hazard function."""
+    """Single point on the baseline hazard function."""
     time_years: float
     baseline_hazard: float
     cumulative_hazard: float
@@ -99,7 +102,7 @@ class HazardPoint(BaseModel):
 
 
 class RiskPeriod(BaseModel):
-    """Period of elevated attrition risk."""
+    """Period of elevated cohort hazard."""
     time_years: float
     relative_risk: float
     interpretation: str
@@ -114,17 +117,17 @@ class HazardOverTime(BaseModel):
 
 
 class RiskFactor(BaseModel):
-    """Detailed risk factor for an individual employee."""
+    """Legacy individual risk-factor schema retained for compatibility only."""
     model_config = {'protected_namespaces': ()}
     factor: str
-    impact: str  # 'High', 'Medium', 'Low'
-    direction: str # 'Increase Risk', 'Decrease Risk'
+    impact: str
+    direction: str
     score: float
     description: str
 
 
 class AtRiskEmployee(BaseModel):
-    """Employee at risk of attrition."""
+    """Legacy schema retained for compatibility; enterprise endpoints return none."""
     EmployeeID: str
     survival_3mo: Optional[float] = None
     survival_6mo: Optional[float] = None
@@ -144,7 +147,7 @@ class AtRiskEmployee(BaseModel):
 
 
 class SurvivalSummary(BaseModel):
-    """Summary of survival analysis."""
+    """Cohort survival analysis summary."""
     total_employees: int
     attrition_available: bool
     attrition_count: Optional[int] = None
@@ -158,7 +161,7 @@ class SurvivalSummary(BaseModel):
 
 
 class SurvivalAnalysisResponse(BaseModel):
-    """Full survival analysis response."""
+    """Full governed cohort-level survival analysis response."""
     model_config = {'protected_namespaces': ()}
     kaplan_meier: Optional[Dict[str, Any]] = None
     kaplan_meier_by_dept: Optional[Dict[str, Any]] = None
@@ -172,7 +175,7 @@ class SurvivalAnalysisResponse(BaseModel):
 
 
 class EmployeeSurvivalPrediction(BaseModel):
-    """Survival prediction for a single employee."""
+    """Legacy individual schema retained for compatibility; route is disabled."""
     EmployeeID: str
     survival_3mo: float
     survival_6mo: float
