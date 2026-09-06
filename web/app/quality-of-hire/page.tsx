@@ -37,7 +37,7 @@ export default function QualityOfHirePage() {
         <Button size="sm" variant={tab === 'associations' ? 'primary' : 'secondary'} onClick={() => setTab('associations')}><BarChart3 className="h-4 w-4" />Observed associations</Button>
       </div>
 
-      {warnings.length ? <StateSummary title="Interpretation limits" description={warnings.slice(0, 3).join(' · ')} tone="warning" /> : null}
+      {warnings.length ? <StateSummary title="Interpretation limits" description={warnings.slice(0, 3).join(' · ')} tone="info" /> : null}
 
       {tab === 'overview' && <>
         <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
