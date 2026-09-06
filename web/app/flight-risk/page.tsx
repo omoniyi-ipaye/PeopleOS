@@ -7,17 +7,44 @@ import { EmptyState, MetricCard, Page, PageHeader, SectionHeader, StateSummary, 
 import { Activity, ArrowRight, Brain, ShieldCheck, Target, Users } from 'lucide-react'
 import type { ModelMetrics, FeatureImportance, PredictionSummary } from '@/types/api'
 
+interface PlatformStatus {
+  workspace?: { active_model?: boolean }
+}
+
 export default function RetentionSignalsPage() {
-  const metrics = useQuery<ModelMetrics>({ queryKey: ['predictions', 'model-metrics'], queryFn: () => api.predictions.getModelMetrics() as Promise<ModelMetrics>, retry: false })
-  const predictions = useQuery<PredictionSummary>({ queryKey: ['predictions', 'risk'], queryFn: () => api.predictions.getRisk(undefined, 100) as Promise<PredictionSummary>, retry: false, enabled: Boolean(metrics.data) })
-  const importance = useQuery<FeatureImportance>({ queryKey: ['predictions', 'feature-importance'], queryFn: () => api.predictions.getFeatureImportance(8) as Promise<FeatureImportance>, retry: false, enabled: Boolean(metrics.data) })
+  const platform = useQuery<PlatformStatus>({
+    queryKey: ['platform', 'status'],
+    queryFn: () => api.getStatus() as Promise<PlatformStatus>,
+  })
+  const hasActiveModel = Boolean(platform.data?.workspace?.active_model)
 
-  if (metrics.isLoading) return <Page><StateSummary title="Checking predictive retention capability" description="Reading the active model state and available aggregate predictions." tone="info" /></Page>
+  const metrics = useQuery<ModelMetrics>({
+    queryKey: ['predictions', 'model-metrics'],
+    queryFn: () => api.predictions.getModelMetrics() as Promise<ModelMetrics>,
+    retry: false,
+    enabled: hasActiveModel,
+  })
+  const predictions = useQuery<PredictionSummary>({
+    queryKey: ['predictions', 'risk'],
+    queryFn: () => api.predictions.getRisk(undefined, 100) as Promise<PredictionSummary>,
+    retry: false,
+    enabled: hasActiveModel && Boolean(metrics.data),
+  })
+  const importance = useQuery<FeatureImportance>({
+    queryKey: ['predictions', 'feature-importance'],
+    queryFn: () => api.predictions.getFeatureImportance(8) as Promise<FeatureImportance>,
+    retry: false,
+    enabled: hasActiveModel && Boolean(metrics.data),
+  })
 
-  if (metrics.isError || !metrics.data) {
+  if (platform.isLoading || (hasActiveModel && metrics.isLoading)) {
+    return <Page><StateSummary title="Checking predictive retention capability" description="Reading the governed model lifecycle before requesting predictive outputs." tone="info" /></Page>
+  }
+
+  if (!hasActiveModel || platform.isError || metrics.isError || !metrics.data) {
     return <Page>
       <PageHeader eyebrow="Understand · Retention Signals" title="Predictive retention signals are not active" description="PeopleOS keeps predictive risk separate from deterministic analytics. Train and activate a governed model before using this surface." />
-      <StateSummary title="No active predictive model" description="Workforce Health and People Intelligence remain available without a model. Predictive retention does not silently train during data upload." tone="warning" />
+      <StateSummary title="No active predictive model" description="Workforce Health and People Intelligence remain available without a model. Predictive retention does not silently train or call prediction endpoints until lifecycle state confirms an active model." tone="warning" />
       <Surface padding="lg" className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div><div className="font-semibold">Need retention evidence now?</div><div className="text-sm text-text-secondary">Use deterministic turnover, tenure and department signals while the predictive lifecycle is inactive.</div></div><Link href="/workforce-health" className="inline-flex items-center gap-2 text-sm font-semibold text-accent">Open Workforce Health <ArrowRight className="h-4 w-4" /></Link></Surface>
     </Page>
   }
