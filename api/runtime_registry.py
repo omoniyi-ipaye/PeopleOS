@@ -4,8 +4,9 @@ This transition adapter removes the process-global AppState sharing assumption
 without changing the public contracts of the existing analytics endpoints.
 FastAPI resolves the legacy `get_app_state` dependency through this registry.
 
-The local workspace remains the default. Additional workspaces can opt in with
-`X-PeopleOS-Workspace` once their dataset is loaded into an isolated runtime.
+PeopleOS currently supports one durable workforce-data runtime: `local`.
+Control-plane metadata may describe additional workspaces, but non-local data
+runtimes fail closed until per-workspace persistent storage is implemented.
 """
 
 from __future__ import annotations
@@ -20,6 +21,7 @@ from api.dependencies import AppState
 from src.platform.workspace import WorkspaceStore
 
 _WORKSPACE_RE = re.compile(r"^[A-Za-z0-9_-]{1,80}$")
+_SUPPORTED_DATA_WORKSPACES = frozenset({"local"})
 
 
 class WorkspaceRuntimeState(AppState):
@@ -36,7 +38,7 @@ class WorkspaceRuntimeState(AppState):
 
 
 class WorkspaceRuntimeRegistry:
-    """Process-local runtime instances keyed by stable workspace identity."""
+    """Process-local runtime instances keyed by supported workspace identity."""
 
     def __init__(self):
         self._lock = threading.RLock()
@@ -46,6 +48,8 @@ class WorkspaceRuntimeRegistry:
     def get(self, workspace_id: str = "local") -> WorkspaceRuntimeState:
         if not _WORKSPACE_RE.fullmatch(workspace_id):
             raise ValueError("Invalid workspace identifier")
+        if workspace_id not in _SUPPORTED_DATA_WORKSPACES:
+            raise RuntimeError("Durable non-local workforce-data isolation is not enabled")
         self._workspace_store.ensure_workspace(workspace_id)
         with self._lock:
             state = self._states.get(workspace_id)
@@ -67,12 +71,17 @@ runtime_registry = WorkspaceRuntimeRegistry()
 
 
 def get_workspace_state(request: Request) -> WorkspaceRuntimeState:
-    """Resolve the current workspace runtime for FastAPI dependency injection."""
+    """Resolve the current durable workspace runtime for FastAPI dependency injection."""
     workspace_id = request.headers.get("x-peopleos-workspace", "local").strip() or "local"
     try:
         return runtime_registry.get(workspace_id)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail="Invalid workspace identifier") from exc
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail="This PeopleOS installation currently supports the local workforce-data workspace only.",
+        ) from exc
 
 
 def get_local_state() -> WorkspaceRuntimeState:
