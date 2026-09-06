@@ -39,6 +39,9 @@ jobs:
       - name: Resolve upgraded dependency graph
         run: npm install
 
+      - name: Audit production dependency security
+        run: npm audit --omit=dev --audit-level=high
+
       - name: Lint
         run: npm run lint
 
