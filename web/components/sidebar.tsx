@@ -5,246 +5,139 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import {
-  LayoutDashboard,
-  Search,
+  Activity,
+  BarChartHorizontal,
   Brain,
-  Users,
-  Upload,
-  Settings,
-  FolderOpen,
   ChevronLeft,
   ChevronRight,
-  ChevronDown,
-  ChevronUp,
-  Activity,
-  UserPlus,
-  ShieldAlert,
-  BarChartHorizontal,
-  Heart,
+  Database,
+  FileClock,
   GitBranch,
-  ServerCog,
+  Heart,
+  Home,
+  Search,
+  Settings,
+  ShieldCheck,
+  Sparkles,
+  UserPlus,
+  Users,
 } from 'lucide-react'
 
-const navigationSections = [
+const sections = [
   {
-    id: 'dashboard',
-    label: 'Dashboard',
-    items: [{ name: 'Overview', href: '/', icon: LayoutDashboard }],
-  },
-  {
-    id: 'people',
-    label: 'People Analytics',
-    description: 'Understand your workforce',
+    label: 'Understand',
     items: [
+      { name: 'Decision Cockpit', href: '/', icon: Home },
       { name: 'Workforce Health', href: '/workforce-health', icon: Activity },
       { name: 'Employee Experience', href: '/employee-experience', icon: Heart },
-      { name: 'Flight Risk', href: '/flight-risk', icon: ShieldAlert },
+      { name: 'Retention Signals', href: '/flight-risk', icon: BarChartHorizontal },
+      { name: 'Quality of Hire', href: '/quality-of-hire', icon: UserPlus },
     ],
   },
   {
-    id: 'planning',
-    label: 'Strategic Planning',
-    description: 'Plan for the future',
+    label: 'Investigate',
+    items: [
+      { name: 'People Intelligence', href: '/advisor', icon: Brain },
+      { name: 'Research', href: '/search', icon: Search },
+      { name: 'Saved Investigations', href: '/sessions', icon: FileClock },
+    ],
+  },
+  {
+    label: 'Plan',
     items: [
       { name: 'Scenario Planner', href: '/scenario-planner', icon: GitBranch },
-      { name: 'Retention Forecast', href: '/retention-forecast', icon: BarChartHorizontal },
+      { name: 'Retention Forecast', href: '/retention-forecast', icon: Sparkles },
     ],
   },
   {
-    id: 'talent',
-    label: 'Talent Management',
-    description: 'Build your talent pipeline',
-    items: [{ name: 'Quality of Hire', href: '/quality-of-hire', icon: UserPlus }],
-  },
-  {
-    id: 'tools',
-    label: 'AI Tools',
-    description: 'AI-powered insights',
+    label: 'Govern',
     items: [
-      { name: 'HR Advisor', href: '/advisor', icon: Brain },
-      { name: 'PeopleOS Research', href: '/search', icon: Search },
+      { name: 'Data & Sources', href: '/upload', icon: Database },
+      { name: 'Trust Center', href: '/platform', icon: ShieldCheck },
+      { name: 'Settings', href: '/settings', icon: Settings },
     ],
   },
-]
-
-const managementNavigation = [
-  { name: 'Upload Data', href: '/upload', icon: Upload },
-  { name: 'Sessions', href: '/sessions', icon: FolderOpen },
-  { name: 'System Health', href: '/platform', icon: ServerCog },
-  { name: 'Settings', href: '/settings', icon: Settings },
 ]
 
 export function Sidebar() {
   const pathname = usePathname()
-  const [isCollapsed, setIsCollapsed] = useState(false)
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
-    dashboard: true,
-    people: true,
-    planning: true,
-    talent: true,
-    tools: true,
-  })
-  const [managementOpen, setManagementOpen] = useState(true)
-
-  const toggleSection = (sectionId: string) => {
-    setExpandedSections(prev => ({ ...prev, [sectionId]: !prev[sectionId] }))
-  }
-
-  const toggleTheme = () => {
-    document.documentElement.classList.toggle('dark')
-  }
+  const [collapsed, setCollapsed] = useState(false)
 
   return (
-    <div className={cn(
-      "flex flex-col h-screen transition-all duration-300 relative z-50 bg-white/80 dark:bg-black/60 backdrop-blur-xl border-r border-white/20 dark:border-white/5",
-      isCollapsed ? "w-20" : "w-64"
-    )}>
+    <aside
+      className={cn(
+        'relative z-40 flex h-screen shrink-0 flex-col border-r border-slate-200/80 bg-white/95 shadow-sm backdrop-blur-xl transition-all duration-300 dark:border-white/10 dark:bg-slate-950/95',
+        collapsed ? 'w-[76px]' : 'w-[260px]'
+      )}
+    >
       <button
-        onClick={() => setIsCollapsed(!isCollapsed)}
-        className="absolute -right-3 top-8 bg-surface dark:bg-black border border-white/20 dark:border-white/10 rounded-full p-1.5 shadow-lg hover:shadow-glow z-20 text-text-secondary dark:text-text-dark-secondary transition-all hover:scale-110"
+        type="button"
+        aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'}
+        onClick={() => setCollapsed((value) => !value)}
+        className="absolute -right-3 top-7 z-50 grid h-7 w-7 place-items-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:text-violet-600 dark:border-white/10 dark:bg-slate-900 dark:text-slate-400"
       >
-        {isCollapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
+        {collapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronLeft className="h-3.5 w-3.5" />}
       </button>
 
-      <div className="flex items-center h-20 px-6 border-b border-white/10 overflow-hidden shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 flex-shrink-0 bg-gradient-to-br from-accent-400 to-accent-600 rounded-xl shadow-glow flex items-center justify-center relative group">
-            <div className="absolute inset-0 bg-white/20 rounded-xl animate-pulse-slow opacity-0 group-hover:opacity-100 transition-opacity" />
-            <Users className="w-5 h-5 text-white" />
-          </div>
-          {!isCollapsed && (
-            <div className="flex flex-col animate-in fade-in slide-in-from-left-2 duration-300">
-              <span className="font-display font-bold text-xl text-gradient tracking-tight">PeopleOS</span>
-              <span className="text-[10px] text-text-muted dark:text-text-dark-muted font-medium tracking-wider uppercase whitespace-normal leading-3 max-w-[160px]">
-                HR Intelligence Operating System
-              </span>
-            </div>
-          )}
+      <div className="flex h-20 items-center gap-3 border-b border-slate-200/70 px-5 dark:border-white/10">
+        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-violet-600 to-indigo-600 shadow-lg shadow-violet-600/20">
+          <Users className="h-5 w-5 text-white" />
         </div>
-      </div>
-
-      <nav className="flex-1 px-3 py-6 space-y-6 overflow-x-hidden overflow-y-auto custom-scrollbar">
-        {navigationSections.map((section) => (
-          <div key={section.id}>
-            {!isCollapsed ? (
-              <button
-                onClick={() => toggleSection(section.id)}
-                className="w-full flex items-center justify-between px-3 py-1.5 text-[10px] font-bold text-text-muted hover:text-accent uppercase tracking-widest transition-colors rounded-lg hover:bg-white/5 group"
-              >
-                <span>{section.label}</span>
-                <div className="text-text-muted group-hover:text-accent transition-colors">
-                  {expandedSections[section.id] ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                </div>
-              </button>
-            ) : (
-              section.id !== 'dashboard' && <div className="h-px bg-white/10 my-2 mx-2" />
-            )}
-
-            <div className={cn(
-              "space-y-1 mt-1 transition-all duration-300 ease-in-out",
-              !isCollapsed && !expandedSections[section.id] ? "max-h-0 opacity-0 overflow-hidden" : "max-h-[500px] opacity-100"
-            )}>
-              {section.items.map((item) => {
-                const isActive = pathname === item.href
-                return (
-                  <Link
-                    key={item.name}
-                    href={item.href}
-                    className={cn(
-                      'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all group relative overflow-hidden',
-                      isActive
-                        ? 'bg-accent/10 text-accent shadow-sm border border-accent/20 backdrop-blur-md'
-                        : 'text-text-secondary dark:text-text-dark-secondary hover:text-text-primary dark:hover:text-text-dark-primary hover:bg-white/5 dark:hover:bg-white/5 hover:pl-4'
-                    )}
-                  >
-                    {isActive && <div className="absolute left-0 top-0 bottom-0 w-1 bg-accent rounded-r-full" />}
-                    <item.icon className={cn("w-5 h-5 flex-shrink-0 transition-transform duration-200", !isActive && "group-hover:scale-110", isActive && "text-accent")} />
-                    {!isCollapsed && <span>{item.name}</span>}
-                    {isCollapsed && (
-                      <div className="absolute left-full ml-4 px-3 py-1.5 bg-slate-900/90 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50 backdrop-blur-md border border-white/10 shadow-xl">
-                        {item.name}
-                      </div>
-                    )}
-                  </Link>
-                )
-              })}
-            </div>
-          </div>
-        ))}
-
-        {!isCollapsed && <div className="mx-3 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent my-4" />}
-
-        <div>
-          {!isCollapsed ? (
-            <button
-              onClick={() => setManagementOpen(!managementOpen)}
-              className="w-full flex items-center justify-between px-3 py-1.5 text-[10px] font-bold text-text-muted hover:text-accent uppercase tracking-widest transition-colors rounded-lg hover:bg-white/5 group"
-            >
-              <span>Data & Settings</span>
-              <div className="text-text-muted group-hover:text-accent transition-colors">
-                {managementOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-              </div>
-            </button>
-          ) : (
-            <div className="h-px bg-white/10 my-2 mx-2" />
-          )}
-
-          <div className={cn(
-            "space-y-1 mt-1 transition-all duration-300 ease-in-out",
-            !isCollapsed && !managementOpen ? "max-h-0 opacity-0 overflow-hidden" : "max-h-[500px] opacity-100"
-          )}>
-            {managementNavigation.map((item) => {
-              const isActive = pathname === item.href
-              return (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className={cn(
-                    'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all group relative overflow-hidden',
-                    isActive
-                      ? 'bg-accent/10 text-accent shadow-sm border border-accent/20 backdrop-blur-md'
-                      : 'text-text-secondary dark:text-text-dark-secondary hover:text-text-primary dark:hover:text-text-dark-primary hover:bg-white/5 dark:hover:bg-white/5 hover:pl-4'
-                  )}
-                >
-                  {isActive && <div className="absolute left-0 top-0 bottom-0 w-1 bg-accent rounded-r-full" />}
-                  <item.icon className={cn("w-5 h-5 flex-shrink-0 transition-transform duration-200", !isActive && "group-hover:scale-110", isActive && "text-accent")} />
-                  {!isCollapsed && <span>{item.name}</span>}
-                  {isCollapsed && (
-                    <div className="absolute left-full ml-4 px-3 py-1.5 bg-slate-900/90 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50 backdrop-blur-md border border-white/10 shadow-xl">
-                      {item.name}
-                    </div>
-                  )}
-                </Link>
-              )
-            })}
-          </div>
-        </div>
-      </nav>
-
-      <div className="px-4 py-4 border-t border-white/10 space-y-4 bg-white/5 backdrop-blur-sm">
-        <button
-          onClick={toggleTheme}
-          className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-medium text-text-secondary dark:text-text-dark-secondary hover:bg-white/10 transition-colors overflow-hidden whitespace-nowrap border border-transparent hover:border-white/10 group"
-        >
-          <div className="dark:hidden flex items-center gap-3 flex-shrink-0">
-            <span className="w-5 h-5 group-hover:rotate-12 transition-transform">🌙</span>
-            {!isCollapsed && <span>Dark Mode</span>}
-          </div>
-          <div className="hidden dark:flex items-center gap-3 flex-shrink-0">
-            <span className="w-5 h-5 group-hover:rotate-90 transition-transform">☀️</span>
-            {!isCollapsed && <span>Light Mode</span>}
-          </div>
-        </button>
-        {!isCollapsed && (
-          <div className="flex items-center gap-2 text-xs text-text-muted dark:text-text-dark-muted px-3">
-            <div className="relative">
-              <div className="w-2 h-2 rounded-full bg-success shadow-[0_0_8px_rgba(34,197,94,0.6)] flex-shrink-0" />
-              <div className="absolute inset-0 rounded-full bg-success animate-ping opacity-75" />
-            </div>
-            <span className="truncate font-medium">Governed local-first intelligence</span>
+        {!collapsed && (
+          <div className="min-w-0">
+            <div className="text-lg font-bold tracking-tight text-slate-950 dark:text-white">PeopleOS</div>
+            <div className="truncate text-[11px] font-medium text-slate-500 dark:text-slate-400">People intelligence operating system</div>
           </div>
         )}
       </div>
-    </div>
+
+      <nav className="flex-1 overflow-y-auto px-3 py-5">
+        <div className="space-y-6">
+          {sections.map((section) => (
+            <section key={section.label}>
+              {!collapsed && (
+                <div className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+                  {section.label}
+                </div>
+              )}
+              <div className="space-y-1">
+                {section.items.map((item) => {
+                  const active = pathname === item.href
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      title={collapsed ? item.name : undefined}
+                      className={cn(
+                        'group flex min-h-10 items-center gap-3 rounded-xl px-3 text-sm font-medium transition',
+                        active
+                          ? 'bg-violet-50 text-violet-700 ring-1 ring-violet-100 dark:bg-violet-500/10 dark:text-violet-300 dark:ring-violet-500/20'
+                          : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-white',
+                        collapsed && 'justify-center px-0'
+                      )}
+                    >
+                      <item.icon className={cn('h-[18px] w-[18px] shrink-0', active && 'text-violet-600 dark:text-violet-300')} />
+                      {!collapsed && <span className="truncate">{item.name}</span>}
+                    </Link>
+                  )
+                })}
+              </div>
+            </section>
+          ))}
+        </div>
+      </nav>
+
+      <div className="border-t border-slate-200/70 p-4 dark:border-white/10">
+        <div className={cn('rounded-2xl bg-slate-50 p-3 dark:bg-white/[0.04]', collapsed && 'px-2')}>
+          <div className={cn('flex items-center gap-2', collapsed && 'justify-center')}>
+            <span className="relative flex h-2.5 w-2.5 shrink-0">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-40" />
+              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+            </span>
+            {!collapsed && <span className="text-xs font-medium text-slate-600 dark:text-slate-300">Governed local workspace</span>}
+          </div>
+        </div>
+      </div>
+    </aside>
   )
 }
