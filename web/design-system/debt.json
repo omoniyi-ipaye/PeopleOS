@@ -1,0 +1,38 @@
+{
+  "stage": "TRANSITION",
+  "allowedPrefixes": [
+    "app/employee-experience/",
+    "app/workforce-health/",
+    "app/quality-of-hire/",
+    "app/retention-forecast/",
+    "app/scenario-planner/",
+    "app/search/",
+    "app/settings/",
+    "components/advisor/",
+    "components/charts/",
+    "components/dashboard/",
+    "components/diagnostics/"
+  ],
+  "allowedFiles": [
+    "app/page.tsx",
+    "app/advisor/page.tsx",
+    "app/upload/page.tsx",
+    "app/platform/page.tsx",
+    "app/flight-risk/page.tsx",
+    "components/glossary-modal.tsx",
+    "components/risk-analysis-modal.tsx",
+    "components/ui/animated-number.tsx",
+    "components/ui/bento-grid.tsx",
+    "components/ui/jargon-info.tsx",
+    "components/ui/metric-explainer.tsx",
+    "components/ui/splash-screen.tsx",
+    "components/ui/states.tsx",
+    "components/ui/tab-group.tsx",
+    "components/ui/tooltip.tsx"
+  ],
+  "rules": {
+    "arbitraryRadius": "Remove rounded-[...] and use governed radius tokens.",
+    "hardcodedHex": "Product component color must use semantic design tokens/Tailwind semantics, not inline hex.",
+    "legacyGlassCard": "GlassCard is transition-only and may not be introduced into new product surfaces."
+  }
+}
