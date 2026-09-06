@@ -64,6 +64,15 @@ export default function DesignSystemPage() {
       </Card>
 
       <Card>
+        <SectionHeader title="Missing-value integrity" description="The UI must preserve the difference between an actual zero and an unavailable or non-estimable result." />
+        <div className="mt-5 grid gap-4 md:grid-cols-3">
+          <Surface padding="md"><div className="text-2xl font-semibold">0</div><div className="mt-1 text-sm font-medium">Measured zero</div><p className="mt-2 text-xs leading-5 text-text-secondary">Use only when the underlying metric was calculated and the result is genuinely zero.</p></Surface>
+          <Surface padding="md"><div className="text-2xl font-semibold">—</div><div className="mt-1 text-sm font-medium">Not available / not estimable</div><p className="mt-2 text-xs leading-5 text-text-secondary">Use when evidence is missing, a statistical bound is unbounded, or the calculation is not valid for the current data.</p></Surface>
+          <Surface padding="md"><div className="text-2xl font-semibold">N/A</div><div className="mt-1 text-sm font-medium">Not applicable</div><p className="mt-2 text-xs leading-5 text-text-secondary">Use when the concept does not apply to the current lifecycle or capability state.</p></Surface>
+        </div>
+      </Card>
+
+      <Card>
         <SectionHeader title="Actions" description="Buttons own focus, disabled, loading and destructive semantics." />
         <div className="flex flex-wrap gap-3">
           <Button>Primary action</Button>
