@@ -12,7 +12,7 @@ class FakeAnalyticsEngine:
         return {
             "headcount": 100,
             "active_count": 90,
-            "turnover_rate": 0.10,
+            "observed_attrition_share": 0.10,
             "salary_mean": 70000.0,
             "tenure_mean": 3.2,
             "lastrating_mean": 4.1,
@@ -21,7 +21,7 @@ class FakeAnalyticsEngine:
 
     def get_high_risk_departments(self, threshold=None):
         return pd.DataFrame([
-            {"Dept": "Engineering", "Turnover_Rate": 0.22, "Headcount": 40},
+            {"Dept": "Engineering", "Observed_Attrition_Share": 0.22, "Headcount": 40},
         ])
 
 
@@ -52,7 +52,7 @@ class FakeState:
 
 def test_agent_runs_plan_tools_aggregates_and_falls_back_without_llm():
     answer = PeopleIntelligenceAgent(FakeState()).investigate(
-        "Why is turnover high?"
+        "Why is attrition elevated?"
     )
 
     assert answer.status == "complete"
@@ -61,13 +61,13 @@ def test_agent_runs_plan_tools_aggregates_and_falls_back_without_llm():
     assert "workforce.summary" in answer.tools_used
     assert "workforce.retention_risk" in answer.tools_used
     assert "workforce.department_risk" in answer.tools_used
-    assert "Engineering turnover rate" in answer.answer
+    assert "Engineering observed attrition share" in answer.answer
     assert "EmployeeID" not in answer.answer
 
 
 def test_agent_blocks_punitive_llm_synthesis_and_returns_safe_evidence():
     state = FakeState(FakeLLM("Fire the highest-risk employees immediately."))
-    answer = PeopleIntelligenceAgent(state).investigate("Why is turnover high?")
+    answer = PeopleIntelligenceAgent(state).investigate("Why is attrition elevated?")
 
     assert answer.model is None
     assert "blocked" in " ".join(answer.warnings).lower()
