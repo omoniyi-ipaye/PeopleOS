@@ -49,9 +49,7 @@ export function RiskDistributionPie({ data }: RiskDistributionPieProps) {
           outerRadius={90}
           paddingAngle={2}
           dataKey="value"
-          label={({ name, percent }) =>
-            `${name} (${(percent * 100).toFixed(0)}%)`
-          }
+          label={({ name, percent }) => `${name} (${((percent ?? 0) * 100).toFixed(0)}%)`}
           labelLine={false}
         >
           {chartData.map((entry, index) => (
@@ -68,10 +66,7 @@ export function RiskDistributionPie({ data }: RiskDistributionPieProps) {
             boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
           }}
           itemStyle={{ color: 'inherit' }}
-          formatter={(value: number, name: string) => [
-            `${value} employees`,
-            name,
-          ]}
+          formatter={(value, name) => [`${Number(value ?? 0)} employees`, String(name ?? '')]}
         />
         <Legend
           verticalAlign="bottom"

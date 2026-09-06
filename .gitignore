@@ -18,13 +18,14 @@ web/.env.local
 # Application Data (Sensitive HR Data)
 data/*.db
 data/peopleos.db
-data/peopleos.db
+data/*.jsonl
 logs/
 *.log
 *.swp
 sessions/
 results/
 artifacts/
+.peopleos/
 
 # System
 .DS_Store

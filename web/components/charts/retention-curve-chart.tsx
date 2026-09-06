@@ -1,7 +1,6 @@
 'use client'
 
 import {
-    LineChart,
     Line,
     XAxis,
     YAxis,
@@ -20,7 +19,6 @@ interface RetentionCurveChartProps {
 export function RetentionCurveChart({ data }: RetentionCurveChartProps) {
     if (!data || data.length === 0) return null
 
-    // Ensure time_years is computed if not present
     const chartData = data.map(point => ({
         ...point,
         time_years: point.time_years ?? point.time_months / 12
@@ -28,10 +26,7 @@ export function RetentionCurveChart({ data }: RetentionCurveChartProps) {
 
     return (
         <ResponsiveContainer width="100%" height={300}>
-            <ComposedChart
-                data={chartData}
-                margin={{ top: 10, right: 30, left: 10, bottom: 10 }}
-            >
+            <ComposedChart data={chartData} margin={{ top: 10, right: 30, left: 10, bottom: 10 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
                 <XAxis
                     dataKey="time_years"
@@ -49,7 +44,7 @@ export function RetentionCurveChart({ data }: RetentionCurveChartProps) {
                     fontSize={12}
                     tickLine={false}
                     domain={[0, 1]}
-                    tickFormatter={(value) => `${(value * 100).toFixed(0)}%`}
+                    tickFormatter={(value) => `${(Number(value) * 100).toFixed(0)}%`}
                     label={{ value: 'Survival Probability', angle: -90, position: 'insideLeft', fill: 'var(--text-muted)', fontSize: 10 }}
                 />
                 <Tooltip
@@ -59,20 +54,16 @@ export function RetentionCurveChart({ data }: RetentionCurveChartProps) {
                         borderRadius: '8px',
                         color: 'var(--text-primary)',
                     }}
-                    formatter={(value: number, name: string) => {
-                        if (name === 'survival_probability') return [`${(value * 100).toFixed(1)}%`, 'Retention Chance']
-                        if (name === 'at_risk') return [value, 'Employees at Risk']
-                        return [value, name]
+                    formatter={(value, name) => {
+                        const numeric = Number(value ?? 0)
+                        const key = String(name ?? '')
+                        if (key === 'survival_probability') return [`${(numeric * 100).toFixed(1)}%`, 'Retention Chance']
+                        if (key === 'at_risk') return [numeric, 'Employees at Risk']
+                        return [numeric, key]
                     }}
                     labelFormatter={(label) => `Tenure: ${label} years`}
                 />
-                <Area
-                    type="stepAfter"
-                    dataKey="survival_probability"
-                    fill="var(--accent)"
-                    fillOpacity={0.1}
-                    stroke="none"
-                />
+                <Area type="stepAfter" dataKey="survival_probability" fill="var(--accent)" fillOpacity={0.1} stroke="none" />
                 <Line
                     type="stepAfter"
                     dataKey="survival_probability"

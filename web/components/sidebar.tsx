@@ -22,21 +22,14 @@ import {
   BarChartHorizontal,
   Heart,
   GitBranch,
-  TrendingUp,
-  UserCheck,
-  Lightbulb,
-  Wrench,
-  Sparkles
+  ServerCog,
 } from 'lucide-react'
 
-// Reorganized into HR-friendly categories
 const navigationSections = [
   {
     id: 'dashboard',
     label: 'Dashboard',
-    items: [
-      { name: 'Overview', href: '/', icon: LayoutDashboard },
-    ],
+    items: [{ name: 'Overview', href: '/', icon: LayoutDashboard }],
   },
   {
     id: 'people',
@@ -61,9 +54,7 @@ const navigationSections = [
     id: 'talent',
     label: 'Talent Management',
     description: 'Build your talent pipeline',
-    items: [
-      { name: 'Quality of Hire', href: '/quality-of-hire', icon: UserPlus },
-    ],
+    items: [{ name: 'Quality of Hire', href: '/quality-of-hire', icon: UserPlus }],
   },
   {
     id: 'tools',
@@ -79,6 +70,7 @@ const navigationSections = [
 const managementNavigation = [
   { name: 'Upload Data', href: '/upload', icon: Upload },
   { name: 'Sessions', href: '/sessions', icon: FolderOpen },
+  { name: 'System Health', href: '/platform', icon: ServerCog },
   { name: 'Settings', href: '/settings', icon: Settings },
 ]
 
@@ -95,10 +87,7 @@ export function Sidebar() {
   const [managementOpen, setManagementOpen] = useState(true)
 
   const toggleSection = (sectionId: string) => {
-    setExpandedSections(prev => ({
-      ...prev,
-      [sectionId]: !prev[sectionId]
-    }))
+    setExpandedSections(prev => ({ ...prev, [sectionId]: !prev[sectionId] }))
   }
 
   const toggleTheme = () => {
@@ -110,7 +99,6 @@ export function Sidebar() {
       "flex flex-col h-screen transition-all duration-300 relative z-50 bg-white/80 dark:bg-black/60 backdrop-blur-xl border-r border-white/20 dark:border-white/5",
       isCollapsed ? "w-20" : "w-64"
     )}>
-      {/* Collapse Toggle Button */}
       <button
         onClick={() => setIsCollapsed(!isCollapsed)}
         className="absolute -right-3 top-8 bg-surface dark:bg-black border border-white/20 dark:border-white/10 rounded-full p-1.5 shadow-lg hover:shadow-glow z-20 text-text-secondary dark:text-text-dark-secondary transition-all hover:scale-110"
@@ -118,7 +106,6 @@ export function Sidebar() {
         {isCollapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
       </button>
 
-      {/* Logo */}
       <div className="flex items-center h-20 px-6 border-b border-white/10 overflow-hidden shrink-0">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 flex-shrink-0 bg-gradient-to-br from-accent-400 to-accent-600 rounded-xl shadow-glow flex items-center justify-center relative group">
@@ -136,9 +123,7 @@ export function Sidebar() {
         </div>
       </div>
 
-      {/* Navigation */}
       <nav className="flex-1 px-3 py-6 space-y-6 overflow-x-hidden overflow-y-auto custom-scrollbar">
-        {/* Main Navigation Sections */}
         {navigationSections.map((section) => (
           <div key={section.id}>
             {!isCollapsed ? (
@@ -155,7 +140,8 @@ export function Sidebar() {
               section.id !== 'dashboard' && <div className="h-px bg-white/10 my-2 mx-2" />
             )}
 
-            <div className={cn("space-y-1 mt-1 transition-all duration-300 ease-in-out",
+            <div className={cn(
+              "space-y-1 mt-1 transition-all duration-300 ease-in-out",
               !isCollapsed && !expandedSections[section.id] ? "max-h-0 opacity-0 overflow-hidden" : "max-h-[500px] opacity-100"
             )}>
               {section.items.map((item) => {
@@ -186,10 +172,8 @@ export function Sidebar() {
           </div>
         ))}
 
-        {/* Divider */}
         {!isCollapsed && <div className="mx-3 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent my-4" />}
 
-        {/* Management Section */}
         <div>
           {!isCollapsed ? (
             <button
@@ -205,7 +189,8 @@ export function Sidebar() {
             <div className="h-px bg-white/10 my-2 mx-2" />
           )}
 
-          <div className={cn("space-y-1 mt-1 transition-all duration-300 ease-in-out",
+          <div className={cn(
+            "space-y-1 mt-1 transition-all duration-300 ease-in-out",
             !isCollapsed && !managementOpen ? "max-h-0 opacity-0 overflow-hidden" : "max-h-[500px] opacity-100"
           )}>
             {managementNavigation.map((item) => {
@@ -236,7 +221,6 @@ export function Sidebar() {
         </div>
       </nav>
 
-      {/* Footer */}
       <div className="px-4 py-4 border-t border-white/10 space-y-4 bg-white/5 backdrop-blur-sm">
         <button
           onClick={toggleTheme}
@@ -257,7 +241,7 @@ export function Sidebar() {
               <div className="w-2 h-2 rounded-full bg-success shadow-[0_0_8px_rgba(34,197,94,0.6)] flex-shrink-0" />
               <div className="absolute inset-0 rounded-full bg-success animate-ping opacity-75" />
             </div>
-            <span className="truncate font-medium">Local-first analytics</span>
+            <span className="truncate font-medium">Governed local-first intelligence</span>
           </div>
         )}
       </div>

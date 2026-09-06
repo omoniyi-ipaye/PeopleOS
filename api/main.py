@@ -1,13 +1,12 @@
 """
 FastAPI application entry point for PeopleOS.
 
-Run with: uvicorn api.main:app --reload --port 8000
+Run locally with: uvicorn api.main:app --host 127.0.0.1 --port 8000 --reload
 """
 
 import os
 import sys
 
-# Add parent directory to path for src imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from fastapi import FastAPI
@@ -35,14 +34,18 @@ from api.routes.model_lab import router as model_lab_router
 from api.routes.geo import router as geo_router
 from api.routes.causal import router as causal_router
 from api.routes.network import router as network_router
+from api.routes.intelligence import router as intelligence_router
+from api.routes.platform import router as platform_router
 from api.dependencies import get_app_state
+from api.security import local_first_access_guard
+from src.platform.health import SystemHealthMonitor
+from src.platform.workspace import WorkspaceStore
 
 
-# Create FastAPI app
 app = FastAPI(
     title="PeopleOS API",
     description="""
-    PeopleOS API - HR Analytics Backend
+    PeopleOS API - HR Analytics and Governed People Intelligence Backend
 
     A comprehensive REST API for HR analytics providing:
     - **Analytics**: Headcount, turnover, department statistics
@@ -52,21 +55,24 @@ app = FastAPI(
     - **Team Dynamics**: Team health, diversity metrics
     - **Fairness**: EEOC compliance, four-fifths rule
     - **Semantic Search**: Performance review search
-    - **AI Advisor**: LLM-powered strategic insights
+    - **People Intelligence Agent**: governed evidence-based workforce investigation
+    - **Workspace control plane**: explicit dataset/model/session lifecycle
+    - **System health**: deterministic fitness checks and bounded recovery
     - **Survival Analysis**: Kaplan-Meier curves, Cox PH flight risk modeling
     - **Quality of Hire**: Pre-hire to post-hire correlation analysis
     - **Causal Inference**: Intervention impact estimation (What-If analysis)
     """,
-    version="2.0.0",
+    version="3.0.0-transition",
     docs_url="/docs",
     redoc_url="/redoc"
 )
 
-# CORS configuration for Next.js frontend
+app.middleware("http")(local_first_access_guard)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:3000",  # Next.js dev server
+        "http://localhost:3000",
         "http://127.0.0.1:3000",
         "http://localhost:3001",
     ],
@@ -75,7 +81,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include routers
 app.include_router(upload_router)
 app.include_router(analytics_router)
 app.include_router(predictions_router)
@@ -97,14 +102,15 @@ app.include_router(model_lab_router)
 app.include_router(geo_router)
 app.include_router(causal_router)
 app.include_router(network_router)
+app.include_router(intelligence_router)
+app.include_router(platform_router)
 
 
 @app.get("/")
 async def root():
-    """Root endpoint with API info."""
     return {
         "name": "PeopleOS API",
-        "version": "1.0.0",
+        "version": "3.0.0-transition",
         "docs": "/docs",
         "status": "running"
     }
@@ -112,25 +118,27 @@ async def root():
 
 @app.get("/api/health")
 async def health_check():
-    """Health check endpoint."""
     state = get_app_state()
+    platform_health = SystemHealthMonitor(WorkspaceStore()).check()
     return {
-        "status": "healthy",
+        "status": "healthy" if platform_health["status"] == "healthy" else "degraded",
         "data_loaded": state.has_data(),
-        "features_enabled": state.features_enabled
+        "features_enabled": state.features_enabled,
+        "platform": platform_health,
     }
 
 
 @app.get("/api/status")
 async def api_status():
-    """Get comprehensive API status."""
     state = get_app_state()
+    workspace = WorkspaceStore().get_workspace("local")
 
-    status = {
+    return {
         "data": {
             "loaded": state.has_data(),
             "row_count": len(state.raw_df) if state.raw_df is not None else 0,
-            "columns": list(state.raw_df.columns) if state.raw_df is not None else []
+            "columns": list(state.raw_df.columns) if state.raw_df is not None else [],
+            "active_dataset_id": workspace.active_dataset_id,
         },
         "engines": {
             "analytics": state.analytics_engine is not None,
@@ -146,28 +154,34 @@ async def api_status():
             "structural": state.structural_engine is not None,
             "sentiment": state.sentiment_engine is not None,
             "experience": state.experience_engine is not None,
-            "scenario": state.scenario_engine is not None
+            "scenario": state.scenario_engine is not None,
+            "people_intelligence": True,
+            "workspace_control_plane": True,
         },
         "features_enabled": state.features_enabled,
-        "model_metrics": state.model_metrics
+        "model_metrics": state.model_metrics,
+        "workspace": {
+            "workspace_id": workspace.workspace_id,
+            "active_dataset_id": workspace.active_dataset_id,
+            "active_model_id": workspace.active_model_id,
+            "dataset_versions": len(workspace.datasets),
+            "model_versions": len(workspace.models),
+            "sessions": len(workspace.sessions),
+        },
     }
 
-    return status
 
-
-# Exception handlers
 @app.exception_handler(Exception)
 async def global_exception_handler(request, exc):
-    """Global exception handler."""
     return JSONResponse(
         status_code=500,
-        content={
-            "error": "Internal server error",
-            "detail": str(exc)
-        }
+        content={"error": "Internal server error", "detail": str(exc)}
     )
 
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+
+    api_host = os.getenv("PEOPLEOS_API_HOST", "127.0.0.1")
+    api_port = int(os.getenv("PEOPLEOS_API_PORT", "8000"))
+    uvicorn.run(app, host=api_host, port=api_port, reload=True)

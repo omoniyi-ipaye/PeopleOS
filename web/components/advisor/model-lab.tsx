@@ -10,9 +10,8 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
     Cell
 } from 'recharts'
-import { CheckCircle, AlertTriangle, Settings, RefreshCw, Zap, HelpCircle, Info } from 'lucide-react'
+import { CheckCircle, AlertTriangle, RefreshCw, Zap, HelpCircle, Info } from 'lucide-react'
 
-// HR-Friendly Glossary
 const HR_GLOSSARY = {
     precision: {
         term: "Risk Accuracy",
@@ -51,7 +50,6 @@ const HR_GLOSSARY = {
     }
 }
 
-// Tooltip component for HR explanations
 function HRTooltip({ term }: { term: keyof typeof HR_GLOSSARY }) {
     const [show, setShow] = useState(false)
     const glossary = HR_GLOSSARY[term]
@@ -130,7 +128,6 @@ export function ModelLab() {
     if (error) return <ErrorState message={error} onRetry={fetchData} />
 
     const validationMetrics = validation?.metrics || {}
-    // Use HR-friendly names in the chart
     const chartData = [
         { name: 'Risk Accuracy', value: (validationMetrics.precision || 0) * 100, key: 'precision' },
         { name: 'Risk Coverage', value: (validationMetrics.recall || 0) * 100, key: 'recall' },
@@ -139,7 +136,6 @@ export function ModelLab() {
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
-            {/* Header with glossary toggle */}
             <div className="flex justify-between items-start">
                 <div>
                     <h2 className="text-2xl font-bold tracking-tight text-text-primary dark:text-text-dark-primary">Model Validation Lab</h2>
@@ -148,26 +144,17 @@ export function ModelLab() {
                     </p>
                 </div>
                 <div className="flex gap-2">
-                    <Button
-                        variant="ghost"
-                        onClick={() => setShowGlossary(!showGlossary)}
-                        className="text-sm"
-                    >
+                    <Button variant="ghost" onClick={() => setShowGlossary(!showGlossary)} className="text-sm">
                         <Info className="mr-2 h-4 w-4" />
                         {showGlossary ? 'Hide' : 'Show'} Glossary
                     </Button>
-                    <Button
-                        onClick={handleOptimize}
-                        disabled={optimizing || refinementPlan?.status === 'healthy'}
-                        className="shadow-lg"
-                    >
+                    <Button onClick={handleOptimize} disabled={optimizing || refinementPlan?.status === 'healthy'} className="shadow-lg">
                         {optimizing ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Zap className="mr-2 h-4 w-4" />}
                         {optimizing ? 'Optimizing...' : 'One-Click Refine'}
                     </Button>
                 </div>
             </div>
 
-            {/* HR Glossary Panel */}
             {showGlossary && (
                 <Card className="bg-accent/5 border-accent/20">
                     <div className="p-4">
@@ -188,14 +175,11 @@ export function ModelLab() {
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Predictive Health Card - renamed for HR clarity */}
                 <Card
                     title="AI Accuracy Check (90 Day Audit)"
-                    subtitle={
-                        validationMetrics.sample_size
-                            ? `Compared ${validationMetrics.sample_size} past predictions to what actually happened.`
-                            : "Waiting for more historical data to run a full audit..."
-                    }
+                    subtitle={validationMetrics.sample_size
+                        ? `Compared ${validationMetrics.sample_size} past predictions to what actually happened.`
+                        : "Waiting for more historical data to run a full audit..."}
                     className="md:col-span-2"
                 >
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -206,7 +190,7 @@ export function ModelLab() {
                                     <XAxis type="number" domain={[0, 100]} hide />
                                     <YAxis dataKey="name" type="category" width={120} stroke="currentColor" fontSize={11} />
                                     <Tooltip
-                                        formatter={(val: number) => [`${val.toFixed(1)}%`, 'Score']}
+                                        formatter={(val) => [`${Number(val ?? 0).toFixed(1)}%`, 'Score']}
                                         contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
                                     />
                                     <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={24}>
@@ -246,17 +230,13 @@ export function ModelLab() {
                     </div>
                 </Card>
 
-                {/* Refinement Plan Card */}
                 <Card title="Improvement Opportunities" className="flex flex-col">
                     <div className="space-y-4 flex-1">
                         <div className="p-3 bg-muted/30 rounded-lg text-sm italic border border-border dark:border-border-dark">
                             "{refinementPlan?.reasoning}"
                         </div>
-
                         <div className="space-y-2">
-                            <p className="text-xs font-semibold text-text-secondary uppercase tracking-wider flex items-center">
-                                Suggested Actions
-                            </p>
+                            <p className="text-xs font-semibold text-text-secondary uppercase tracking-wider flex items-center">Suggested Actions</p>
                             {refinementPlan?.suggested_actions?.map((action: string, i: number) => (
                                 <div key={i} className="flex items-center gap-2 text-sm">
                                     <div className="h-1.5 w-1.5 rounded-full bg-accent" />
@@ -267,13 +247,11 @@ export function ModelLab() {
                                 <div className="text-sm text-success font-medium py-2">✓ Your data is clean — no improvements needed.</div>
                             )}
                         </div>
-
                         <div className="pt-4 border-t border-border dark:border-border-dark grid grid-cols-2 gap-2 text-center">
                             <div className="p-2 bg-accent/5 rounded border border-accent/10">
                                 <p className="text-xl font-bold text-accent">{refinementPlan?.metrics?.noisy_features || 0}</p>
                                 <p className="text-[10px] text-text-secondary uppercase flex items-center justify-center gap-1">
-                                    Problem Fields
-                                    <HRTooltip term="noisy_features" />
+                                    Problem Fields <HRTooltip term="noisy_features" />
                                 </p>
                             </div>
                             <div className="p-2 bg-accent/5 rounded border border-accent/10">
@@ -284,29 +262,14 @@ export function ModelLab() {
                     </div>
                 </Card>
 
-                {/* Feature Sensitivity Table - with HR-friendly headers */}
-                <Card
-                    title="Data Quality Check"
-                    subtitle="Which data fields drive predictions and how reliable is each one?"
-                    className="md:col-span-3"
-                >
+                <Card title="Data Quality Check" subtitle="Which data fields drive predictions and how reliable is each one?" className="md:col-span-3">
                     <div className="relative overflow-x-auto rounded-lg border border-border dark:border-border-dark">
                         <table className="w-full text-sm text-left">
                             <thead className="text-xs text-text-secondary uppercase bg-muted/50 border-b border-border dark:border-border-dark">
                                 <tr>
                                     <th className="px-6 py-3 font-semibold">Data Field</th>
-                                    <th className="px-6 py-3 font-semibold text-center">
-                                        <span className="flex items-center justify-center gap-1">
-                                            Predictive Power
-                                            <HRTooltip term="importance" />
-                                        </span>
-                                    </th>
-                                    <th className="px-6 py-3 font-semibold text-center">
-                                        <span className="flex items-center justify-center gap-1">
-                                            Data Consistency
-                                            <HRTooltip term="reliability" />
-                                        </span>
-                                    </th>
+                                    <th className="px-6 py-3 font-semibold text-center"><span className="flex items-center justify-center gap-1">Predictive Power <HRTooltip term="importance" /></span></th>
+                                    <th className="px-6 py-3 font-semibold text-center"><span className="flex items-center justify-center gap-1">Data Consistency <HRTooltip term="reliability" /></span></th>
                                     <th className="px-6 py-3 font-semibold">Status</th>
                                     <th className="px-6 py-3 font-semibold">What To Do</th>
                                 </tr>
@@ -329,9 +292,7 @@ export function ModelLab() {
                                             </Badge>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <Badge variant={feat.status === 'Stable' ? 'default' : 'warning'}>
-                                                {feat.status === 'Stable' ? '✓ Healthy' : feat.status}
-                                            </Badge>
+                                            <Badge variant={feat.status === 'Stable' ? 'default' : 'warning'}>{feat.status === 'Stable' ? '✓ Healthy' : feat.status}</Badge>
                                         </td>
                                         <td className="px-6 py-4 text-text-secondary text-xs italic">{feat.recommendation}</td>
                                     </tr>

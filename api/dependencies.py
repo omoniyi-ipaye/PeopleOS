@@ -26,7 +26,7 @@ from src.team_dynamics_engine import TeamDynamicsEngine
 from src.fairness_engine import FairnessEngine
 from src.vector_engine import VectorEngine
 from src.nlp_engine import NLPEngine
-from src.llm_client import LLMClient
+from src.safe_llm_client import SafeLLMClient as LLMClient
 from src.insight_interpreter import InsightInterpreter
 from src.survival_engine import SurvivalEngine
 from src.quality_of_hire_engine import QualityOfHireEngine

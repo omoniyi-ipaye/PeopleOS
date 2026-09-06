@@ -35,32 +35,17 @@ export function DepartmentBarChart({
     .slice(0, 8)
 
   const formatValue = (value: number) => {
-    if (dataKey === 'avg_salary') {
-      return `$${value.toLocaleString()}`
-    }
-    if (dataKey === 'turnover_rate') {
-      return `${(value * 100).toFixed(1)}%`
-    }
+    if (dataKey === 'avg_salary') return `$${value.toLocaleString()}`
+    if (dataKey === 'turnover_rate') return `${(value * 100).toFixed(1)}%`
     return value.toString()
   }
 
   return (
     <ResponsiveContainer width="100%" height={300}>
-      <BarChart
-        data={chartData}
-        layout="vertical"
-        margin={{ top: 5, right: 30, left: 80, bottom: 5 }}
-      >
+      <BarChart data={chartData} layout="vertical" margin={{ top: 5, right: 30, left: 80, bottom: 5 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
         <XAxis type="number" stroke="var(--text-muted)" fontSize={12} />
-        <YAxis
-          type="category"
-          dataKey="dept"
-          stroke="var(--text-muted)"
-          fontSize={12}
-          width={75}
-          tickLine={false}
-        />
+        <YAxis type="category" dataKey="dept" stroke="var(--text-muted)" fontSize={12} width={75} tickLine={false} />
         <Tooltip
           contentStyle={{
             backgroundColor: 'var(--surface)',
@@ -71,7 +56,7 @@ export function DepartmentBarChart({
             boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
           }}
           itemStyle={{ color: 'inherit' }}
-          formatter={(value: number) => [formatValue(value), dataKey]}
+          formatter={(value) => [formatValue(Number(value ?? 0)), dataKey]}
         />
         <Bar dataKey={dataKey} radius={[0, 4, 4, 0]}>
           {chartData.map((_, index) => (
