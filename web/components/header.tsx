@@ -17,7 +17,7 @@ export function Header() {
 
   const { data: status } = useQuery<PlatformStatus>({
     queryKey: ['platform', 'status'],
-    queryFn: api.getStatus as never,
+    queryFn: () => api.getStatus() as Promise<PlatformStatus>,
     refetchInterval: 30_000,
   })
 
@@ -32,24 +32,17 @@ export function Header() {
           <Database className={hasData ? 'h-3.5 w-3.5 text-emerald-500' : 'h-3.5 w-3.5 text-slate-400'} />
           {hasData ? `${status?.data?.row_count?.toLocaleString() ?? 0} people` : 'No active dataset'}
         </div>
-
         <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 shadow-sm dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300">
           <Sparkles className={activeModel ? 'h-3.5 w-3.5 text-violet-500' : 'h-3.5 w-3.5 text-slate-400'} />
           {activeModel ? 'Model active' : hasData ? 'Model not active' : 'Model unavailable'}
         </div>
-
         <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 shadow-sm dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300">
           <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
           {llm ? 'Local AI available' : 'Deterministic fallback'}
         </div>
       </div>
 
-      <Button
-        variant="ghost"
-        size="sm"
-        aria-label="Refresh PeopleOS context"
-        onClick={() => queryClient.invalidateQueries()}
-      >
+      <Button variant="ghost" size="sm" aria-label="Refresh PeopleOS context" onClick={() => queryClient.invalidateQueries()}>
         <RefreshCw className="h-4 w-4" />
       </Button>
     </header>
