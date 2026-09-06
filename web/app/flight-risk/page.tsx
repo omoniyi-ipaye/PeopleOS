@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { api } from '@/lib/api-client'
 import { EmptyState, MetricCard, Page, PageHeader, SectionHeader, StateSummary, StatusBadge, Surface } from '@/components/ui'
-import { Activity, ArrowRight, Brain, ShieldCheck, Target, Users } from 'lucide-react'
+import { Activity, ArrowRight, Brain, Database, ShieldCheck, Target, Users } from 'lucide-react'
 import type { ModelMetrics, FeatureImportance, PredictionSummary } from '@/types/api'
 
 interface PlatformStatus {
@@ -43,9 +43,34 @@ export default function RetentionSignalsPage() {
 
   if (!hasActiveModel || platform.isError || metrics.isError || !metrics.data) {
     return <Page>
-      <PageHeader eyebrow="Understand · Retention Signals" title="Predictive retention signals are not active" description="PeopleOS keeps predictive risk separate from deterministic analytics. Train and activate a governed model before using this surface." />
-      <StateSummary title="No active predictive model" description="Workforce Health and People Intelligence remain available without a model. Predictive retention does not silently train or call prediction endpoints until lifecycle state confirms an active model." tone="warning" />
-      <Surface padding="lg" className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div><div className="font-semibold">Need retention evidence now?</div><div className="text-sm text-text-secondary">Use deterministic turnover, tenure and department signals while the predictive lifecycle is inactive.</div></div><Link href="/workforce-health" className="inline-flex items-center gap-2 text-sm font-semibold text-accent">Open Workforce Health <ArrowRight className="h-4 w-4" /></Link></Surface>
+      <PageHeader eyebrow="Understand · Retention Signals" title="Predictive retention signals are not active" description="PeopleOS keeps predictive risk separate from deterministic analytics. Predictive views appear only after a model has been trained, evaluated and explicitly activated." />
+      <StateSummary title="Nothing has failed" description="The current dataset remains fully usable for deterministic workforce analysis. PeopleOS will not silently train a model or make predictive calls without an active governed model." tone="warning" />
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        <Surface padding="lg">
+          <div className="grid h-10 w-10 place-items-center rounded-xl bg-accent/10 text-accent"><Database className="h-5 w-5" /></div>
+          <h2 className="mt-4 font-semibold">Available right now</h2>
+          <p className="mt-2 text-sm leading-6 text-text-secondary">Use observed attrition share, tenure, department patterns and other deterministic evidence without waiting for a model.</p>
+        </Surface>
+        <Surface padding="lg">
+          <div className="grid h-10 w-10 place-items-center rounded-xl bg-accent/10 text-accent"><Brain className="h-5 w-5" /></div>
+          <h2 className="mt-4 font-semibold">What unlocks this view</h2>
+          <p className="mt-2 text-sm leading-6 text-text-secondary">A suitable labelled dataset must pass predictive readiness checks, then a candidate model must be trained, evaluated and activated through the governed lifecycle.</p>
+        </Surface>
+        <Surface padding="lg">
+          <div className="grid h-10 w-10 place-items-center rounded-xl bg-accent/10 text-accent"><ShieldCheck className="h-5 w-5" /></div>
+          <h2 className="mt-4 font-semibold">Why the gate matters</h2>
+          <p className="mt-2 text-sm leading-6 text-text-secondary">Predictive scores can look authoritative. PeopleOS keeps them unavailable until model state and evaluation evidence justify showing them.</p>
+        </Surface>
+      </div>
+
+      <Surface padding="md" className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div><div className="font-semibold">Continue with trustworthy evidence</div><div className="text-sm text-text-secondary">You can investigate retention today or review the model lifecycle when you are ready to enable predictive signals.</div></div>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/platform" className="inline-flex items-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm font-semibold text-text-primary transition hover:bg-background-secondary"><ShieldCheck className="h-4 w-4" />Trust Center</Link>
+          <Link href="/workforce-health" className="inline-flex items-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90">Open Workforce Health <ArrowRight className="h-4 w-4" /></Link>
+        </div>
+      </Surface>
     </Page>
   }
 
