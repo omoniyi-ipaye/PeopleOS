@@ -1,7 +1,7 @@
 """People Intelligence Agent orchestration.
 
 Flow: question -> deterministic plan -> governed tools -> evidence bundle ->
-policy-bounded synthesis -> verified response.
+policy-bounded synthesis -> verified response -> privacy-preserving audit.
 """
 
 from typing import Any, List, Optional
@@ -17,7 +17,9 @@ from src.agent.adapters import (
     WorkforceSummaryTool,
 )
 from src.agent.aggregator import EvidenceAggregator
+from src.agent.audit import AgentAuditLogger
 from src.agent.evidence import EvidenceBundle, EvidenceItem, ToolResult, ToolResultStatus
+from src.agent.people_tools import EmployeeExperienceTool, FairnessOutcomeTool
 from src.agent.planner import EvidencePlanner
 from src.agent.policy import HRAdvicePolicy, PolicyViolation
 from src.agent.registry import ToolRegistry
@@ -46,11 +48,14 @@ class PeopleIntelligenceAgent:
         self.planner = EvidencePlanner()
         self.aggregator = EvidenceAggregator()
         self.policy = HRAdvicePolicy()
+        self.audit = AgentAuditLogger()
         self.registry = ToolRegistry([
             WorkforceSummaryTool(state),
             DepartmentRiskTool(state),
             RetentionRiskTool(state),
             CompensationEquityTool(state),
+            FairnessOutcomeTool(state),
+            EmployeeExperienceTool(state),
             OrganizationStructureTool(state),
         ])
 
@@ -91,9 +96,11 @@ class PeopleIntelligenceAgent:
             warnings.extend(bundle.contradictions)
 
         answer, model = self._synthesize(question, plan.rationale, bundle)
+        policy_blocked = False
         try:
             answer = self.policy.enforce_text(answer)
         except PolicyViolation:
+            policy_blocked = True
             answer = self._deterministic_answer(
                 question,
                 bundle,
@@ -109,7 +116,7 @@ class PeopleIntelligenceAgent:
         successful = sum(r.status == ToolResultStatus.SUCCESS for r in results)
         status = "complete" if successful == len(results) else ("partial" if successful else "unavailable")
 
-        return AgentAnswer(
+        response = AgentAnswer(
             request_id=request_id,
             question=question,
             answer=answer,
@@ -120,6 +127,28 @@ class PeopleIntelligenceAgent:
             evidence=bundle,
             warnings=warnings,
         )
+
+        try:
+            self.audit.record(
+                request_id=request_id,
+                question=question,
+                status=status,
+                confidence=response.confidence,
+                tools_used=plan.tool_ids,
+                tool_results=results,
+                model=model,
+                policy_id=self.policy.policy_id,
+                policy_blocked=policy_blocked,
+                workspace_id=workspace_id,
+                dataset_version=dataset_version,
+                actor_id=actor_id,
+            )
+        except Exception as exc:
+            # Audit failure must be visible but should not destroy a read-only
+            # investigation that already completed successfully.
+            response.warnings.append(f"Audit record could not be written: {exc}")
+
+        return response
 
     def _synthesize(self, question: str, rationale: str, bundle: EvidenceBundle) -> tuple[str, Optional[str]]:
         llm = getattr(self.state, "llm_client", None)
@@ -172,12 +201,7 @@ Respond in concise executive language with:
             return self._deterministic_answer(question, bundle), None
 
     def _representative_evidence(self, bundle: EvidenceBundle, limit: int = 8) -> List[EvidenceItem]:
-        """Select high-confidence evidence while preserving tool coverage.
-
-        A global confidence sort can hide a material specialist signal behind
-        baseline metrics. Select the strongest item from every contributing tool
-        first, then fill remaining slots by confidence.
-        """
+        """Select high-confidence evidence while preserving tool coverage."""
         items = bundle.evidence_items()
         if not items:
             return []
