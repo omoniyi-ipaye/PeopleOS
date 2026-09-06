@@ -45,11 +45,12 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({ id, label, desc
   const generatedId = useId()
   const inputId = id ?? generatedId
   const help = description ?? helperText
+  const hasLeading = Boolean(leading)
   return (
     <FieldShell label={label} description={help} error={error} required={required} inputId={inputId}>
       <div className="relative">
         {leading && <div className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-slate-400">{leading}</div>}
-        <input ref={ref} id={inputId} required={required} aria-invalid={Boolean(error) || undefined} aria-describedby={error ? `${inputId}-error` : help ? `${inputId}-description` : undefined} className={cn(controlClass, 'h-10 px-3', leading && 'pl-10', error && 'border-red-500', className)} {...props} />
+        <input ref={ref} id={inputId} required={required} aria-invalid={Boolean(error) || undefined} aria-describedby={error ? `${inputId}-error` : help ? `${inputId}-description` : undefined} className={cn(controlClass, 'h-10 px-3', hasLeading ? 'pl-10' : undefined, error ? 'border-red-500' : undefined, className)} {...props} />
       </div>
     </FieldShell>
   )
@@ -68,11 +69,12 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(({ id, la
   const generatedId = useId()
   const inputId = id ?? generatedId
   const help = description ?? helperText
+  const hasLeading = Boolean(leading)
   return (
     <FieldShell label={label} description={help} error={error} required={required} inputId={inputId}>
       <div className="relative">
         {leading && <div className="pointer-events-none absolute left-3 top-3 text-slate-400">{leading}</div>}
-        <textarea ref={ref} id={inputId} required={required} aria-invalid={Boolean(error) || undefined} aria-describedby={error ? `${inputId}-error` : help ? `${inputId}-description` : undefined} className={cn(controlClass, 'min-h-24 resize-y px-3 py-2.5', leading && 'pl-10', error && 'border-red-500', className)} {...props} />
+        <textarea ref={ref} id={inputId} required={required} aria-invalid={Boolean(error) || undefined} aria-describedby={error ? `${inputId}-error` : help ? `${inputId}-description` : undefined} className={cn(controlClass, 'min-h-24 resize-y px-3 py-2.5', hasLeading ? 'pl-10' : undefined, error ? 'border-red-500' : undefined, className)} {...props} />
       </div>
     </FieldShell>
   )
