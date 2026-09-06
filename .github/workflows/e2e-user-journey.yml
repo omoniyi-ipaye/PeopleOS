@@ -10,7 +10,7 @@ on:
       - 'web/**'
       - 'tests/e2e/**'
       - 'sample_hr_data.csv'
-      - 'requirements.txt'
+      - 'requirements*.txt'
       - '.github/workflows/e2e-user-journey.yml'
   workflow_dispatch:
 
@@ -20,7 +20,7 @@ permissions:
 jobs:
   user-journey:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 25
     env:
       PEOPLEOS_API_HOST: 127.0.0.1
       PEOPLEOS_API_PORT: '8000'
@@ -34,6 +34,7 @@ jobs:
         with:
           python-version: '3.11'
           cache: pip
+          cache-dependency-path: requirements-core.txt
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -42,12 +43,21 @@ jobs:
           cache: npm
           cache-dependency-path: web/package-lock.json
 
-      - name: Install backend and browser dependencies
+      - name: Install core backend and browser dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -r requirements-core.txt
           pip install playwright
           python -m playwright install --with-deps chromium
+
+      - name: Verify advanced transformer stack is not required
+        run: |
+          python - <<'PY'
+          import importlib.util
+          assert importlib.util.find_spec('torch') is None, 'core install unexpectedly pulled torch'
+          assert importlib.util.find_spec('sentence_transformers') is None, 'core install unexpectedly pulled sentence-transformers'
+          print('Core runtime dependency boundary: PASS')
+          PY
 
       - name: Install locked frontend dependencies
         working-directory: web
