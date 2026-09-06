@@ -24,7 +24,6 @@ export function Header() {
 
   return (
     <header className="flex items-center justify-between h-16 px-6 bg-surface dark:bg-surface-dark border-b border-border dark:border-border-dark">
-      {/* Left side - Status */}
       <div className="flex items-center gap-4">
         {status?.has_data ? (
           <div className="flex items-center gap-2">
@@ -33,8 +32,8 @@ export function Header() {
               {status.employee_count.toLocaleString()} employees loaded
             </span>
             {status.features_enabled?.predictive && (
-              <Badge variant="success" size="sm">
-                ML Active
+              <Badge variant="default" size="sm">
+                Predictive data ready
               </Badge>
             )}
           </div>
@@ -46,7 +45,6 @@ export function Header() {
         )}
       </div>
 
-      {/* Right side - Actions */}
       <div className="flex items-center gap-3">
         {!status?.has_data && (
           <Button
@@ -63,6 +61,7 @@ export function Header() {
         <Button
           variant="ghost"
           size="sm"
+          aria-label="Refresh PeopleOS data"
           onClick={() => queryClient.invalidateQueries()}
         >
           <RefreshCw className="w-4 h-4" />
