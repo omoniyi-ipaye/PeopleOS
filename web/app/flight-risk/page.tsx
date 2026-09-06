@@ -1,320 +1,186 @@
 'use client'
 
-import { useState } from 'react'
+import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import { GlassCard } from '@/components/ui/glass-card'
-import { BentoGrid, BentoGridItem } from '@/components/ui/bento-grid'
-import { FeatureImportanceChart } from '@/components/charts/feature-importance-chart'
-import { RiskDistributionPie } from '@/components/charts/risk-distribution-pie'
-import { NineBoxGrid } from '@/components/charts/nine-box-grid'
-import { HighRiskTable, type HighRiskEmployeeRow } from '@/components/dashboard/high-risk-table'
-import { EmployeeDetailModal } from '@/components/dashboard/employee-detail-modal'
-import { api } from '@/lib/api-client'
-import { Brain, Target, CheckCircle, AlertTriangle, Info, ShieldAlert, RefreshCw } from 'lucide-react'
-import { PredictionExplanationModal } from '@/components/diagnostics/prediction-explanation-modal'
+import {
+  Activity,
+  AlertTriangle,
+  ArrowRight,
+  Brain,
+  CheckCircle2,
+  ShieldAlert,
+  ShieldCheck,
+  Sparkles,
+  Target,
+  Users,
+} from 'lucide-react'
 
-import type {
-  ModelMetrics,
-  FeatureImportance,
-  PredictionSummary,
-  NineBoxSummary,
-} from '@/types/api'
+interface PlatformStatus {
+  data?: { loaded?: boolean; row_count?: number }
+  workspace?: { active_model?: boolean; active_dataset?: boolean }
+}
 
-export default function FlightRiskPage() {
-  const [activeTab, setActiveTab] = useState<'overview' | 'analysis' | 'employees'>('overview')
-  const [selectedEmployee, setSelectedEmployee] = useState<string | null>(null)
-  const [showExplanation, setShowExplanation] = useState(false)
+interface ModelMetrics {
+  accuracy: number
+  precision: number
+  recall: number
+  f1: number
+  roc_auc?: number | null
+  best_model: string
+  reliability: string
+  warnings?: string[] | null
+}
 
-  const { data: modelMetrics, isLoading, isError, error, refetch } = useQuery<ModelMetrics>({
-    queryKey: ['predictions', 'model-metrics'],
-    queryFn: () => api.predictions.getModelMetrics() as Promise<ModelMetrics>,
+interface RiskDistribution {
+  high_risk: number
+  medium_risk: number
+  low_risk: number
+  total: number
+  high_risk_pct: number
+  medium_risk_pct: number
+  low_risk_pct: number
+}
+
+interface PredictionsResponse {
+  distribution: RiskDistribution
+  model_metrics: ModelMetrics
+}
+
+export default function RetentionSignalsPage() {
+  const { data: status, isLoading: statusLoading } = useQuery<PlatformStatus>({
+    queryKey: ['platform', 'status'],
+    queryFn: async () => {
+      const response = await fetch('/api/status')
+      if (!response.ok) throw new Error('PeopleOS status is unavailable.')
+      return response.json()
+    },
   })
 
-  const { data: featureImportance } = useQuery<FeatureImportance>({
-    queryKey: ['predictions', 'feature-importance'],
-    queryFn: () => api.predictions.getFeatureImportance(10) as Promise<FeatureImportance>,
+  const modelActive = Boolean(status?.workspace?.active_model)
+
+  const { data: predictions, isLoading: predictionLoading, error } = useQuery<PredictionsResponse>({
+    queryKey: ['retention', 'signals'],
+    queryFn: async () => {
+      const response = await fetch('/api/predictions/risk?limit=1')
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}))
+        throw new Error(body.detail ?? 'Retention signals are unavailable.')
+      }
+      return response.json()
+    },
+    enabled: modelActive,
   })
 
-  const { data: predictions } = useQuery<PredictionSummary>({
-    queryKey: ['predictions', 'risk'],
-    queryFn: () => api.predictions.getRisk(undefined, 100) as Promise<PredictionSummary>,
-  })
+  if (statusLoading) {
+    return <div className="grid min-h-[55vh] place-items-center text-sm text-slate-500">Checking predictive capability…</div>
+  }
 
-  const { data: highRiskEmployees } = useQuery<{ employees: HighRiskEmployeeRow[] }>({
-    queryKey: ['predictions', 'high-risk'],
-    queryFn: () => api.predictions.getHighRisk(20) as Promise<{ employees: HighRiskEmployeeRow[] }>,
-  })
+  if (!status?.data?.loaded) {
+    return <UnavailableState title="Retention signals need workforce data first." detail="Activate a dataset before evaluating whether predictive retention modelling is appropriate." action="Add workforce data" href="/upload" />
+  }
 
-  const { data: nineBox } = useQuery<NineBoxSummary[]>({
-    queryKey: ['succession', '9box-summary'],
-    queryFn: () => api.succession.get9BoxSummary() as Promise<NineBoxSummary[]>,
-  })
-
-  if (isLoading) {
+  if (!modelActive) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="animate-pulse-subtle text-text-secondary dark:text-text-dark-secondary">
-          Loading predictions...
-        </div>
+      <div className="mx-auto max-w-5xl space-y-6 pb-10">
+        <PageHeading />
+        <section className="rounded-[30px] border border-slate-200 bg-white p-8 shadow-sm dark:border-white/10 dark:bg-slate-900 md:p-10">
+          <div className="grid h-14 w-14 place-items-center rounded-2xl bg-violet-100 text-violet-600 dark:bg-violet-500/10 dark:text-violet-300"><Brain className="h-6 w-6" /></div>
+          <div className="mt-6 max-w-2xl">
+            <div className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Predictive lifecycle</div>
+            <h2 className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">No predictive model is active—and that is a valid state.</h2>
+            <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-400">PeopleOS can still analyse observed turnover, tenure and workforce health deterministically. Predictive retention signals should only appear after a model has been trained, evaluated, accepted as a candidate and deliberately activated.</p>
+          </div>
+          <div className="mt-7 flex flex-wrap gap-3">
+            <Link href="/workforce-health" className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white dark:bg-white dark:text-slate-950">Use observed workforce evidence <ArrowRight className="h-4 w-4" /></Link>
+            <Link href="/platform" className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 dark:border-white/10 dark:text-slate-200">Review model lifecycle</Link>
+          </div>
+        </section>
       </div>
     )
   }
 
-  if (isError) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full gap-4 text-center">
-        <AlertTriangle className="w-12 h-12 text-danger" />
-        <h2 className="text-xl font-semibold text-text-primary dark:text-text-dark-primary">
-          Failed to Load Predictions
-        </h2>
-        <p className="text-text-secondary dark:text-text-dark-secondary max-w-md">
-          {error instanceof Error ? error.message : 'Unable to load flight risk predictions. Please try again.'}
-        </p>
-        <button
-          onClick={() => refetch()}
-          className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
-        >
-          <RefreshCw className="w-4 h-4" />
-          Retry
-        </button>
-      </div>
-    )
+  if (predictionLoading) {
+    return <div className="grid min-h-[55vh] place-items-center text-sm text-slate-500">Loading governed retention signals…</div>
   }
 
-  if (!modelMetrics) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full gap-4 text-center">
-        <AlertTriangle className="w-12 h-12 text-warning" />
-        <h2 className="text-xl font-semibold text-text-primary dark:text-text-dark-primary">Predictive Analytics Unavailable</h2>
-        <p className="text-text-secondary dark:text-text-dark-secondary max-w-md">
-          Upload data with an Attrition column to enable ML-based risk predictions.
-        </p>
-      </div>
-    )
+  if (error || !predictions) {
+    return <UnavailableState title="Retention signals could not be loaded." detail={error instanceof Error ? error.message : 'The active model did not return a valid predictive distribution.'} action="Open Trust Center" href="/platform" />
   }
+
+  const distribution = predictions.distribution
+  const metrics = predictions.model_metrics
 
   return (
-    <div className="space-y-6 h-[calc(100vh-100px)] flex flex-col animate-in fade-in duration-700 slide-in-from-bottom-4">
-      {/* Header with Tabs */}
-      <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between flex-shrink-0">
-        <div>
-          <h1 className="text-4xl font-display font-bold text-gradient bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400">
-            Flight Risk
-          </h1>
-          <p className="text-text-secondary dark:text-text-dark-secondary mt-2 text-lg font-light">
-            AI-powered retention intelligence
-          </p>
+    <div className="mx-auto max-w-6xl space-y-6 pb-10">
+      <PageHeading />
+
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <Metric icon={ShieldAlert} label="Higher signal" value={`${distribution.high_risk_pct.toFixed(1)}%`} detail={`${distribution.high_risk.toLocaleString()} people`} tone="attention" />
+        <Metric icon={Activity} label="Medium signal" value={`${distribution.medium_risk_pct.toFixed(1)}%`} detail={`${distribution.medium_risk.toLocaleString()} people`} tone="watch" />
+        <Metric icon={CheckCircle2} label="Lower signal" value={`${distribution.low_risk_pct.toFixed(1)}%`} detail={`${distribution.low_risk.toLocaleString()} people`} tone="stable" />
+        <Metric icon={Target} label="Model reliability" value={metrics.reliability} detail={`${(metrics.f1 * 100).toFixed(1)}% F1`} tone="neutral" />
+      </section>
+
+      <section className="grid gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
+        <div className="rounded-[28px] border border-slate-200 bg-white p-6 dark:border-white/10 dark:bg-slate-900">
+          <div className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Predictive distribution</div>
+          <h2 className="mt-1 text-xl font-semibold text-slate-950 dark:text-white">Use the model to locate questions, not make employment decisions.</h2>
+          <div className="mt-6 space-y-5">
+            <SignalBar label="Higher retention-risk signal" value={distribution.high_risk_pct} count={distribution.high_risk} tone="bg-rose-500" />
+            <SignalBar label="Medium retention-risk signal" value={distribution.medium_risk_pct} count={distribution.medium_risk} tone="bg-amber-500" />
+            <SignalBar label="Lower retention-risk signal" value={distribution.low_risk_pct} count={distribution.low_risk} tone="bg-emerald-500" />
+          </div>
+          <div className="mt-6 rounded-2xl bg-slate-50 p-4 text-sm leading-6 text-slate-600 dark:bg-white/[0.04] dark:text-slate-400">A predictive score is not a fact about an individual and should never be used as the sole basis for termination, discipline, demotion, compensation change or other consequential action.</div>
         </div>
 
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => setShowExplanation(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-accent/10 text-accent rounded-xl font-medium hover:bg-accent/20 transition-all active:scale-95 text-sm"
-          >
-            <Info className="w-4 h-4" />
-            How it works
-          </button>
+        <div className="space-y-6">
+          <section className="rounded-[28px] border border-slate-200 bg-white p-6 dark:border-white/10 dark:bg-slate-900">
+            <div className="flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-violet-500" /><h2 className="font-semibold text-slate-950 dark:text-white">Model fitness</h2></div>
+            <div className="mt-4 space-y-3">
+              <FitnessRow label="Accuracy" value={`${(metrics.accuracy * 100).toFixed(1)}%`} />
+              <FitnessRow label="Precision" value={`${(metrics.precision * 100).toFixed(1)}%`} />
+              <FitnessRow label="Recall" value={`${(metrics.recall * 100).toFixed(1)}%`} />
+              <FitnessRow label="F1 balance" value={`${(metrics.f1 * 100).toFixed(1)}%`} />
+              <FitnessRow label="Model family" value={metrics.best_model.replaceAll('_', ' ')} />
+            </div>
+            <Link href="/platform" className="mt-5 inline-flex items-center gap-1 text-xs font-semibold text-violet-600 dark:text-violet-300">Review full model provenance <ArrowRight className="h-3.5 w-3.5" /></Link>
+          </section>
 
-          {/* Premium Tab Navigation */}
-          <div className="glass p-1.5 rounded-2xl flex gap-1">
-            <button
-              onClick={() => setActiveTab('overview')}
-              className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 ${activeTab === 'overview'
-                ? 'bg-white dark:bg-slate-800 shadow-lg text-text-primary dark:text-white scale-105'
-                : 'text-text-secondary dark:text-slate-400 hover:text-text-primary dark:hover:text-white hover:bg-white/10'
-                }`}
-            >
-              <Target className="w-4 h-4" />
-              Overview
-            </button>
-            <button
-              onClick={() => setActiveTab('analysis')}
-              className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 ${activeTab === 'analysis'
-                ? 'bg-white dark:bg-slate-800 shadow-lg text-text-primary dark:text-white scale-105'
-                : 'text-text-secondary dark:text-slate-400 hover:text-text-primary dark:hover:text-white hover:bg-white/10'
-                }`}
-            >
-              <Brain className="w-4 h-4" />
-              Analysis
-            </button>
-            <button
-              onClick={() => setActiveTab('employees')}
-              className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 ${activeTab === 'employees'
-                ? 'bg-white dark:bg-slate-800 shadow-lg text-text-primary dark:text-white scale-105'
-                : 'text-text-secondary dark:text-slate-400 hover:text-text-primary dark:hover:text-white hover:bg-white/10'
-                }`}
-            >
-              <ShieldAlert className="w-4 h-4" />
-              Employees
-            </button>
-          </div>
+          <section className="rounded-[28px] border border-violet-200 bg-violet-50 p-6 dark:border-violet-500/20 dark:bg-violet-500/[0.05]">
+            <div className="flex items-center gap-2 text-violet-800 dark:text-violet-300"><Sparkles className="h-5 w-5" /><h2 className="font-semibold">Next investigation</h2></div>
+            <p className="mt-2 text-sm leading-6 text-violet-800/80 dark:text-violet-300/80">Ask People Intelligence whether the observed turnover pattern supports the same concern as the predictive distribution.</p>
+            <Link href="/advisor" className="mt-4 inline-flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white">Investigate with evidence <ArrowRight className="h-4 w-4" /></Link>
+          </section>
         </div>
-      </div>
+      </section>
 
-      <PredictionExplanationModal
-        isOpen={showExplanation}
-        onClose={() => setShowExplanation(false)}
-      />
-
-      {/* Tab Content Area */}
-      <div className="flex-1 min-h-0 overflow-y-auto pr-2 pb-4">
-        {activeTab === 'overview' && (
-          <div className="space-y-6">
-            <BentoGrid>
-              <BentoGridItem
-                title="Overall Accuracy"
-                header={<div className="text-4xl font-display font-bold text-text-primary dark:text-white">{(modelMetrics.accuracy * 100).toFixed(1)}%</div>}
-                icon={<Target className="w-5 h-5 text-accent" />}
-                description="Prediction match rate"
-                className={modelMetrics.accuracy > 0.8 ? "border-l-4 border-success" : "border-l-4 border-warning"}
-              />
-              <BentoGridItem
-                title="Confidence Score"
-                header={<div className="text-4xl font-display font-bold text-text-primary dark:text-white">{(modelMetrics.f1 * 100).toFixed(1)}%</div>}
-                icon={<CheckCircle className="w-5 h-5 text-blue-500" />}
-                description={`Algorithm: ${modelMetrics.best_model}`}
-                className="border-l-4 border-blue-500"
-              />
-              <BentoGridItem
-                title="Detection Rate"
-                header={<div className="text-4xl font-display font-bold text-text-primary dark:text-white">{(modelMetrics.recall * 100).toFixed(1)}%</div>}
-                icon={<Brain className="w-5 h-5 text-purple-500" />}
-                description="Actual leavers identified"
-                className="border-l-4 border-purple-500"
-              />
-              <BentoGridItem
-                title="Reliability"
-                header={<div className="text-4xl font-display font-bold text-text-primary dark:text-white">{modelMetrics.reliability}</div>}
-                icon={<ShieldAlert className="w-5 h-5 text-emerald-500" />}
-                description="Model stability"
-                className="border-l-4 border-emerald-500"
-              />
-            </BentoGrid>
-
-            {/* Risk Summary Grid */}
-            {predictions?.distribution && (
-              <GlassCard className="p-8">
-                <h3 className="text-lg font-semibold mb-6 flex items-center gap-2">
-                  <div className="w-1 h-6 bg-slate-500 rounded-full" />
-                  Risk Distribution Summary
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                  <div className="bg-red-500/10 dark:bg-red-500/5 p-6 rounded-2xl border border-red-500/20 text-center relative overflow-hidden group">
-                    <div className="absolute inset-0 bg-red-500/5 group-hover:bg-red-500/10 transition-colors" />
-                    <div className="relative text-5xl font-bold text-red-500 mb-2">{predictions.distribution.high_risk}</div>
-                    <div className="relative text-sm font-bold uppercase tracking-widest text-red-600/70 dark:text-red-400">High Risk</div>
-                    <div className="mt-2 text-xs text-text-muted">{predictions.distribution.high_risk_pct}% of workforce</div>
-                  </div>
-
-                  <div className="bg-amber-500/10 dark:bg-amber-500/5 p-6 rounded-2xl border border-amber-500/20 text-center relative overflow-hidden group">
-                    <div className="absolute inset-0 bg-amber-500/5 group-hover:bg-amber-500/10 transition-colors" />
-                    <div className="relative text-5xl font-bold text-amber-500 mb-2">{predictions.distribution.medium_risk}</div>
-                    <div className="relative text-sm font-bold uppercase tracking-widest text-amber-600/70 dark:text-amber-400">Medium Risk</div>
-                    <div className="mt-2 text-xs text-text-muted">{predictions.distribution.medium_risk_pct}% of workforce</div>
-                  </div>
-
-                  <div className="bg-emerald-500/10 dark:bg-emerald-500/5 p-6 rounded-2xl border border-emerald-500/20 text-center relative overflow-hidden group">
-                    <div className="absolute inset-0 bg-emerald-500/5 group-hover:bg-emerald-500/10 transition-colors" />
-                    <div className="relative text-5xl font-bold text-emerald-500 mb-2">{predictions.distribution.low_risk}</div>
-                    <div className="relative text-sm font-bold uppercase tracking-widest text-emerald-600/70 dark:text-emerald-400">Low Risk</div>
-                    <div className="mt-2 text-xs text-text-muted">{predictions.distribution.low_risk_pct}% of workforce</div>
-                  </div>
-                </div>
-              </GlassCard>
-            )}
-
-            {/* Warnings */}
-            {modelMetrics.warnings && modelMetrics.warnings.length > 0 && (
-              <div className="glass p-4 rounded-xl border-l-4 border-warning flex items-start gap-4">
-                <AlertTriangle className="w-5 h-5 text-warning flex-shrink-0 mt-0.5" />
-                <div>
-                  <h4 className="font-semibold text-warning mb-1">Model Calibrations</h4>
-                  <ul className="list-disc list-inside space-y-1 text-sm text-text-secondary">
-                    {modelMetrics.warnings.map((warning, i) => (
-                      <li key={i}>{warning}</li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {activeTab === 'analysis' && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 h-full">
-            <GlassCard className="h-full flex flex-col min-h-[500px]">
-              <h3 className="text-lg font-semibold mb-6 flex items-center gap-2">
-                <div className="w-1 h-6 bg-teal-500 rounded-full" />
-                Key Risk Drivers
-              </h3>
-              <div className="flex-1">
-                {featureImportance?.features ? (
-                  <FeatureImportanceChart data={featureImportance.features} />
-                ) : (
-                  <div className="h-full flex items-center justify-center text-text-muted">No data</div>
-                )}
-              </div>
-            </GlassCard>
-
-            <GlassCard className="h-full flex flex-col min-h-[500px]">
-              <h3 className="text-lg font-semibold mb-6 flex items-center gap-2">
-                <div className="w-1 h-6 bg-indigo-500 rounded-full" />
-                Risk Distribution
-              </h3>
-              <div className="flex-1">
-                {predictions?.distribution ? (
-                  <RiskDistributionPie data={predictions.distribution} />
-                ) : (
-                  <div className="h-full flex items-center justify-center text-text-muted">No data</div>
-                )}
-              </div>
-            </GlassCard>
-          </div>
-        )}
-
-        {activeTab === 'employees' && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 h-full">
-            <GlassCard className="h-full flex flex-col min-h-[500px]">
-              <h3 className="text-lg font-semibold mb-6 flex items-center gap-2">
-                <div className="w-1 h-6 bg-purple-500 rounded-full" />
-                9-Box Matrix (Performance vs Potential)
-              </h3>
-              <div className="flex-1">
-                {nineBox && nineBox.length > 0 ? (
-                  <NineBoxGrid data={nineBox} />
-                ) : (
-                  <div className="h-full flex items-center justify-center text-text-muted">No data</div>
-                )}
-              </div>
-            </GlassCard>
-
-            <GlassCard className="h-full flex flex-col min-h-[500px]">
-              <h3 className="text-lg font-semibold mb-6 flex items-center gap-2">
-                <div className="w-1 h-6 bg-rose-500 rounded-full" />
-                High Risk Employees
-              </h3>
-              <div className="flex-1 overflow-auto">
-                {highRiskEmployees?.employees ? (
-                  <HighRiskTable
-                    employees={highRiskEmployees.employees}
-                    onEmployeeClick={setSelectedEmployee}
-                  />
-                ) : (
-                  <div className="h-full flex items-center justify-center text-text-muted">No high-risk employees</div>
-                )}
-              </div>
-            </GlassCard>
-          </div>
-        )}
-      </div>
-
-      {/* Employee Detail Modal */}
-      {selectedEmployee && (
-        <EmployeeDetailModal
-          employeeId={selectedEmployee}
-          onClose={() => setSelectedEmployee(null)}
-        />
+      {metrics.warnings && metrics.warnings.length > 0 && (
+        <section className="rounded-[28px] border border-amber-200 bg-amber-50 p-5 dark:border-amber-500/20 dark:bg-amber-500/[0.05]">
+          <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300"><AlertTriangle className="h-5 w-5" /><h2 className="font-semibold">Model limitations</h2></div>
+          <ul className="mt-3 space-y-2 text-sm leading-6 text-amber-800/80 dark:text-amber-300/80">{metrics.warnings.map((warning) => <li key={warning}>• {warning}</li>)}</ul>
+        </section>
       )}
     </div>
   )
+}
+
+function PageHeading() {
+  return <section><div className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-violet-600 dark:text-violet-300">Understand · Retention</div><h1 className="text-3xl font-semibold tracking-tight text-slate-950 dark:text-white">Retention Signals</h1><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-400">Separate observed retention evidence from model-generated signals, and use predictions only to guide further investigation.</p></section>
+}
+
+function Metric({ icon: Icon, label, value, detail, tone }: { icon: React.ElementType; label: string; value: string; detail: string; tone: 'attention' | 'watch' | 'stable' | 'neutral' }) {
+  const iconTone = tone === 'attention' ? 'text-rose-500' : tone === 'watch' ? 'text-amber-500' : tone === 'stable' ? 'text-emerald-500' : 'text-violet-500'
+  return <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900"><Icon className={`h-4 w-4 ${iconTone}`} /><div className="mt-3 text-2xl font-semibold text-slate-950 dark:text-white">{value}</div><div className="mt-1 text-xs font-semibold text-slate-600 dark:text-slate-300">{label}</div><div className="mt-1 text-xs text-slate-400">{detail}</div></div>
+}
+
+function SignalBar({ label, value, count, tone }: { label: string; value: number; count: number; tone: string }) {
+  return <div><div className="mb-2 flex items-center justify-between gap-3 text-sm"><span className="font-medium text-slate-700 dark:text-slate-300">{label}</span><span className="text-xs text-slate-500">{count.toLocaleString()} · {value.toFixed(1)}%</span></div><div className="h-3 overflow-hidden rounded-full bg-slate-100 dark:bg-white/10"><div className={`h-full rounded-full ${tone}`} style={{ width: `${Math.min(100, value)}%` }} /></div></div>
+}
+
+function FitnessRow({ label, value }: { label: string; value: string }) {
+  return <div className="flex items-center justify-between gap-4 border-b border-slate-100 py-2.5 text-sm last:border-0 dark:border-white/5"><span className="text-slate-500 dark:text-slate-400">{label}</span><span className="font-semibold capitalize text-slate-800 dark:text-slate-200">{value}</span></div>
+}
+
+function UnavailableState({ title, detail, action, href }: { title: string; detail: string; action: string; href: string }) {
+  return <div className="mx-auto grid min-h-[65vh] max-w-3xl place-items-center"><section className="w-full rounded-[30px] border border-slate-200 bg-white p-8 text-center dark:border-white/10 dark:bg-slate-900"><div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300"><Users className="h-6 w-6" /></div><h1 className="mt-5 text-2xl font-semibold text-slate-950 dark:text-white">{title}</h1><p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-500 dark:text-slate-400">{detail}</p><Link href={href} className="mt-6 inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white dark:bg-white dark:text-slate-950">{action}<ArrowRight className="h-4 w-4" /></Link></section></div>
 }
