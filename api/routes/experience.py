@@ -1,273 +1,231 @@
-"""
-API routes for Employee Experience endpoints.
+"""Governed Employee Experience API routes.
+
+Experience is measured from explicit survey/experience signals. PeopleOS does not
+infer employee sentiment from tenure, performance, salary or promotion proxies,
+and does not expose individual experience rankings through the enterprise API.
 """
 
-from fastapi import APIRouter, HTTPException, Depends, Query
-from typing import Optional, List
+from typing import Optional
 
-from api.dependencies import get_app_state, AppState
+from fastapi import APIRouter, Depends, HTTPException, Query
+
+from api.dependencies import AppState, get_app_state
 from api.schemas.experience import (
-    ExperienceIndexResponse,
-    EmployeeExperienceResponse,
-    SegmentsResponse,
-    DriversResponse,
     AtRiskResponse,
+    DriversResponse,
+    ExperienceAnalysisResponse,
+    ExperienceIndexResponse,
+    ExperienceSummary,
     LifecycleResponse,
     ManagerImpactResponse,
+    SegmentsResponse,
     SignalsResponse,
-    ExperienceAnalysisResponse,
-    GroupExperience,
-    EngagementSegment,
-    ExperienceDriver,
-    AtRiskExperience,
-    AtRiskByDepartment,
-    LifecycleStage,
-    ManagerStats,
-    ExperienceSummary,
 )
 
 router = APIRouter(prefix="/api/experience", tags=["experience"])
 
 
 def require_experience(state: AppState = Depends(get_app_state)) -> AppState:
-    """Dependency that requires experience engine to be available."""
     if not state.has_data():
         if not state.load_from_database():
-            raise HTTPException(
-                status_code=400,
-                detail="No data loaded. Please upload a file first."
-            )
-
+            raise HTTPException(status_code=400, detail="No data loaded. Please upload a file first.")
     if state.experience_engine is None:
-        raise HTTPException(
-            status_code=400,
-            detail="Experience analysis not available. Engine initialization may have failed."
-        )
-
+        raise HTTPException(status_code=400, detail="Experience analysis is unavailable for the current dataset.")
     return state
 
 
+def _has_measured_signals(state: AppState) -> bool:
+    engine = state.experience_engine
+    return bool(engine is not None and int(getattr(engine, "available_survey_signals", 0)) > 0)
+
+
+def _signals(state: AppState) -> SignalsResponse:
+    engine = state.experience_engine
+    raw = engine.get_available_signals() if engine is not None else {}
+    return SignalsResponse(**raw)
+
+
+def _unavailable_index(state: AppState) -> ExperienceIndexResponse:
+    return ExperienceIndexResponse(
+        available=False,
+        reason="No measured experience survey signals are available. PeopleOS will not infer experience from HRIS proxy fields.",
+        total_employees=len(state.raw_df) if state.raw_df is not None else 0,
+        signals_available=int(getattr(state.experience_engine, "available_survey_signals", 0) or 0),
+    )
+
+
+def _safe_index(state: AppState, group_by: Optional[str] = None) -> ExperienceIndexResponse:
+    if not _has_measured_signals(state):
+        return _unavailable_index(state)
+    raw = state.experience_engine.calculate_experience_index(group_by=group_by)
+    # Configured 0-100 composite, not an external benchmark or validated universal scale.
+    raw["benchmark"] = None
+    if raw.get("available"):
+        raw["interpretation"] = "Configured weighted composite of available measured experience signals. Interpret together with signal coverage and component definitions."
+        for group in raw.get("by_group", []) or []:
+            group["interpretation"] = "Group mean of the configured measured-signal composite."
+    return ExperienceIndexResponse(**raw)
+
+
+def _safe_drivers(state: AppState) -> DriversResponse:
+    if not _has_measured_signals(state):
+        return DriversResponse(available=False, reason="Measured experience signals are required for association analysis.")
+    raw = state.experience_engine.identify_experience_drivers()
+    if not raw.get("available", False):
+        return DriversResponse(**raw)
+    # These are correlations with the composite, not causal drivers.
+    raw["recommendations"] = [
+        "Treat these as observed associations with the configured experience composite. Validate direction, confounding and stability before changing policy or manager practice."
+    ]
+    return DriversResponse(**raw)
+
+
+def _safe_segments(state: AppState) -> SegmentsResponse:
+    if not _has_measured_signals(state):
+        return SegmentsResponse(available=False, reason="Measured experience signals are required before segmenting the experience index.")
+    raw = state.experience_engine.get_engagement_segments()
+    if raw.get("available", False):
+        raw["recommendations"] = [
+            "Segments are configured score bands for aggregate monitoring; they are not diagnoses of individual engagement."
+        ]
+    return SegmentsResponse(**raw)
+
+
+def _safe_lifecycle(state: AppState) -> LifecycleResponse:
+    if not _has_measured_signals(state):
+        return LifecycleResponse(available=False, reason="Measured experience signals are required for lifecycle experience comparison.")
+    raw = state.experience_engine.get_lifecycle_experience()
+    if raw.get("available", False):
+        raw["recommendations"] = [
+            "Lifecycle differences are descriptive associations. Compare sample sizes and survey coverage before interpreting them as stage effects."
+        ]
+    return LifecycleResponse(**raw)
+
+
+def _safe_at_risk(state: AppState, threshold: Optional[float] = None) -> AtRiskResponse:
+    if not _has_measured_signals(state):
+        return AtRiskResponse(available=False, reason="Measured experience signals are required for low-score aggregate monitoring.")
+    raw = state.experience_engine.get_at_risk_employees(threshold=threshold, limit=1000)
+    if not raw.get("available", False):
+        return AtRiskResponse(**raw)
+    # Aggregate-only product boundary: never expose employee-level score/risk lists.
+    return AtRiskResponse(
+        available=True,
+        total_at_risk=raw.get("total_at_risk"),
+        threshold_used=raw.get("threshold_used"),
+        employees=None,
+        by_department=raw.get("by_department"),
+    )
+
+
 @router.get("/analysis", response_model=ExperienceAnalysisResponse)
-async def get_experience_analysis(
-    state: AppState = Depends(require_experience)
-) -> ExperienceAnalysisResponse:
-    """
-    Get complete experience analysis.
+async def get_experience_analysis(state: AppState = Depends(require_experience)) -> ExperienceAnalysisResponse:
+    signals = _signals(state)
+    if not _has_measured_signals(state):
+        return ExperienceAnalysisResponse(
+            experience_index=_unavailable_index(state),
+            segments=SegmentsResponse(available=False, reason="Measured experience signals are unavailable."),
+            drivers=DriversResponse(available=False, reason="Measured experience signals are unavailable."),
+            at_risk=AtRiskResponse(available=False, reason="Measured experience signals are unavailable."),
+            lifecycle=LifecycleResponse(available=False, reason="Measured experience signals are unavailable."),
+            manager_impact=ManagerImpactResponse(available=False, reason="Manager ranking is outside the governed aggregate experience boundary."),
+            signals=signals,
+            summary=ExperienceSummary(
+                overall_exi=None,
+                health_indicator="Unavailable",
+                total_employees=len(state.raw_df) if state.raw_df is not None else 0,
+                at_risk_count=0,
+                signals_available=signals.total_signals,
+                total_warnings=1,
+                total_recommendations=1,
+            ),
+            recommendations=["Add explicit experience survey signals before interpreting workforce experience."],
+            warnings=["PeopleOS did not derive an experience score from tenure, performance, salary or promotion proxies."],
+        )
 
-    Includes:
-    - Experience Index (EXI) calculation
-    - Engagement segmentation
-    - Experience drivers
-    - At-risk employees
-    - Lifecycle analysis
-    - Manager impact
-    - Available signals
-    - Recommendations
-    """
-    results = state.experience_engine.analyze_all()
-
+    index = _safe_index(state)
+    segments = _safe_segments(state)
+    drivers = _safe_drivers(state)
+    at_risk = _safe_at_risk(state)
+    lifecycle = _safe_lifecycle(state)
     return ExperienceAnalysisResponse(
-        experience_index=ExperienceIndexResponse(**results.get('experience_index', {'available': False})),
-        segments=SegmentsResponse(**results.get('segments', {'available': False})),
-        drivers=DriversResponse(**results.get('drivers', {'available': False})),
-        at_risk=AtRiskResponse(**results.get('at_risk', {'available': False})),
-        lifecycle=LifecycleResponse(**results.get('lifecycle', {'available': False})),
-        manager_impact=ManagerImpactResponse(**results.get('manager_impact', {'available': False})),
-        signals=SignalsResponse(**results.get('signals', {})),
-        summary=ExperienceSummary(**results.get('summary', {})),
-        recommendations=results.get('recommendations', []),
-        warnings=results.get('warnings', [])
+        experience_index=index,
+        segments=segments,
+        drivers=drivers,
+        at_risk=at_risk,
+        lifecycle=lifecycle,
+        manager_impact=ManagerImpactResponse(available=False, reason="Manager-level experience ranking is disabled in the governed product boundary."),
+        signals=signals,
+        summary=ExperienceSummary(
+            overall_exi=index.overall_exi,
+            health_indicator=segments.health_indicator or "Measured",
+            total_employees=index.total_employees or 0,
+            at_risk_count=at_risk.total_at_risk or 0,
+            signals_available=signals.total_signals,
+            total_warnings=0,
+            total_recommendations=1,
+        ),
+        recommendations=["Use measured experience signals for aggregate investigation; validate associations before intervention."],
+        warnings=["Experience Index is a configurable weighted composite, not an externally validated benchmark."],
     )
 
 
 @router.get("/index", response_model=ExperienceIndexResponse)
 async def get_experience_index(
-    group_by: Optional[str] = Query(
-        default=None,
-        description="Column to segment by (e.g., 'Dept', 'Location')"
-    ),
-    state: AppState = Depends(require_experience)
+    group_by: Optional[str] = Query(default=None, description="Optional aggregate grouping such as Dept or Location"),
+    state: AppState = Depends(require_experience),
 ) -> ExperienceIndexResponse:
-    """
-    Get Employee Experience Index (EXI).
-
-    Returns overall EXI score (0-100) with optional segmentation.
-    EXI is calculated from available experience signals:
-    - eNPS scores
-    - Onboarding survey scores
-    - Pulse survey scores
-    - Manager satisfaction
-    - Engagement scores
-    - Work-life balance
-    - Career growth satisfaction
-    """
-    results = state.experience_engine.calculate_experience_index(group_by=group_by)
-    return ExperienceIndexResponse(**results)
+    return _safe_index(state, group_by=group_by)
 
 
-@router.get("/index/employee/{employee_id}", response_model=EmployeeExperienceResponse)
-async def get_employee_experience(
-    employee_id: str,
-    state: AppState = Depends(require_experience)
-) -> EmployeeExperienceResponse:
-    """
-    Get experience details for a specific employee.
-
-    Returns:
-    - EXI score
-    - Engagement segment
-    - Component breakdown
-    """
-    results = state.experience_engine.get_employee_exi(employee_id)
-
-    if not results.get('available', False):
-        raise HTTPException(
-            status_code=404,
-            detail=results.get('reason', f"Employee {employee_id} not found")
-        )
-
-    return EmployeeExperienceResponse(**results)
+@router.get("/index/employee/{employee_id}", deprecated=True)
+async def get_employee_experience(employee_id: str, state: AppState = Depends(require_experience)):
+    raise HTTPException(status_code=403, detail="Individual experience scoring is disabled. Use aggregate experience analysis.")
 
 
 @router.get("/segments", response_model=SegmentsResponse)
-async def get_engagement_segments(
-    state: AppState = Depends(require_experience)
-) -> SegmentsResponse:
-    """
-    Get workforce engagement segmentation.
-
-    Segments employees into:
-    - Thriving (EXI 80-100): Highly engaged advocates
-    - Content (EXI 60-79): Satisfied employees
-    - Neutral (EXI 40-59): Neither engaged nor disengaged
-    - Disengaged (EXI 20-39): At-risk, showing warning signs
-    - Critical (EXI 0-19): Immediate intervention needed
-    """
-    results = state.experience_engine.get_engagement_segments()
-    return SegmentsResponse(**results)
+async def get_engagement_segments(state: AppState = Depends(require_experience)) -> SegmentsResponse:
+    return _safe_segments(state)
 
 
 @router.get("/drivers", response_model=DriversResponse)
-async def get_experience_drivers(
-    state: AppState = Depends(require_experience)
-) -> DriversResponse:
-    """
-    Identify what factors drive experience scores.
-
-    Returns correlation analysis showing which factors
-    have the most impact on EXI scores.
-    """
-    results = state.experience_engine.identify_experience_drivers()
-    return DriversResponse(**results)
+async def get_experience_drivers(state: AppState = Depends(require_experience)) -> DriversResponse:
+    return _safe_drivers(state)
 
 
 @router.get("/at-risk", response_model=AtRiskResponse)
 async def get_at_risk_employees(
-    threshold: Optional[float] = Query(
-        default=None,
-        description="EXI threshold for at-risk (default: 40)"
-    ),
-    limit: int = Query(
-        default=20,
-        ge=1,
-        le=100,
-        description="Maximum employees to return"
-    ),
-    state: AppState = Depends(require_experience)
+    threshold: Optional[float] = Query(default=None, description="Configured composite threshold for aggregate monitoring"),
+    state: AppState = Depends(require_experience),
 ) -> AtRiskResponse:
-    """
-    Get employees with low experience scores.
-
-    Returns employees below the EXI threshold with:
-    - Risk factors
-    - Recommended actions
-    - Department breakdown
-    """
-    results = state.experience_engine.get_at_risk_employees(
-        threshold=threshold,
-        limit=limit
-    )
-    return AtRiskResponse(**results)
+    return _safe_at_risk(state, threshold=threshold)
 
 
 @router.get("/lifecycle", response_model=LifecycleResponse)
-async def get_lifecycle_experience(
-    state: AppState = Depends(require_experience)
-) -> LifecycleResponse:
-    """
-    Analyze experience by employee lifecycle stage.
-
-    Stages:
-    - New Hire (0-6 months)
-    - Ramping (6-12 months)
-    - Established (1-3 years)
-    - Veteran (3+ years)
-
-    Identifies patterns like experience drops at specific tenure points.
-    """
-    results = state.experience_engine.get_lifecycle_experience()
-    return LifecycleResponse(**results)
+async def get_lifecycle_experience(state: AppState = Depends(require_experience)) -> LifecycleResponse:
+    return _safe_lifecycle(state)
 
 
-@router.get("/manager-impact", response_model=ManagerImpactResponse)
-async def get_manager_impact(
-    state: AppState = Depends(require_experience)
-) -> ManagerImpactResponse:
-    """
-    Analyze how managers affect team experience.
-
-    Requires ManagerID column in data.
-    Returns managers with highest and lowest team EXI scores.
-    """
-    results = state.experience_engine.analyze_manager_impact()
-    return ManagerImpactResponse(**results)
+@router.get("/manager-impact", response_model=ManagerImpactResponse, deprecated=True)
+async def get_manager_impact(state: AppState = Depends(require_experience)) -> ManagerImpactResponse:
+    return ManagerImpactResponse(available=False, reason="Manager-level experience ranking is disabled in the governed product boundary.")
 
 
 @router.get("/signals", response_model=SignalsResponse)
-async def get_available_signals(
-    state: AppState = Depends(require_experience)
-) -> SignalsResponse:
-    """
-    Get available experience signals in the data.
-
-    Reports which experience columns are present:
-    - eNPS_Score
-    - Onboarding_30d/60d/90d
-    - Pulse_Score
-    - ManagerSatisfaction
-    - EngagementScore
-    - WorkLifeBalance
-    - CareerGrowthSatisfaction
-
-    Also provides recommendations for improving data coverage.
-    """
-    results = state.experience_engine.get_available_signals()
-    return SignalsResponse(**results)
+async def get_available_signals(state: AppState = Depends(require_experience)) -> SignalsResponse:
+    return _signals(state)
 
 
 @router.get("/trends")
 async def get_experience_trends(
-    period: str = Query(
-        default="month",
-        description="Trend period: 'week', 'month', or 'quarter'"
-    ),
-    state: AppState = Depends(require_experience)
+    period: str = Query(default="month", description="Requested trend period"),
+    state: AppState = Depends(require_experience),
 ):
-    """
-    Get EXI trends over time.
-
-    Note: Requires historical data with date columns.
-    Currently returns snapshot analysis if no time series available.
-    """
-    # For now, return current snapshot
-    # Future: implement time series tracking
-    results = state.experience_engine.calculate_experience_index()
-
+    # A single current snapshot cannot support a time-series trend claim.
     return {
-        'available': results.get('available', False),
-        'current_exi': results.get('overall_exi'),
-        'period': period,
-        'message': 'Time series trends require historical data tracking. '
-                   'Current snapshot provided.',
-        'trends': []
+        "available": False,
+        "current_exi": _safe_index(state).overall_exi if _has_measured_signals(state) else None,
+        "period": period,
+        "message": "Time-series experience trends require repeated dated experience measurements. A current snapshot is not a trend.",
+        "trends": [],
     }
