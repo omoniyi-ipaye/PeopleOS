@@ -26,9 +26,7 @@
     "components/ui/jargon-info.tsx",
     "components/ui/metric-explainer.tsx",
     "components/ui/splash-screen.tsx",
-    "components/ui/states.tsx",
-    "components/ui/tab-group.tsx",
-    "components/ui/tooltip.tsx"
+    "components/ui/tab-group.tsx"
   ],
   "rules": {
     "arbitraryRadius": "Remove rounded-[...] and use governed radius tokens.",
