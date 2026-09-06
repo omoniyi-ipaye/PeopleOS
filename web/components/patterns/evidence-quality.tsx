@@ -15,12 +15,24 @@ function percent(value: number) {
 }
 
 export function EvidenceQuality({ confidence, coverage, verifiedRuns = 0, knownGaps = 0, sufficiency = 'LIMITED' }: EvidenceQualityProps) {
-  const sufficiencyTone = sufficiency === 'SUFFICIENT' ? 'success' : sufficiency === 'INSUFFICIENT' ? 'danger' : 'warning'
+  const sufficiencyTone = sufficiency.toUpperCase() === 'SUFFICIENT' ? 'success' : sufficiency.toUpperCase() === 'INSUFFICIENT' ? 'danger' : 'warning'
   return (
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Evidence quality">
-      <MetricCard label="Evidence confidence" value={percent(confidence)} detail="Confidence in evidence that was available" icon={<ShieldCheck className="h-4 w-4" />} status={<StatusBadge tone={confidence >= 0.8 ? 'success' : confidence >= 0.6 ? 'warning' : 'danger'}>{confidence >= 0.8 ? 'High' : confidence >= 0.6 ? 'Medium' : 'Low'}</StatusBadge>} />
-      <MetricCard label="Evidence coverage" value={percent(coverage)} detail="How much of the planned investigation contributed" icon={<Database className="h-4 w-4" />} status={<StatusBadge tone={coverage >= 0.8 ? 'success' : coverage >= 0.5 ? 'warning' : 'danger'}>{coverage >= 0.8 ? 'Broad' : coverage >= 0.5 ? 'Partial' : 'Thin'}</StatusBadge>} />
-      <MetricCard label="Verified tool runs" value={verifiedRuns} detail="Governed tool executions with verification evidence" />
+      <MetricCard
+        label="Evidence quality"
+        value={percent(confidence)}
+        detail="Heuristic support score from evidence type, tool contribution and known gaps — not probability of truth"
+        icon={<ShieldCheck className="h-4 w-4" />}
+        status={<StatusBadge tone={confidence >= 0.8 ? 'success' : confidence >= 0.6 ? 'warning' : 'danger'}>{confidence >= 0.8 ? 'Strong' : confidence >= 0.6 ? 'Moderate' : 'Weak'}</StatusBadge>}
+      />
+      <MetricCard
+        label="Evidence coverage"
+        value={percent(coverage)}
+        detail="How much of the planned investigation contributed usable evidence"
+        icon={<Database className="h-4 w-4" />}
+        status={<StatusBadge tone={coverage >= 0.8 ? 'success' : coverage >= 0.5 ? 'warning' : 'danger'}>{coverage >= 0.8 ? 'Broad' : coverage >= 0.5 ? 'Partial' : 'Thin'}</StatusBadge>}
+      />
+      <MetricCard label="Verified tool runs" value={verifiedRuns} detail="Governed tool executions with usable verification evidence" />
       <MetricCard label="Known gaps" value={knownGaps} detail="Missing evidence PeopleOS will not infer" status={<StatusBadge tone={sufficiencyTone}>{sufficiency.toLowerCase()}</StatusBadge>} />
     </div>
   )
