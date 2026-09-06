@@ -78,7 +78,8 @@ jobs:
           pip install pyinstaller==6.16.0
 
       - name: Verify predictive training stack is optional
-        run: python -c "import importlib.util; assert importlib.util.find_spec('xgboost') is None; assert importlib.util.find_spec('optuna') is None; assert importlib.util.find_spec('streamlit') is None; print('Slim desktop capability boundary: PASS')"
+        run: |
+          python -c "import importlib.util; assert importlib.util.find_spec('xgboost') is None; assert importlib.util.find_spec('optuna') is None; assert importlib.util.find_spec('streamlit') is None; print('Slim desktop capability boundary PASS')"
 
       - name: Verify workspace survives process restart
         env:
