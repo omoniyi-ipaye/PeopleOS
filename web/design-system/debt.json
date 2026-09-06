@@ -1,24 +1,10 @@
 {
-  "stage": "TRANSITION",
-  "allowedPrefixes": [
-    "components/advisor/",
-    "components/charts/",
-    "components/dashboard/",
-    "components/diagnostics/"
-  ],
-  "allowedFiles": [
-    "components/glossary-modal.tsx",
-    "components/risk-analysis-modal.tsx",
-    "components/ui/animated-number.tsx",
-    "components/ui/bento-grid.tsx",
-    "components/ui/jargon-info.tsx",
-    "components/ui/metric-explainer.tsx",
-    "components/ui/splash-screen.tsx",
-    "components/ui/tab-group.tsx"
-  ],
+  "stage": "TARGET",
+  "allowedPrefixes": [],
+  "allowedFiles": [],
   "rules": {
-    "arbitraryRadius": "Remove rounded-[...] and use governed radius tokens.",
+    "arbitraryRadius": "Remove rounded-[...] and use design-system radius primitives/tokens.",
     "hardcodedHex": "Product component color must use semantic design tokens/Tailwind semantics, not inline hex.",
-    "legacyGlassCard": "GlassCard is transition-only and may not be introduced into new product surfaces."
+    "legacyGlassCard": "GlassCard is deprecated and may not be used in product surfaces."
   }
 }
