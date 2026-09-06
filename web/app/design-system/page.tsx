@@ -1,6 +1,6 @@
 'use client'
 
-import { Activity, AlertTriangle, CheckCircle2, Database, Info, ShieldCheck } from 'lucide-react'
+import { Activity, AlertTriangle, ArrowRight, CheckCircle2, Database, Info, ShieldCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { EmptyState, MetricCard, StateSummary } from '@/components/ui/data-display'
@@ -17,6 +17,34 @@ export default function DesignSystemPage() {
         title="Enterprise component reference"
         description="Foundations and components used to communicate workforce evidence, trust, state and action consistently. This surface is for product and engineering review."
       />
+
+      <Card>
+        <SectionHeader title="Experience-state contract" description="Every state must feel intentional. A user should always understand what happened, what remains usable and what to do next." />
+        <div className="mt-5 grid gap-4 lg:grid-cols-3">
+          <Surface padding="md">
+            <div className="text-xs font-semibold uppercase tracking-wider text-text-muted">01 · Explain</div>
+            <div className="mt-2 font-semibold">Say what this state means</div>
+            <p className="mt-2 text-sm leading-6 text-text-secondary">Use business language. Distinguish unavailable, empty, partial, blocked and failed states instead of collapsing them into generic errors.</p>
+          </Surface>
+          <Surface padding="md">
+            <div className="text-xs font-semibold uppercase tracking-wider text-text-muted">02 · Preserve value</div>
+            <div className="mt-2 font-semibold">Show what still works</div>
+            <p className="mt-2 text-sm leading-6 text-text-secondary">A missing model, index or optional source must never make the whole product feel broken. Surface the trustworthy capabilities that remain available.</p>
+          </Surface>
+          <Surface padding="md">
+            <div className="text-xs font-semibold uppercase tracking-wider text-text-muted">03 · Continue</div>
+            <div className="mt-2 font-semibold">Give one clear next step</div>
+            <p className="mt-2 text-sm leading-6 text-text-secondary">Every state ends with a useful continuation: investigate, add evidence, review lifecycle state, retry, or return to a trusted analysis.</p>
+          </Surface>
+        </div>
+        <div className="mt-5 flex flex-wrap items-center gap-2 text-xs text-text-muted">
+          <StatusBadge tone="success">No dead ends</StatusBadge>
+          <StatusBadge tone="success">No raw errors</StatusBadge>
+          <StatusBadge tone="success">One primary action</StatusBadge>
+          <StatusBadge tone="success">Progressive technical detail</StatusBadge>
+          <span className="inline-flex items-center gap-1 font-medium text-accent">State → understanding → continuation <ArrowRight className="h-3.5 w-3.5" /></span>
+        </div>
+      </Card>
 
       <Card>
         <SectionHeader title="Semantic state language" description="State meaning is fixed across every product workflow." />
@@ -53,7 +81,7 @@ export default function DesignSystemPage() {
         <div className="grid gap-5 md:grid-cols-2">
           <Input label="Investigation name" placeholder="September retention review" description="Use a name others can understand later." />
           <Input label="Required field" required error="This field needs a value." placeholder="Required" />
-          <div className="md:col-span-2"><Textarea label="Workforce question" placeholder="What changed in turnover this quarter?" description="PeopleOS will only answer from available aggregate evidence." /></div>
+          <div className="md:col-span-2"><Textarea label="Workforce question" placeholder="What changed in observed attrition this quarter?" description="PeopleOS will only answer from available aggregate evidence." /></div>
         </div>
       </Card>
 
@@ -61,7 +89,7 @@ export default function DesignSystemPage() {
         <MetricCard label="People" value="800" detail="Active dataset" icon={<Database className="h-4 w-4" />} status={<StatusBadge tone="success">Active</StatusBadge>} />
         <MetricCard label="Model" value="Not active" detail="Predictive lifecycle is optional" icon={<Activity className="h-4 w-4" />} status={<StatusBadge tone="warning">Optional</StatusBadge>} />
         <MetricCard label="Evidence coverage" value="75%" detail="Three of four planned tools contributed" icon={<ShieldCheck className="h-4 w-4" />} status={<StatusBadge tone="info">Partial</StatusBadge>} />
-        <MetricCard label="Confidence" value="91%" detail="Confidence in available evidence" icon={<CheckCircle2 className="h-4 w-4" />} status={<StatusBadge tone="success">High</StatusBadge>} />
+        <MetricCard label="Evidence quality" value="91%" detail="Heuristic quality of available investigation evidence — not probability of truth" icon={<CheckCircle2 className="h-4 w-4" />} status={<StatusBadge tone="success">Strong</StatusBadge>} />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
