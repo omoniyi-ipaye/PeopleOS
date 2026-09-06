@@ -9,6 +9,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from api.dependencies import get_app_state, AppState
+from src.platform.local_dataset_store import save_dataset_artifact
 from src.platform.runtime_loader import load_dataset
 from src.platform.workspace import WorkspaceStore
 
@@ -60,6 +61,13 @@ def _register_loaded_dataset(state: AppState, source_name: str, content_hash: st
             "duplicate_rows": int(state.raw_df.duplicated().sum()) if state.raw_df is not None else 0,
         },
     )
+    # Persist the full validated source version before it becomes active. This
+    # preserves longitudinal snapshot rows that intentionally bypass the legacy
+    # one-row-per-employee SQLite compatibility store.
+    source_frame = state.historical_df if state.historical_df is not None else state.raw_df
+    if source_frame is None or source_frame.empty:
+        raise ValueError("Loaded dataset has no rows to persist")
+    save_dataset_artifact(dataset.dataset_id, source_frame)
     return _store.activate_dataset(workspace_id, dataset.dataset_id)
 
 
