@@ -1,7 +1,7 @@
 """End-to-end user acceptance test for PeopleOS.
 
-Runs against live FastAPI + Next.js processes in CI and exercises the product as a user:
-Upload -> sample data -> platform health -> governed investigation.
+Runs against live FastAPI + Next.js processes in CI and exercises the primary product journey:
+Data & Sources -> Decision Cockpit -> Trust Center -> People Intelligence.
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ def wait_http(url: str, timeout: int = 180) -> None:
             with urllib.request.urlopen(url, timeout=5) as response:
                 if 200 <= response.status < 500:
                     return
-        except Exception as exc:  # pragma: no cover - diagnostic loop
+        except Exception as exc:  # pragma: no cover
             last_error = exc
         time.sleep(2)
     raise RuntimeError(f"Timed out waiting for {url}: {last_error}")
@@ -55,15 +55,15 @@ def main() -> None:
         page.on("console", lambda msg: console_errors.append(msg.text) if msg.type == "error" else None)
         page.on("pageerror", lambda exc: page_errors.append(str(exc)))
 
-        # 1. Upload surface and real sample-data load.
+        # 1. Data onboarding and durable dataset activation.
         page.goto(f"{BASE_URL}/upload", wait_until="networkidle", timeout=120_000)
-        page.get_by_role("heading", name="Import Data").wait_for(timeout=30_000)
-        page.screenshot(path=str(ARTIFACT_DIR / "01-upload.png"), full_page=True)
+        page.get_by_role("heading", name="Make the data state obvious.").wait_for(timeout=30_000)
+        page.screenshot(path=str(ARTIFACT_DIR / "01-data-sources.png"), full_page=True)
 
-        if page.get_by_text("System Data Active").count() == 0:
+        if page.get_by_text("Dataset active", exact=True).count() == 0:
             started = time.monotonic()
-            page.get_by_role("button", name="Load Sample Data").click()
-            page.get_by_text("System Data Active").wait_for(timeout=120_000)
+            page.get_by_role("button", name="Load sample dataset").click()
+            page.get_by_text("Dataset active", exact=True).wait_for(timeout=120_000)
             elapsed = time.monotonic() - started
             (ARTIFACT_DIR / "timings.json").write_text(
                 json.dumps({"sample_data_activation_seconds": round(elapsed, 2)}, indent=2)
@@ -71,18 +71,25 @@ def main() -> None:
 
         page.screenshot(path=str(ARTIFACT_DIR / "02-data-active.png"), full_page=True)
 
-        # Confirm lifecycle API also sees the active dataset.
         status = fetch_json(f"{API_URL}/api/upload/status")
         assert status.get("has_data") is True, status
         assert int(status.get("employee_count", 0)) >= 50, status
         assert status.get("active_dataset_id"), status
 
-        # 2. System Health product surface.
-        page.goto(f"{BASE_URL}/platform", wait_until="networkidle", timeout=120_000)
-        page.get_by_text("System Health", exact=False).first.wait_for(timeout=30_000)
-        page.screenshot(path=str(ARTIFACT_DIR / "03-system-health.png"), full_page=True)
+        # 2. Decision Cockpit must present a decision-oriented entry point.
+        page.goto(BASE_URL, wait_until="networkidle", timeout=120_000)
+        page.get_by_role("heading", name="What deserves your attention?").wait_for(timeout=30_000)
+        page.get_by_text("Priority briefing", exact=True).wait_for(timeout=30_000)
+        page.get_by_role("link", name="Ask PeopleOS").wait_for(timeout=30_000)
+        page.screenshot(path=str(ARTIFACT_DIR / "03-decision-cockpit.png"), full_page=True)
 
-        # 3. Governed People Intelligence investigation.
+        # 3. Trust Center exposes lifecycle and governance in user language.
+        page.goto(f"{BASE_URL}/platform", wait_until="networkidle", timeout=120_000)
+        page.get_by_role("heading", name="Can I trust this analysis?").wait_for(timeout=30_000)
+        page.get_by_text("Current trust verdict", exact=True).wait_for(timeout=30_000)
+        page.screenshot(path=str(ARTIFACT_DIR / "04-trust-center.png"), full_page=True)
+
+        # 4. Governed People Intelligence investigation.
         page.goto(f"{BASE_URL}/advisor", wait_until="networkidle", timeout=120_000)
         page.get_by_role("heading", name="People Intelligence Agent").wait_for(timeout=30_000)
         textarea = page.get_by_placeholder("Ask about turnover, workforce health, compensation equity, manager structure…")
@@ -91,24 +98,18 @@ def main() -> None:
 
         page.get_by_text("Evidence ledger", exact=True).wait_for(timeout=180_000)
         page.get_by_text("Agent boundary", exact=True).wait_for(timeout=30_000)
-        page.screenshot(path=str(ARTIFACT_DIR / "04-investigation.png"), full_page=True)
+        page.screenshot(path=str(ARTIFACT_DIR / "05-investigation.png"), full_page=True)
 
-        # The result must expose evidence rather than a bare model answer.
         body_text = page.locator("body").inner_text()
         assert "confidence" in body_text.lower()
         assert "Allowlisted tools" in body_text
         assert "Aggregate evidence only" in body_text
-
-        # 4. Product remains usable without a local Ollama server; deterministic fallback is valid.
         assert "Investigation unavailable" not in body_text, body_text[-2000:]
 
         browser.close()
 
     assert not page_errors, page_errors
-    significant_console_errors = [
-        error for error in console_errors
-        if "favicon" not in error.lower()
-    ]
+    significant_console_errors = [error for error in console_errors if "favicon" not in error.lower()]
     assert not significant_console_errors, significant_console_errors
 
     print("E2E USER JOURNEY: PASS")
