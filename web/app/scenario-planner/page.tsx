@@ -78,8 +78,7 @@ export default function ScenarioPlannerPage() {
   return (
     <Page>
       <PageHeader eyebrow="Plan · Scenario Planner" title="Explore assumptions before making workforce decisions" description="Compare aggregate what-if cases with explicit assumptions and costs. Scenario outputs are exploratory sensitivity models, not causal forecasts or authorization to act." />
-
-      <StateSummary title="Assumption sensitivity, not prediction certainty" description="PeopleOS varies configured relationships and cost assumptions to show how conclusions move. Simulation frequencies describe the assumed model, not the empirical probability that an outcome will happen." tone="info" />
+      <StateSummary title="Assumption sensitivity, not prediction certainty" description="Simulation frequencies describe the configured model, not the empirical probability that an outcome will happen." tone="info" />
 
       <div className="grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
         <Surface padding="lg">
@@ -101,23 +100,23 @@ export default function ScenarioPlannerPage() {
         </Surface>
 
         <div className="space-y-6">
-          {!result ? <Surface padding="lg" className="min-h-[360px] grid place-items-center"><div className="max-w-lg text-center"><div className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-accent/10 text-accent"><GitBranch className="h-6 w-6" /></div><h2 className="mt-5 text-xl font-semibold">Configure a scenario to inspect sensitivity</h2><p className="mt-2 text-sm leading-6 text-text-secondary">PeopleOS keeps modeled outcomes, assumptions, risks and cost parameters together so no headline number can be read as a guaranteed forecast.</p></div></Surface> : <>
+          {!result ? <Surface padding="lg" className="min-h-[360px] grid place-items-center"><div className="max-w-lg text-center"><div className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-accent/10 text-accent"><GitBranch className="h-6 w-6" /></div><h2 className="mt-5 text-xl font-semibold">Configure a scenario to inspect sensitivity</h2><p className="mt-2 text-sm leading-6 text-text-secondary">Model outcomes and costs while keeping the assumptions available for review.</p></div></Surface> : <>
             <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <MetricCard label="People in scope" value={result.affected_employees.toLocaleString()} detail={result.affected_departments.length ? result.affected_departments.join(', ') : 'Configured scope'} icon={Users} />
-              <MetricCard label="Starting attrition share" value={`${result.baseline_turnover_rate.toFixed(1)}%`} detail="Observed or model-derived baseline used by the scenario" icon={Target} />
-              <MetricCard label="Modeled attrition share" value={`${result.projected_turnover_rate.toFixed(1)}%`} detail="Assumption-based output, not forecast certainty" icon={BarChart3} />
+              <MetricCard label="Starting attrition share" value={`${result.baseline_turnover_rate.toFixed(1)}%`} detail="Baseline used by the scenario" icon={Target} />
+              <MetricCard label="Modeled attrition share" value={`${result.projected_turnover_rate.toFixed(1)}%`} detail="Assumption-based output" icon={BarChart3} />
               <MetricCard label="Modeled net impact" value={money(result.cost_impact.net_impact)} detail={result.roi_estimate == null ? 'ROI assumption unavailable' : `Modeled ROI ${result.roi_estimate.toFixed(1)}%`} icon={DollarSign} tone={result.cost_impact.net_impact >= 0 ? 'success' : 'warning'} />
             </section>
 
             <div className="grid gap-6 lg:grid-cols-2">
-              <Surface padding="lg"><SectionHeader title="Interpretation boundary" description="Read the modeled result together with its assumptions." /><div className="mt-5"><StatusBadge tone="warning">{result.confidence_level} evidence</StatusBadge><p className="mt-4 text-sm leading-7 text-text-secondary">{result.recommendation}</p><div className="mt-5 grid grid-cols-2 gap-3"><div className="rounded-xl border border-border p-4"><div className="text-xl font-semibold">{result.simulation.n_iterations.toLocaleString()}</div><div className="text-xs text-text-muted">assumption draws</div></div><div className="rounded-xl border border-border p-4"><div className="text-xl font-semibold">{(result.simulation.roi_positive_probability * 100).toFixed(0)}%</div><div className="text-xs text-text-muted">draws with positive modeled ROI</div></div></div></div></Surface>
-              <Surface padding="lg"><SectionHeader title="Assumptions & risks" description="These define the scenario more than the simulation count does." /><div className="mt-5 space-y-4"><div><div className="text-xs font-semibold uppercase tracking-wider text-text-muted">Assumptions</div><ul className="mt-2 space-y-2 text-sm leading-6 text-text-secondary">{result.assumptions.slice(0, 8).map((item) => <li key={item}>• {item}</li>)}</ul></div><div className="border-t border-border pt-4"><div className="text-xs font-semibold uppercase tracking-wider text-text-muted">Risks</div><ul className="mt-2 space-y-2 text-sm leading-6 text-text-secondary">{result.risks.slice(0, 5).map((item) => <li key={item}>• {item}</li>)}</ul></div></div></Surface>
+              <Surface padding="lg"><SectionHeader title="Scenario interpretation" description="A concise read of the modeled result." /><div className="mt-5"><StatusBadge tone="info">{result.confidence_level} evidence</StatusBadge><p className="mt-4 text-sm leading-7 text-text-secondary">{result.recommendation}</p><div className="mt-5 grid grid-cols-2 gap-3"><div className="rounded-xl border border-border p-4"><div className="text-xl font-semibold">{result.simulation.n_iterations.toLocaleString()}</div><div className="text-xs text-text-muted">assumption draws</div></div><div className="rounded-xl border border-border p-4"><div className="text-xl font-semibold">{(result.simulation.roi_positive_probability * 100).toFixed(0)}%</div><div className="text-xs text-text-muted">draws with positive modeled ROI</div></div></div></div></Surface>
+              <Surface padding="lg"><SectionHeader title="Assumptions & risks" description="Review these when you need to interrogate the model." /><div className="mt-5 space-y-4"><div><div className="text-xs font-semibold uppercase tracking-wider text-text-muted">Assumptions</div><ul className="mt-2 space-y-2 text-sm leading-6 text-text-secondary">{result.assumptions.slice(0, 8).map((item) => <li key={item}>• {item}</li>)}</ul></div><div className="border-t border-border pt-4"><div className="text-xs font-semibold uppercase tracking-wider text-text-muted">Risks</div><ul className="mt-2 space-y-2 text-sm leading-6 text-text-secondary">{result.risks.slice(0, 5).map((item) => <li key={item}>• {item}</li>)}</ul></div></div></Surface>
             </div>
           </>}
         </div>
       </div>
 
-      <StateSummary title="Consequential-action boundary" description="PeopleOS does not model employee-selection reductions or target individuals for retention interventions. Scenario output may support planning discussions only." tone="warning" />
+      <StateSummary title="Use boundary" description="Scenario output supports planning discussions only; PeopleOS does not select employees for reductions or target individuals for retention interventions." tone="info" />
     </Page>
   )
 }
