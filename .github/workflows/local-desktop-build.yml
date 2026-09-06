@@ -11,7 +11,8 @@ on:
       - 'src/platform/**'
       - 'api/**'
       - 'web/**'
-      - 'requirements-core.txt'
+      - 'requirements-desktop.txt'
+      - 'requirements-predictive.txt'
       - 'config.yaml'
       - 'sample_hr_data.csv'
       - 'data/templates/**'
@@ -34,7 +35,7 @@ jobs:
             os: macos-14
             artifact: PeopleOS-macos-arm64
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 45
+    timeout-minutes: 35
 
     steps:
       - name: Checkout
@@ -45,7 +46,7 @@ jobs:
         with:
           python-version: '3.11'
           cache: pip
-          cache-dependency-path: requirements-core.txt
+          cache-dependency-path: requirements-desktop.txt
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -72,8 +73,11 @@ jobs:
       - name: Install local runtime and packager
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements-core.txt
+          pip install -r requirements-desktop.txt
           pip install pyinstaller==6.16.0
+
+      - name: Verify predictive training stack is optional
+        run: python -c "import importlib.util; assert importlib.util.find_spec('xgboost') is None; assert importlib.util.find_spec('optuna') is None; assert importlib.util.find_spec('streamlit') is None; print('Slim desktop capability boundary: PASS')"
 
       - name: Build self-contained PeopleOS executable
         run: pyinstaller --noconfirm --clean desktop/peopleos.spec
@@ -83,6 +87,11 @@ jobs:
           PEOPLEOS_SMOKE_TEST: '1'
           PEOPLEOS_HOME: ${{ runner.temp }}/peopleos-smoke-home
         run: python -c "import os, pathlib, subprocess; exe=pathlib.Path('dist') / ('PeopleOS.exe' if os.name == 'nt' else 'PeopleOS'); subprocess.run([str(exe.resolve())], check=True, env=os.environ.copy(), timeout=90)"
+
+      - name: Report package size
+        shell: bash
+        run: |
+          if [ -f dist/PeopleOS.exe ]; then du -h dist/PeopleOS.exe; else du -h dist/PeopleOS; fi
 
       - name: Upload local application
         uses: actions/upload-artifact@v4
