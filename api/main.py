@@ -35,13 +35,14 @@ from api.routes.model_lab import router as model_lab_router
 from api.routes.geo import router as geo_router
 from api.routes.causal import router as causal_router
 from api.routes.network import router as network_router
+from api.routes.intelligence import router as intelligence_router
 from api.dependencies import get_app_state
 
 
 app = FastAPI(
     title="PeopleOS API",
     description="""
-    PeopleOS API - HR Analytics Backend
+    PeopleOS API - HR Analytics and Governed People Intelligence Backend
 
     A comprehensive REST API for HR analytics providing:
     - **Analytics**: Headcount, turnover, department statistics
@@ -52,11 +53,12 @@ app = FastAPI(
     - **Fairness**: EEOC compliance, four-fifths rule
     - **Semantic Search**: Performance review search
     - **AI Advisor**: LLM-powered strategic insights
+    - **People Intelligence Agent**: governed evidence-based workforce investigation
     - **Survival Analysis**: Kaplan-Meier curves, Cox PH flight risk modeling
     - **Quality of Hire**: Pre-hire to post-hire correlation analysis
     - **Causal Inference**: Intervention impact estimation (What-If analysis)
     """,
-    version="2.0.0",
+    version="2.1.0",
     docs_url="/docs",
     redoc_url="/redoc"
 )
@@ -94,6 +96,7 @@ app.include_router(model_lab_router)
 app.include_router(geo_router)
 app.include_router(causal_router)
 app.include_router(network_router)
+app.include_router(intelligence_router)
 
 
 @app.get("/")
@@ -101,7 +104,7 @@ async def root():
     """Root endpoint with API info."""
     return {
         "name": "PeopleOS API",
-        "version": "1.0.0",
+        "version": "2.1.0",
         "docs": "/docs",
         "status": "running"
     }
@@ -143,7 +146,8 @@ async def api_status():
             "structural": state.structural_engine is not None,
             "sentiment": state.sentiment_engine is not None,
             "experience": state.experience_engine is not None,
-            "scenario": state.scenario_engine is not None
+            "scenario": state.scenario_engine is not None,
+            "people_intelligence": True,
         },
         "features_enabled": state.features_enabled,
         "model_metrics": state.model_metrics
