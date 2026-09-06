@@ -132,24 +132,24 @@ async def activate_model(workspace_id: str, model_id: str, request: Request, sta
             scoring_population = state.raw_df[state.raw_df['Attrition'] == 0].copy() if state.raw_df is not None and 'Attrition' in state.raw_df.columns else state.raw_df
         if scoring_population is None or scoring_population.empty:
             raise ValueError('No active population is available for predictive scoring')
+
         processed = engine.preprocessor.transform(scoring_population, target_column='Attrition')
-        feature_cols = [c for c in engine.feature_names if c in processed.columns]
         X = processed.reindex(columns=engine.feature_names, fill_value=0)
         scores = engine.predict_risk(X)
-        uncertainty = engine.predict_risk_with_confidence(X)
+
         state.ml_engine = engine
         state.model_metrics = artifact.metrics
         state.features_df = X.reset_index(drop=True)
         state.target_series = None
+        # Do not manufacture employee-level probability confidence intervals from
+        # tree disagreement or fixed +/- bands. Uncertainty is represented by the
+        # model's held-out calibration/Brier metrics at aggregate level.
         state.risk_scores = pd.DataFrame({
             'EmployeeID': scoring_population['EmployeeID'].astype(str).values,
             'risk_score': scores,
             'risk_category': [engine.get_risk_category(score) for score in scores],
-            'ci_lower': uncertainty['ci_lower'].values,
-            'ci_upper': uncertainty['ci_upper'].values,
-            'confidence_level': uncertainty['confidence_level'].values,
         })
-        # Fairness is evaluated only after an aligned runtime prediction artifact exists.
+
         try:
             from src.fairness_engine import FairnessEngine
             prediction_frame = state.risk_scores[['EmployeeID', 'risk_score']].copy()
