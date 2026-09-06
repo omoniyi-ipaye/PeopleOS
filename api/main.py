@@ -38,9 +38,11 @@ from api.routes.intelligence import router as intelligence_router
 from api.routes.platform import router as platform_router
 from api.dependencies import get_app_state
 from api.security import local_first_access_guard
+from src.logger import get_logger
 from src.platform.health import SystemHealthMonitor
 from src.platform.workspace import WorkspaceStore
 
+logger = get_logger('api_main')
 
 app = FastAPI(
     title="PeopleOS API",
@@ -130,40 +132,30 @@ async def health_check():
 
 @app.get("/api/status")
 async def api_status():
+    """Return operational capability state without exposing dataset schema or model metrics."""
     state = get_app_state()
     workspace = WorkspaceStore().get_workspace("local")
 
     return {
+        "status": "running",
         "data": {
             "loaded": state.has_data(),
             "row_count": len(state.raw_df) if state.raw_df is not None else 0,
-            "columns": list(state.raw_df.columns) if state.raw_df is not None else [],
-            "active_dataset_id": workspace.active_dataset_id,
+            "active_dataset": workspace.active_dataset_id is not None,
         },
-        "engines": {
+        "capabilities": {
             "analytics": state.analytics_engine is not None,
-            "ml": state.ml_engine is not None and state.ml_engine.is_trained,
+            "predictive_model": state.ml_engine is not None and state.ml_engine.is_trained,
             "compensation": state.compensation_engine is not None,
-            "succession": state.succession_engine is not None,
-            "team_dynamics": state.team_dynamics_engine is not None,
             "fairness": state.fairness_engine is not None,
             "vector_search": state.vector_engine is not None and state.vector_engine.is_initialized(),
-            "llm": state.llm_client is not None and state.features_enabled.get('llm', False),
-            "survival": state.survival_engine is not None,
-            "quality_of_hire": state.quality_of_hire_engine is not None,
-            "structural": state.structural_engine is not None,
-            "sentiment": state.sentiment_engine is not None,
-            "experience": state.experience_engine is not None,
-            "scenario": state.scenario_engine is not None,
+            "llm": bool(state.llm_client is not None and state.features_enabled.get('llm', False)),
             "people_intelligence": True,
             "workspace_control_plane": True,
         },
-        "features_enabled": state.features_enabled,
-        "model_metrics": state.model_metrics,
         "workspace": {
-            "workspace_id": workspace.workspace_id,
-            "active_dataset_id": workspace.active_dataset_id,
-            "active_model_id": workspace.active_model_id,
+            "active_dataset": workspace.active_dataset_id is not None,
+            "active_model": workspace.active_model_id is not None,
             "dataset_versions": len(workspace.datasets),
             "model_versions": len(workspace.models),
             "sessions": len(workspace.sessions),
@@ -173,9 +165,15 @@ async def api_status():
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request, exc):
+    logger.exception(
+        "Unhandled API error on %s %s",
+        getattr(request, 'method', 'UNKNOWN'),
+        getattr(request, 'url', 'UNKNOWN'),
+        exc_info=exc,
+    )
     return JSONResponse(
         status_code=500,
-        content={"error": "Internal server error", "detail": str(exc)}
+        content={"error": "Internal server error"}
     )
 
 
