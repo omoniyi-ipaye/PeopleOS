@@ -1,0 +1,51 @@
+{
+  "system_id": "peopleos",
+  "artifact": "output-integrity",
+  "stage": "TRANSITION",
+  "principle": "No output is trustworthy unless population, denominator, calculation, statistical meaning, evidence quality, policy boundary and UI wording agree.",
+  "layers": [
+    "schema_mapping",
+    "population_resolution",
+    "metric_or_model_definition",
+    "calculation",
+    "evidence",
+    "quality_and_sufficiency",
+    "policy",
+    "ui_semantics",
+    "audit_and_reproducibility"
+  ],
+  "population_contracts": {
+    "historical": "all validated source rows including explicit snapshots",
+    "current": "latest observation per EmployeeID",
+    "active": "current rows with normalized Attrition == 0",
+    "unknown_outcome": "unrecognized Attrition remains missing and cannot enable predictive training"
+  },
+  "metric_contracts": {
+    "headcount": {"population": "active", "meaning": "current active employees"},
+    "record_count": {"population": "current", "meaning": "current unique employee observations"},
+    "observed_attrition_share": {"population": "current_known_outcome", "meaning": "mean of binary Attrition", "not": "period_turnover_rate"},
+    "current_payroll": {"population": "active_valid_positive_salary", "meaning": "sum Salary"},
+    "salary_dispersion_consistency": {"population": "active", "not": "adjusted_pay_equity"},
+    "four_fifths_ratio": {"population": "eligible_groups", "meaning": "favorable_outcome_rate divided by highest favorable rate"},
+    "evidence_quality": {"meaning": "heuristic investigation quality score", "not": "probability conclusion is true"}
+  },
+  "controls": [
+    "critical fields map only by exact/direct aliases",
+    "latest snapshot resolves current state",
+    "minimum fairness group size",
+    "raw-row split before learned model preprocessing",
+    "holdout untouched by fitted preprocessing",
+    "model activation requires evaluated in-process artifact",
+    "individual predictive ranking endpoints disabled"
+  ],
+  "remaining_reviews": [
+    "survival analysis",
+    "scenario planner",
+    "employee experience composite",
+    "quality of hire causal language",
+    "agent sufficiency and contradiction logic",
+    "frontend compatibility labels",
+    "durable predictive artifact persistence"
+  ],
+  "readiness": "BUILD READY WITH ASSUMPTIONS"
+}
