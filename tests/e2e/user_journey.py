@@ -61,10 +61,14 @@ def main() -> None:
         page.screenshot(path=str(ARTIFACT_DIR / "01-upload.png"), full_page=True)
 
         if page.get_by_text("System Data Active").count() == 0:
+            started = time.monotonic()
             page.get_by_role("button", name="Load Sample Data").click()
-            page.get_by_text("Upload Complete").wait_for(timeout=240_000)
+            page.get_by_text("System Data Active").wait_for(timeout=120_000)
+            elapsed = time.monotonic() - started
+            (ARTIFACT_DIR / "timings.json").write_text(
+                json.dumps({"sample_data_activation_seconds": round(elapsed, 2)}, indent=2)
+            )
 
-        page.get_by_text("System Data Active").wait_for(timeout=60_000)
         page.screenshot(path=str(ARTIFACT_DIR / "02-data-active.png"), full_page=True)
 
         # Confirm lifecycle API also sees the active dataset.
