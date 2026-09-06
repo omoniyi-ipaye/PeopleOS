@@ -42,6 +42,7 @@ from api.security import local_first_access_guard
 from src.logger import get_logger
 from src.platform.health import SystemHealthMonitor
 from src.platform.workspace import WorkspaceStore
+from src.serialization import json_safe
 
 logger = get_logger('api_main')
 
@@ -50,20 +51,21 @@ app = FastAPI(
     description="""
     PeopleOS API - HR Analytics and Governed People Intelligence Backend
 
-    A comprehensive REST API for HR analytics providing:
-    - **Analytics**: Headcount, turnover, department statistics
-    - **Predictions**: ML-based attrition risk with SHAP explanations
-    - **Compensation**: Pay equity analysis, salary benchmarking
-    - **Succession**: Readiness scoring, 9-box analysis
-    - **Team Dynamics**: Team health, diversity metrics
-    - **Fairness**: EEOC compliance, four-fifths rule
-    - **Semantic Search**: Performance review search
+    A comprehensive REST API for workforce analytics providing:
+    - **Analytics**: current population, observed attrition and department statistics
+    - **Predictions**: governed aggregate predictive retention signals after explicit model activation
+    - **Compensation**: current compensation summaries and disparity screening
+    - **Team Dynamics**: aggregate organizational patterns
+    - **Fairness**: screening metrics with minimum-group controls
+    - **Semantic Search**: evidence retrieval when supported text is indexed
     - **People Intelligence Agent**: governed evidence-based workforce investigation
     - **Workspace control plane**: explicit dataset/model/session lifecycle
     - **System health**: deterministic fitness checks and bounded recovery
-    - **Survival Analysis**: Kaplan-Meier curves, Cox PH flight risk modeling
-    - **Quality of Hire**: Pre-hire to post-hire correlation analysis
-    - **Causal Inference**: Intervention impact estimation (What-If analysis)
+    - **Survival Analysis**: cohort-level Kaplan-Meier and Cox association analysis
+    - **Quality of Hire**: pre-hire to post-hire association analysis
+
+    Consequential individual ranking and unsupported causal intervention claims are
+    intentionally excluded from the enterprise product boundary.
     """,
     version="3.0.0-transition",
     docs_url="/docs",
@@ -84,9 +86,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Central transition boundary: every existing route that declares
-# Depends(get_app_state) now receives a workspace-scoped runtime instance.
-# This removes process-global state sharing without changing route contracts.
 app.dependency_overrides[get_app_state] = get_workspace_state
 
 app.include_router(upload_router)
@@ -128,12 +127,13 @@ async def root():
 async def health_check():
     state = get_local_state()
     platform_health = SystemHealthMonitor(WorkspaceStore()).check()
-    return {
+    payload = {
         "status": "healthy" if platform_health["status"] == "healthy" else "degraded",
         "data_loaded": state.has_data(),
         "features_enabled": state.features_enabled,
         "platform": platform_health,
     }
+    return JSONResponse(content=json_safe(payload))
 
 
 @app.get("/api/status")
@@ -142,7 +142,7 @@ async def api_status():
     state = get_local_state()
     workspace = WorkspaceStore().get_workspace("local")
 
-    return {
+    payload = {
         "status": "running",
         "data": {
             "loaded": state.has_data(),
@@ -151,10 +151,10 @@ async def api_status():
         },
         "capabilities": {
             "analytics": state.analytics_engine is not None,
-            "predictive_model": state.ml_engine is not None and state.ml_engine.is_trained,
+            "predictive_model": bool(state.ml_engine is not None and state.ml_engine.is_trained),
             "compensation": state.compensation_engine is not None,
             "fairness": state.fairness_engine is not None,
-            "vector_search": state.vector_engine is not None and state.vector_engine.is_initialized(),
+            "vector_search": bool(state.vector_engine is not None and state.vector_engine.is_initialized()),
             "llm": bool(state.llm_client is not None and state.features_enabled.get('llm', False)),
             "people_intelligence": True,
             "workspace_control_plane": True,
@@ -167,6 +167,7 @@ async def api_status():
             "sessions": len(workspace.sessions),
         },
     }
+    return JSONResponse(content=json_safe(payload))
 
 
 @app.exception_handler(Exception)
@@ -177,10 +178,7 @@ async def global_exception_handler(request, exc):
         getattr(request, 'url', 'UNKNOWN'),
         exc_info=exc,
     )
-    return JSONResponse(
-        status_code=500,
-        content={"error": "Internal server error"}
-    )
+    return JSONResponse(status_code=500, content={"error": "Internal server error"})
 
 
 if __name__ == "__main__":
