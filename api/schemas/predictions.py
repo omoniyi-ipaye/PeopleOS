@@ -1,38 +1,40 @@
-"""Prediction-related Pydantic schemas."""
+"""Prediction-related API schemas."""
 
-from typing import Optional, List, Dict, Any
+from typing import Any, Dict, List, Optional
+
 from pydantic import BaseModel
 
 
 class ModelMetrics(BaseModel):
-    """ML model performance metrics."""
     model_config = {'protected_namespaces': ()}
     accuracy: float
     precision: float
     recall: float
     f1: float
     roc_auc: Optional[float] = None
+    brier_score: Optional[float] = None
+    calibration_error: Optional[float] = None
     best_model: str
     train_size: int
     test_size: int
     reliability: str
     warnings: Optional[List[str]] = None
+    evaluation_semantics: str = 'held_out_evaluation_after_training_only_preprocessing'
 
 
 class FeatureImportance(BaseModel):
-    """Feature importance ranking."""
     feature: str
     importance: float
 
 
 class FeatureImportanceResponse(BaseModel):
-    """Feature importance response."""
     features: List[FeatureImportance]
     model_name: str
+    interpretation: str = 'Feature importance describes model influence and does not establish causation.'
 
 
 class RiskPrediction(BaseModel):
-    """Risk prediction for an employee."""
+    """Deprecated individual-risk shape retained only for response compatibility."""
     employee_id: str
     risk_score: float
     risk_category: str
@@ -41,7 +43,6 @@ class RiskPrediction(BaseModel):
 
 
 class RiskDistribution(BaseModel):
-    """Risk distribution summary."""
     high_risk: int
     medium_risk: int
     low_risk: int
@@ -52,7 +53,7 @@ class RiskDistribution(BaseModel):
 
 
 class EmployeeRiskDetail(BaseModel):
-    """Detailed risk analysis for individual employee."""
+    """Legacy shape; individual predictive views are disabled by policy."""
     employee_id: str
     dept: str
     tenure: float
@@ -68,8 +69,9 @@ class EmployeeRiskDetail(BaseModel):
 
 
 class PredictionsResponse(BaseModel):
-    """Full predictions response."""
     model_config = {'protected_namespaces': ()}
-    predictions: List[RiskPrediction]
+    predictions: List[RiskPrediction] = []
     distribution: RiskDistribution
     model_metrics: ModelMetrics
+    output_scope: str = 'aggregate_only'
+    governance_note: str = 'Individual employee risk ranking is disabled for consequential employment governance.'
