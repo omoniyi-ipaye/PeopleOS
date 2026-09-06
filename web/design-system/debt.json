@@ -1,24 +1,12 @@
 {
   "stage": "TRANSITION",
   "allowedPrefixes": [
-    "app/employee-experience/",
-    "app/workforce-health/",
-    "app/quality-of-hire/",
-    "app/retention-forecast/",
-    "app/scenario-planner/",
-    "app/search/",
-    "app/settings/",
     "components/advisor/",
     "components/charts/",
     "components/dashboard/",
     "components/diagnostics/"
   ],
   "allowedFiles": [
-    "app/page.tsx",
-    "app/advisor/page.tsx",
-    "app/upload/page.tsx",
-    "app/platform/page.tsx",
-    "app/flight-risk/page.tsx",
     "components/glossary-modal.tsx",
     "components/risk-analysis-modal.tsx",
     "components/ui/animated-number.tsx",
