@@ -1,0 +1,32 @@
+# PeopleOS Desktop everyday runtime
+#
+# This is the default local product. It intentionally excludes heavy predictive
+# training packages (XGBoost, LightGBM, Optuna, imbalanced-learn, SHAP,
+# Streamlit). Core workforce analytics and deterministic People Intelligence do
+# not require those packages.
+
+pandas==2.1.4
+numpy==1.26.3
+scikit-learn==1.4.0
+lifelines>=0.27.0
+scipy>=1.10.0
+statsmodels>=0.14.0
+
+# Visualization / exports used by local analytical capabilities
+plotly==5.18.0
+openpyxl==3.1.2
+fpdf2==2.7.6
+
+# Optional local synthesis client; Ollama server/model remains optional.
+ollama==0.1.6
+textblob==0.17.1
+
+# Configuration / utilities
+pyyaml==6.0.1
+python-dateutil==2.8.2
+
+# Local API
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+python-multipart==0.0.6
+pydantic==2.5.3
