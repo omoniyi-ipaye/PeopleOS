@@ -32,7 +32,7 @@ export default function RetentionForecastPage() {
       <StateSummary title="Survival probability is cumulative from the cohort origin" description="A Kaplan–Meier value at 12 months estimates the share surviving beyond 12 months from the defined time origin. It is not the probability that a currently employed person stays for the next 12 months." tone="info" />
       <div className="flex flex-wrap gap-2"><Button size="sm" variant={tab === 'overview' ? 'primary' : 'secondary'} onClick={() => setTab('overview')}><Activity className="h-4 w-4" />Cohort curve</Button><Button size="sm" variant={tab === 'cohorts' ? 'primary' : 'secondary'} onClick={() => setTab('cohorts')}><Layers className="h-4 w-4" />Cohorts</Button></div>
 
-      {warnings.length ? <StateSummary title="Model limitations" description={warnings.slice(0, 3).join(' · ')} tone="warning" /> : null}
+      {warnings.length ? <StateSummary title="Model limitations" description={warnings.slice(0, 3).join(' · ')} tone="info" /> : null}
 
       {tab === 'overview' && <>
         <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -50,7 +50,7 @@ export default function RetentionForecastPage() {
         <div className="mt-5 grid gap-4 lg:grid-cols-2">{cohorts.length ? cohorts.map((cohort, index) => <div key={`${cohort.cohort_name ?? index}-${index}`} className="rounded-2xl border border-border p-5"><div className="font-semibold">{cohort.cohort_name || cohort.cohort_description || `Cohort ${index + 1}`}</div><div className="mt-1 text-xs text-text-muted">{cohort.cohort_description || 'Aggregate cohort'}</div>{cohort.insight ? <p className="mt-4 text-sm leading-6 text-text-secondary">{cohort.insight}</p> : null}<div className="mt-5 grid grid-cols-3 gap-3 border-t border-border pt-4 text-center"><div><div className="text-lg font-semibold">{cohort.cohort_size ?? '—'}</div><div className="text-[11px] text-text-muted">people</div></div><div><div className="text-lg font-semibold">{(cohort.median_tenure ?? cohort.avg_tenure_years) == null ? '—' : `${(cohort.median_tenure ?? cohort.avg_tenure_years)!.toFixed(1)}y`}</div><div className="text-[11px] text-text-muted">observed tenure</div></div><div><div className="text-lg font-semibold">{cohort.survival_probability_12mo == null ? '—' : `${(cohort.survival_probability_12mo * 100).toFixed(0)}%`}</div><div className="text-[11px] text-text-muted">survival beyond month 12</div></div></div></div>) : <EmptyState title="No cohort analysis available" />}</div>
       </Surface>}
 
-      <StateSummary title="Governance boundary" description="Cohort survival may support aggregate planning and hypothesis generation. PeopleOS does not expose individual survival rankings, and hazard associations must not be interpreted as causal effects." tone="warning" />
+      <StateSummary title="Use boundary" description="Cohort survival supports aggregate planning and hypothesis generation. Individual survival ranking is not exposed, and hazard associations are not causal effects." tone="info" />
     </Page>
   )
 }
