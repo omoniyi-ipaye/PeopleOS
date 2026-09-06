@@ -32,12 +32,12 @@ FastAPI routes
 ## Key findings
 
 ### P0 - LLM safety enforcement can be bypassed
-`LLMClient` contains prohibited-content validation, but the advisor route calls `llm_client.generate()` directly. That means the safety policy is not an enforceable system boundary.
+`LLMClient` contains prohibited-content validation, but the advisor route previously called `llm_client.generate()` directly and returned the result. The exposed advisor paths are now routed through `_generate_safe()`, which applies the existing shared validator and blocks prohibited output before it can be returned.
 
-Target: all externally returned AI advice must pass a single centrally enforced safety boundary.
+Remaining target: move enforcement fully into a public LLM-client boundary so future call sites cannot accidentally bypass policy.
 
 ### P0 - Local-first network boundary is too permissive by default
-The documented backend command and `api.main` launch path bind to `0.0.0.0`. For a privacy-sensitive local-first People system, the default should be loopback-only (`127.0.0.1`) with explicit opt-in for LAN/server deployment.
+The application previously launched with `0.0.0.0`. `api.main` now defaults to `127.0.0.1`, with `PEOPLEOS_API_HOST` as an explicit opt-in for wider network exposure.
 
 ### P0 - Frontend dependency security baseline needs modernization
 Next.js is on the 14.x line. Upgrade should be handled as a security and compatibility workstream rather than a cosmetic dependency refresh.
@@ -131,23 +131,32 @@ Initial tool families:
 - sentiment / employee experience
 - scenario analysis
 
+## Canonical evidence and tool boundary
+
+The first agent-foundation contracts now live under `src/agent/`.
+
+- `evidence.py` defines `EvidenceItem`, `ToolResult`, and `EvidenceBundle` with provenance, confidence, warnings, unknowns, contradictions and verification notes.
+- `tools.py` defines the minimum governed `AgentTool` protocol and `ToolContext`.
+- Existing analytics engines will be adapted behind these contracts rather than exposed directly to an LLM.
+
 ## Transition backlog
 
 | Priority | Change | Status |
 |---|---|---|
-| P0 | Centralize LLM output safety enforcement | In progress |
-| P0 | Default backend bind to loopback | In progress |
+| P0 | Protect exposed advisor output with safety validation | Done |
+| P0 | Consolidate all model generation behind a non-bypassable client safety boundary | Planned |
+| P0 | Default backend bind to loopback | Done |
 | P0 | Upgrade Next.js security baseline | Planned |
 | P0 | Introduce explicit authentication / authorization design for non-local deployments | Planned |
 | P1 | Introduce workspace/session architecture | Planned |
-| P1 | Define typed PeopleOS tool contracts | Planned |
-| P1 | Create canonical evidence/result schema | Planned |
+| P1 | Define typed PeopleOS tool contracts | Foundation added |
+| P1 | Create canonical evidence/result schema | Foundation added |
 | P1 | Separate model training from request lifecycle | Planned |
 | P1 | Introduce agent orchestrator | Planned |
 | P1 | Add policy/authorization gate | Planned |
 | P2 | Add persistent agent/session state | Planned |
 | P2 | Add verification/evaluation layer | Planned |
-| P2 | Add provenance/confidence to generated conclusions | Planned |
+| P2 | Add provenance/confidence to generated conclusions | Foundation added |
 | P2 | Add observability and audit events | Planned |
 | P3 | Add bounded autonomous workflows | Planned |
 | P3 | Add MCP interface if external agents should consume PeopleOS | Planned |
@@ -159,12 +168,21 @@ Current verdict: **NOT BUILD READY as an agentic system**.
 
 PeopleOS is, however, a strong deterministic foundation for the target architecture. The analytics engines should largely be preserved and exposed as governed tools behind a new orchestration, evidence, policy and verification layer.
 
-## Immediate implementation slice
+## Completed implementation slice
 
-The first slice is intentionally small and low-risk:
+1. created an isolated upgrade branch;
+2. recorded this architecture/transition plan in-repo;
+3. protected `/api/advisor/summary` and `/api/advisor/ask` with explicit output safety validation;
+4. added regression tests for the advisor safety boundary;
+5. changed `api.main` to loopback-only by default with explicit host override;
+6. added canonical evidence/result contracts;
+7. added a typed governed agent-tool contract;
+8. added tests for evidence bundle behavior.
 
-1. enforce LLM safety at the shared client boundary;
-2. update advisor paths so they cannot bypass that boundary;
-3. change local development/server defaults to loopback-only;
-4. add regression tests for the safety boundary;
-5. then start the canonical evidence/tool-contract layer.
+## Next implementation slice
+
+1. consolidate every LLM generation path behind one non-bypassable client policy boundary;
+2. adapt the first existing analytics engine into an `AgentTool`;
+3. create a deterministic tool registry;
+4. introduce evidence aggregation and confidence calculation;
+5. only then add the first orchestration state machine.
