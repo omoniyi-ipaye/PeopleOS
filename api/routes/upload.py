@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 from api.dependencies import get_app_state, AppState
 from src.platform.local_dataset_store import save_dataset_artifact
 from src.platform.runtime_loader import load_dataset
-from src.platform.workspace import WorkspaceStore
+from src.platform.workspace import DatasetState, ModelState, WorkspaceStore
 
 router = APIRouter(prefix="/api/upload", tags=["upload"])
 _store = WorkspaceStore()
@@ -61,14 +61,25 @@ def _register_loaded_dataset(state: AppState, source_name: str, content_hash: st
             "duplicate_rows": int(state.raw_df.duplicated().sum()) if state.raw_df is not None else 0,
         },
     )
-    # Persist the full validated source version before it becomes active. This
-    # preserves longitudinal snapshot rows that intentionally bypass the legacy
-    # one-row-per-employee SQLite compatibility store.
     source_frame = state.historical_df if state.historical_df is not None else state.raw_df
     if source_frame is None or source_frame.empty:
         raise ValueError("Loaded dataset has no rows to persist")
     save_dataset_artifact(dataset.dataset_id, source_frame)
     return _store.activate_dataset(workspace_id, dataset.dataset_id)
+
+
+def _clear_active_lifecycle(workspace_id: str = "local") -> None:
+    """Clear active selections without deleting version/audit history."""
+    workspace = _store.ensure_workspace(workspace_id, "Local workspace")
+    for dataset in workspace.datasets:
+        if dataset.dataset_id == workspace.active_dataset_id and dataset.state == DatasetState.ACTIVE:
+            dataset.state = DatasetState.SUPERSEDED
+    for model in workspace.models:
+        if model.model_id == workspace.active_model_id and model.state == ModelState.ACTIVE:
+            model.state = ModelState.RETIRED
+    workspace.active_dataset_id = None
+    workspace.active_model_id = None
+    _store._replace_workspace(workspace)
 
 
 @router.post("", response_model=UploadResponse)
@@ -153,7 +164,8 @@ async def load_sample_data(state: AppState = Depends(get_app_state)) -> UploadRe
 @router.post("/reset")
 async def reset_data(state: AppState = Depends(get_app_state)) -> Dict[str, Any]:
     state.reset()
+    _clear_active_lifecycle("local")
     return {
         "success": True,
-        "message": "Runtime data has been reset. Workspace lifecycle history is retained for auditability.",
+        "message": "Active local data has been reset. Dataset/model version history is retained for auditability.",
     }
