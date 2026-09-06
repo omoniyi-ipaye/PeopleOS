@@ -34,16 +34,16 @@ export default function WorkforceHealthPage() {
   return (
     <Page>
       {header}
-      <StateSummary title="Metric boundary" description="Observed attrition share is the share of current employee records marked as departed in the available outcome data. It is not a period turnover rate unless a defined time window and at-risk denominator are available." tone="info" />
-
-      {highRisk.length > 0 ? <StateSummary title={`${highRisk.length} department${highRisk.length === 1 ? '' : 's'} above the configured attrition-share threshold`} description="Use this only to prioritize aggregate investigation. Validate time period, local context and data completeness before intervention." tone="warning" /> : <StateSummary title="No department exceeds the configured observed attrition-share threshold" description="This does not prove the absence of retention risk; it only describes the current recorded outcome mix." tone="success" />}
+      <StateSummary title="Metric boundary" description="Observed attrition share is a recorded outcome share, not a period turnover rate unless a defined time window and at-risk denominator are available." tone="info" />
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Active people represented" value={totalHeadcount.toLocaleString()} detail="Current active department aggregates" icon={Users} />
         <MetricCard label="Departments" value={departments.length.toLocaleString()} detail="Current analytical coverage" icon={Target} />
         <MetricCard label="Avg department attrition share" value={`${(avgAttritionShare * 100).toFixed(1)}%`} detail="Unweighted descriptive average across departments" icon={HeartPulse} tone={avgAttritionShare > .2 ? 'danger' : avgAttritionShare > .15 ? 'warning' : 'neutral'} />
-        <MetricCard label="Priority aggregates" value={highRisk.length.toLocaleString()} detail={`Configured threshold ${((riskData?.threshold ?? 0) * 100).toFixed(0)}%`} icon={AlertTriangle} tone={highRisk.length ? 'warning' : 'neutral'} />
+        <MetricCard label="Priority aggregates" value={highRisk.length.toLocaleString()} detail={`Above configured ${((riskData?.threshold ?? 0) * 100).toFixed(0)}% threshold`} icon={AlertTriangle} tone={highRisk.length ? 'warning' : 'neutral'} />
       </section>
+
+      {highRisk.length > 0 ? <div className="text-xs leading-5 text-text-muted">{highRisk.length} department{highRisk.length === 1 ? '' : 's'} exceed the configured descriptive threshold. Use this only to prioritise aggregate investigation and validate local context before action.</div> : null}
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
         <Surface padding="lg">
@@ -63,7 +63,7 @@ export default function WorkforceHealthPage() {
       </div>
 
       <Surface padding="md" className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div><div className="font-semibold">Need another analytical lens?</div><div className="text-sm text-text-secondary">Use People Intelligence for governed compensation, structure, fairness or retention evidence. Individual ranking panels are not part of Workforce Health.</div></div>
+        <div><div className="font-semibold">Need another analytical lens?</div><div className="text-sm text-text-secondary">Use People Intelligence for governed compensation, structure, fairness or retention evidence.</div></div>
         <Link href="/advisor" className="inline-flex items-center gap-2 text-sm font-semibold text-accent"><Activity className="h-4 w-4" />Investigate aggregate evidence <ArrowRight className="h-4 w-4" /></Link>
       </Surface>
     </Page>
