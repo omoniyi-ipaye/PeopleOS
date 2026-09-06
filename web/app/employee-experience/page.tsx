@@ -50,8 +50,8 @@ export default function EmployeeExperiencePage() {
   return (
     <Page>
       {header}
-      {!measured && <StateSummary title="Measured experience data is not available" description={data?.experience_index.reason ?? 'Add explicit experience survey signals before interpreting workforce experience.'} tone="warning" />}
-      {data?.warnings?.length ? <StateSummary title="Interpretation limits" description={data.warnings.slice(0, 3).join(' · ')} tone="warning" /> : null}
+      {!measured && <StateSummary title="Measured experience data is not available" description={data?.experience_index.reason ?? 'Add explicit experience survey signals before interpreting workforce experience.'} tone="info" />}
+      {data?.warnings?.length ? <StateSummary title="Interpretation notes" description={data.warnings.slice(0, 3).join(' · ')} tone="info" /> : null}
 
       <div className="flex flex-wrap gap-2">
         <Button variant={tab === 'overview' ? 'primary' : 'secondary'} size="sm" onClick={() => setTab('overview')}><Heart className="h-4 w-4" />Measured overview</Button>
@@ -81,9 +81,9 @@ export default function EmployeeExperiencePage() {
           </Surface>
 
           <Surface padding="lg">
-            <SectionHeader title="What can be concluded" description="Keep the measurement boundary visible." />
+            <SectionHeader title="What can be concluded" description="Keep the measurement boundary visible without overstating it." />
             <div className="mt-5 space-y-3">
-              <StateSummary title={measured ? 'Measured composite available' : 'Measurement unavailable'} description={measured ? (data?.experience_index.interpretation ?? 'Interpret together with signal coverage and component definitions.') : 'Collect explicit experience measurements before drawing experience conclusions.'} tone={measured ? 'info' : 'warning'} />
+              <StateSummary title={measured ? 'Measured composite available' : 'Measurement unavailable'} description={measured ? (data?.experience_index.interpretation ?? 'Interpret together with signal coverage and component definitions.') : 'Collect explicit experience measurements before drawing experience conclusions.'} tone="info" />
               {(data?.recommendations ?? []).slice(0, 4).map((item, index) => <div key={`${item}-${index}`} className="flex gap-3 rounded-xl border border-border p-4"><span className="mt-0.5 text-xs font-bold text-accent">0{index + 1}</span><p className="text-sm leading-6 text-text-secondary">{item}</p></div>)}
             </div>
           </Surface>
