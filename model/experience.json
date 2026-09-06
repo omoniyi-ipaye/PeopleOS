@@ -1,0 +1,146 @@
+{
+  "schema_version": 1,
+  "system": "PeopleOS experience",
+  "lifecycle": "target",
+  "purpose": "Move a People user from workforce data to a trusted evidence-backed decision with progressive governance detail.",
+  "actors": [
+    {"id": "actor.people_leader", "label": "People/HR Leader", "primary_job": "Understand what needs attention and decide what to investigate"},
+    {"id": "actor.people_analyst", "label": "People Analyst", "primary_job": "Validate patterns, evidence and methodology"},
+    {"id": "actor.operator", "label": "People/Admin Operator", "primary_job": "Maintain data, model and system readiness"},
+    {"id": "actor.viewer", "label": "Executive/Viewer", "primary_job": "Consume concise trusted findings"}
+  ],
+  "decision_cycle": [
+    {"id": "stage.understand", "label": "Understand", "question": "What is happening?"},
+    {"id": "stage.investigate", "label": "Investigate", "question": "Why is it happening?"},
+    {"id": "stage.plan", "label": "Plan", "question": "What may happen and what should we explore?"},
+    {"id": "stage.govern", "label": "Govern", "question": "Can I trust the data, model and system?"}
+  ],
+  "system_states": [
+    "no_data",
+    "data_validating",
+    "data_active",
+    "predictive_data_ready",
+    "model_training",
+    "model_candidate",
+    "model_active",
+    "degraded",
+    "recovery_required"
+  ],
+  "investigation_states": [
+    "empty",
+    "planning",
+    "running",
+    "complete",
+    "partial",
+    "insufficient",
+    "failed"
+  ],
+  "surfaces": [
+    {
+      "id": "surface.decision_cockpit",
+      "label": "Decision Cockpit",
+      "stage": "stage.understand",
+      "primary_output": "Prioritized workforce signals with trust context",
+      "required_blocks": ["what_needs_attention", "what_changed", "ask_people_intelligence", "trust_state", "recent_investigations"]
+    },
+    {
+      "id": "surface.data_sources",
+      "label": "Data & Sources",
+      "stage": "stage.govern",
+      "primary_output": "Active dataset and data-readiness state",
+      "state_machine": ["empty", "uploading", "validating", "ready", "active", "superseded", "failed"]
+    },
+    {
+      "id": "surface.people_intelligence",
+      "label": "People Intelligence",
+      "stage": "stage.investigate",
+      "primary_output": "Finding with coverage, confidence, evidence, unknowns and next investigation",
+      "hierarchy": ["finding", "business_implication", "evidence", "coverage", "confidence", "unknowns", "next_steps", "advanced_trace"]
+    },
+    {
+      "id": "surface.analysis_detail",
+      "label": "Analysis Detail",
+      "stage": "stage.understand",
+      "pattern": ["headline_finding", "trend_context", "segment_breakdown", "evidence", "follow_up", "methodology"]
+    },
+    {
+      "id": "surface.scenario_workspace",
+      "label": "Scenario Workspace",
+      "stage": "stage.plan",
+      "pattern": ["observed_baseline", "changed_assumption", "projected_effect", "uncertainty", "limitations"]
+    },
+    {
+      "id": "surface.trust_center",
+      "label": "Trust Center",
+      "stage": "stage.govern",
+      "primary_blocks": ["data_trust", "model_trust", "ai_availability", "system_availability", "privacy_access"],
+      "advanced_blocks": ["dataset_ids", "model_ids", "jobs", "recovery", "policy_state", "fitness_checks"]
+    }
+  ],
+  "navigation": [
+    {"label": "Home", "surface": "surface.decision_cockpit"},
+    {"label": "Understand", "items": ["Workforce Health", "Employee Experience", "Retention Signals", "Quality of Hire"]},
+    {"label": "Investigate", "items": ["People Intelligence", "Saved Investigations"]},
+    {"label": "Plan", "items": ["Scenario Planner", "Retention Forecast"]},
+    {"label": "Govern", "items": ["Data & Sources", "Model Lifecycle", "Trust Center", "Settings"]}
+  ],
+  "global_context": {
+    "required": ["dataset_label", "data_freshness", "people_count", "model_state", "ai_state"],
+    "hide_by_default": ["dataset_uuid", "model_uuid", "policy_id", "job_id"]
+  },
+  "controls": [
+    {"id": "control.no_raw_errors", "rule": "Never render stack traces, library exceptions or internal dtype errors in People-facing UI"},
+    {"id": "control.coverage_confidence_split", "rule": "Coverage and confidence are distinct user-visible concepts"},
+    {"id": "control.lifecycle_truth", "rule": "No UI surface may claim an active model unless the canonical lifecycle marks a model active"},
+    {"id": "control.evidence_access", "rule": "Every material finding provides inspectable supporting evidence or clearly states that evidence is insufficient"},
+    {"id": "control.human_consequence", "rule": "PeopleOS does not present punitive individual employment actions as autonomous recommendations"},
+    {"id": "control.progressive_disclosure", "rule": "Technical execution details remain available but secondary to business findings"}
+  ],
+  "journeys": [
+    {
+      "id": "journey.first_time",
+      "actor": "actor.people_leader",
+      "steps": ["open", "detect_no_data", "setup_data", "validate", "activate", "capability_summary", "decision_cockpit"],
+      "success": "User reaches a useful trusted workforce signal and understands capability readiness"
+    },
+    {
+      "id": "journey.returning_leader",
+      "actor": "actor.people_leader",
+      "steps": ["open", "decision_cockpit", "select_signal", "investigate", "review_evidence", "choose_next_step"],
+      "success": "Relevant investigation or analysis reached in at most two primary interactions"
+    },
+    {
+      "id": "journey.direct_investigation",
+      "actor": "actor.people_analyst",
+      "steps": ["question", "plan", "execute_governed_tools", "coverage_gate", "finding", "review_evidence", "continue_or_save"],
+      "recovery": ["insufficient_evidence_explanation", "suggest_missing_evidence", "safe_partial_result"]
+    },
+    {
+      "id": "journey.model_lifecycle",
+      "actor": "actor.operator",
+      "steps": ["predictive_data_ready", "train", "evaluate", "candidate_or_reject", "authorized_review", "activate"],
+      "control": "No implicit activation"
+    }
+  ],
+  "health_signals": [
+    "time_to_first_trusted_insight",
+    "interactions_to_investigation",
+    "investigation_completion_rate",
+    "insufficient_evidence_recovery_rate",
+    "evidence_open_rate",
+    "wrong_state_incidents",
+    "raw_error_exposure",
+    "return_to_context_rate"
+  ],
+  "readiness": {
+    "current": "BUILD READY WITH ASSUMPTIONS",
+    "exit_criteria": [
+      "decision-cycle navigation implemented",
+      "explicit no-data/data-active/model/degraded UI states",
+      "canonical lifecycle context shared across primary surfaces",
+      "raw technical error exposure remains zero",
+      "first-time, returning, investigation, model lifecycle and degraded E2E journeys pass",
+      "user-visible values are consistently formatted and provenance remains inspectable"
+    ]
+  }
+}
