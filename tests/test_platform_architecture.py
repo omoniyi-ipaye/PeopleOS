@@ -54,10 +54,32 @@ def test_model_activation_requires_evaluated_candidate(tmp_path):
     assert store.get_workspace("local").active_model_id == model.model_id
 
 
-def test_evaluation_policy_is_deterministic():
-    policy = ModelEvaluationPolicy(min_auc=0.60)
-    assert policy.evaluate({"roc_auc": 0.72})["passed"] is True
-    assert policy.evaluate({"roc_auc": 0.51})["passed"] is False
+def test_evaluation_policy_requires_discrimination_calibration_and_leakage_safety():
+    policy = ModelEvaluationPolicy(min_auc=0.60, max_brier=0.30)
+
+    accepted = policy.evaluate({
+        "roc_auc": 0.72,
+        "brier_score": 0.20,
+        "holdout_untouched_by_fit": True,
+    })
+    assert accepted["passed"] is True
+
+    assert policy.evaluate({
+        "roc_auc": 0.51,
+        "brier_score": 0.20,
+        "holdout_untouched_by_fit": True,
+    })["passed"] is False
+    assert policy.evaluate({
+        "roc_auc": 0.72,
+        "brier_score": 0.40,
+        "holdout_untouched_by_fit": True,
+    })["passed"] is False
+    assert policy.evaluate({
+        "roc_auc": 0.72,
+        "brier_score": 0.20,
+        "holdout_untouched_by_fit": False,
+    })["passed"] is False
+    assert policy.evaluate({"roc_auc": 0.72})["passed"] is False
     assert policy.evaluate({})["passed"] is False
 
 
