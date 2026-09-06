@@ -3,6 +3,7 @@
 @tailwind utilities;
 
 :root {
+  color-scheme: light;
   --background: #f8fafc;
   --surface: #ffffff;
   --surface-hover: #f8fafc;
@@ -10,145 +11,103 @@
   --text-primary: #0f172a;
   --text-secondary: #475569;
   --text-muted: #94a3b8;
+  --accent: #7c3aed;
+  --focus: #7c3aed;
+  --success: #059669;
+  --warning: #d97706;
+  --danger: #dc2626;
   --chart-grid: #e2e8f0;
-  --chart-axis: #94a3b8;
+  --chart-axis: #64748b;
 }
 
 .dark {
-  --background: #0f0f0f;
-  --surface: #1a1a1a;
-  --surface-hover: #262626;
-  --border: #333333;
-  --text-primary: #ffffff;
-  --text-secondary: #a1a1aa;
-  --text-muted: #71717a;
-  --chart-grid: #333333;
-  --chart-axis: #71717a;
+  color-scheme: dark;
+  --background: #020617;
+  --surface: #0f172a;
+  --surface-hover: #1e293b;
+  --border: #334155;
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #64748b;
+  --accent: #8b5cf6;
+  --focus: #a78bfa;
+  --success: #34d399;
+  --warning: #fbbf24;
+  --danger: #f87171;
+  --chart-grid: #334155;
+  --chart-axis: #94a3b8;
 }
 
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: var(--background);
-}
-
-::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: var(--text-muted);
-}
-
-/* Custom utilities */
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
-
-  .glass {
-    @apply bg-white/70 dark:bg-black/30 backdrop-blur-xl border border-white/10 dark:border-white/5 shadow-xl;
-  }
-
-  .glass-card {
-    @apply relative overflow-hidden rounded-2xl border border-white/10 dark:border-white/5 bg-[var(--glass-surface)] backdrop-blur-md shadow-lg transition-all duration-300 hover:shadow-xl hover:bg-opacity-20;
-  }
-
-  .glass-panel {
-    @apply bg-white/50 dark:bg-black/40 backdrop-blur-2xl border-r border-white/20 dark:border-white/5;
-  }
-
-  .text-gradient {
-    @apply bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400;
-  }
-
-  .animate-float {
-    animation: float 6s ease-in-out infinite;
-  }
-}
-
-@keyframes float {
-  0% {
-    transform: translateY(0px);
-  }
-
-  50% {
-    transform: translateY(-10px);
-  }
-
-  100% {
-    transform: translateY(0px);
-  }
-}
-
-/* Base styles */
 @layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  html {
+    background: var(--background);
+    text-rendering: optimizeLegibility;
+  }
+
   body {
     @apply bg-background text-text-primary antialiased;
+    min-width: 320px;
   }
 
   .dark body {
     @apply bg-background-dark text-text-dark-primary;
   }
+
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--accent) 22%, transparent);
+  }
 }
 
-/* Animation for loading states */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track { background: var(--background); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+@layer utilities {
+  .text-balance { text-wrap: balance; }
+  .glass { @apply border border-white/10 bg-white/70 shadow-lg backdrop-blur-xl dark:border-white/5 dark:bg-slate-950/70; }
+  .glass-card { @apply relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-900; }
+  .glass-panel { @apply border-r border-slate-200 bg-white/90 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/90; }
+  .text-gradient { @apply bg-gradient-to-r from-slate-950 to-slate-600 bg-clip-text text-transparent dark:from-white dark:to-slate-400; }
+}
+
 @keyframes pulse-subtle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.72; }
+}
+.animate-pulse-subtle { animation: pulse-subtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
 
-  0%,
-  100% {
-    opacity: 1;
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
-
-  50% {
-    opacity: 0.7;
-  }
 }
 
-.animate-pulse-subtle {
-  animation: pulse-subtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
-/* Chart container styles */
-.recharts-wrapper {
-  font-family: inherit !important;
-}
-
-.recharts-text {
-  fill: var(--text-secondary) !important;
-  font-size: 12px !important;
-}
-
-.recharts-cartesian-grid line {
-  stroke: var(--chart-grid) !important;
-}
-
-.recharts-tooltip-wrapper {
-  outline: none;
-}
-
+.recharts-wrapper { font-family: inherit !important; }
+.recharts-text { fill: var(--text-secondary) !important; font-size: 12px !important; }
+.recharts-cartesian-grid line { stroke: var(--chart-grid) !important; }
+.recharts-tooltip-wrapper { outline: none; }
 .recharts-default-tooltip {
   background-color: var(--surface) !important;
   border: 1px solid var(--border) !important;
-  border-radius: 8px !important;
-  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1) !important;
-  padding: 8px 12px !important;
+  border-radius: 12px !important;
+  box-shadow: 0 12px 28px -12px rgb(15 23 42 / 0.24) !important;
+  padding: 10px 12px !important;
 }
-
-.recharts-tooltip-label {
-  color: var(--text-primary) !important;
-  font-weight: 600 !important;
-  margin-bottom: 4px !important;
-  font-size: 13px !important;
-}
-
-.recharts-tooltip-item {
-  color: var(--text-secondary) !important;
-  font-size: 12px !important;
-  padding: 2px 0 !important;
-}
+.recharts-tooltip-label { color: var(--text-primary) !important; font-weight: 600 !important; margin-bottom: 4px !important; font-size: 13px !important; }
+.recharts-tooltip-item { color: var(--text-secondary) !important; font-size: 12px !important; padding: 2px 0 !important; }
