@@ -6,7 +6,7 @@ from typing import Dict, Any, Optional
 
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from fastapi.responses import FileResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from api.dependencies import get_app_state, AppState
 from src.platform.runtime_loader import load_dataset
@@ -37,7 +37,7 @@ class UploadResponse(BaseModel):
     workspace_id: str = "local"
     dataset_id: Optional[str] = None
     dataset_version: Optional[int] = None
-    deferred: Dict[str, bool] = {}
+    deferred: Dict[str, bool] = Field(default_factory=dict)
 
 
 class DatabaseStatusResponse(BaseModel):
