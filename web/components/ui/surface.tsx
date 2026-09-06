@@ -5,7 +5,8 @@ import { designTokens, semanticTone, type SemanticTone } from '@/design-system/t
 export interface SurfaceProps extends HTMLAttributes<HTMLElement> {
   as?: 'div' | 'section' | 'article' | 'aside'
   tone?: SemanticTone
-  padding?: 'none' | 'compact' | 'default'
+  /** compact/default are canonical. md/lg remain supported aliases for product composition readability. */
+  padding?: 'none' | 'compact' | 'default' | 'md' | 'lg'
   elevation?: 'none' | 'base' | 'raised'
   interactive?: boolean
   children: ReactNode
@@ -21,7 +22,8 @@ export function Surface({
   children,
   ...props
 }: SurfaceProps) {
-  const paddingClass = padding === 'none' ? '' : padding === 'compact' ? designTokens.spacing.compact : designTokens.spacing.panel
+  const normalizedPadding = padding === 'md' ? 'compact' : padding === 'lg' ? 'default' : padding
+  const paddingClass = normalizedPadding === 'none' ? '' : normalizedPadding === 'compact' ? designTokens.spacing.compact : designTokens.spacing.panel
   const elevationClass = elevation === 'none' ? '' : elevation === 'raised' ? designTokens.elevation.raised : designTokens.elevation.base
 
   return (
