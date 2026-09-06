@@ -2,6 +2,11 @@
 # Installs the API, analytics, governed agent, and predictive stack without
 # transformer/GPU/vector extras. Use requirements-advanced.txt for optional NLP/search.
 
+# Transitional compatibility: the legacy ML engine still imports Streamlit at module
+# load. Keeping Streamlit here preserves the core runtime while the expensive
+# transformer/vector stack remains advanced-only.
+streamlit==1.31.0
+
 pandas==2.1.4
 numpy==1.26.3
 
