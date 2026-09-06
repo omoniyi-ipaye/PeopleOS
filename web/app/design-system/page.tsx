@@ -19,6 +19,31 @@ export default function DesignSystemPage() {
       />
 
       <Card>
+        <SectionHeader title="Information hierarchy" description="Operational context must support the user's task without becoming the task." />
+        <div className="mt-5 grid gap-4 lg:grid-cols-3">
+          <Surface padding="md">
+            <div className="text-xs font-semibold uppercase tracking-wider text-text-muted">01 · Primary</div>
+            <div className="mt-2 font-semibold">Decision, insight or action</div>
+            <p className="mt-2 text-sm leading-6 text-text-secondary">The page's main purpose gets the strongest hierarchy: headline finding, key metric, analysis, or next action.</p>
+          </Surface>
+          <Surface padding="md">
+            <div className="text-xs font-semibold uppercase tracking-wider text-text-muted">02 · Supporting</div>
+            <div className="mt-2 font-semibold">Context stays quiet</div>
+            <p className="mt-2 text-sm leading-6 text-text-secondary">Data freshness, model state, evidence quality and explanatory notes use low-contrast inline treatment unless they materially change the decision.</p>
+          </Surface>
+          <Surface padding="md">
+            <div className="text-xs font-semibold uppercase tracking-wider text-text-muted">03 · Escalated</div>
+            <div className="mt-2 font-semibold">Attention must be earned</div>
+            <p className="mt-2 text-sm leading-6 text-text-secondary">Only warnings, blocked states, failures or consequential limitations receive strong visual surfaces. Technical detail remains progressively disclosed.</p>
+          </Surface>
+        </div>
+        <div className="mt-5 space-y-3">
+          <StateSummary title="Supporting context example" description="Dataset updated 2 hours ago · predictive model not active · deterministic analysis remains available." tone="info" />
+          <StateSummary title="Attention example" description="This result cannot support the requested decision because the required outcome data is missing." tone="warning" />
+        </div>
+      </Card>
+
+      <Card>
         <SectionHeader title="Experience-state contract" description="Every state must feel intentional. A user should always understand what happened, what remains usable and what to do next." />
         <div className="mt-5 grid gap-4 lg:grid-cols-3">
           <Surface padding="md">
