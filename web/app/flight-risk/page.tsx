@@ -3,8 +3,8 @@
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { api } from '@/lib/api-client'
-import { Button, EmptyState, MetricCard, Page, PageHeader, SectionHeader, StateSummary, StatusBadge, Surface } from '@/components/ui'
-import { Activity, ArrowRight, BarChart3, Brain, ShieldCheck, Target, Users } from 'lucide-react'
+import { EmptyState, MetricCard, Page, PageHeader, SectionHeader, StateSummary, StatusBadge, Surface } from '@/components/ui'
+import { Activity, ArrowRight, Brain, ShieldCheck, Target, Users } from 'lucide-react'
 import type { ModelMetrics, FeatureImportance, PredictionSummary } from '@/types/api'
 
 export default function RetentionSignalsPage() {
@@ -16,7 +16,7 @@ export default function RetentionSignalsPage() {
 
   if (metrics.isError || !metrics.data) {
     return <Page>
-      <PageHeader eyebrow="Understand · Retention Signals" title="Predictive retention signals are not active" description="PeopleOS keeps predictive risk separate from the deterministic analytics layer. Train and activate a governed model before using this surface." />
+      <PageHeader eyebrow="Understand · Retention Signals" title="Predictive retention signals are not active" description="PeopleOS keeps predictive risk separate from deterministic analytics. Train and activate a governed model before using this surface." />
       <StateSummary title="No active predictive model" description="Workforce Health and People Intelligence remain available without a model. Predictive retention does not silently train during data upload." tone="warning" />
       <Surface padding="lg" className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div><div className="font-semibold">Need retention evidence now?</div><div className="text-sm text-text-secondary">Use deterministic turnover, tenure and department signals while the predictive lifecycle is inactive.</div></div><Link href="/workforce-health" className="inline-flex items-center gap-2 text-sm font-semibold text-accent">Open Workforce Health <ArrowRight className="h-4 w-4" /></Link></Surface>
     </Page>
@@ -24,7 +24,7 @@ export default function RetentionSignalsPage() {
 
   const model = metrics.data
   const distribution = predictions.data?.distribution
-  const total = distribution?.total ?? 0
+  const total = (distribution?.high_risk ?? 0) + (distribution?.medium_risk ?? 0) + (distribution?.low_risk ?? 0)
   const highPct = distribution?.high_risk_pct ?? 0
   const mediumPct = distribution?.medium_risk_pct ?? 0
   const lowPct = distribution?.low_risk_pct ?? 0
@@ -32,42 +32,21 @@ export default function RetentionSignalsPage() {
 
   return <Page>
     <PageHeader eyebrow="Understand · Retention Signals" title="Where is predictive retention pressure concentrated?" description="Aggregate predictive signals, model fitness and strongest model features are shown together so risk is never read without model context." />
-
     <StateSummary title="Predictive signal, not an employment decision" description="Retention scores may help prioritise systemic investigation. They must not be used as the sole basis for termination, discipline, demotion, pay reduction or other consequential individual action." tone="info" />
 
     <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      <MetricCard label="Model quality" value={`${(model.roc_auc ?? model.f1 ?? 0) * 100 < 1 ? ((model.roc_auc ?? model.f1 ?? 0) * 100).toFixed(0) : ((model.roc_auc ?? model.f1 ?? 0) * 100).toFixed(0)}%`} detail={model.roc_auc != null ? 'ROC AUC' : 'F1 score'} icon={Brain} tone={(model.roc_auc ?? model.f1 ?? 0) >= .7 ? 'success' : 'warning'} />
+      <MetricCard label="Model quality" value={`${(model.f1 * 100).toFixed(0)}%`} detail="F1 score" icon={Brain} tone={model.f1 >= .7 ? 'success' : 'warning'} />
       <MetricCard label="People scored" value={total.toLocaleString()} detail="Aggregate predictive coverage" icon={Users} />
       <MetricCard label="High signal" value={`${highPct.toFixed(1)}%`} detail={`${distribution?.high_risk ?? 0} people in high band`} icon={Target} tone={highPct >= 20 ? 'warning' : 'neutral'} />
       <MetricCard label="Model reliability" value={model.reliability ?? 'Unknown'} detail={model.best_model ?? 'Active predictive model'} icon={ShieldCheck} tone={model.reliability === 'High' ? 'success' : 'info'} />
     </section>
 
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
-      <Surface padding="lg">
-        <SectionHeader title="Risk distribution" description="Population-level bands from the active predictive model." />
-        <div className="mt-6 space-y-5">
-          <DistributionRow label="High" count={distribution?.high_risk ?? 0} percent={highPct} tone="danger" />
-          <DistributionRow label="Medium" count={distribution?.medium_risk ?? 0} percent={mediumPct} tone="warning" />
-          <DistributionRow label="Low" count={distribution?.low_risk ?? 0} percent={lowPct} tone="success" />
-        </div>
-      </Surface>
-
-      <Surface padding="lg">
-        <SectionHeader title="Model fitness" description="Quality metrics belong beside the predictions they qualify." />
-        <div className="mt-5 space-y-3">
-          <MetricRow label="Accuracy" value={`${(model.accuracy * 100).toFixed(1)}%`} />
-          <MetricRow label="Precision" value={`${(model.precision * 100).toFixed(1)}%`} />
-          <MetricRow label="Recall" value={`${(model.recall * 100).toFixed(1)}%`} />
-          <MetricRow label="F1" value={`${(model.f1 * 100).toFixed(1)}%`} />
-          {model.roc_auc != null && <MetricRow label="ROC AUC" value={`${(model.roc_auc * 100).toFixed(1)}%`} />}
-        </div>
-      </Surface>
+      <Surface padding="lg"><SectionHeader title="Risk distribution" description="Population-level bands from the active predictive model." /><div className="mt-6 space-y-5"><DistributionRow label="High" count={distribution?.high_risk ?? 0} percent={highPct} tone="danger" /><DistributionRow label="Medium" count={distribution?.medium_risk ?? 0} percent={mediumPct} tone="warning" /><DistributionRow label="Low" count={distribution?.low_risk ?? 0} percent={lowPct} tone="success" /></div></Surface>
+      <Surface padding="lg"><SectionHeader title="Model fitness" description="Quality metrics belong beside the predictions they qualify." /><div className="mt-5 space-y-3"><MetricRow label="Accuracy" value={`${(model.accuracy * 100).toFixed(1)}%`} /><MetricRow label="Precision" value={`${(model.precision * 100).toFixed(1)}%`} /><MetricRow label="Recall" value={`${(model.recall * 100).toFixed(1)}%`} /><MetricRow label="F1" value={`${(model.f1 * 100).toFixed(1)}%`} /></div></Surface>
     </div>
 
-    <Surface padding="lg">
-      <SectionHeader title="Strongest model features" description="Feature importance explains model influence, not causal drivers of attrition." />
-      <div className="mt-5 grid gap-3 md:grid-cols-2">{features.length ? features.map((item, index) => <div key={`${item.feature}-${index}`} className="flex items-center justify-between gap-4 rounded-2xl border border-border p-4"><div><div className="font-medium">{item.feature}</div><div className="text-xs text-text-muted">Relative model importance</div></div><StatusBadge tone="neutral">{typeof item.importance === 'number' ? item.importance.toFixed(3) : '—'}</StatusBadge></div>) : <EmptyState title="Feature importance is not available" />}</div>
-    </Surface>
+    <Surface padding="lg"><SectionHeader title="Strongest model features" description="Feature importance explains model influence, not causal drivers of attrition." /><div className="mt-5 grid gap-3 md:grid-cols-2">{features.length ? features.map((item, index) => <div key={`${item.feature}-${index}`} className="flex items-center justify-between gap-4 rounded-2xl border border-border p-4"><div><div className="font-medium">{item.feature}</div><div className="text-xs text-text-muted">Relative model importance</div></div><StatusBadge tone="neutral">{typeof item.importance === 'number' ? item.importance.toFixed(3) : '—'}</StatusBadge></div>) : <EmptyState title="Feature importance is not available" description="The active model did not expose a feature-importance view." />}</div></Surface>
 
     <Surface padding="md" className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><div className="font-semibold">Move from prediction to evidence.</div><div className="text-sm text-text-secondary">Use People Intelligence to compare predictive pressure with deterministic workforce evidence before acting.</div></div><Link href="/advisor" className="inline-flex items-center gap-2 text-sm font-semibold text-accent"><Activity className="h-4 w-4" />Investigate retention <ArrowRight className="h-4 w-4" /></Link></Surface>
   </Page>
