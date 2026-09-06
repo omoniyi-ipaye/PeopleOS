@@ -23,12 +23,15 @@ interface DepartmentBarChartProps {
   dataKey?: 'headcount' | 'avg_salary' | 'turnover_rate'
 }
 
-const COLORS = ['#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe', '#dbeafe']
+const COLORS = [
+  'var(--chart-accent-strong, var(--accent))',
+  'var(--chart-accent, var(--accent))',
+  'var(--chart-accent-soft, var(--accent))',
+  'var(--chart-accent-muted, var(--accent))',
+  'var(--chart-accent-faint, var(--accent))',
+]
 
-export function DepartmentBarChart({
-  data,
-  dataKey = 'headcount',
-}: DepartmentBarChartProps) {
+export function DepartmentBarChart({ data, dataKey = 'headcount' }: DepartmentBarChartProps) {
   const chartData = data
     .filter((d) => d[dataKey] !== undefined && d[dataKey] !== null)
     .sort((a, b) => (b[dataKey] || 0) - (a[dataKey] || 0))
@@ -50,10 +53,10 @@ export function DepartmentBarChart({
           contentStyle={{
             backgroundColor: 'var(--surface)',
             border: '1px solid var(--border)',
-            borderRadius: '8px',
+            borderRadius: 'var(--radius-control, 8px)',
             color: 'var(--text-primary)',
             fontSize: '12px',
-            boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
+            boxShadow: 'var(--shadow-raised)',
           }}
           itemStyle={{ color: 'inherit' }}
           formatter={(value) => [formatValue(Number(value ?? 0)), dataKey]}
