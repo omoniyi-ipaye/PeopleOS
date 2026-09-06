@@ -1,9 +1,9 @@
 """Policy enforcement for PeopleOS agent and LLM outputs.
 
 Policy lives outside prompts so model behavior cannot silently redefine HR safety
-or authority boundaries. The first policy is deliberately narrow: PeopleOS may
-analyze workforce systems and recommend systemic interventions, but it must not
-recommend punitive or irreversible employment actions about individuals.
+or authority boundaries. PeopleOS may analyze workforce systems and describe HR
+outcomes, but it must not recommend punitive or irreversible employment actions
+about individuals.
 """
 
 import re
@@ -11,17 +11,22 @@ from dataclasses import dataclass, field
 from typing import List
 
 
+# Block action-oriented recommendations, not neutral analytical mentions such as
+# "termination rate" or "dismissal cases increased". Patterns deliberately look
+# for an imperative/recommendation verb close to a consequential employment act.
 _PROHIBITED_ACTION_PATTERNS = [
-    r"\bterminate(?:d|s|ing|ion)?\b",
-    r"\bfire(?:d|s|ing)?\b",
-    r"\bdismiss(?:ed|al|es|ing)?\b",
-    r"\bdisciplin(?:e|ed|ary|ing)\b",
-    r"\bperformance improvement plan\b",
-    r"\bput (?:him|her|them|the employee) on (?:a )?pip\b",
-    r"\bsalary reduction\b",
-    r"\breduce (?:his|her|their|the employee(?:'s)?) salary\b",
-    r"\bdemot(?:e|ed|ion|ing)\b",
-    r"\bpunitive\b",
+    r"\b(?:recommend|should|must|need to|consider|propose|suggest|advise|immediately)\b[^.\n]{0,80}\bterminat(?:e|ing|ion)\b",
+    r"\b(?:recommend|should|must|need to|consider|propose|suggest|advise|immediately)\b[^.\n]{0,80}\bfire\b",
+    r"\b(?:recommend|should|must|need to|consider|propose|suggest|advise|immediately)\b[^.\n]{0,80}\bdismiss\b",
+    r"\b(?:recommend|should|must|need to|consider|propose|suggest|advise|immediately)\b[^.\n]{0,80}\bdisciplin(?:e|ary)\b",
+    r"\b(?:recommend|should|must|need to|consider|propose|suggest|advise)\b[^.\n]{0,80}\bperformance improvement plan\b",
+    r"\bput (?:him|her|them|the employee|that employee|those employees) on (?:a )?pip\b",
+    r"\b(?:recommend|should|must|need to|consider|propose|suggest|advise)\b[^.\n]{0,80}\bsalary reduction\b",
+    r"\breduce (?:his|her|their|the employee(?:'s)?|that employee(?:'s)?) salary\b",
+    r"\b(?:recommend|should|must|need to|consider|propose|suggest|advise)\b[^.\n]{0,80}\bdemot(?:e|ion)\b",
+    r"\bfire (?:him|her|them|the employee|that employee|those employees)\b",
+    r"\bterminate (?:him|her|them|the employee|that employee|those employees)\b",
+    r"\bdismiss (?:him|her|them|the employee|that employee|those employees)\b",
 ]
 
 
@@ -41,7 +46,7 @@ class HRAdvicePolicy:
         for pattern in _PROHIBITED_ACTION_PATTERNS:
             if re.search(pattern, text, flags=re.IGNORECASE):
                 reasons.append(
-                    "Output recommends or discusses a prohibited punitive employment action."
+                    "Output recommends a prohibited punitive or irreversible employment action."
                 )
                 break
         return PolicyDecision(allowed=not reasons, reasons=reasons)
