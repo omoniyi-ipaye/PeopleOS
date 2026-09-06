@@ -25,6 +25,7 @@ logs/
 sessions/
 results/
 artifacts/
+.peopleos/
 
 # System
 .DS_Store
