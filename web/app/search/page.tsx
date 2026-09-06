@@ -1,10 +1,11 @@
 'use client'
 
 import { FormEvent, useState } from 'react'
+import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api-client'
 import { Button, EmptyState, Input, Page, PageHeader, SectionHeader, StateSummary, StatusBadge, Surface } from '@/components/ui'
-import { ArrowRight, FileText, Search } from 'lucide-react'
+import { ArrowRight, Database, FileText, Search, ShieldCheck, Sparkles } from 'lucide-react'
 import type { SearchResult, SearchStatus } from '@/types/api'
 
 export default function SearchPage() {
@@ -15,7 +16,36 @@ export default function SearchPage() {
 
   const submit = (event: FormEvent) => { event.preventDefault(); if (query.trim().length >= 3) setSearchTerm(query.trim()) }
 
-  if (status?.available === false) return <Page><PageHeader eyebrow="Investigate · Research" title="Search is not available for this dataset" description="Semantic research only appears when the relevant text source is present and the optional indexing capability is available." /><StateSummary title="Capability unavailable" description={status.reason || 'Add a supported text source to enable semantic research.'} tone="warning" /></Page>
+  if (status?.available === false) return <Page>
+    <PageHeader eyebrow="Investigate · Research" title="Search is not available for this dataset" description="Semantic research appears only when the active dataset contains supported workforce text and an evidence index has been prepared." />
+    <StateSummary title="Nothing is broken" description={status.reason || 'This dataset does not currently provide the text evidence required for semantic research.'} tone="warning" />
+
+    <div className="grid gap-6 lg:grid-cols-3">
+      <Surface padding="lg">
+        <div className="grid h-10 w-10 place-items-center rounded-xl bg-accent/10 text-accent"><FileText className="h-5 w-5" /></div>
+        <h2 className="mt-4 font-semibold">What unlocks Research</h2>
+        <p className="mt-2 text-sm leading-6 text-text-secondary">Add supported narrative fields such as performance text, survey comments or other approved workforce text sources.</p>
+      </Surface>
+      <Surface padding="lg">
+        <div className="grid h-10 w-10 place-items-center rounded-xl bg-accent/10 text-accent"><Sparkles className="h-5 w-5" /></div>
+        <h2 className="mt-4 font-semibold">What you can do now</h2>
+        <p className="mt-2 text-sm leading-6 text-text-secondary">People Intelligence can still investigate structured workforce evidence such as attrition, compensation, tenure and organisational structure.</p>
+      </Surface>
+      <Surface padding="lg">
+        <div className="grid h-10 w-10 place-items-center rounded-xl bg-accent/10 text-accent"><ShieldCheck className="h-5 w-5" /></div>
+        <h2 className="mt-4 font-semibold">Why it is gated</h2>
+        <p className="mt-2 text-sm leading-6 text-text-secondary">PeopleOS does not invent a search index or imply text evidence exists when the required source is missing.</p>
+      </Surface>
+    </div>
+
+    <Surface padding="md" className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div><div className="font-semibold">Choose the next useful path</div><div className="text-sm text-text-secondary">Add richer evidence or continue with the structured evidence already available.</div></div>
+      <div className="flex flex-wrap gap-2">
+        <Link href="/upload" className="inline-flex items-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm font-semibold text-text-primary transition hover:bg-background-secondary"><Database className="h-4 w-4" />Data & Sources</Link>
+        <Link href="/advisor" className="inline-flex items-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90">Open People Intelligence <ArrowRight className="h-4 w-4" /></Link>
+      </div>
+    </Surface>
+  </Page>
 
   const results = data?.results ?? []
 
