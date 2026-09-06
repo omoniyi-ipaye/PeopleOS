@@ -9,10 +9,8 @@ import type { DepartmentList, CorrelationsResponse, HighRiskDepartmentsResponse 
 import { CompensationTab } from '@/components/diagnostics/compensation-tab'
 import { SuccessionTab } from '@/components/diagnostics/succession-tab'
 import { NLPTab } from '@/components/diagnostics/nlp-tab'
-import { TeamDynamicsTab } from '@/components/diagnostics/team-dynamics-tab'
-import { SegmentsTab } from '@/components/diagnostics/segments-tab'
 
-type WorkforceTab = 'pulse' | 'compensation' | 'succession' | 'insights' | 'segments'
+type WorkforceTab = 'pulse' | 'compensation' | 'succession' | 'insights'
 
 export default function WorkforceHealthPage() {
   const [tab, setTab] = useState<WorkforceTab>('pulse')
@@ -33,13 +31,12 @@ export default function WorkforceHealthPage() {
     { id: 'pulse', label: 'Workforce pulse', icon: Activity },
     { id: 'compensation', label: 'Compensation', icon: DollarSign },
     { id: 'succession', label: 'Succession', icon: Users },
-    { id: 'insights', label: 'Team insights', icon: MessageSquare },
-    { id: 'segments', label: 'Segments', icon: Target },
+    { id: 'insights', label: 'Narrative evidence', icon: MessageSquare },
   ]
 
   return (
     <Page>
-      <PageHeader eyebrow="Understand · Workforce Health" title="Where is organisational pressure building?" description="A portfolio view of turnover, department health, workforce drivers and supporting diagnostic lenses." />
+      <PageHeader eyebrow="Understand · Workforce Health" title="Where is organisational pressure building?" description="A portfolio view of turnover, department health, workforce drivers and supporting governed lenses." />
 
       <div className="flex flex-wrap gap-2">{tabs.map(({ id, label, icon: Icon }) => <Button key={id} variant={tab === id ? 'primary' : 'secondary'} size="sm" onClick={() => setTab(id)}><Icon className="h-4 w-4" />{label}</Button>)}</div>
 
@@ -51,7 +48,7 @@ export default function WorkforceHealthPage() {
             <MetricCard label="People represented" value={totalHeadcount.toLocaleString()} detail="Across department aggregates" icon={Users} />
             <MetricCard label="Departments" value={departments.length.toLocaleString()} detail="Current analytical coverage" icon={Target} />
             <MetricCard label="Average department turnover" value={`${(avgTurnover * 100).toFixed(1)}%`} detail="Unweighted department average" icon={HeartPulse} tone={avgTurnover > .2 ? 'danger' : avgTurnover > .15 ? 'warning' : 'success'} />
-            <MetricCard label="Priority areas" value={highRisk.length.toLocaleString()} detail={`Threshold ${(riskData?.threshold ?? 0) * 100}%`} icon={AlertTriangle} tone={highRisk.length ? 'warning' : 'success'} />
+            <MetricCard label="Priority areas" value={highRisk.length.toLocaleString()} detail={`Threshold ${((riskData?.threshold ?? 0) * 100).toFixed(0)}%`} icon={AlertTriangle} tone={highRisk.length ? 'warning' : 'success'} />
           </section>
 
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
@@ -77,8 +74,7 @@ export default function WorkforceHealthPage() {
           <div className="mt-6">
             {tab === 'compensation' && <CompensationTab />}
             {tab === 'succession' && <SuccessionTab />}
-            {tab === 'insights' && <div className="space-y-8"><TeamDynamicsTab /><div className="border-t border-border pt-8"><NLPTab /></div></div>}
-            {tab === 'segments' && <SegmentsTab />}
+            {tab === 'insights' && <NLPTab />}
           </div>
         </Surface>
       )}
