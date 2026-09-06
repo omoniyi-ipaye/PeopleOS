@@ -11,7 +11,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "lint:fix": "eslint . --fix"
+    "lint:fix": "eslint . --fix",
+    "design:check": "node scripts/validate-design-system.mjs"
   },
   "dependencies": {
     "@tanstack/react-query": "5.102.8",
