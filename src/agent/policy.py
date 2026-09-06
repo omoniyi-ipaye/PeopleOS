@@ -13,7 +13,8 @@ from typing import List
 
 # Block action-oriented recommendations, not neutral analytical mentions such as
 # "termination rate" or "dismissal cases increased". Patterns deliberately look
-# for an imperative/recommendation verb close to a consequential employment act.
+# for an imperative/recommendation verb close to a consequential employment act,
+# or for a direct action verb that explicitly targets employee(s).
 _PROHIBITED_ACTION_PATTERNS = [
     r"\b(?:recommend|should|must|need to|consider|propose|suggest|advise|immediately)\b[^.\n]{0,80}\bterminat(?:e|ing|ion)\b",
     r"\b(?:recommend|should|must|need to|consider|propose|suggest|advise|immediately)\b[^.\n]{0,80}\bfire\b",
@@ -24,6 +25,11 @@ _PROHIBITED_ACTION_PATTERNS = [
     r"\b(?:recommend|should|must|need to|consider|propose|suggest|advise)\b[^.\n]{0,80}\bsalary reduction\b",
     r"\breduce (?:his|her|their|the employee(?:'s)?|that employee(?:'s)?) salary\b",
     r"\b(?:recommend|should|must|need to|consider|propose|suggest|advise)\b[^.\n]{0,80}\bdemot(?:e|ion)\b",
+    r"\bfire\b[^.\n]{0,60}\bemploye(?:e|es)\b",
+    r"\bterminat(?:e|ing)\b[^.\n]{0,60}\bemploye(?:e|es)\b",
+    r"\bdismiss\b[^.\n]{0,60}\bemploye(?:e|es)\b",
+    r"\bdisciplin(?:e|ing)\b[^.\n]{0,60}\bemploye(?:e|es)\b",
+    r"\bdemot(?:e|ing)\b[^.\n]{0,60}\bemploye(?:e|es)\b",
     r"\bfire (?:him|her|them|the employee|that employee|those employees)\b",
     r"\bterminate (?:him|her|them|the employee|that employee|those employees)\b",
     r"\bdismiss (?:him|her|them|the employee|that employee|those employees)\b",
