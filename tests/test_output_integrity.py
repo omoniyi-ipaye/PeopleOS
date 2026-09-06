@@ -15,6 +15,7 @@ from src.experience_engine import ExperienceEngine
 from src.fairness_engine import FairnessEngine
 from src.population import active_population, normalize_attrition, resolve_current_population
 from src.preprocessor import Preprocessor
+from src.serialization import json_safe
 
 
 def _base_rows(n=40):
@@ -169,3 +170,23 @@ def test_scenario_output_is_forced_to_exploratory_semantics():
     assert sanitized.confidence_score <= .5
     assert 'validate' in sanitized.recommendation.lower()
     assert all('high-risk' not in item.lower() for item in sanitized.alternative_actions)
+
+
+def test_json_safe_normalizes_numpy_scalars_and_nonfinite_numbers_recursively():
+    payload = {
+        'healthy': np.bool_(True),
+        'count': np.int64(7),
+        'score': np.float64(.75),
+        'undefined': float('nan'),
+        'positive_infinity': float('inf'),
+        'negative_infinity': np.float64('-inf'),
+        'nested': [np.bool_(False), {'value': np.float32(2.5)}],
+    }
+    safe = json_safe(payload)
+    assert safe['healthy'] is True
+    assert safe['count'] == 7
+    assert safe['score'] == .75
+    assert safe['undefined'] is None
+    assert safe['positive_infinity'] is None
+    assert safe['negative_infinity'] is None
+    assert safe['nested'] == [False, {'value': 2.5}]
