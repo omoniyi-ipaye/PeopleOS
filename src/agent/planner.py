@@ -38,6 +38,12 @@ class EvidencePlanner:
         if any(term in q for term in ["salary", "pay", "compensation", "equity", "equal pay", "gender gap"]):
             add("workforce.compensation_equity", "compensation/equity evidence requested")
 
+        if any(term in q for term in ["fairness", "bias", "disparity", "protected group", "adverse impact"]):
+            add("workforce.fairness", "fairness/disparity evidence requested")
+
+        if any(term in q for term in ["experience", "engagement", "enps", "pulse", "work-life", "work life", "employee sentiment"]):
+            add("workforce.employee_experience", "employee-experience evidence requested")
+
         if any(term in q for term in ["manager", "span", "structure", "stagnation", "promotion", "org design", "organization design"]):
             add("workforce.organization_structure", "organization-structure evidence requested")
 
@@ -47,6 +53,8 @@ class EvidencePlanner:
             add("workforce.retention_risk", "strategic workforce health lens")
             add("workforce.department_risk", "strategic hotspot lens")
             add("workforce.compensation_equity", "strategic compensation lens")
+            add("workforce.fairness", "strategic fairness lens")
+            add("workforce.employee_experience", "strategic employee-experience lens")
             add("workforce.organization_structure", "strategic structure lens")
 
         return InvestigationPlan(tool_ids=tools, rationale="; ".join(reasons))
