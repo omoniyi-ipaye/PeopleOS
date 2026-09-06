@@ -1,13 +1,22 @@
 # PeopleOS Agent System Upgrade
 
-Status: In progress
+Status: **TRANSITION implementation complete; verification in progress**  
 Branch: `upgrade/agent-system-foundation`
 
-## Current architecture assessment
+## Purpose
 
-PeopleOS is currently a strong local-first People Analytics platform with deterministic analytical engines plus an LLM-backed Strategic Advisor. It is not yet an agentic system in the architectural sense because the current advisor follows a direct pattern: analytics context -> prompt -> Ollama -> parsed response.
+Evolve PeopleOS from a local People Analytics application with direct LLM prompting into a governed People Intelligence System that:
 
-The target is to evolve PeopleOS into a governed People Intelligence Agent System without replacing the deterministic analytics foundation.
+- preserves deterministic analytics as the source of truth;
+- uses AI for interpretation and synthesis, not enforcement;
+- traces conclusions to workspace, dataset, model and tool evidence;
+- makes model/data lifecycle explicit;
+- keeps consequential employment actions outside the autonomy boundary;
+- detects degraded control-plane state and recovers only inside a bounded L2 envelope.
+
+The canonical structural source of truth is `model/system.json`.
+
+---
 
 ## AS-IS
 
@@ -24,165 +33,382 @@ FastAPI routes
   |
   +--> Strategic Advisor
            |
-           +--> Build analytics context
-           +--> Prompt Ollama
-           +--> Parse free text
+           +--> build analytics context
+           +--> prompt Ollama directly
+           +--> parse free text
+
+Process-global AppState
+  +--> active dataframe
+  +--> initialized analytics engines
+  +--> trained ML state
+  +--> LLM client
 ```
 
-## Key findings
+Material AS-IS weaknesses observed during review:
 
-### P0 - LLM safety enforcement can be bypassed
-`LLMClient` contains prohibited-content validation, but the advisor route previously called `llm_client.generate()` directly and returned the result. The exposed advisor paths are now routed through `_generate_safe()`, which applies the existing shared validator and blocks prohibited output before it can be returned.
+1. advisor model output could bypass the intended validation path;
+2. API defaulted to `0.0.0.0`;
+3. PeopleOS had no explicit agent planner/tool/evidence model;
+4. state and model lifecycle were implicit inside a process-global singleton;
+5. data loading could initialize/train predictive models;
+6. no durable investigation/workspace/model/dataset identity existed;
+7. no system-level fitness/recovery model existed;
+8. the frontend security/runtime baseline was on the Next.js 14 / React 18 generation.
 
-Remaining target: move enforcement fully into a public LLM-client boundary so future call sites cannot accidentally bypass policy.
+---
 
-### P0 - Local-first network boundary is too permissive by default
-The application previously launched with `0.0.0.0`. `api.main` now defaults to `127.0.0.1`, with `PEOPLEOS_API_HOST` as an explicit opt-in for wider network exposure.
-
-### P0 - Frontend dependency security baseline needs modernization
-Next.js is on the 14.x line. Upgrade should be handled as a security and compatibility workstream rather than a cosmetic dependency refresh.
-
-### P1 - Global AppState will constrain multi-workspace and agent evolution
-Current state is held in one process-wide singleton containing datasets, engines, trained models, risk scores, surveys and LLM state.
-
-Target model:
+## TARGET
 
 ```text
-Workspace
-  +-- Dataset version
-  +-- Analysis run
-  +-- Model version
-  +-- Agent session
-  +-- Evidence bundle
+People / HR user
+       |
+       v
++---------------------------+
+| Next.js product surface   |
+| Advisor + System Health   |
++-------------+-------------+
+              |
+              v
++---------------------------+
+| FastAPI trust boundary    |
+| local owner / remote role |
++-------------+-------------+
+              |
+      +-------+--------+
+      |                |
+      v                v
++-------------+   +------------------+
+| Workspace   |   | People           |
+| control     |   | Intelligence     |
+| plane       |   | Agent            |
++------+------+   +--------+---------+
+       |                   |
+       |                   v
+       |            deterministic plan
+       |                   |
+       |                   v
+       |            governed tool registry
+       |                   |
+       |                   v
+       |              EvidenceBundle
+       |       provenance/confidence/coverage
+       |            sufficiency/unknowns
+       |                   |
+       |              sufficiency gate
+       |                   |
+       |          +--------+--------+
+       |          |                 |
+       |     insufficient       sufficient
+       |          |                 |
+       |   deterministic         policy-bound
+       |     limitations        LLM synthesis
+       |          |                 |
+       |          +--------+--------+
+       |                   |
+       |                   v
+       |             verified answer
+       |                   |
+       |                   v
+       |               audit event
+       |
+       +--> dataset lifecycle
+       |     validate -> version -> activate -> supersede
+       |
+       +--> model lifecycle
+       |     create -> train -> evaluate -> candidate
+       |                        -> reject
+       |     candidate --governed activation--> active -> retired
+       |
+       +--> investigation sessions
+       |
+       +--> idempotent operation jobs
+       |
+       +--> health / fitness / bounded recovery
 ```
 
-### P1 - Model lifecycle is coupled to data loading
-Loading a dataset can initialize and train predictive models immediately. Training should become an explicit lifecycle with dataset versioning, evaluation gates and model activation.
+---
 
-### P1 - Missing governed agent orchestration
-Target agent architecture:
+## System / process / build layers
+
+### System layer
+
+Implemented components:
+
+- canonical `model/system.json`;
+- local-first FastAPI trust boundary;
+- deterministic RBAC policy;
+- workspace control-plane store;
+- dataset versions and activation state;
+- model versions and lifecycle state;
+- persistent investigation sessions;
+- People Intelligence Agent;
+- allowlisted aggregate tools;
+- evidence sufficiency and provenance;
+- policy-bound synthesis and deterministic fallback;
+- privacy-preserving audit;
+- health, freshness/fitness and bounded recovery;
+- System Health product UI.
+
+### Process layer
+
+#### Investigation
 
 ```text
-User question
-  |
-  v
-Intent / task understanding
-  |
-  v
-Agent orchestrator
-  |
-  +--> governed analytics tools
-  +--> governed prediction tools
-  +--> governed scenario tools
-  +--> governed policy checks
-  |
-  v
-Evidence bundle
-  |
-  v
-Policy / risk gate
-  |
-  v
-LLM synthesis
-  |
-  v
-Verification
-  |
-  v
-Answer + evidence + confidence
+Request
+ -> authenticate/establish trusted actor
+ -> authorize investigate
+ -> resolve workspace
+ -> resolve/open investigation session
+ -> bind active dataset/model provenance
+ -> deterministic evidence plan
+ -> execute allowlisted aggregate tools
+ -> aggregate evidence
+ -> detect unknowns/contradictions
+ -> calculate confidence + coverage + sufficiency
+ -> insufficient? deterministic limitation response
+ -> otherwise optional local LLM synthesis
+ -> employment-action policy enforcement
+ -> audit
+ -> return answer + evidence + warnings
 ```
 
-## Architectural principles
-
-1. Keep deterministic rules, calculations, permissions and state transitions outside the LLM.
-2. Use the LLM for interpretation, planning and synthesis where probabilistic reasoning adds value.
-3. Do not give the LLM direct write authority over sensitive HR state.
-4. Every material conclusion should be traceable to evidence, confidence and model/tool provenance.
-5. Keep policy and safety controls enforceable outside prompt text.
-6. Add agent complexity only when justified; start with one orchestrator and typed tools rather than many agents.
-7. Keep local-first as the default deployment posture.
-
-## Target first agent
-
-### People Intelligence Agent
-
-Initial scope: investigate workforce questions using existing engines and produce evidence-backed answers.
+#### Dataset lifecycle
 
 ```text
-Question
-  -> intent classification
-  -> evidence requirements
-  -> tool selection
-  -> analytics execution
-  -> evidence aggregation
-  -> contradiction/confidence check
-  -> policy check
-  -> synthesis
-  -> verification
-  -> answer
+Upload
+ -> legacy parser/runtime load [TRANSITION compatibility]
+ -> hash source
+ -> quality profile
+ -> register dataset version
+ -> validated
+ -> activate
+ -> previous active version becomes superseded
 ```
 
-Initial tool families:
-- workforce analytics
-- retention / survival
-- compensation
-- fairness
-- structural / span of control
-- sentiment / employee experience
-- scenario analysis
+#### Model lifecycle
 
-## Canonical evidence and tool boundary
+```text
+Explicit train request
+ -> permission gate
+ -> idempotent job creation
+ -> TRAINING
+ -> legacy MLEngine invoked only across training boundary
+ -> EVALUATING
+ -> deterministic minimum-quality gate
+ -> CANDIDATE or REJECTED
+ -> separate model.activate permission gate
+ -> ACTIVE
+ -> previous active model RETIRED
+```
 
-The first agent-foundation contracts now live under `src/agent/`.
+#### Health/recovery
 
-- `evidence.py` defines `EvidenceItem`, `ToolResult`, and `EvidenceBundle` with provenance, confidence, warnings, unknowns, contradictions and verification notes.
-- `tools.py` defines the minimum governed `AgentTool` protocol and `ToolContext`.
-- Existing analytics engines will be adapted behind these contracts rather than exposed directly to an LLM.
+```text
+Desired state
+ -> sense registry / dataset / model / job state
+ -> detect inconsistency, staleness or interruption
+ -> diagnose
+ -> authorize response
+ -> metadata-only recovery if inside L2 envelope
+ -> verify health
+ -> expose degraded state where governed action is required
+```
 
-## Transition backlog
+### Build layer
 
-| Priority | Change | Status |
-|---|---|---|
-| P0 | Protect exposed advisor output with safety validation | Done |
-| P0 | Consolidate all model generation behind a non-bypassable client safety boundary | Planned |
-| P0 | Default backend bind to loopback | Done |
-| P0 | Upgrade Next.js security baseline | Planned |
-| P0 | Introduce explicit authentication / authorization design for non-local deployments | Planned |
-| P1 | Introduce workspace/session architecture | Planned |
-| P1 | Define typed PeopleOS tool contracts | Foundation added |
-| P1 | Create canonical evidence/result schema | Foundation added |
-| P1 | Separate model training from request lifecycle | Planned |
-| P1 | Introduce agent orchestrator | Planned |
-| P1 | Add policy/authorization gate | Planned |
-| P2 | Add persistent agent/session state | Planned |
-| P2 | Add verification/evaluation layer | Planned |
-| P2 | Add provenance/confidence to generated conclusions | Foundation added |
-| P2 | Add observability and audit events | Planned |
-| P3 | Add bounded autonomous workflows | Planned |
-| P3 | Add MCP interface if external agents should consume PeopleOS | Planned |
-| P3 | Consider LangGraph only when workflow complexity warrants it | Planned |
+| Step | Build contract | State change / completion evidence | Status |
+|---|---|---|---|
+| STEP-001 | Establish workspace identity | durable workspace record | Done |
+| STEP-002 | Register dataset version | hash, schema, rows, quality recorded | Done |
+| STEP-003 | Activate dataset | one active dataset; prior active superseded | Done |
+| STEP-004 | Train versioned model explicitly | model + idempotent job enter lifecycle | Done |
+| STEP-005 | Evaluate model | deterministic pass/fail evidence | Done |
+| STEP-006 | Governed activation | candidate → active; prior model retired | Done |
+| STEP-007 | Open investigation session | session bound to workspace/dataset/model | Done |
+| STEP-008 | Governed investigation | evidence, sufficiency, policy, audit | Done |
+| STEP-009 | Health + recovery | fitness report / bounded actions | Done |
+| STEP-010 | Release verification | architecture + agent + frontend gates | In verification |
 
-## Build readiness
+---
 
-Current verdict: **NOT BUILD READY as an agentic system**.
+## Controls and enforceable boundaries
 
-PeopleOS is, however, a strong deterministic foundation for the target architecture. The analytics engines should largely be preserved and exposed as governed tools behind a new orchestration, evidence, policy and verification layer.
+### Model / agent controls
 
-## Completed implementation slice
+- all existing Ollama generation is wrapped by the guarded client transport;
+- advisor/agent output is policy-validated outside prompt text;
+- agent tools are explicitly allowlisted;
+- first agent release is read-only and aggregate-oriented;
+- fairness evidence suppresses small groups;
+- client cannot choose its own trusted actor identity;
+- insufficient evidence disables probabilistic synthesis;
+- deterministic fallback remains available without Ollama.
 
-1. created an isolated upgrade branch;
-2. recorded this architecture/transition plan in-repo;
-3. protected `/api/advisor/summary` and `/api/advisor/ask` with explicit output safety validation;
-4. added regression tests for the advisor safety boundary;
-5. changed `api.main` to loopback-only by default with explicit host override;
-6. added canonical evidence/result contracts;
-7. added a typed governed agent-tool contract;
-8. added tests for evidence bundle behavior.
+### Access controls
 
-## Next implementation slice
+Local loopback is the trusted owner. Wider exposure requires:
 
-1. consolidate every LLM generation path behind one non-bypassable client policy boundary;
-2. adapt the first existing analytics engine into an `AgentTool`;
-3. create a deterministic tool registry;
-4. introduce evidence aggregation and confidence calculation;
-5. only then add the first orchestration state machine.
+- `PEOPLEOS_API_TOKEN`;
+- server-configured `PEOPLEOS_API_ROLE`;
+- optional server-configured `PEOPLEOS_API_ACTOR_ID`.
+
+Remote roles:
+
+- viewer — read-only lifecycle/system state;
+- analyst — read + investigations/sessions;
+- admin — workspace/data/model administration and bounded recovery;
+- owner — trusted local owner.
+
+Clients cannot self-assert a role through a request header.
+
+### Consequential-action boundary
+
+The agent and self-healing loop have no authority to:
+
+- terminate or discipline employees;
+- demote employees;
+- reduce compensation;
+- change employee source data;
+- activate a model automatically;
+- change policy/evaluation thresholds automatically.
+
+---
+
+## Evidence and provenance
+
+Every governed investigation now produces a canonical `EvidenceBundle` with:
+
+- tool execution records;
+- evidence items;
+- confidence;
+- execution coverage;
+- sufficiency: `sufficient | limited | insufficient`;
+- material unknowns;
+- contradictions;
+- verification notes;
+- workspace ID;
+- dataset version;
+- model version.
+
+Investigation persistence stores request IDs and SHA-256 question hashes rather than raw question text. Agent audit logging similarly avoids storing the raw answer/evidence payload by default.
+
+---
+
+## Reliability and adaptive operation
+
+### Fitness policy
+
+Current deterministic checks include:
+
+- active dataset exists;
+- active dataset freshness;
+- active model state consistency;
+- model freshness;
+- minimum recorded model AUC where a model is active;
+- workspace registry consistency;
+- interrupted operation jobs.
+
+### Autonomy level
+
+**L2 — bounded auto-heal**.
+
+Automatic response may:
+
+- recreate an empty/missing local workspace metadata shell;
+- ensure the local workspace exists;
+- convert an interrupted RUNNING operation into FAILED with safe-retry evidence.
+
+Maximum autonomous blast radius: **PeopleOS control-plane metadata**.
+
+Structural changes, model activation, employee data mutation, policy changes and employment decisions require governed action.
+
+---
+
+## Frontend modernization
+
+Target baseline:
+
+- Next.js 16;
+- React 19;
+- Recharts 3;
+- maintained current supporting dependencies.
+
+The migration exposed stricter Recharts formatter typing and one numeric-format issue. These were fixed at the call sites rather than disabling TypeScript. The production build remains an objective release gate until CI is green and the regenerated lockfile is committed.
+
+---
+
+## Transition debt — explicit, not hidden
+
+The upgrade deliberately uses a reversible transition rather than a high-risk big-bang rewrite.
+
+The remaining legacy compatibility boundary is `AppState`:
+
+```text
+TARGET control plane / agent
+        |
+        +--> stable workspace/dataset/model/session identity
+        |
+        +--> explicit new lifecycle APIs
+        |
+        v
+TRANSITION compatibility
+        |
+        +--> legacy AppState dataframe / analytics engines
+        +--> legacy analytical routes
+        +--> historical load_data initialization behavior
+```
+
+This means the architecture is not represented as fully migrated. New agent/control-plane behavior is governed and versioned, while legacy analytical routes are migrated incrementally behind the compatibility boundary.
+
+This is the principal assumption behind the current `BUILD READY WITH ASSUMPTIONS` verdict.
+
+---
+
+## Verification
+
+Automated verification includes:
+
+- agent evidence contracts;
+- deterministic planning/orchestration;
+- malicious/prohibited model response enforcement;
+- aggregate evidence selection;
+- remote-access controls;
+- fairness group suppression;
+- audit privacy;
+- workspace lifecycle invariants;
+- dataset version/activation behavior;
+- candidate-only model activation;
+- deterministic model evaluation;
+- question hashing;
+- bounded recovery;
+- RBAC;
+- job idempotency and interruption handling;
+- data/model fitness checks;
+- canonical model validation;
+- build-readiness validation;
+- Next.js lint and production build.
+
+Primary commands:
+
+```bash
+python scripts/validate_system_model.py
+python scripts/check_build_readiness.py
+pytest -q tests/test_agent_*.py tests/test_platform_*.py
+cd web && npm run lint && npm run build
+```
+
+---
+
+## Readiness verdict
+
+Current structural verdict: **BUILD READY WITH ASSUMPTIONS**.
+
+Required conditions before merge/release:
+
+1. Agent Foundation CI passes at the final branch SHA.
+2. Frontend Modernization CI passes at the final branch SHA.
+3. generated `web/package-lock.json` reflects the Next.js 16 / React 19 dependency graph.
+4. no new architecture validation or security-control failure exists.
+5. merge into `main` is a governed owner decision.
+
+We deliberately do **not** claim full TARGET completion while legacy AppState-backed analytical routes remain in the transition layer.
