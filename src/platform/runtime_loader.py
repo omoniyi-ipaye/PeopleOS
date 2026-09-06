@@ -7,12 +7,14 @@ Activation establishes an explicit population contract before any analysis:
 
 Read-only analytics initialize from current-state data. Predictive training and
 vector indexing remain explicit downstream operations and never reuse an
-upload-fitted transform for model evaluation.
+activation-fitted transform for model evaluation.
 """
 
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any, Dict, Optional
+
+import pandas as pd
 
 from src.logger import get_logger
 from src.population import active_population, resolve_current_population
@@ -34,7 +36,11 @@ def _prepare_predictive_inputs(state) -> None:
         state.features_enabled['predictive'] = False
         return
     known = raw['Attrition'].dropna()
-    state.features_enabled['predictive'] = bool(not known.empty and set(known.astype(int).unique()).issubset({0, 1}) and known.nunique() == 2)
+    state.features_enabled['predictive'] = bool(
+        not known.empty
+        and set(known.astype(int).unique()).issubset({0, 1})
+        and known.nunique() == 2
+    )
 
 
 def _initialize_read_only_engines(state) -> None:
@@ -81,8 +87,6 @@ def _initialize_read_only_engines(state) -> None:
         state.nlp_engine = None
         state.insight_interpreter = InsightInterpreter()
 
-    # Current-row cohort data is appropriate here. Historical snapshot rows are
-    # retained separately and must be selected deliberately by longitudinal tools.
     state.survival_engine = safe(lambda: SurvivalEngine(raw), 'SurvivalEngine') if {'Tenure', 'Attrition'}.issubset(raw.columns) else None
 
     cols_lower = [column.lower() for column in raw.columns]
@@ -99,23 +103,27 @@ def _initialize_read_only_engines(state) -> None:
     )
 
 
-def load_dataset(state, file_path: str, file_name: str = 'upload') -> Dict[str, Any]:
-    """Load and activate a canonical current-state dataset without model fitting."""
-    result = state.data_loader.load_and_merge(file_path, file_name)
-    historical = result['df'].copy()
-    current, population = resolve_current_population(historical)
+def activate_dataframe(
+    state,
+    historical: pd.DataFrame,
+    *,
+    feature_flags: Optional[Dict[str, bool]] = None,
+) -> Dict[str, Any]:
+    """Activate validated rows from any source without fitting a predictive model."""
+    current, population = resolve_current_population(historical.copy())
 
-    state.historical_df = historical
+    state.historical_df = historical.copy()
     state.raw_df = current
     state.active_df = active_population(current)
     state.population_resolution = population
-    state.features_enabled = state.data_loader.features_enabled.copy()
+    state.features_enabled = dict(feature_flags or getattr(state.data_loader, 'features_enabled', {}) or {})
+    state.features_enabled.setdefault('predictive', False)
+    state.features_enabled.setdefault('nlp', False)
     state.features_enabled['llm'] = False
 
-    # This transform exists only for non-evaluative compatibility paths. Explicit
-    # model training must fit its own preprocessor after splitting raw rows.
     state.processed_df, state.preprocessing_metadata = state.preprocessor.fit_transform(
-        current, target_column='Attrition' if 'Attrition' in current.columns else '__no_target__'
+        current,
+        target_column='Attrition' if 'Attrition' in current.columns else '__no_target__',
     )
     if state.preprocessing_metadata is not None:
         state.preprocessing_metadata['fit_scope'] = 'current_dataset_compatibility_only'
@@ -133,10 +141,21 @@ def load_dataset(state, file_path: str, file_name: str = 'upload') -> Dict[str, 
         'active_rows': len(state.active_df),
         'columns': list(current.columns),
         'features_enabled': state.features_enabled,
-        'merge_result': result.get('merge_result'),
-        'report': result.get('report'),
         'deferred': {
             'predictive_training': bool(state.features_enabled.get('predictive', False)),
             'vector_indexing': bool(state.features_enabled.get('nlp', False)),
         },
     }
+
+
+def load_dataset(state, file_path: str, file_name: str = 'upload') -> Dict[str, Any]:
+    """Load and activate a canonical current-state dataset without model fitting."""
+    result = state.data_loader.load_and_merge(file_path, file_name)
+    activation = activate_dataframe(
+        state,
+        result['df'],
+        feature_flags=state.data_loader.features_enabled.copy(),
+    )
+    activation['merge_result'] = result.get('merge_result')
+    activation['report'] = result.get('report')
+    return activation
