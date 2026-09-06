@@ -1,0 +1,95 @@
+name: Local Desktop Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'desktop/**'
+      - 'src/local_paths.py'
+      - 'src/utils.py'
+      - 'src/platform/**'
+      - 'api/**'
+      - 'web/**'
+      - 'requirements-core.txt'
+      - 'config.yaml'
+      - 'sample_hr_data.csv'
+      - 'data/templates/**'
+      - '.github/workflows/local-desktop-build.yml'
+
+jobs:
+  package:
+    name: package-${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux-x64
+            os: ubuntu-latest
+            artifact: PeopleOS-linux-x64
+          - platform: windows-x64
+            os: windows-latest
+            artifact: PeopleOS-windows-x64
+          - platform: macos-arm64
+            os: macos-14
+            artifact: PeopleOS-macos-arm64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: requirements-core.txt
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Build static PeopleOS UI
+        working-directory: web
+        env:
+          PEOPLEOS_DESKTOP_BUILD: '1'
+          NEXT_TELEMETRY_DISABLED: '1'
+        run: |
+          npm ci
+          npm run build
+
+      - name: Verify static UI export
+        shell: bash
+        run: |
+          test -f web/out/index.html
+          test -d web/out/_next
+
+      - name: Install local runtime and packager
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-core.txt
+          pip install pyinstaller==6.16.0
+
+      - name: Build self-contained PeopleOS executable
+        run: pyinstaller --noconfirm --clean desktop/peopleos.spec
+
+      - name: Smoke-test packaged application
+        env:
+          PEOPLEOS_SMOKE_TEST: '1'
+          PEOPLEOS_HOME: ${{ runner.temp }}/peopleos-smoke-home
+        run: python -c "import os, pathlib, subprocess; exe=pathlib.Path('dist') / ('PeopleOS.exe' if os.name == 'nt' else 'PeopleOS'); subprocess.run([str(exe.resolve())], check=True, env=os.environ.copy(), timeout=90)"
+
+      - name: Upload local application
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: |
+            dist/PeopleOS
+            dist/PeopleOS.exe
+          if-no-files-found: error
+          retention-days: 14
