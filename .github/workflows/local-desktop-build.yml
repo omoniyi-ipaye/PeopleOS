@@ -12,6 +12,24 @@ on:
       - 'api/**'
       - 'web/**'
       - 'tests/local_restart_probe.py'
+      - 'tests/desktop_smoke_probe.py'
+      - 'requirements-desktop.txt'
+      - 'requirements-predictive.txt'
+      - 'config.yaml'
+      - 'sample_hr_data.csv'
+      - 'data/templates/**'
+      - '.github/workflows/local-desktop-build.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'desktop/**'
+      - 'src/local_paths.py'
+      - 'src/utils.py'
+      - 'src/platform/**'
+      - 'api/**'
+      - 'web/**'
+      - 'tests/local_restart_probe.py'
+      - 'tests/desktop_smoke_probe.py'
       - 'requirements-desktop.txt'
       - 'requirements-predictive.txt'
       - 'config.yaml'
@@ -95,7 +113,7 @@ jobs:
         env:
           PEOPLEOS_SMOKE_TEST: '1'
           PEOPLEOS_HOME: ${{ runner.temp }}/peopleos-smoke-home
-        run: python -c "import os, pathlib, subprocess; exe=pathlib.Path('dist') / ('PeopleOS.exe' if os.name == 'nt' else 'PeopleOS'); subprocess.run([str(exe.resolve())], check=True, env=os.environ.copy(), timeout=90)"
+        run: python tests/desktop_smoke_probe.py
 
       - name: Report package size
         shell: bash
