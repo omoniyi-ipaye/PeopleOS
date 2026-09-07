@@ -6,7 +6,12 @@ from PyInstaller.utils.hooks import collect_submodules
 
 ROOT = Path(SPECPATH).resolve().parent
 
-hiddenimports = collect_submodules('api') + collect_submodules('src') + collect_submodules('desktop')
+hiddenimports = (
+    collect_submodules('api')
+    + collect_submodules('src')
+    + collect_submodules('desktop')
+    + collect_submodules('backports')
+)
 
 datas = [
     (str(ROOT / 'config.yaml'), '.'),
