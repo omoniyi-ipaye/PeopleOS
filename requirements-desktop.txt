@@ -25,6 +25,11 @@ textblob==0.17.1
 pyyaml==6.0.1
 python-dateutil==2.8.2
 
+# PyInstaller/setuptools runtime compatibility. Modern setuptools' vendored
+# jaraco.context imports backports.tarfile at frozen-app startup; keep that
+# namespace explicit so one-file builds boot consistently across OS runners.
+backports.tarfile==1.2.0
+
 # Local API
 fastapi==0.109.0
 uvicorn[standard]==0.27.0
