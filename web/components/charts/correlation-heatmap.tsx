@@ -40,7 +40,7 @@ export function CorrelationHeatmap({ data }: CorrelationHeatmapProps) {
 
   return (
     <div className="space-y-2">
-      {data.slice(0, 10).map((item) => (
+      {data.filter(item => Number.isFinite(item.correlation) && Math.abs(item.correlation) <= 1).slice(0, 10).map((item) => (
         <div
           key={item.feature}
           className="flex items-center gap-3"
@@ -55,13 +55,13 @@ export function CorrelationHeatmap({ data }: CorrelationHeatmapProps) {
                 getCorrelationColor(item.correlation)
               )}
               style={{
-                width: `${Math.abs(item.correlation) * 100 * 3}%`,
+                width: `${Math.abs(item.correlation) * 100}%`,
                 minWidth: '20px',
               }}
             >
               <span className="text-xs font-mono text-white">
                 {item.correlation > 0 ? '+' : ''}
-                {(item.correlation * 100).toFixed(0)}%
+                {item.correlation.toFixed(2)}
               </span>
             </div>
           </div>
@@ -72,11 +72,11 @@ export function CorrelationHeatmap({ data }: CorrelationHeatmapProps) {
       <div className="flex items-center justify-center gap-6 mt-4 pt-4 border-t border-border-dark">
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 rounded bg-danger/30" />
-          <span className="text-xs text-text-muted">Increases Risk</span>
+          <span className="text-xs text-text-muted">Positive association (r)</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 rounded bg-success/30" />
-          <span className="text-xs text-text-muted">Decreases Risk</span>
+          <span className="text-xs text-text-muted">Negative association (r)</span>
         </div>
       </div>
     </div>

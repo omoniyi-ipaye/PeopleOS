@@ -8,9 +8,9 @@ import { Activity, ArrowUpRight, Heart, Layers, RefreshCw, Signal, Target } from
 
 type ExperienceTab = 'overview' | 'associations'
 
-interface Segment { segment: string; count: number; percentage: number; avg_exi: number }
+interface Segment { segment: string; count: number; percentage: number; avg_exi: number | null }
 interface Driver { factor: string; correlation: number; impact: string; direction: string }
-interface Stage { stage: string; count: number; avg_exi: number; at_risk_count: number }
+interface Stage { stage: string; count: number; avg_exi: number | null; at_risk_count: number }
 interface ExperienceAnalysis {
   experience_index: { available: boolean; reason?: string; overall_exi?: number; respondent_count?: number; response_coverage?: number; interpretation?: string }
   segments: { available: boolean; reason?: string; segments?: Segment[]; thriving_percentage?: number; at_risk_percentage?: number }
@@ -61,7 +61,7 @@ export default function EmployeeExperiencePage() {
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Experience composite" value={score === undefined ? 'Not available' : Math.round(score)} detail={measured ? 'Configured weighted composite of measured signals' : 'No proxy-derived score is created'} icon={Activity} tone={toneForScore(score)} />
         <MetricCard label="Measured respondents" value={(data?.experience_index.respondent_count ?? 0).toLocaleString()} detail={`${((data?.experience_index.response_coverage ?? 0) * 100).toFixed(1)}% of current employee records`} icon={Target} />
-        <MetricCard label="Measured signals" value={(data?.signals.total_signals ?? 0).toLocaleString()} detail={`${data?.signals.has_enps ? 'eNPS · ' : ''}${data?.signals.has_pulse ? 'Pulse · ' : ''}${data?.signals.coverage_percentage == null ? 'coverage not reported' : `${data.signals.coverage_percentage.toFixed(0)}% employee coverage`}`} icon={Signal} />
+        <MetricCard label="Available signal columns" value={(data?.signals.total_signals ?? 0).toLocaleString()} detail={`${data?.signals.has_enps ? 'eNPS · ' : ''}${data?.signals.has_pulse ? 'Pulse · ' : ''}${data?.signals.coverage_percentage == null ? 'coverage not reported' : `${data.signals.coverage_percentage.toFixed(0)}% employee coverage`}`} icon={Signal} />
         <MetricCard label="Low-score aggregate" value={measured ? (data?.summary.at_risk_count ?? 0).toLocaleString() : '—'} detail={measured ? 'Aggregate score-band count; no employee list exposed' : 'Unavailable without measured signals'} icon={Heart} tone={measured && (data?.summary.at_risk_count ?? 0) > 0 ? 'warning' : 'neutral'} />
       </section>
 
@@ -72,7 +72,7 @@ export default function EmployeeExperiencePage() {
             <div className="mt-5 space-y-4">
               {segments.length ? segments.map((segment) => (
                 <div key={segment.segment} className="grid gap-3 border-b border-border py-3 last:border-0 sm:grid-cols-[minmax(160px,0.6fr)_minmax(220px,1fr)_auto] sm:items-center">
-                  <div><div className="font-semibold">{segment.segment}</div><div className="text-xs text-text-muted">{segment.count.toLocaleString()} people · composite {segment.avg_exi.toFixed(1)}</div></div>
+                  <div><div className="font-semibold">{segment.segment}</div><div className="text-xs text-text-muted">{segment.count.toLocaleString()} people · composite {segment.avg_exi == null ? 'Unavailable' : segment.avg_exi.toFixed(1)}</div></div>
                   <div className="h-2 overflow-hidden rounded-full bg-background-secondary"><div className="h-full rounded-full bg-accent" style={{ width: `${Math.min(100, Math.max(0, segment.percentage))}%` }} /></div>
                   <div className="text-sm font-semibold">{segment.percentage.toFixed(1)}%</div>
                 </div>
@@ -99,7 +99,7 @@ export default function EmployeeExperiencePage() {
           <Surface padding="lg">
             <SectionHeader title="Lifecycle comparison" description="Descriptive differences by stage; not estimated stage effects." />
             <div className="mt-5 space-y-3">
-              {stages.length ? stages.map((stage) => <div key={stage.stage} className="grid grid-cols-[1fr_auto] gap-4 border-b border-border py-3 last:border-0"><div><div className="font-medium">{stage.stage}</div><div className="text-xs text-text-muted">{stage.count.toLocaleString()} people · composite {stage.avg_exi.toFixed(1)}</div></div><div className="text-right"><div className="font-semibold">{stage.at_risk_count}</div><div className="text-[11px] text-text-muted">low-score band</div></div></div>) : <EmptyState title="No lifecycle comparison available" description={data?.lifecycle.reason ?? 'Measured experience data is required.'} />}
+              {stages.length ? stages.map((stage) => <div key={stage.stage} className="grid grid-cols-[1fr_auto] gap-4 border-b border-border py-3 last:border-0"><div><div className="font-medium">{stage.stage}</div><div className="text-xs text-text-muted">{stage.count.toLocaleString()} people · composite {stage.avg_exi == null ? 'Unavailable' : stage.avg_exi.toFixed(1)}</div></div><div className="text-right"><div className="font-semibold">{stage.at_risk_count}</div><div className="text-[11px] text-text-muted">low-score band</div></div></div>) : <EmptyState title="No lifecycle comparison available" description={data?.lifecycle.reason ?? 'Measured experience data is required.'} />}
             </div>
           </Surface>
         </div>

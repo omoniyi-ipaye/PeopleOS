@@ -32,9 +32,9 @@ interface ScenarioResult {
 
 function money(value: number) {
   const abs = Math.abs(value)
-  if (abs >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`
-  if (abs >= 1_000) return `$${(value / 1_000).toFixed(0)}K`
-  return `$${Math.round(value).toLocaleString()}`
+  if (abs >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`
+  if (abs >= 1_000) return `${(value / 1_000).toFixed(0)}K`
+  return `${Math.round(value).toLocaleString()}`
 }
 
 export default function ScenarioPlannerPage() {
@@ -69,7 +69,10 @@ export default function ScenarioPlannerPage() {
   })
 
   const loading = compensation.isPending || headcount.isPending
+  const failure = compensation.error || headcount.error
   const run = () => {
+    compensation.reset()
+    headcount.reset()
     setResult(null)
     if (type === 'compensation') compensation.mutate()
     else headcount.mutate()
@@ -80,6 +83,8 @@ export default function ScenarioPlannerPage() {
       <PageHeader eyebrow="Plan · Scenario Planner" title="Explore assumptions before making workforce decisions" description="Compare aggregate what-if cases with explicit assumptions and costs. Scenario outputs are exploratory sensitivity models, not causal forecasts or authorization to act." />
       <StateSummary title="Assumption sensitivity, not prediction certainty" description="Simulation frequencies describe the configured model, not the empirical probability that an outcome will happen." tone="info" />
 
+      {failure && <StateSummary title="Scenario unavailable" description={failure instanceof Error ? failure.message : 'The scenario could not be calculated.'} tone="warning" />}
+      <p className="text-sm text-text-muted">Financial values use source salary units; annual salary is required.</p>
       <div className="grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
         <Surface padding="lg">
           <SectionHeader title="Configure scenario" description="Choose a governed aggregate decision class." />
@@ -103,8 +108,8 @@ export default function ScenarioPlannerPage() {
           {!result ? <Surface padding="lg" className="min-h-[360px] grid place-items-center"><div className="max-w-lg text-center"><div className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-accent/10 text-accent"><GitBranch className="h-6 w-6" /></div><h2 className="mt-5 text-xl font-semibold">Configure a scenario to inspect sensitivity</h2><p className="mt-2 text-sm leading-6 text-text-secondary">Model outcomes and costs while keeping the assumptions available for review.</p></div></Surface> : <>
             <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <MetricCard label="People in scope" value={result.affected_employees.toLocaleString()} detail={result.affected_departments.length ? result.affected_departments.join(', ') : 'Configured scope'} icon={Users} />
-              <MetricCard label="Starting attrition share" value={`${result.baseline_turnover_rate.toFixed(1)}%`} detail="Baseline used by the scenario" icon={Target} />
-              <MetricCard label="Modeled attrition share" value={`${result.projected_turnover_rate.toFixed(1)}%`} detail="Assumption-based output" icon={BarChart3} />
+              <MetricCard label="Assumed baseline rate" value={`${result.baseline_turnover_rate.toFixed(1)}%`} detail="Baseline used by the scenario" icon={Target} />
+              <MetricCard label="Modeled scenario rate" value={`${result.projected_turnover_rate.toFixed(1)}%`} detail="Assumption-based output" icon={BarChart3} />
               <MetricCard label="Modeled net impact" value={money(result.cost_impact.net_impact)} detail={result.roi_estimate == null ? 'ROI assumption unavailable' : `Modeled ROI ${result.roi_estimate.toFixed(1)}%`} icon={DollarSign} tone={result.cost_impact.net_impact >= 0 ? 'success' : 'warning'} />
             </section>
 

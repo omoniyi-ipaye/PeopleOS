@@ -309,27 +309,21 @@ class SentimentEngine:
 
         drivers = []
         for score in available_scores:
-            if 'eNPSScore' in self.enps_df.columns:
-                corr = self.enps_df['eNPSScore'].corr(self.enps_df[score])
-                avg_score = self.enps_df[score].mean()
-                drivers.append({
-                    'dimension': score.replace('Score', ''),
-                    'correlation': round(corr, 3) if pd.notna(corr) else None,
-                    'avg_score': round(avg_score, 2) if pd.notna(avg_score) else None,
-                    'impact': 'High' if abs(corr) >= 0.5 else ('Medium' if abs(corr) >= 0.3 else 'Low')
-                })
-
-        # Sort by correlation
-        drivers.sort(key=lambda x: abs(x['correlation']) if x['correlation'] else 0, reverse=True)
-
-        # Identify lowest scores as improvement areas
-        improvement_areas = sorted(
-            [d for d in drivers if d['avg_score'] is not None],
-            key=lambda x: x['avg_score']
-        )[:3]
+            pairs = self.enps_df[['eNPSScore', score]].apply(pd.to_numeric, errors='coerce')
+            pairs = pairs.replace([float('inf'), -float('inf')], float('nan')).dropna()
+            if len(pairs) < 10 or (pairs.nunique() < 2).any():
+                continue
+            corr = pairs['eNPSScore'].corr(pairs[score])
+            drivers.append({'dimension': score.replace('Score', ''), 'correlation': round(corr, 3),
+                            'avg_score': round(pairs[score].mean(), 2), 'sample_size': len(pairs),
+                            'impact': 'High' if abs(corr) >= .5 else 'Medium' if abs(corr) >= .3 else 'Low',
+                            'metric_semantics': 'paired_observational_correlation_not_causal_driver'})
+        drivers.sort(key=lambda item: abs(item['correlation']), reverse=True)
+        # Different survey instruments can use different scales; no universal low-score threshold.
+        improvement_areas = []
 
         return {
-            'available': True,
+            'available': bool(drivers),
             'drivers': drivers,
             'top_driver': drivers[0]['dimension'] if drivers else None,
             'improvement_areas': [d['dimension'] for d in improvement_areas],
@@ -528,7 +522,7 @@ class SentimentEngine:
 
         # Identify weakest dimensions
         measured_dimensions = [d for d in dimension_scores if d['avg_score'] is not None]
-        weakest = measured_dimensions[:2]
+        weakest = [dimension for dimension in measured_dimensions if dimension['avg_score'] < min_healthy][:2]
 
         return {
             'available': True,
@@ -591,7 +585,12 @@ class SentimentEngine:
         # Check eNPS detractors
         if self.enps_df is not None and 'eNPSCategory' in self.enps_df.columns:
             # Get most recent survey per employee
-            recent_enps = self.enps_df.sort_values('SurveyDate').groupby('EmployeeID').last()
+            recent_enps = self.enps_df
+            if 'SurveyDate' not in recent_enps or 'EmployeeID' not in recent_enps:
+                recent_enps = recent_enps.iloc[:0].assign(EmployeeID=pd.Series(dtype=str))
+            else:
+                recent_enps = recent_enps.dropna(subset=['SurveyDate']).sort_values('SurveyDate', kind='stable').drop_duplicates('EmployeeID', keep='last')
+            recent_enps = recent_enps.set_index('EmployeeID')
             detractors = recent_enps[recent_enps['eNPSCategory'] == 'Detractor']
 
             for emp_id in detractors.index:
@@ -626,6 +625,7 @@ class SentimentEngine:
         return {
             'available': True,
             'warnings': warnings,
+            'metric_semantics': 'observed_survey_flags_not_validated_departure_risk',
             'summary': {
                 'total_at_risk': len(warnings),
                 'high_severity': len([w for w in warnings if w['severity'] == 'High']),

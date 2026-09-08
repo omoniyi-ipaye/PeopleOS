@@ -217,43 +217,22 @@ class TestInterventionScenarios:
     """Tests for intervention scenarios."""
 
     def test_retention_bonus(self, sample_employee_data):
-        """Test retention bonus intervention."""
+        """Unvalidated retention_bonus effects must stay unavailable."""
         engine = ScenarioEngine(sample_employee_data)
-
-        result = engine.simulate_attrition_intervention(
-            intervention_type='retention_bonus',
-            target_employees='high_risk',
-            intervention_params={'bonus_percentage': 10}
-        )
-
-        assert result.scenario_type == 'intervention'
-        assert result.cost_impact.replacement_costs_avoided >= 0
-        assert result.roi_estimate is not None
+        with pytest.raises(ScenarioEngineError, match="unavailable"):
+            engine.simulate_attrition_intervention("retention_bonus", "high_risk", {})
 
     def test_career_path_intervention(self, sample_employee_data):
-        """Test career path intervention."""
+        """Unvalidated career_path effects must stay unavailable."""
         engine = ScenarioEngine(sample_employee_data)
-
-        result = engine.simulate_attrition_intervention(
-            intervention_type='career_path',
-            target_employees='high_risk_high_performer',
-            intervention_params={'cost_per_person': 5000}
-        )
-
-        assert result.scenario_type == 'intervention'
-        assert result.cost_impact.training_costs > 0
+        with pytest.raises(ScenarioEngineError, match="unavailable"):
+            engine.simulate_attrition_intervention("career_path", "high_risk", {})
 
     def test_manager_change_intervention(self, sample_employee_data):
-        """Test manager change intervention."""
+        """Unvalidated manager_change effects must stay unavailable."""
         engine = ScenarioEngine(sample_employee_data)
-
-        result = engine.simulate_attrition_intervention(
-            intervention_type='manager_change',
-            target_employees='high_risk',
-            intervention_params={'change_cost': 10000}
-        )
-
-        assert result.scenario_type == 'intervention'
+        with pytest.raises(ScenarioEngineError, match="unavailable"):
+            engine.simulate_attrition_intervention("manager_change", "high_risk", {})
 
 
 class TestMonteCarloSimulation:

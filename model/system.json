@@ -338,7 +338,9 @@
     "model_gate": "Fold-local raw-data CV; employee holdout; Brier and AP baselines; weighted calibration and class support",
     "forecast_boundary": "Retrospective classification is not validated future-departure prediction",
     "remaining": "Prospective temporal and subgroup validation on source-verified organization data",
-    "extended_integrity": "tests/test_extended_integrity.py: active team denominators, recorded succession assessment coverage, survey joins/dates, hiring exposure, vector replacement/alignment and fail-closed agent evidence"
+    "extended_integrity": "tests/test_extended_integrity.py: active team denominators, recorded succession assessment coverage, survey joins/dates, hiring exposure, vector replacement/alignment and fail-closed agent evidence",
+    "engine_renderer_inventory": "model/engine_audit.json",
+    "engine_renderer_report": "docs/validation/ENGINE_RENDERER_AUDIT.md"
   },
   "build_readiness": "BUILD READY WITH ASSUMPTIONS"
 }

@@ -26,6 +26,7 @@ class AnalyticsSummary(BaseModel):
 
 
 class DepartmentStats(BaseModel):
+    outcome_observations: int = 0
     dept: str
     headcount: int
     total_records: Optional[int] = None

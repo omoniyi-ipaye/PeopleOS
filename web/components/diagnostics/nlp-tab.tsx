@@ -65,7 +65,7 @@ export function NLPTab() {
                 />
                 <KPICard
                     title="Positive Feedback"
-                    value={`${(sentiment_summary.positive_pct || 0).toFixed(0)}%`}
+                    value={sentiment_summary.avg_sentiment == null ? 'Unavailable' : `${sentiment_summary.positive_pct.toFixed(0)}%`}
                     icon={Brain}
                     subtitle="Review sentiment"
                     insight="The percentage of performance reviews with a primarily positive tone."
@@ -96,7 +96,7 @@ export function NLPTab() {
                                 <div className="flex justify-between items-start mb-2">
                                     <div className="font-bold text-text-primary dark:text-text-dark-primary group-hover:text-accent transition-colors">{topic.name}</div>
                                     <Badge variant="default" className="bg-accent/10 text-accent border-accent/20">
-                                        {topic.prevalence}
+                                        {topic.prevalence ?? 'Prevalence not measured'}
                                     </Badge>
                                 </div>
                                 <p className="text-xs text-text-secondary dark:text-text-dark-secondary leading-relaxed">

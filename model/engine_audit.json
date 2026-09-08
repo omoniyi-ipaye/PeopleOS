@@ -1,0 +1,1016 @@
+{
+  "scope": "All 20 engine modules and their active, legacy, API, export and agent consumers",
+  "baseline_commit": "3e4292b1bc70a8c8d09164c89e3c0c65b97219c3",
+  "verification_is_not_predictive_validation": true,
+  "engines": [
+    {
+      "id": "analytics",
+      "source": "src/analytics_engine.py",
+      "classes": [
+        "AnalyticsEngine"
+      ],
+      "methods": [
+        "compare_groups",
+        "get_age_distribution",
+        "get_confidence_interval",
+        "get_correlations",
+        "get_department_aggregates",
+        "get_headcount",
+        "get_high_risk_departments",
+        "get_observed_attrition_share",
+        "get_record_count",
+        "get_salary_bands",
+        "get_summary_statistics",
+        "get_temporal_stats",
+        "get_tenure_distribution",
+        "get_turnover_rate"
+      ],
+      "python_consumers": [
+        "src/platform/runtime_loader.py",
+        "src/agent/adapters.py",
+        "api/dependencies.py",
+        "api/main.py",
+        "api/routes/analytics.py",
+        "api/routes/sessions.py",
+        "api/routes/advisor.py",
+        "main.py"
+      ],
+      "review_status": "reviewed_with_limits",
+      "findings": [
+        "Invalid ages/ratings/durations no longer contaminate aggregates; unknown distribution buckets reconcile. Department mean excludes unknown outcome shares; correlations render r, not percentages."
+      ],
+      "verification": [
+        "tests/test_analytics_engine.py",
+        "tests/test_engine_renderer_integrity.py"
+      ],
+      "renderers": [
+        "web/app/page.tsx",
+        "web/app/workforce-health/page.tsx",
+        "web/components/charts/correlation-heatmap.tsx",
+        "web/components/charts/department-bar-chart.tsx",
+        "web/components/charts/tenure-distribution-chart.tsx",
+        "ui/dashboard_layout.py",
+        "src/insight_interpreter.py",
+        "src/export.py"
+      ],
+      "remaining_validation": [
+        "Period turnover needs dated exits and an exposure denominator; source identities and field definitions require reconciliation with HRIS."
+      ],
+      "runtime_state": "Descriptive",
+      "interfaces": [
+        "api/routes/analytics.py",
+        "api/routes/geo.py"
+      ],
+      "renderer_state": {
+        "web/app/page.tsx": "routed_or_shared",
+        "web/app/workforce-health/page.tsx": "routed_or_shared",
+        "web/components/charts/correlation-heatmap.tsx": "dormant_or_legacy",
+        "web/components/charts/department-bar-chart.tsx": "dormant_or_legacy",
+        "web/components/charts/tenure-distribution-chart.tsx": "dormant_or_legacy",
+        "ui/dashboard_layout.py": "dormant_or_legacy",
+        "src/insight_interpreter.py": "dormant_or_legacy",
+        "src/export.py": "dormant_or_legacy"
+      }
+    },
+    {
+      "id": "causal",
+      "source": "src/causal_engine.py",
+      "classes": [
+        "CausalEngine"
+      ],
+      "methods": [
+        "estimate_intervention_effect",
+        "get_intervention_recommendations"
+      ],
+      "python_consumers": [],
+      "review_status": "reviewed_with_limits",
+      "findings": [
+        "Removed correlation fallback, fixed confidence and treatment-effect recommendations from direct engine calls. API continues to reject unsupported causal estimates."
+      ],
+      "verification": [
+        "tests/test_engine_renderer_integrity.py"
+      ],
+      "renderers": [],
+      "remaining_validation": [
+        "Requires an identification design, treatment timing, overlap, sensitivity analysis and independent causal validation."
+      ],
+      "runtime_state": "Unavailable",
+      "interfaces": [
+        "api/routes/causal.py"
+      ],
+      "renderer_state": {}
+    },
+    {
+      "id": "clustering",
+      "source": "src/clustering_engine.py",
+      "classes": [
+        "ClusteringEngine"
+      ],
+      "methods": [
+        "get_employee_clusters",
+        "train"
+      ],
+      "python_consumers": [],
+      "review_status": "reviewed_with_limits",
+      "findings": [
+        "Fixed active-record preparation, nonfinite values, EmployeeID/row-index confusion, distinct-point constraints and stale retrain state. Exact separated synthetic clusters recover labels up to permutation."
+      ],
+      "verification": [
+        "tests/test_engine_renderer_integrity.py"
+      ],
+      "renderers": [],
+      "remaining_validation": [
+        "Cluster separation is not workforce-persona validity. Stability, scaling sensitivity and aggregate use-case validation remain unestablished."
+      ],
+      "runtime_state": "Exploratory; product disabled",
+      "interfaces": [
+        "api/routes/analytics.py"
+      ],
+      "renderer_state": {}
+    },
+    {
+      "id": "compensation",
+      "source": "src/compensation_engine.py",
+      "classes": [
+        "CompensationEngine"
+      ],
+      "methods": [
+        "analyze_all",
+        "calculate_compa_ratio",
+        "calculate_gender_pay_gap",
+        "calculate_pay_equity_score",
+        "calculate_salary_percentiles",
+        "correlate_salary_with_attrition",
+        "get_compensation_summary",
+        "get_salary_bands",
+        "get_salary_by_tenure",
+        "identify_salary_outliers"
+      ],
+      "python_consumers": [
+        "src/scenario_engine.py",
+        "src/platform/runtime_loader.py",
+        "src/agent/adapters.py",
+        "api/dependencies.py",
+        "api/main.py",
+        "api/routes/compensation.py",
+        "main.py"
+      ],
+      "review_status": "reviewed_with_limits",
+      "findings": [
+        "Removed hardcoded 84 fairness score and false no-outlier conclusion. Null empty tenure buckets serialize. Display source units and salary dispersion rather than adjusted pay equity."
+      ],
+      "verification": [
+        "tests/test_compensation_engine.py",
+        "tests/test_engine_renderer_integrity.py"
+      ],
+      "renderers": [
+        "web/components/diagnostics/compensation-tab.tsx",
+        "ui/dashboard_layout.py",
+        "ui/components.py"
+      ],
+      "remaining_validation": [
+        "Currency/pay period normalization and role-adjusted pay analysis need source contracts; dispersion does not determine fairness."
+      ],
+      "runtime_state": "Descriptive",
+      "interfaces": [
+        "api/routes/compensation.py"
+      ],
+      "renderer_state": {
+        "web/components/diagnostics/compensation-tab.tsx": "dormant_or_legacy",
+        "ui/dashboard_layout.py": "dormant_or_legacy",
+        "ui/components.py": "dormant_or_legacy"
+      }
+    },
+    {
+      "id": "experience",
+      "source": "src/experience_engine.py",
+      "classes": [
+        "ExperienceEngine"
+      ],
+      "methods": [
+        "analyze_all",
+        "analyze_manager_impact",
+        "calculate_experience_index",
+        "get_at_risk_employees",
+        "get_available_signals",
+        "get_employee_exi",
+        "get_engagement_segments",
+        "get_lifecycle_experience",
+        "identify_experience_drivers"
+      ],
+      "python_consumers": [
+        "src/platform/runtime_loader.py",
+        "src/agent/people_tools.py",
+        "api/dependencies.py",
+        "api/routes/experience.py"
+      ],
+      "review_status": "reviewed_with_limits",
+      "findings": [
+        "Lifecycle, manager and driver denominators use measured responses. Empty means stay null through schemas/renderers; minimum paired samples exclude tautological component-score correlations."
+      ],
+      "verification": [
+        "tests/test_engine_renderer_integrity.py",
+        "tests/test_experience_engine.py"
+      ],
+      "renderers": [
+        "web/app/employee-experience/page.tsx"
+      ],
+      "remaining_validation": [
+        "Weights/bands and survey construct validity need instrument validation. Manager/lifecycle comparisons are cross-sectional and confounded."
+      ],
+      "runtime_state": "Measured composite",
+      "interfaces": [
+        "api/routes/experience.py",
+        "api/schemas/experience.py"
+      ],
+      "renderer_state": {
+        "web/app/employee-experience/page.tsx": "routed_or_shared"
+      }
+    },
+    {
+      "id": "fairness",
+      "source": "src/fairness_engine.py",
+      "classes": [
+        "FairnessEngine"
+      ],
+      "methods": [
+        "analyze_all",
+        "analyze_prediction_fairness",
+        "calculate_demographic_parity",
+        "calculate_equalized_odds",
+        "calculate_four_fifths_rule",
+        "generate_fairness_report",
+        "get_fairness_summary"
+      ],
+      "python_consumers": [
+        "src/platform/runtime_loader.py",
+        "src/agent/people_tools.py",
+        "api/dependencies.py",
+        "api/main.py",
+        "api/routes/fairness.py",
+        "api/routes/platform.py",
+        "main.py"
+      ],
+      "review_status": "reviewed_with_limits",
+      "findings": [
+        "API now renders favorable selection and actual reference rates. Undefined ratios remain null; labels report screening signals rather than compliance violations."
+      ],
+      "verification": [
+        "tests/test_analytics_accuracy.py",
+        "tests/test_engine_renderer_integrity.py"
+      ],
+      "renderers": [
+        "web/app/platform/page.tsx",
+        "web/app/advisor/page.tsx"
+      ],
+      "remaining_validation": [
+        "Intersectional support, uncertainty, selection bias and organization-specific assessment remain required; no fairness certification."
+      ],
+      "runtime_state": "Descriptive screening",
+      "interfaces": [
+        "api/routes/fairness.py"
+      ],
+      "renderer_state": {
+        "web/app/platform/page.tsx": "routed_or_shared",
+        "web/app/advisor/page.tsx": "routed_or_shared"
+      }
+    },
+    {
+      "id": "forecasting",
+      "source": "src/forecasting_engine.py",
+      "classes": [
+        "ForecastingEngine"
+      ],
+      "methods": [
+        "forecast_metric"
+      ],
+      "python_consumers": [
+        "api/routes/analytics.py"
+      ],
+      "review_status": "reviewed_with_limits",
+      "findings": [
+        "Monthly census/naive-baseline contract retained; fractional and Boolean horizons rejected. No fabricated daily history or prediction intervals."
+      ],
+      "verification": [
+        "tests/test_analytics_accuracy.py",
+        "tests/test_engine_renderer_integrity.py"
+      ],
+      "renderers": [],
+      "remaining_validation": [
+        "Three-month validation selects a model; it is not an independent final forecast test. Complete-census provenance and rolling-origin evaluation remain required."
+      ],
+      "runtime_state": "Exploratory extrapolation",
+      "interfaces": [
+        "api/routes/analytics.py"
+      ],
+      "renderer_state": {}
+    },
+    {
+      "id": "merge",
+      "source": "src/merge_engine.py",
+      "classes": [
+        "FieldChange",
+        "EmployeeChange",
+        "MergeResult",
+        "MergeEngine"
+      ],
+      "methods": [
+        "execute_merge",
+        "get_significant_changes",
+        "get_summary_text",
+        "preview_merge",
+        "to_dict",
+        "to_summary_dict"
+      ],
+      "python_consumers": [
+        "src/data_loader.py",
+        "main.py"
+      ],
+      "review_status": "reviewed_with_limits",
+      "findings": [
+        "Optional field changes are detected, NumPy numeric values compare correctly, unchanged rows are not rewritten, and added/updated/unchanged/skipped reconcile to input records."
+      ],
+      "verification": [
+        "tests/test_engine_renderer_integrity.py",
+        "tests/test_merge_engine.py"
+      ],
+      "renderers": [
+        "main.py",
+        "ui/dashboard_layout.py"
+      ],
+      "remaining_validation": [
+        "Concurrency/transaction rollback and full source-system ingestion reconciliation are outside these synthetic tests."
+      ],
+      "runtime_state": "Data integrity",
+      "interfaces": [
+        "src/data_loader.py"
+      ],
+      "renderer_state": {
+        "main.py": "dormant_or_legacy",
+        "ui/dashboard_layout.py": "dormant_or_legacy"
+      }
+    },
+    {
+      "id": "ml",
+      "source": "src/ml_engine.py",
+      "classes": [
+        "MLEngine"
+      ],
+      "methods": [
+        "get_feature_importance_summary",
+        "get_recommendations",
+        "get_risk_category",
+        "get_risk_drivers",
+        "predict",
+        "predict_risk",
+        "predict_risk_with_confidence",
+        "train",
+        "train_model"
+      ],
+      "python_consumers": [
+        "src/model_lab_engine.py",
+        "src/model_training.py",
+        "src/scenario_engine.py",
+        "src/platform/runtime_loader.py",
+        "api/dependencies.py",
+        "api/main.py",
+        "api/routes/sessions.py",
+        "api/routes/predictions.py",
+        "api/routes/platform.py",
+        "ui/employee_detail.py",
+        "ui/dashboard_layout.py",
+        "main.py"
+      ],
+      "review_status": "reviewed_with_limits",
+      "findings": [
+        "Positive class located by label, single-class zero handled, malformed probabilities rejected. Removed invented confidence intervals; SHAP multioutput alignment fixed. API scores must cover current active IDs."
+      ],
+      "verification": [
+        "tests/test_engine_renderer_integrity.py",
+        "tests/test_model_validation.py"
+      ],
+      "renderers": [
+        "web/app/flight-risk/page.tsx",
+        "web/components/charts/feature-importance-chart.tsx",
+        "web/components/charts/risk-distribution-pie.tsx",
+        "web/components/charts/shap-waterfall-chart.tsx",
+        "web/components/dashboard/employee-detail-modal.tsx",
+        "web/components/dashboard/high-risk-table.tsx",
+        "web/components/dashboard/predictive-math-modal.tsx",
+        "web/components/diagnostics/prediction-explanation-modal.tsx",
+        "web/components/risk-analysis-modal.tsx",
+        "ui/employee_detail.py",
+        "ui/dashboard_layout.py",
+        "src/export.py"
+      ],
+      "remaining_validation": [
+        "IBM synthetic holdout is not prospective workforce validation. Real SHAP runtime, future-horizon calibration, drift, subgroup stability and interval coverage remain unvalidated. Low-level feature-matrix training remains explicitly unvalidated."
+      ],
+      "runtime_state": "Retrospective classifier",
+      "interfaces": [
+        "api/routes/predictions.py",
+        "api/schemas/predictions.py"
+      ],
+      "renderer_state": {
+        "web/app/flight-risk/page.tsx": "routed_or_shared",
+        "web/components/charts/feature-importance-chart.tsx": "dormant_or_legacy",
+        "web/components/charts/risk-distribution-pie.tsx": "dormant_or_legacy",
+        "web/components/charts/shap-waterfall-chart.tsx": "dormant_or_legacy",
+        "web/components/dashboard/employee-detail-modal.tsx": "dormant_or_legacy",
+        "web/components/dashboard/high-risk-table.tsx": "dormant_or_legacy",
+        "web/components/dashboard/predictive-math-modal.tsx": "dormant_or_legacy",
+        "web/components/diagnostics/prediction-explanation-modal.tsx": "dormant_or_legacy",
+        "web/components/risk-analysis-modal.tsx": "dormant_or_legacy",
+        "ui/employee_detail.py": "dormant_or_legacy",
+        "ui/dashboard_layout.py": "dormant_or_legacy",
+        "src/export.py": "dormant_or_legacy"
+      }
+    },
+    {
+      "id": "model_lab",
+      "source": "src/model_lab_engine.py",
+      "classes": [
+        "ModelLabEngine"
+      ],
+      "methods": [
+        "analyze_feature_sensitivity",
+        "backtest_flight_risk",
+        "generate_refinement_plan"
+      ],
+      "python_consumers": [
+        "api/routes/model_lab.py"
+      ],
+      "review_status": "reviewed_with_limits",
+      "findings": [
+        "Unavailable backtest stays unavailable in UI; removed zero accuracy and one-click accuracy claims. Feature diagnostics are labeled heuristic."
+      ],
+      "verification": [
+        "tests/test_extended_integrity.py",
+        "tests/test_model_validation.py"
+      ],
+      "renderers": [
+        "web/components/advisor/model-lab.tsx"
+      ],
+      "remaining_validation": [
+        "Needs timestamped pre-outcome predictions and mature follow-up. Feature variance/correlation heuristics do not prove an accuracy lift."
+      ],
+      "runtime_state": "Prospective metrics unavailable",
+      "interfaces": [
+        "api/routes/model_lab.py"
+      ],
+      "renderer_state": {
+        "web/components/advisor/model-lab.tsx": "dormant_or_legacy"
+      }
+    },
+    {
+      "id": "network",
+      "source": "src/network_engine.py",
+      "classes": [
+        "NetworkEngine"
+      ],
+      "methods": [
+        "get_isolated_employees",
+        "get_key_influencers",
+        "get_network_summary"
+      ],
+      "python_consumers": [],
+      "review_status": "reviewed_with_limits",
+      "findings": [
+        "Removed department-clique edges and proxy influence/isolation rankings from engine as well as API. Reporting structure remains a separate measured structural metric."
+      ],
+      "verification": [
+        "tests/test_engine_renderer_integrity.py"
+      ],
+      "renderers": [],
+      "remaining_validation": [
+        "Requires observed relationship events and independently validated collaboration semantics. No network/influence accuracy is claimed."
+      ],
+      "runtime_state": "Unavailable",
+      "interfaces": [
+        "api/routes/network.py"
+      ],
+      "renderer_state": {}
+    },
+    {
+      "id": "nlp",
+      "source": "src/nlp_engine.py",
+      "classes": [
+        "NLPEngine"
+      ],
+      "methods": [
+        "analyze_sentiment",
+        "extract_skills",
+        "extract_topics",
+        "generate_employee_summary",
+        "get_sentiment_by_department",
+        "get_sentiment_summary",
+        "process_all"
+      ],
+      "python_consumers": [
+        "src/platform/runtime_loader.py",
+        "api/dependencies.py",
+        "api/routes/nlp.py",
+        "main.py"
+      ],
+      "review_status": "reviewed_with_limits",
+      "findings": [
+        "Fixed topic path using sentiment validator/undefined IDs. Topics use schema validation and null unmeasured prevalence. Sentiment labels must match scores; skill mentions use token boundaries; department joins cannot multiply people."
+      ],
+      "verification": [
+        "tests/test_engine_renderer_integrity.py",
+        "tests/test_nlp_engine.py"
+      ],
+      "renderers": [
+        "web/components/diagnostics/nlp-tab.tsx",
+        "ui/dashboard_layout.py",
+        "ui/components.py"
+      ],
+      "remaining_validation": [
+        "Controlled responses test integrity, not LLM accuracy. Need labeled review corpus, negation/irony/multilingual tests, human agreement and extraction precision/recall. First-50 theme sampling is not population prevalence."
+      ],
+      "runtime_state": "Exploratory generated text",
+      "interfaces": [
+        "api/routes/nlp.py"
+      ],
+      "renderer_state": {
+        "web/components/diagnostics/nlp-tab.tsx": "dormant_or_legacy",
+        "ui/dashboard_layout.py": "dormant_or_legacy",
+        "ui/components.py": "dormant_or_legacy"
+      }
+    },
+    {
+      "id": "quality_of_hire",
+      "source": "src/quality_of_hire_engine.py",
+      "classes": [
+        "QualityOfHireEngine"
+      ],
+      "methods": [
+        "analyze_all",
+        "analyze_cohort_performance",
+        "calculate_source_effectiveness",
+        "correlate_prehire_posthire",
+        "get_hiring_insights",
+        "get_new_hire_risk_assessment"
+      ],
+      "python_consumers": [
+        "src/platform/runtime_loader.py",
+        "api/dependencies.py",
+        "api/routes/quality_of_hire.py"
+      ],
+      "review_status": "reviewed_with_limits",
+      "findings": [
+        "Unmeasured source cohorts have no winner or ROI narrative. Relative performance is labeled as such; removed automatic source-investment recommendations from engine."
+      ],
+      "verification": [
+        "tests/test_analytics_accuracy.py",
+        "tests/test_engine_renderer_integrity.py"
+      ],
+      "renderers": [
+        "web/app/quality-of-hire/page.tsx",
+        "web/components/risk-analysis-modal.tsx"
+      ],
+      "remaining_validation": [
+        "Needs mature, exposure-aligned cohorts, role mix, source costs, measurement reliability and prospective hiring validation; composite weights are assumptions."
+      ],
+      "runtime_state": "Observational composite",
+      "interfaces": [
+        "api/routes/quality_of_hire.py",
+        "api/schemas/quality_of_hire.py"
+      ],
+      "renderer_state": {
+        "web/app/quality-of-hire/page.tsx": "routed_or_shared",
+        "web/components/risk-analysis-modal.tsx": "dormant_or_legacy"
+      }
+    },
+    {
+      "id": "scenario",
+      "source": "src/scenario_engine.py",
+      "classes": [
+        "CostImpact",
+        "MonteCarloResult",
+        "ScenarioResult",
+        "ScenarioEngine"
+      ],
+      "methods": [
+        "compare_scenarios",
+        "get_scenario_templates",
+        "simulate_attrition_intervention",
+        "simulate_compensation_change",
+        "simulate_headcount_change",
+        "to_dict"
+      ],
+      "python_consumers": [
+        "src/platform/runtime_loader.py",
+        "api/dependencies.py",
+        "api/routes/scenario.py",
+        "api/schemas/scenario.py"
+      ],
+      "review_status": "reviewed_with_limits",
+      "findings": [
+        "Validated horizon/count/scope inputs, provenance names actual calculation, financial horizon checks retained. Removed obsolete causal/risk fallbacks and direct individual intervention estimates; no automatic scenario recommendation."
+      ],
+      "verification": [
+        "tests/test_engine_renderer_integrity.py",
+        "tests/test_scenario_engine.py"
+      ],
+      "renderers": [
+        "web/app/scenario-planner/page.tsx"
+      ],
+      "remaining_validation": [
+        "Response elasticities, cost/productivity assumptions and simulated distribution need local validation. Direct legacy reduction arithmetic remains outside governed API and must not be used for employee selection. Draw shares are not empirical outcome probabilities."
+      ],
+      "runtime_state": "Assumption arithmetic",
+      "interfaces": [
+        "api/routes/scenario.py",
+        "api/schemas/scenario.py"
+      ],
+      "renderer_state": {
+        "web/app/scenario-planner/page.tsx": "routed_or_shared"
+      }
+    },
+    {
+      "id": "sentiment",
+      "source": "src/sentiment_engine.py",
+      "classes": [
+        "SentimentEngine"
+      ],
+      "methods": [
+        "analyze_all",
+        "analyze_onboarding_trajectory",
+        "calculate_enps",
+        "detect_early_warnings",
+        "get_enps_drivers",
+        "get_enps_trends",
+        "get_onboarding_health"
+      ],
+      "python_consumers": [
+        "src/platform/runtime_loader.py",
+        "api/dependencies.py",
+        "api/routes/sentiment.py"
+      ],
+      "review_status": "reviewed_with_limits",
+      "findings": [
+        "Driver correlations require finite variable pairs; perfect onboarding no longer triggers low-score recommendations. Latest warning uses an intact dated survey row."
+      ],
+      "verification": [
+        "tests/test_engine_renderer_integrity.py",
+        "tests/test_extended_integrity.py"
+      ],
+      "renderers": [
+        "web/app/advisor/page.tsx"
+      ],
+      "remaining_validation": [
+        "Survey response bias, repeated-response weighting and observed warning thresholds need validation. Warning labels do not establish future departure risk."
+      ],
+      "runtime_state": "Observed survey summaries",
+      "interfaces": [
+        "api/routes/sentiment.py"
+      ],
+      "renderer_state": {
+        "web/app/advisor/page.tsx": "routed_or_shared"
+      }
+    },
+    {
+      "id": "structural",
+      "source": "src/structural_engine.py",
+      "classes": [
+        "StructuralEngine"
+      ],
+      "methods": [
+        "analyze_all",
+        "analyze_manager_burnout_risk",
+        "audit_promotion_velocity",
+        "calculate_span_of_control",
+        "calculate_stagnation_index",
+        "get_promotion_bottlenecks",
+        "identify_stagnation_hotspots"
+      ],
+      "python_consumers": [
+        "src/platform/runtime_loader.py",
+        "src/agent/adapters.py",
+        "api/dependencies.py",
+        "api/routes/structural.py"
+      ],
+      "review_status": "reviewed_with_limits",
+      "findings": [
+        "Impossible/missing role durations stay unavailable. Reporting spans exclude self/dangling links and work without optional role columns. Removed numeric burnout proxy; API handles nonfinite summaries."
+      ],
+      "verification": [
+        "tests/test_engine_renderer_integrity.py"
+      ],
+      "renderers": [
+        "web/app/advisor/page.tsx"
+      ],
+      "remaining_validation": [
+        "Reporting span and role-duration rules do not validate burnout or promotion readiness. Organization graph quality and threshold suitability need review."
+      ],
+      "runtime_state": "Descriptive structure",
+      "interfaces": [
+        "api/routes/structural.py"
+      ],
+      "renderer_state": {
+        "web/app/advisor/page.tsx": "routed_or_shared"
+      }
+    },
+    {
+      "id": "succession",
+      "source": "src/succession_engine.py",
+      "classes": [
+        "SuccessionEngine"
+      ],
+      "methods": [
+        "analyze_all",
+        "calculate_bench_strength",
+        "calculate_readiness_scores",
+        "get_9box_matrix",
+        "get_9box_summary",
+        "get_retention_recommendations",
+        "get_succession_pipeline",
+        "identify_critical_gaps",
+        "identify_high_potentials"
+      ],
+      "python_consumers": [
+        "src/platform/runtime_loader.py",
+        "api/dependencies.py",
+        "api/routes/succession.py",
+        "main.py"
+      ],
+      "review_status": "reviewed_with_limits",
+      "findings": [
+        "Prior recorded-readiness/potential contract retained. Checked aggregate count mapping, unassessed category, weighted renderer denominator and 9-box labels."
+      ],
+      "verification": [
+        "tests/test_extended_integrity.py",
+        "tests/test_succession_engine.py"
+      ],
+      "renderers": [
+        "web/components/diagnostics/succession-tab.tsx",
+        "web/components/charts/nine-box-grid.tsx",
+        "ui/dashboard_layout.py",
+        "ui/components.py"
+      ],
+      "remaining_validation": [
+        "Requires independent assessment reliability, role-specific successor coverage and future performance validation; legacy individual heuristic helpers are not enterprise-validated."
+      ],
+      "runtime_state": "Recorded assessments",
+      "interfaces": [
+        "api/routes/succession.py"
+      ],
+      "renderer_state": {
+        "web/components/diagnostics/succession-tab.tsx": "dormant_or_legacy",
+        "web/components/charts/nine-box-grid.tsx": "dormant_or_legacy",
+        "ui/dashboard_layout.py": "dormant_or_legacy",
+        "ui/components.py": "dormant_or_legacy"
+      }
+    },
+    {
+      "id": "survival",
+      "source": "src/survival_engine.py",
+      "classes": [
+        "SurvivalEngine"
+      ],
+      "methods": [
+        "analyze_all",
+        "fit_cox_proportional_hazards",
+        "fit_kaplan_meier",
+        "generate_cohort_insights",
+        "get_at_risk_employees",
+        "get_hazard_over_time",
+        "predict_survival_probability"
+      ],
+      "python_consumers": [
+        "src/scenario_engine.py",
+        "src/platform/runtime_loader.py",
+        "api/dependencies.py",
+        "api/routes/survival.py"
+      ],
+      "review_status": "reviewed_with_limits",
+      "findings": [
+        "Rejected ignored cohort filters, cleared stale Cox state, preserved precise month-to-year chart geometry and KM step shape. Renderer now uses actual narrative and labels mean observed tenure separately."
+      ],
+      "verification": [
+        "tests/test_analytics_accuracy.py",
+        "tests/test_engine_renderer_integrity.py"
+      ],
+      "renderers": [
+        "web/app/retention-forecast/page.tsx",
+        "web/components/charts/retention-curve-chart.tsx"
+      ],
+      "remaining_validation": [
+        "Waltons checks KM arithmetic; workforce inference still needs correct time origin, censoring/left truncation review, cohort definition, proportional hazards and independent validation."
+      ],
+      "runtime_state": "Cohort estimator",
+      "interfaces": [
+        "api/routes/survival.py",
+        "api/schemas/survival.py"
+      ],
+      "renderer_state": {
+        "web/app/retention-forecast/page.tsx": "routed_or_shared",
+        "web/components/charts/retention-curve-chart.tsx": "routed_or_shared"
+      }
+    },
+    {
+      "id": "team_dynamics",
+      "source": "src/team_dynamics_engine.py",
+      "classes": [
+        "TeamDynamicsEngine"
+      ],
+      "methods": [
+        "analyze_all",
+        "analyze_team_diversity",
+        "calculate_team_health_scores",
+        "flag_at_risk_teams",
+        "get_collaboration_indicators",
+        "get_team_composition",
+        "get_team_summary",
+        "identify_performance_variance"
+      ],
+      "python_consumers": [
+        "src/succession_engine.py",
+        "src/platform/runtime_loader.py",
+        "api/dependencies.py",
+        "api/routes/team.py",
+        "main.py"
+      ],
+      "review_status": "reviewed_with_limits",
+      "findings": [
+        "Prior active/known-rating denominator fixes retained. Legacy cards now preserve missing composite; aggregate APIs reconcile unknown demographic categories."
+      ],
+      "verification": [
+        "tests/test_extended_integrity.py",
+        "tests/test_team_dynamics_engine.py"
+      ],
+      "renderers": [
+        "ui/dashboard_layout.py",
+        "ui/components.py",
+        "web/app/advisor/page.tsx"
+      ],
+      "remaining_validation": [
+        "Team-health/diversity/collaboration labels are configured descriptive constructs, not validated team outcomes; missing observations and source bias remain material."
+      ],
+      "runtime_state": "Descriptive composite",
+      "interfaces": [
+        "api/routes/team.py"
+      ],
+      "renderer_state": {
+        "ui/dashboard_layout.py": "dormant_or_legacy",
+        "ui/components.py": "dormant_or_legacy",
+        "web/app/advisor/page.tsx": "routed_or_shared"
+      }
+    },
+    {
+      "id": "vector",
+      "source": "src/vector_engine.py",
+      "classes": [
+        "VectorEngine"
+      ],
+      "methods": [
+        "build_index",
+        "is_initialized",
+        "search"
+      ],
+      "python_consumers": [
+        "src/platform/runtime_loader.py",
+        "api/dependencies.py",
+        "api/main.py",
+        "api/routes/search.py",
+        "ui/dashboard_layout.py",
+        "main.py"
+      ],
+      "review_status": "reviewed_with_limits",
+      "findings": [
+        "Prior finite-vector, metadata alignment, empty/failed rebuild and failure-status tests retained. Legacy search display now labels similarity index instead of percent match."
+      ],
+      "verification": [
+        "tests/test_extended_integrity.py"
+      ],
+      "renderers": [
+        "web/app/search/page.tsx",
+        "ui/dashboard_layout.py",
+        "ui/components.py"
+      ],
+      "remaining_validation": [
+        "Controlled embeddings verify distance/order only. Real embedding relevance, Recall@k/nDCG, multilingual performance and concurrent refresh isolation require further tests."
+      ],
+      "runtime_state": "Retrieval geometry; relevance unvalidated",
+      "interfaces": [
+        "api/routes/search.py"
+      ],
+      "renderer_state": {
+        "web/app/search/page.tsx": "routed_or_shared",
+        "ui/dashboard_layout.py": "dormant_or_legacy",
+        "ui/components.py": "dormant_or_legacy"
+      }
+    }
+  ],
+  "review_date": "2026-09-08",
+  "review_status": "source_and_boundary_review_complete_with_documented_limits",
+  "enterprise_validation": "not_established",
+  "shared_consumers": [
+    "src/agent/adapters.py",
+    "src/agent/people_tools.py",
+    "src/agent/aggregator.py",
+    "src/serialization.py",
+    "src/population.py",
+    "src/export.py",
+    "src/insight_interpreter.py",
+    "web/lib/api-client.ts",
+    "web/types/api.ts"
+  ],
+  "scope_note": "Every engine module reviewed; targeted executable tests do not cover every branch or validate every statistical construct. Dormant components are inventoried, not assumed to be routed product pages.",
+  "validation_layers": [
+    "Independent synthetic known answers",
+    "Negative/invalid/missing evidence controls",
+    "API serialization and population reconciliation",
+    "Real React server render contracts",
+    "Legacy Streamlit format check",
+    "Pinned public ML and survival benchmarks",
+    "Separate packaged smoke CI on three operating systems"
+  ],
+  "reviewed_file_sha256": {
+    "api/routes/analytics.py": "5aa3def621bc86eac43dfa7cc6f9b85fde192671581773c58badb6a56c57d99a",
+    "api/routes/causal.py": "52ed66289c36bf2d2f7beedb5e48b15e842fcd71c543193f9fc89592297eb873",
+    "api/routes/compensation.py": "e72e1fea70635662d77931254864a297f10515668f8c71b278a188e247b30162",
+    "api/routes/experience.py": "00bef3e4dddea9acd9885c02e5696ac793a4c2bed4699a7d4c2b579414d238f8",
+    "api/routes/fairness.py": "86e3bb4f3c6e1fd5aac70b259740ef72870f04fa5dbd5e3ced43ba8c2f55934b",
+    "api/routes/geo.py": "b6ed33a0269f59bc5064ec2956ec98df53031c5a1e69104b46edfd6a48c69a8c",
+    "api/routes/model_lab.py": "1b8b190e0ffcca0bdfa768012a90296f60929d343ac50d815556089f78e40de4",
+    "api/routes/network.py": "dd0d7a3ab883a08bad39972d038c2edf3dde8ebcd1a7a8c04a327cead8c20228",
+    "api/routes/nlp.py": "fb41213e0ff664439d30e2ac2a3332d3d907d0e8e9a8bcce43f65e8eb29ad241",
+    "api/routes/predictions.py": "fc85e31fa743243dbf188751cfa556c4686fcfccba937f2e5039bc3fc918a41d",
+    "api/routes/quality_of_hire.py": "e9955cb0d0927af2c649a5eb9e17a729d986291750603dfc380ea985609433cf",
+    "api/routes/scenario.py": "0e06ca0a34ee0013993e388188a498cd30cbd31da4ca4b7710ae61e6c2a1023f",
+    "api/routes/search.py": "5d06370e27389837f04a144989f67c25565f07915cc5de30f51992c3c63b1d46",
+    "api/routes/sentiment.py": "133f9ffdcd30ad1a6c87abb9d6074b80ad2d85a6057813286efa093bc7633702",
+    "api/routes/structural.py": "7ca94c3180844eddb0ddcdab3c82c6a20a01a2c6e06b7a632dcaabc9c8e68f39",
+    "api/routes/succession.py": "33e44bcc914f236b79853612d8d9af64e1fbab42ff45bf3a42299ae1b3a3fe94",
+    "api/routes/survival.py": "019990ca4abb506734bf580481a291502277892808eebbd5811e2eace44e8818",
+    "api/routes/team.py": "e418e152e67b0d0d77f6690f5d5ea675186e8b7898f5c2880fb83e9c2589e390",
+    "api/schemas/experience.py": "bd74378ecd2dd9f0c322ec76959cc33c7543830052fbd316d1c73c826f274f98",
+    "api/schemas/predictions.py": "f7ea6805545457c2fb0eef4e6e7f88f2f2af65a709ae58c32b9922ed838e8b78",
+    "api/schemas/quality_of_hire.py": "426d7171ccd90d9fc9464e432e7a02d2be07ac439bbfc9720b3b4a1846456509",
+    "api/schemas/scenario.py": "21c4d52d798f9b67d4fb63d78a5cd13b471254db6c2764138b144c663cae2506",
+    "api/schemas/survival.py": "2498b9d918308dcf839ffb6b44336318b6a6a6b6c878863210fa17a9c8b34893",
+    "main.py": "28431d93f41120f450ea0f9148d1ead82aa0a2125763ba2e1512a954814325dd",
+    "src/agent/adapters.py": "d13ea7c170bd9fa223c3358fa101f69473700bbfee3dfdd1f35d824c3361c516",
+    "src/agent/aggregator.py": "377fe30f34fe59486a1f021b4728f870730daac71be4087f3d7a0b8f5362f348",
+    "src/agent/people_tools.py": "ed96bbf941ba15d0c29ed143e170570a614ed220ad6f2d7095dd37213f9362b5",
+    "src/analytics_engine.py": "84430626aff7b50b1e144447c6624e2fc8051b32cffea889f6c09380095aefcd",
+    "src/causal_engine.py": "5d1539449101223f775951c238addf12dd4e6f2ff865847324a26ae553e87425",
+    "src/clustering_engine.py": "e610883fc991a966a6dcb61ff0995089acc90dfdcdcf90c9bcdbb8ba9366715f",
+    "src/compensation_engine.py": "34385d273509251419b7bebe46898da5428f18eb559dcea6f9a6ef23a8434c77",
+    "src/data_loader.py": "9cc109c165efab869d72043fe088043d8a835def581b69d883039bda063fb87c",
+    "src/experience_engine.py": "76539e7c5142e894fa02a85fa8c1f1f5dd105eb88858260f5def9f02df71b54b",
+    "src/export.py": "d5632c9a6ca9f0a5a1e904170bb8045a3304b5d653d784ffce5162564c138769",
+    "src/fairness_engine.py": "a26f6ae36a4263c801378bab192ad2af1b41bd294c3a250f0868e2f1f34d6b15",
+    "src/forecasting_engine.py": "aabc12f2dfdbba53f6be749a2dfa39ca60a230a171b39ebfbea9e2ab8132dc7e",
+    "src/insight_interpreter.py": "17d8ce7d3ee5b2cc5483986b0d367e9facbcbaf10db1696f8b36076dbf58671a",
+    "src/merge_engine.py": "53752dd8eb9b257ef607bcf6579b1d0d5e567458a13965ef60e554ee89c6d7a2",
+    "src/ml_engine.py": "bba90b3f0dffa12d8a9bb91d9efc21e35d2acc5339b4df79765a645b875adc46",
+    "src/model_lab_engine.py": "dd40814c2fb839e3101344cbf0b02ddf9cb1faf0fdbdb759daea3b5c1748e276",
+    "src/network_engine.py": "131d8f660e537633d3cd8dd5c3475b943937cf4491a77f70e54a5f7a1083baa7",
+    "src/nlp_engine.py": "7e9c9df18337c0ed098ac8cad9b245045c367062cc2a0cdeb29b586353502784",
+    "src/population.py": "eb6c3cefd02867ff8d0e24e42bec713c1facd6a510991a71e889992fb03ff486",
+    "src/quality_of_hire_engine.py": "441c2bed6884472b6406aa56610dd7f7374921670044b7dfbc31deeac83c176b",
+    "src/scenario_engine.py": "669b9fd199c073523403cc52123c05b8f6d930605588278d75d0f399da509ee1",
+    "src/sentiment_engine.py": "64ffe453461b7356158a7d3257416d46a4abc0bb924d52560c5b2b6d58a22bf9",
+    "src/serialization.py": "c32f37f9b2240cc0fe510544ac91f36ca269177cc1f9f0f6a6bfbf4cdfa29c0a",
+    "src/structural_engine.py": "0a8361e645394da4bc5cc94332e10c6451631ffa7fcbe7bcdbdefac0399bce7e",
+    "src/succession_engine.py": "d76c7bb9bd566161b3a0a3b77574184536f12b7be122e0a54106646ed5aac5af",
+    "src/survival_engine.py": "f1c98261ba616b7ee0f8195f39c86a0d35f1d22efab625939f9aec85044cfe72",
+    "src/team_dynamics_engine.py": "9dbac383754fec9c0b7499a6f45118a6ce3573487b7e8facae102e0199c0f301",
+    "src/vector_engine.py": "4d2fde141f9986b7f8d76975d9efe0be76fef7a8cd7e69949bb7fc5714eeaf35",
+    "ui/components.py": "2abad2bef5509fdeb88896586e6322bea2e22d2a144014b0f872045cd71f9577",
+    "ui/dashboard_layout.py": "9fdc08a05b5acd824960a95bb9d5e34723893d5b3d95cb6bec6f4e861db713b3",
+    "ui/employee_detail.py": "83ae2cbd541b1566ab15542d1f405db6d19d92d44d9a78dda3d27903bab038fb",
+    "web/app/advisor/page.tsx": "c19d299f37e7a7105acca8db8b49b3afaddaa84496349d86e672f46e0d0c3e67",
+    "web/app/employee-experience/page.tsx": "d8dc41c488978aeda9482cba8f0134d4c41de87ddd031eeca3045319c3a75950",
+    "web/app/flight-risk/page.tsx": "0a01c4b179555d5f82ea33f17a715ae40e102504fba5986d3462b9bcf5e8a719",
+    "web/app/page.tsx": "4cc8ff46b6dc5db700ff197c713579c9bbc1e0d60716ce9bb873ae259ce6455e",
+    "web/app/platform/page.tsx": "016093d4dc83a6281a2f263b5d501e8047544e460a25ab3772ff69a7127cb2c5",
+    "web/app/quality-of-hire/page.tsx": "9558d9c5117c0817e83b2fdfc9e25af8184418ccb0adbc2ba4814f4a38f54172",
+    "web/app/retention-forecast/page.tsx": "125b206a3fd3797cb73ddad2789d5b74c468ea2132e67c279127d98263820771",
+    "web/app/scenario-planner/page.tsx": "6d238a530702a9c8e76295d8ba0b57c348d6cefcdf92d2774afc923955316dbe",
+    "web/app/search/page.tsx": "8b5ab7649b859371cd6b3bc20ed024b91cbdc2bfa7f37a3a02b35a3e2d3d8912",
+    "web/app/workforce-health/page.tsx": "21bbc9af627dbb18b82c5b79daf22fea62a96b58b2f982b9bc455d9899937fcb",
+    "web/components/advisor/model-lab.tsx": "2c4e3674c5769ab860569abd196bdb543b777d47663a0e2bd9e4a406fc39599e",
+    "web/components/charts/correlation-heatmap.tsx": "dd9d834ae0c980ee676360abaf3f8e25908287d5bb4bb332a88de4430359b35d",
+    "web/components/charts/department-bar-chart.tsx": "df8aae55416b7788d057c920ab8031aafe2693c7dba902e2ad5741726968b73a",
+    "web/components/charts/feature-importance-chart.tsx": "a0389f324daeed949e0d5ec56116f4ffbebbe216eca0db6c1f10b7752686857c",
+    "web/components/charts/nine-box-grid.tsx": "17da3a404459fa683e1d00f953a4afe0c43e3cad2060f216d8b9efa44c85c038",
+    "web/components/charts/retention-curve-chart.tsx": "15c4c563187fa54b878dd1bd46e46280c60622b0a057be3f76149d1a4863e1da",
+    "web/components/charts/risk-distribution-pie.tsx": "19fb73bef4d113c4ba57413961a565491937321d302a01d30de4b38f54c4e5e4",
+    "web/components/charts/shap-waterfall-chart.tsx": "acba487fc84b6d6fee317985bfe205b747701b48662d77132eeed503ab8dc35e",
+    "web/components/charts/tenure-distribution-chart.tsx": "16d9f862cd82ba080e035a1348e4cdd763a397ebedc4a9bf033439a7123701c1",
+    "web/components/dashboard/employee-detail-modal.tsx": "9db290f8fcbb9005f781317edcbf46f4a301a9f2f3fd6e94ce8ce1d00599cd51",
+    "web/components/dashboard/high-risk-table.tsx": "70a924a0e89464ed393adbf4c258932060a0babfdae3e1da32df51689a3d05ff",
+    "web/components/dashboard/predictive-math-modal.tsx": "63910b75f59089176364d48d719cc8f92bcbfe32430f8276b17bed87e0ac6e17",
+    "web/components/diagnostics/compensation-tab.tsx": "ec19e1726a4d83697e8efad41ce52f4a06e9739f43d3b7a07de96f899bea0634",
+    "web/components/diagnostics/nlp-tab.tsx": "4b4c131f1a9a46d8242fbcb632a237cb71d6e337a411cf82db76b37baf8cdad2",
+    "web/components/diagnostics/prediction-explanation-modal.tsx": "956f92e39a9e344777c9a1c962a39030ad8440d8964e6e982b8ef0c3a1485d92",
+    "web/components/diagnostics/succession-tab.tsx": "c56b1078045406f8d4b2531b7434b87040652bbe2c16cd4d4482739b1196335f",
+    "web/components/risk-analysis-modal.tsx": "dcc55ae722718a4ee7d7624275ab149cf7f414dba5815c0e31b307e4f867de89",
+    "web/lib/api-client.ts": "f82359480346e3c2f08612321a4086358d89702cd7644b7e2c99ecca86908d0a",
+    "web/types/api.ts": "159714ab4482a97550712867692ca7b7e4ed967de39409163528d45339ef21c8"
+  }
+}

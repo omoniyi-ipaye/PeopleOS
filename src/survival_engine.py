@@ -130,6 +130,7 @@ class SurvivalEngine:
             return {'available': False, 'reason': f'Kaplan-Meier fitting failed ({type(exc).__name__})'}
 
     def fit_cox_proportional_hazards(self) -> Dict[str, Any]:
+        self.cox_fitted, self.cox_model = False, None
         if not self.has_attrition:
             return {'available': False, 'reason': 'Attrition is required for Cox analysis'}
         if not self.available_covariates:
@@ -206,6 +207,15 @@ class SurvivalEngine:
     def generate_cohort_insights(self, filters: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         frame = self.df.copy(); parts = []
         filters = filters or {}
+        required_columns = {'Dept': 'Dept', 'Location': 'Location', 'tenure_min': 'Tenure',
+                            'tenure_max': 'Tenure', 'years_since_promotion_min': 'YearsSinceLastPromotion'}
+        if any(key not in required_columns or required_columns[key] not in frame for key in filters):
+            return {'cohort_size': 0, 'filters_applied': {}, 'warning': 'Requested cohort filter is unavailable'}
+        for key in ('tenure_min', 'tenure_max', 'years_since_promotion_min'):
+            if key in filters and (not isinstance(filters[key], (int, float)) or not np.isfinite(filters[key]) or filters[key] < 0):
+                return {'cohort_size': 0, 'filters_applied': {}, 'warning': 'Cohort durations must be finite and non-negative'}
+        if filters.get('tenure_min', 0) > filters.get('tenure_max', float('inf')):
+            return {'cohort_size': 0, 'filters_applied': {}, 'warning': 'Cohort duration range is reversed'}
         for key in ('Dept', 'Location'):
             if key in filters and key in frame.columns:
                 frame = frame[frame[key] == filters[key]]; parts.append(f'{key}={filters[key]}')

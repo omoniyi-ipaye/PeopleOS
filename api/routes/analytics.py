@@ -26,6 +26,8 @@ from api.schemas.analytics import (
     TenureDistribution,
 )
 
+from src.serialization import json_safe
+
 router = APIRouter(prefix="/api/analytics", tags=["analytics"])
 
 
@@ -70,11 +72,13 @@ async def get_department_stats(state: AppState = Depends(require_data)) -> Depar
     frame = state.analytics_engine.get_department_aggregates()
     departments = []
     for _, row in frame.iterrows():
+        row = json_safe(row.to_dict())
         share = row.get('Observed_Attrition_Share', row.get('Turnover_Rate'))
         departments.append(DepartmentStats(
             dept=row['Dept'],
             headcount=int(row.get('Headcount', 0)),
             total_records=int(row.get('Total_Records', 0)),
+            outcome_observations=int(row.get('Outcome_Observations', 0)),
             avg_salary=row.get('Avg_Salary'),
             median_salary=row.get('Median_Salary'),
             salary_std_dev=row.get('Salary_StdDev'),
@@ -94,8 +98,8 @@ async def get_distributions(state: AppState = Depends(require_data)) -> Distribu
         TenureDistribution(
             tenure_range=str(row['Tenure_Range']),
             count=int(row['Count']),
-            observed_attrition_share=row.get('Observed_Attrition_Share', row.get('Turnover_Rate')),
-            turnover_rate=row.get('Observed_Attrition_Share', row.get('Turnover_Rate')),
+            observed_attrition_share=json_safe(row.get('Observed_Attrition_Share', row.get('Turnover_Rate'))),
+            turnover_rate=json_safe(row.get('Observed_Attrition_Share', row.get('Turnover_Rate'))),
         ) for _, row in tenure_frame.iterrows()
     ]
     age_frame = state.analytics_engine.get_age_distribution()

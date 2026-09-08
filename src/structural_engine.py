@@ -49,13 +49,13 @@ class StructuralEngine:
 
     def _prepare_data(self) -> None:
         """Prepare data for analysis."""
-        # Calculate stagnation index if we have the required columns
-        if 'YearsInCurrentRole' in self.df.columns and 'Tenure' in self.df.columns:
-            self.df['StagnationIndex'] = self.df.apply(
-                lambda row: row['YearsInCurrentRole'] / row['Tenure']
-                if row['Tenure'] > 0 else 0,
-                axis=1
-            )
+        for column in ['Tenure', 'YearsInCurrentRole', 'YearsSinceLastPromotion', 'JobLevel']:
+            if column in self.df:
+                values = pd.to_numeric(self.df[column], errors='coerce')
+                self.df[column] = values.where(np.isfinite(values) & (values >= 0))
+        if 'YearsInCurrentRole' in self.df and 'Tenure' in self.df:
+            valid = (self.df['Tenure'] > 0) & (self.df['YearsInCurrentRole'] <= self.df['Tenure'])
+            self.df['StagnationIndex'] = (self.df['YearsInCurrentRole'] / self.df['Tenure']).where(valid)
 
         # Parse dates if needed
         if 'PromotionDate' in self.df.columns:
@@ -98,6 +98,8 @@ class StructuralEngine:
 
         # Determine stagnation category
         def categorize_stagnation(row):
+            if pd.isna(row['StagnationIndex']):
+                return 'Unavailable'
             if row['Tenure'] < tenure_threshold:
                 return 'Too Early'
             elif row['StagnationIndex'] >= 0.9:
@@ -139,7 +141,8 @@ class StructuralEngine:
 
         # Filter to employees with sufficient tenure
         tenure_threshold = self.stagnation_config.get('tenure_threshold', 3.0)
-        eligible = stagnation_df[stagnation_df['Tenure'] >= tenure_threshold]
+        role_threshold = self.stagnation_config.get('role_threshold', 0.8)
+        eligible = stagnation_df[(stagnation_df['Tenure'] >= tenure_threshold) & stagnation_df['StagnationIndex'].notna()]
 
         if eligible.empty:
             return {
@@ -230,16 +233,16 @@ class StructuralEngine:
         if 'ManagerID' not in self.df.columns:
             return pd.DataFrame()
 
-        # Count direct reports per manager
-        direct_reports = self.df.groupby('ManagerID').agg({
+        # Only recorded links to current managers; self-reporting is invalid.
+        links = self.df[self.df['ManagerID'].isin(self.df['EmployeeID']) & (self.df['ManagerID'] != self.df['EmployeeID'])]
+        direct_reports = links.groupby('ManagerID').agg({
             'EmployeeID': 'count'
         }).reset_index()
         direct_reports.columns = ['ManagerID', 'DirectReports']
 
         # Get manager details
-        managers = self.df[self.df['EmployeeID'].isin(direct_reports['ManagerID'])][
-            ['EmployeeID', 'Dept', 'JobTitle', 'JobLevel', 'Location', 'LastRating', 'Tenure']
-        ].copy()
+        columns = [c for c in ['EmployeeID', 'Dept', 'JobTitle', 'JobLevel', 'Location', 'LastRating', 'Tenure'] if c in self.df]
+        managers = self.df[self.df['EmployeeID'].isin(direct_reports['ManagerID'])][columns].copy()
         managers = managers.rename(columns={'EmployeeID': 'ManagerID'})
 
         # Merge
@@ -274,7 +277,8 @@ class StructuralEngine:
             else:
                 return min(70 + (reports - warning_threshold) * 5, 100)
 
-        span_df['BurnoutRiskScore'] = span_df['DirectReports'].apply(burnout_risk)
+        span_df['BurnoutRiskScore'] = None
+        span_df['MetricSemantics'] = 'recorded_reporting_span_not_burnout_prediction'
 
         return span_df.sort_values('DirectReports', ascending=False)
 
@@ -342,7 +346,7 @@ class StructuralEngine:
             recommendations.append(
                 f"URGENT: {len(critical_managers)} manager(s) have more than "
                 f"{critical_threshold} direct reports. Consider immediate restructuring "
-                "to prevent burnout and improve team effectiveness."
+                "after reviewing workload, responsibilities and local context."
             )
 
         overloaded = span_df[
@@ -360,7 +364,7 @@ class StructuralEngine:
         if len(under_leveraged) > len(span_df) * 0.3:
             recommendations.append(
                 f"{len(under_leveraged)} managers have fewer than 4 direct reports. "
-                "Consider consolidating teams to improve efficiency."
+                "Review the role requirements before drawing an efficiency conclusion."
             )
 
         return recommendations
@@ -616,10 +620,8 @@ class StructuralEngine:
                     })
 
         # Find employees waiting longest
-        long_waiters = self.df.nlargest(10, 'YearsSinceLastPromotion')[
-            ['EmployeeID', 'Dept', 'JobLevel', 'JobTitle', 'YearsSinceLastPromotion',
-             'LastRating', 'Tenure']
-        ].to_dict('records') if not self.df.empty else []
+        columns = [c for c in ['EmployeeID', 'Dept', 'JobLevel', 'JobTitle', 'YearsSinceLastPromotion', 'LastRating', 'Tenure'] if c in self.df]
+        long_waiters = self.df.dropna(subset=['YearsSinceLastPromotion']).nlargest(10, 'YearsSinceLastPromotion')[columns].to_dict('records')
 
         return {
             'available': True,

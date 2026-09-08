@@ -29,6 +29,12 @@ def _valid_numeric(series: pd.Series, name: str) -> pd.Series:
     values = pd.to_numeric(series, errors='coerce').replace([np.inf, -np.inf], np.nan).dropna()
     if name == 'Salary':
         values = values[values > 0]
+    elif name == 'Tenure':
+        values = values[values >= 0]
+    elif name == 'Age':
+        values = values[values.between(1, 120)]
+    elif name == 'LastRating':
+        values = values[values.between(1, 5)]
     return values
 
 
@@ -71,8 +77,9 @@ class AnalyticsEngine:
             known_attrition = current['Attrition'].dropna() if 'Attrition' in current.columns else pd.Series(dtype=float)
             attrition_share = float(known_attrition.mean()) if not known_attrition.empty else None
             row: dict[str, Any] = {
-                'Dept': dept,
+                'Dept': str(dept) if pd.notna(dept) else 'Unknown',
                 'Total_Records': int(len(current)),
+                'Outcome_Observations': int(len(known_attrition)),
                 'Headcount': int(len(active)),
                 'Observed_Attrition_Share': attrition_share,
                 # Compatibility alias; not a period turnover rate.
@@ -92,7 +99,9 @@ class AnalyticsEngine:
     def get_correlations(self, target_column: str = 'Attrition', max_features: int = 20) -> pd.DataFrame:
         if target_column not in self.df.columns:
             return pd.DataFrame()
-        numeric = self.df.select_dtypes(include=[np.number]).copy()
+        numeric = self.df.select_dtypes(include=[np.number]).drop(columns=['EmployeeID'], errors='ignore').replace([np.inf, -np.inf], np.nan)
+        for col in numeric:
+            numeric[col] = _valid_numeric(numeric[col], col).reindex(numeric.index)
         if target_column not in numeric.columns or numeric[target_column].dropna().nunique() < 2:
             return pd.DataFrame()
         if len(numeric.columns) > max_features + 1:
@@ -145,12 +154,12 @@ class AnalyticsEngine:
         active = self.active_df.copy()
         bins = [0, 1, 2, 5, 10, float('inf')]
         labels = ['<1 year', '1-2 years', '2-5 years', '5-10 years', '10+ years']
-        active['Tenure_Bucket'] = pd.cut(pd.to_numeric(active['Tenure'], errors='coerce'), bins=bins, labels=labels, right=False)
+        active['Tenure_Bucket'] = pd.cut(_valid_numeric(active['Tenure'], 'Tenure').reindex(active.index), bins=bins, labels=labels, right=False).cat.add_categories('Unknown').fillna('Unknown')
         distribution = active['Tenure_Bucket'].value_counts(sort=False).rename_axis('Tenure_Range').reset_index(name='Count')
         # Attrition outcome by tenure is calculated over current records, because active-only data cannot contain departed outcomes.
         if 'Attrition' in self.df.columns:
             current = self.df.copy()
-            current['Tenure_Bucket'] = pd.cut(pd.to_numeric(current['Tenure'], errors='coerce'), bins=bins, labels=labels, right=False)
+            current['Tenure_Bucket'] = pd.cut(_valid_numeric(current['Tenure'], 'Tenure').reindex(current.index), bins=bins, labels=labels, right=False).cat.add_categories('Unknown').fillna('Unknown')
             shares = current.groupby('Tenure_Bucket', observed=False)['Attrition'].mean().rename('Observed_Attrition_Share')
             distribution = distribution.merge(shares.reset_index().rename(columns={'Tenure_Bucket': 'Tenure_Range'}), on='Tenure_Range', how='left')
             distribution['Turnover_Rate'] = distribution['Observed_Attrition_Share']
@@ -161,7 +170,7 @@ class AnalyticsEngine:
             return pd.DataFrame()
         bins = [0, 25, 35, 45, 55, float('inf')]
         labels = ['Under 25', '25-34', '35-44', '45-54', '55+']
-        bucket = pd.cut(pd.to_numeric(self.active_df['Age'], errors='coerce'), bins=bins, labels=labels, right=False)
+        bucket = pd.cut(_valid_numeric(self.active_df['Age'], 'Age').reindex(self.active_df.index), bins=bins, labels=labels, right=False).cat.add_categories('Unknown').fillna('Unknown')
         return bucket.value_counts(sort=False).rename_axis('Age_Range').reset_index(name='Count')
 
     def get_salary_bands(self) -> pd.DataFrame:

@@ -6,6 +6,7 @@ export default defineConfig([
   ...nextVitals,
   ...nextTs,
   {
+    files: ['**/*.{js,mjs,jsx,ts,tsx}'],
     // Migration compatibility: these rules were not enforced by the previous
     // Next 14 toolchain and currently flag broad pre-existing debt. Keep the
     // modern lint stack active while the Next 16 build remains the hard
@@ -19,6 +20,7 @@ export default defineConfig([
       'react-hooks/purity': 'warn',
     },
   },
+  { files: ['tests/**/*.cjs'], rules: { '@typescript-eslint/no-require-imports': 'off' } },
   globalIgnores([
     '.next/**',
     'out/**',

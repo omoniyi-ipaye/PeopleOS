@@ -33,12 +33,12 @@ const COLORS = [
 
 export function DepartmentBarChart({ data, dataKey = 'headcount' }: DepartmentBarChartProps) {
   const chartData = data
-    .filter((d) => d[dataKey] !== undefined && d[dataKey] !== null)
+    .filter((d) => d[dataKey] != null && Number.isFinite(d[dataKey]))
     .sort((a, b) => (b[dataKey] || 0) - (a[dataKey] || 0))
-    .slice(0, 8)
+
 
   const formatValue = (value: number) => {
-    if (dataKey === 'avg_salary') return `$${value.toLocaleString()}`
+    if (dataKey === 'avg_salary') return value.toLocaleString()
     if (dataKey === 'turnover_rate') return `${(value * 100).toFixed(1)}%`
     return value.toString()
   }

@@ -29,6 +29,7 @@ jobs:
           pytest -q
           tests/test_analytics_accuracy.py tests/test_model_validation.py
           tests/test_extended_integrity.py
+          tests/test_engine_renderer_integrity.py tests/test_engine_audit_inventory.py tests/test_merge_engine.py
           tests/test_analytics_engine.py tests/test_compensation_engine.py
           tests/test_preprocessor.py tests/test_experience_engine.py
           tests/test_scenario_engine.py tests/test_nlp_engine.py

@@ -25,7 +25,9 @@ class TopicInfo(BaseModel):
     """NLP topic information."""
     name: str
     description: str
-    prevalence: str
+    prevalence: Optional[str] = None
+    measurement_semantics: str = "generated_theme_not_measured_prevalence"
+    sample_size: Optional[int] = None
     sentiment: Optional[str] = None
     count: Optional[int] = None
 

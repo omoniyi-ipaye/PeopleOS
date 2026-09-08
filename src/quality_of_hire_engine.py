@@ -485,14 +485,14 @@ class QualityOfHireEngine:
             'sources_analyzed': df['HireSource'].nunique() if self.has_hire_source else 0,
             'prehire_signals_available': len(self.prehire_columns),
             'avg_performance': round(df['LastRating'].mean(), 2) if self.has_performance else None,
-            'overall_retention': round(1 - df['Attrition'].mean(), 3) if self.has_attrition else None
+            'overall_retention': round(1 - df['Attrition'].mean(), 3) if self.has_attrition and df['Attrition'].notna().any() else None
         }
 
         # Source analysis
         source_df = self.calculate_source_effectiveness()
         if not source_df.empty:
             # Top sources
-            top_sources = source_df.head(3).to_dict('records')
+            top_sources = source_df.dropna(subset=['quality_score']).head(3).to_dict('records')
             results['top_sources'] = top_sources
 
             # Red flags - sources with low quality or retention
@@ -530,7 +530,7 @@ class QualityOfHireEngine:
             overall_quality = df['LastRating'].mean() if self.has_performance else 3.0
 
             for _, row in source_df.iterrows():
-                if 'avg_performance' in row:
+                if 'avg_performance' in row and pd.notna(row['avg_performance']) and pd.notna(overall_quality):
                     quality_diff = row['avg_performance'] - overall_quality
                     roi_indicator = 'Above Average' if quality_diff > 0.2 else (
                         'Below Average' if quality_diff < -0.2 else 'Average'
@@ -540,6 +540,7 @@ class QualityOfHireEngine:
                         'source': row['HireSource'],
                         'quality_vs_average': round(quality_diff, 2),
                         'roi_indicator': roi_indicator,
+                        'metric_semantics': 'relative_recorded_rating_not_return_on_investment',
                         'recommendation': row.get('recommendation', '')
                     }
 
@@ -547,8 +548,8 @@ class QualityOfHireEngine:
         if results['top_sources']:
             top_source = results['top_sources'][0]
             results['recommendations'].append(
-                f"EXPAND: {top_source['HireSource']} is your highest-quality source "
-                f"(score: {top_source['quality_score']}). Consider increasing investment."
+                f"Review source composition and follow-up: {top_source['HireSource']} has the highest measured heuristic composite "
+                f"({top_source['quality_score']}) in this sample. Validate independently before changing sourcing decisions."
             )
 
         if results['red_flags']:
@@ -774,7 +775,7 @@ class QualityOfHireEngine:
             'has_assessment': self.has_assessment,
             'prehire_signals_count': len(self.prehire_columns),
             'sources_analyzed': len(results['source_effectiveness']),
-            'best_source': results['source_effectiveness'][0]['HireSource'] if results['source_effectiveness'] else None,
+            'best_source': next((row['HireSource'] for row in results['source_effectiveness'] if row.get('quality_score') is not None and pd.notna(row['quality_score'])), None),
             'top_predictor': results['correlations'].get('best_predictors', [{}])[0].get('predictor') if results.get('correlations', {}).get('best_predictors') else None,
             'new_hires_at_risk': len([r for r in results['new_hire_risks'] if r.get('risk_category') in ['High', 'Medium']])
         }

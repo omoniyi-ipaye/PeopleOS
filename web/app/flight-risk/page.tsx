@@ -74,6 +74,9 @@ export default function RetentionSignalsPage() {
     </Page>
   }
 
+  if (predictions.isLoading) return <Page><StateSummary title="Loading model scores" description="Reading aggregate scores for the active dataset." tone="info" /></Page>
+  if (predictions.isError || !predictions.data?.distribution) return <Page><EmptyState title="Aggregate model scores are unavailable" description="No distribution can be shown until valid scores for the current dataset are available." /></Page>
+
   const model = metrics.data
   const distribution = predictions.data?.distribution
   const total = (distribution?.high_risk ?? 0) + (distribution?.medium_risk ?? 0) + (distribution?.low_risk ?? 0)

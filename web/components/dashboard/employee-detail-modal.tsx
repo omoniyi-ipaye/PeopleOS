@@ -180,7 +180,7 @@ export function EmployeeDetailModal({
                   value: sv.value,
                   contribution: sv.contribution,
                 }))}
-                baseValue={detail.base_value || 0.5}
+                baseValue={detail.base_value ?? Number.NaN}
                 prediction={detail.risk_score}
               />
             </div>

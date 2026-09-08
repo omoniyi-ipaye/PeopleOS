@@ -13,6 +13,8 @@ from pydantic import BaseModel
 
 from api.dependencies import AppState, get_app_state
 
+from src.serialization import json_safe
+
 router = APIRouter(prefix="/api/compensation", tags=["compensation"])
 
 
@@ -121,10 +123,10 @@ async def get_salary_by_tenure(state: AppState = Depends(require_compensation)) 
     return [
         {
             'tenure_bucket': str(row['TenureBucket']),
-            'mean': float(row['Mean']),
-            'median': float(row['Median']),
-            'min': float(row['Min']),
-            'max': float(row['Max']),
+            'mean': json_safe(row['Mean']),
+            'median': json_safe(row['Median']),
+            'min': json_safe(row['Min']),
+            'max': json_safe(row['Max']),
             'count': int(row['Count']),
             'population': 'current_active_employees_with_valid_salary',
         }

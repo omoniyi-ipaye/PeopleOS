@@ -30,7 +30,7 @@ const COLORS = [
 ]
 
 export function TenureDistributionChart({ data }: TenureDistributionChartProps) {
-  const sortOrder = ['<1 year', '1-2 years', '2-5 years', '5-10 years', '10+ years']
+  const sortOrder = ['<1 year', '1-2 years', '2-5 years', '5-10 years', '10+ years', 'Unknown']
   const chartData = [...data].sort(
     (a, b) => sortOrder.indexOf(a.tenure_range) - sortOrder.indexOf(b.tenure_range)
   )
@@ -52,7 +52,7 @@ export function TenureDistributionChart({ data }: TenureDistributionChartProps) 
             const numeric = Number(value ?? 0)
             const key = String(name ?? '')
             if (key === 'count') return [`${numeric} employees`, 'Count']
-            if (key === 'turnover_rate') return [`${(numeric * 100).toFixed(1)}%`, 'Turnover Rate']
+            if (key === 'turnover_rate') return [`${(numeric * 100).toFixed(1)}%`, 'Observed attrition share']
             return [numeric, key]
           }}
         />

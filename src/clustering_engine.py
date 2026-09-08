@@ -13,6 +13,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import silhouette_score
 
 from src.logger import get_logger
+from src.population import active_population
 
 logger = get_logger('clustering_engine')
 
@@ -30,7 +31,7 @@ class ClusteringEngine:
         Args:
             df: DataFrame containing employee data.
         """
-        self.df = df
+        self.df = active_population(df)
         self.model: Optional[KMeans] = None
         self.scaler = StandardScaler()
         self.feature_cols: List[str] = []
@@ -67,7 +68,7 @@ class ClusteringEngine:
             raise ValueError("No suitable numeric columns found for clustering.")
             
         # Drop rows with NaNs in feature columns for training
-        X = active_df[self.feature_cols].dropna()
+        X = active_df[self.feature_cols].replace([np.inf, -np.inf], np.nan).dropna()
         
         if X.empty:
             raise ValueError("No data remaining after dropping NaNs.")
@@ -85,12 +86,19 @@ class ClusteringEngine:
         Returns:
             Dictionary with clustering results.
         """
+        self.results, self.model, self.cluster_labels = {}, None, None
         try:
             X = self._prepare_data()
             if len(X) < 10:
                 logger.warning("Insufficient data for clustering (need <10 rows).")
                 return {'success': False, 'reason': 'Insufficient data'}
                 
+            distinct = len(X.drop_duplicates())
+            if distinct < 2:
+                return {'success': False, 'reason': 'At least two distinct observations are required'}
+            if not auto_tune and (not isinstance(n_clusters, int) or isinstance(n_clusters, bool) or not 2 <= n_clusters <= min(distinct, len(X) - 1)):
+                return {'success': False, 'reason': 'Cluster count must fit distinct observations'}
+            self.training_frame = self.df.loc[X.index]
             X_scaled = self.scaler.fit_transform(X)
             
             best_n = n_clusters
@@ -99,8 +107,8 @@ class ClusteringEngine:
             
             if auto_tune:
                 # Try 2 to 6 clusters
-                max_k = min(6, len(X))
-                for k in range(2, max_k):
+                max_k = min(6, distinct, len(X) - 1)
+                for k in range(2, max_k + 1):
                     model = KMeans(n_clusters=k, random_state=42, n_init='auto')
                     labels = model.fit_predict(X_scaled)
                     score = silhouette_score(X_scaled, labels)
@@ -187,7 +195,7 @@ class ClusteringEngine:
             Dict mapping cluster ID -> Description string.
         """
         descriptions = {}
-        global_means = self.df[self.feature_cols].mean()
+        global_means = self.training_frame[self.feature_cols].mean()
         
         for cluster_id, row in summary.iterrows():
             traits = []
@@ -196,7 +204,7 @@ class ClusteringEngine:
             sorted_traits = []
             for col in self.feature_cols:
                 col_mean = global_means[col]
-                col_std = self.df[col].std()
+                col_std = self.training_frame[col].std()
                 z_score = (row[col] - col_mean) / col_std if col_std > 0 else 0
                 if abs(z_score) > 0.4:
                     sorted_traits.append((col, z_score))
@@ -225,7 +233,7 @@ class ClusteringEngine:
             traits = []
             for col, z in sorted_traits[:3]:
                 prefix = "High" if z > 0 else "Low"
-                friendly_name = COLUMN_NAME_MAPPING.get(col, col)
+                friendly_name = col
                 traits.append(f"{prefix} {friendly_name}")
             
             # Construct description
@@ -252,8 +260,7 @@ class ClusteringEngine:
         descriptions = self.results['cluster_descriptions']
         
         # Create result DF
-        result_df = self.df.loc[labels_map.keys(), ['EmployeeID']].copy()
-        result_df['Cluster'] = [labels_map[i] for i in result_df.index]
-        result_df['Cluster_Name'] = result_df['Cluster'].map(descriptions)
+        result_df = pd.DataFrame({'EmployeeID': list(labels_map), 'Cluster': list(labels_map.values())})
+        result_df['Cluster_Name'] = result_df['Cluster'].map(lambda value: descriptions.get(str(value), descriptions.get(value)))
         
         return result_df

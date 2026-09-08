@@ -163,7 +163,8 @@ class NLPEngine:
                     score = item.get('sentiment_score')
                     if eid not in allowed or eid in seen or not isinstance(score, (float, int)) or not 0 <= score <= 1:
                         raise NLPEngineError('Sentiment response has invalid identity or score')
-                    if item.get('sentiment_label') not in {'Positive', 'Neutral', 'Negative'}:
+                    expected_label = 'Positive' if score > .6 else 'Negative' if score < .4 else 'Neutral'
+                    if isinstance(score, bool) or item.get('sentiment_label') != expected_label:
                         raise NLPEngineError('Sentiment label is invalid')
                     seen.add(eid)
                     valid.append(item)
@@ -237,6 +238,11 @@ Rules:
             parsed = self._parse_json_response(raw_response)
 
             if parsed and isinstance(parsed, dict):
+                for category in ('technical_skills', 'soft_skills'):
+                    skills = parsed.get(category, [])
+                    if not isinstance(skills, list) or any(not isinstance(skill, str) or not skill.strip() for skill in skills):
+                        raise NLPEngineError('Skill categories require lists of nonempty strings')
+                    parsed[category] = list(dict.fromkeys(skill.strip() for skill in skills))
                 # Count skill occurrences across all texts
                 skill_counts = self._count_skills_in_texts(texts, parsed)
                 parsed['skill_counts'] = skill_counts
@@ -282,7 +288,7 @@ Rules:
         for text in texts:
             text_lower = text.lower()
             for skill in all_skills:
-                if skill.lower() in text_lower:
+                if re.search(r'(?<!\w)' + re.escape(skill.lower()) + r'(?!\w)', text_lower):
                     counts[skill] += 1
 
         return counts
@@ -324,25 +330,21 @@ Rules:
             raw_response = response.get('response', '')
             parsed = self._parse_json_response(raw_response)
 
-            if parsed and isinstance(parsed, list):
-                allowed = {str(value) for value in employee_ids}
-                seen, valid = set(), []
-                for item in parsed:
-                    if not isinstance(item, dict):
-                        raise NLPEngineError('Sentiment rows must be objects')
-                    eid = str(item.get('EmployeeID'))
-                    score = item.get('sentiment_score')
-                    if eid not in allowed or eid in seen or not isinstance(score, (float, int)) or not 0 <= score <= 1:
-                        raise NLPEngineError('Sentiment response has invalid identity or score')
-                    if item.get('sentiment_label') not in {'Positive', 'Neutral', 'Negative'}:
-                        raise NLPEngineError('Sentiment label is invalid')
-                    seen.add(eid)
-                    valid.append(item)
-                return valid[:self.topics_count]
-            elif parsed and isinstance(parsed, dict) and 'topics' in parsed:
-                return parsed['topics'][:self.topics_count]
-            else:
-                raise NLPEngineError("Failed to parse LLM topic response")
+            topics = parsed.get('topics') if isinstance(parsed, dict) else parsed
+            if not isinstance(topics, list):
+                raise NLPEngineError('Topic response must be a list')
+            valid = []
+            for topic in topics:
+                if not isinstance(topic, dict) or any(not isinstance(topic.get(key), str) or not topic[key].strip() for key in ('name', 'description')):
+                    raise NLPEngineError('Topics require a name and description')
+                if topic.get('sentiment') not in {'Positive', 'Neutral', 'Negative', 'Mixed'}:
+                    raise NLPEngineError('Topic sentiment label is invalid')
+                # An LLM estimate is not a counted share of source reviews.
+                valid.append({'name': topic['name'], 'description': topic['description'],
+                              'sentiment': topic['sentiment'], 'prevalence': None,
+                              'measurement_semantics': 'generated_theme_not_measured_prevalence',
+                              'sample_size': sample_size})
+            return valid[:self.topics_count]
 
         except Exception as e:
             logger.error(f"Topic extraction failed: {str(e)}")
@@ -474,7 +476,13 @@ Rules:
         if sentiment_df.empty or 'Dept' not in df.columns:
             return pd.DataFrame()
 
-        merged = df[['EmployeeID', 'Dept']].merge(sentiment_df, on='EmployeeID')
+        from src.population import resolve_current_population
+        current, _ = resolve_current_population(df)
+        current['EmployeeID'] = current['EmployeeID'].astype(str)
+        sentiment_df = sentiment_df.copy()
+        sentiment_df['EmployeeID'] = sentiment_df['EmployeeID'].astype(str)
+        merged = current[['EmployeeID', 'Dept']].merge(sentiment_df.drop_duplicates('EmployeeID'), on='EmployeeID', validate='one_to_one')
+        merged['Dept'] = merged['Dept'].fillna('Unknown')
 
         dept_sentiment = merged.groupby('Dept').agg({
             'sentiment_score': 'mean',

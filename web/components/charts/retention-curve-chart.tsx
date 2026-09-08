@@ -21,7 +21,7 @@ export function RetentionCurveChart({ data }: RetentionCurveChartProps) {
 
     const chartData = data.map(point => ({
         ...point,
-        time_years: point.time_years ?? point.time_months / 12
+        time_years: point.time_months / 12
     }))
 
     return (
@@ -57,8 +57,8 @@ export function RetentionCurveChart({ data }: RetentionCurveChartProps) {
                     formatter={(value, name) => {
                         const numeric = Number(value ?? 0)
                         const key = String(name ?? '')
-                        if (key === 'survival_probability') return [`${(numeric * 100).toFixed(1)}%`, 'Retention Chance']
-                        if (key === 'at_risk') return [numeric, 'Employees at Risk']
+                        if (key === 'survival_probability') return [`${(numeric * 100).toFixed(1)}%`, 'Cohort survival']
+                        if (key === 'at_risk') return [numeric, 'Under observation before event']
                         return [numeric, key]
                     }}
                     labelFormatter={(label) => `Tenure: ${label} years`}

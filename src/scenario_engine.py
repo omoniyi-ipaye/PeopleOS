@@ -192,11 +192,11 @@ class ScenarioEngine:
 
         if not engines:
             self.warnings.append(
-                "No ML/Survival engines available. Using statistical models from your data."
+                "Scenario effects use configured assumptions; no predictive or causal effect model is used."
             )
             self.logger.warning("ScenarioEngine using statistical fallback")
 
-        self.available_engines = engines
+        self.available_engines = ['Scenario assumption arithmetic']
 
     def _calculate_data_driven_parameters(self) -> None:
         """
@@ -213,124 +213,8 @@ class ScenarioEngine:
         self.data_sources = ['Observed active workforce salary and headcount', 'Configured scenario assumptions']
         self.warnings.append('Scenario response parameters are assumptions, not causal effects estimated from employee outcomes.')
 
-    def _calculate_elasticity_from_data(self) -> None:
-        """
-        Calculate actual pay-turnover elasticity from historical data.
 
-        Elasticity = % change in turnover / % change in pay
 
-        This replaces the hardcoded 0.02 with actual data-driven value.
-        """
-        try:
-            df = self.df.copy()
-
-            # Ensure numeric types
-            df['Salary'] = pd.to_numeric(df['Salary'], errors='coerce')
-            df['Attrition'] = pd.to_numeric(df['Attrition'], errors='coerce')
-
-            # Filter valid rows
-            valid = df[['Salary', 'Attrition']].dropna()
-            if len(valid) < 30:
-                self.logger.warning("Insufficient data for elasticity calculation")
-                return
-
-            # Method 1: Direct correlation
-            correlation = valid['Salary'].corr(valid['Attrition'])
-            self.salary_attrition_correlation = correlation
-
-            # Method 2: Binned analysis (more robust)
-            # Group by salary quartiles and calculate attrition rate in each
-            valid['salary_quartile'] = pd.qcut(
-                valid['Salary'], q=4, labels=['Q1', 'Q2', 'Q3', 'Q4']
-            )
-
-            quartile_rates = valid.groupby('salary_quartile')['Attrition'].mean()
-
-            # Calculate elasticity: how much does attrition change per salary change
-            if len(quartile_rates) >= 2:
-                # Compare top vs bottom quartile
-                low_salary_attrition = quartile_rates.iloc[0]  # Q1 (lowest salary)
-                high_salary_attrition = quartile_rates.iloc[-1]  # Q4 (highest salary)
-
-                # Get median salaries for each quartile
-                salary_quartiles = valid.groupby('salary_quartile')['Salary'].median()
-                low_salary = salary_quartiles.iloc[0]
-                high_salary = salary_quartiles.iloc[-1]
-
-                if high_salary > low_salary and low_salary_attrition > 0:
-                    # Calculate elasticity
-                    pct_salary_diff = (high_salary - low_salary) / low_salary
-                    pct_attrition_diff = (low_salary_attrition - high_salary_attrition) / low_salary_attrition
-
-                    if pct_salary_diff > 0:
-                        self.data_driven_elasticity = pct_attrition_diff / pct_salary_diff
-
-                        self.logger.info(
-                            f"Data-driven elasticity: {self.data_driven_elasticity:.4f} "
-                            f"(Q1 attrition: {low_salary_attrition:.1%}, "
-                            f"Q4 attrition: {high_salary_attrition:.1%})"
-                        )
-
-            # Method 3: Logistic regression coefficient for salary
-            if len(valid) >= 50:
-                try:
-                    from sklearn.linear_model import LogisticRegression
-                    from sklearn.preprocessing import StandardScaler
-
-                    X = valid[['Salary']].values
-                    y = valid['Attrition'].values
-
-                    scaler = StandardScaler()
-                    X_scaled = scaler.fit_transform(X)
-
-                    model = LogisticRegression(random_state=42)
-                    model.fit(X_scaled, y)
-
-                    # Coefficient tells us relationship direction and strength
-                    self.salary_coefficient = model.coef_[0][0]
-                    self.logger.info(f"Logistic regression salary coefficient: {self.salary_coefficient:.4f}")
-
-                except Exception as e:
-                    self.logger.warning(f"Logistic regression failed: {e}")
-
-        except Exception as e:
-            self.logger.error(f"Elasticity calculation error: {e}")
-
-    def _get_ml_predictions(self) -> None:
-        """Get ML model predictions for each employee."""
-        try:
-            if hasattr(self.ml_engine, 'predict_proba'):
-                # Get predictions for all employees
-                predictions = self.ml_engine.predict_proba(self.df)
-                if predictions is not None:
-                    self.ml_risk_scores = predictions
-                    self.df['_ml_risk_score'] = predictions
-                    self.logger.info(f"ML predictions loaded for {len(predictions)} employees")
-
-            elif hasattr(self.ml_engine, 'get_predictions'):
-                result = self.ml_engine.get_predictions()
-                if result and 'predictions' in result:
-                    self.ml_risk_scores = result['predictions']
-
-        except Exception as e:
-            self.logger.error(f"ML predictions error: {e}")
-
-    def _get_survival_hazards(self) -> None:
-        """Get survival model hazard ratios."""
-        try:
-            if hasattr(self.survival_engine, 'get_cox_model'):
-                cox_result = self.survival_engine.get_cox_model()
-                if cox_result and 'hazard_ratios' in cox_result:
-                    self.survival_hazard_ratios = cox_result['hazard_ratios']
-                    self.logger.info("Survival hazard ratios loaded")
-
-                    # Look for salary-related hazard ratio
-                    for hr in self.survival_hazard_ratios:
-                        if 'salary' in hr.get('factor', '').lower():
-                            self.salary_hazard_ratio = hr.get('hazard_ratio', 1.0)
-
-        except Exception as e:
-            self.logger.error(f"Survival hazards error: {e}")
 
     def _get_baseline_turnover(self, filtered_df: Optional[pd.DataFrame] = None) -> float:
         """
@@ -369,6 +253,14 @@ class ScenarioEngine:
 
         if scope == 'all':
             return df
+        required = {'department': ('department', 'Dept'), 'job_title': ('job_titles', 'JobTitle'),
+                    'tenure_range': (None, 'Tenure'), 'performance': ('performance_min', 'LastRating'),
+                    'custom': ('employee_ids', 'EmployeeID')}
+        if scope not in required:
+            raise ScenarioEngineError('Unsupported scenario scope')
+        parameter, column = required[scope]
+        if column not in df or (parameter and target.get(parameter) in (None, '', [])):
+            raise ScenarioEngineError('Requested scenario filter is missing or unavailable')
 
         if scope == 'department' and target.get('department'):
             df = df[df['Dept'] == target['department']]
@@ -414,49 +306,6 @@ class ScenarioEngine:
         reduction = min(compensation_increase_pct * elasticity * current_turnover, current_turnover * .5)
         return reduction, abs(reduction) * .4, 'configured_assumption_not_causal_estimate'
 
-    def _estimate_elasticity_from_ml(
-        self,
-        affected_df: pd.DataFrame,
-        pct_increase: float
-    ) -> float:
-        """
-        Estimate elasticity by simulating ML model predictions with salary change.
-
-        This is a sophisticated approach that uses the trained model to
-        estimate how individual risk scores would change.
-        """
-        try:
-            if not self.has_ml:
-                return 0.02
-
-            # Get current average risk
-            current_risk = affected_df['_ml_risk_score'].mean()
-
-            # Create modified DataFrame with increased salary
-            modified_df = affected_df.copy()
-            if 'Salary' in modified_df.columns:
-                modified_df['Salary'] = modified_df['Salary'] * (1 + pct_increase / 100)
-
-                # Get new predictions
-                new_predictions = self.ml_engine.predict_proba(modified_df)
-                if new_predictions is not None:
-                    new_risk = new_predictions.mean()
-
-                    # Calculate implied elasticity
-                    if current_risk > 0 and pct_increase > 0:
-                        risk_change_pct = (current_risk - new_risk) / current_risk
-                        implied_elasticity = risk_change_pct / pct_increase
-
-                        self.logger.info(
-                            f"ML-simulated elasticity: {implied_elasticity:.4f} "
-                            f"(risk changed from {current_risk:.3f} to {new_risk:.3f})"
-                        )
-                        return max(0, implied_elasticity)
-
-        except Exception as e:
-            self.logger.warning(f"ML elasticity simulation failed: {e}")
-
-        return 0.02  # Fallback
 
     def _run_monte_carlo(
         self,
@@ -584,7 +433,7 @@ class ScenarioEngine:
         Returns:
             ScenarioResult with predictions based on your data
         """
-        if not 1 <= time_horizon_months <= 60 or not np.isfinite(adjustment_value) or adjustment_value < 0:
+        if not isinstance(time_horizon_months, int) or isinstance(time_horizon_months, bool) or not 1 <= time_horizon_months <= 60 or not np.isfinite(adjustment_value) or adjustment_value < 0:
             raise ScenarioEngineError('Require a 1–60 month horizon and finite nonnegative raise')
         scenario_id = str(uuid.uuid4())[:8]
         affected_df = self._filter_employees(target)
@@ -595,6 +444,8 @@ class ScenarioEngine:
 
         affected_depts = affected_df['Dept'].unique().tolist() if 'Dept' in affected_df.columns else []
 
+        if adjustment_type not in {'percentage', 'absolute', 'market_adjustment'}:
+            raise ScenarioEngineError('Unsupported compensation adjustment type')
         # Calculate adjustment
         if adjustment_type == 'percentage':
             pct_increase = adjustment_value / 100
@@ -768,6 +619,8 @@ class ScenarioEngine:
         else:
             raise ScenarioEngineError("Must specify change_count or change_percentage")
 
+        if change_type not in {'reduction', 'expansion'} or isinstance(n_change, bool) or not isinstance(n_change, (int, np.integer)) or n_change < 1 or (change_type == 'reduction' and n_change > n_current):
+            raise ScenarioEngineError('Change count must be a valid positive whole number within the selected population for reductions')
         affected_depts = affected_df['Dept'].unique().tolist() if 'Dept' in affected_df.columns else []
 
         # Get average salary
@@ -880,131 +733,7 @@ class ScenarioEngine:
     # INTERVENTION SCENARIOS
     # =========================================================================
 
-    def _identify_high_risk_employees(
-        self,
-        filter_type: str = 'high_risk'
-    ) -> pd.DataFrame:
-        """
-        DATA-DRIVEN: Identify high-risk employees using ML predictions or data analysis.
 
-        This replaces hardcoded risk identification with actual predictions.
-        """
-        df = self.df.copy()
-
-        # Method 1: Use ML predictions if available (BEST)
-        if '_ml_risk_score' in df.columns:
-            if filter_type == 'high_risk':
-                # Top 20% by predicted risk
-                threshold = df['_ml_risk_score'].quantile(0.8)
-                return df[df['_ml_risk_score'] >= threshold]
-            elif filter_type == 'high_risk_high_performer':
-                # High risk AND high performer
-                risk_threshold = df['_ml_risk_score'].quantile(0.7)
-                perf_threshold = df['LastRating'].quantile(0.7) if 'LastRating' in df.columns else 4
-                return df[
-                    (df['_ml_risk_score'] >= risk_threshold) &
-                    (df.get('LastRating', 3) >= perf_threshold)
-                ]
-
-        # Method 2: Use survival analysis if available
-        if self.has_survival and hasattr(self, 'survival_hazard_ratios'):
-            # Would use survival predictions here
-            pass
-
-        # Method 3: Use historical attrition patterns
-        if 'Attrition' in df.columns:
-            # Identify characteristics of past leavers
-            leavers = df[df['Attrition'] == 1]
-            if len(leavers) > 10:
-                # Find employees similar to leavers
-                # (simplified - in production would use clustering/similarity)
-                if 'Tenure' in df.columns:
-                    avg_leaver_tenure = leavers['Tenure'].mean()
-                    # Employees with similar tenure are higher risk
-                    tenure_risk = abs(df['Tenure'] - avg_leaver_tenure) < leavers['Tenure'].std()
-                    df['_tenure_risk'] = tenure_risk
-
-                if 'Salary' in df.columns:
-                    avg_leaver_salary = leavers['Salary'].mean()
-                    # Employees with similar salary profile
-                    df['_salary_risk'] = df['Salary'] < avg_leaver_salary
-
-                # Combine risk factors
-                risk_cols = [c for c in df.columns if c.endswith('_risk')]
-                if risk_cols:
-                    df['_composite_risk'] = df[risk_cols].sum(axis=1)
-                    threshold = df['_composite_risk'].quantile(0.7)
-                    return df[df['_composite_risk'] >= threshold]
-
-        # Method 4: Fallback to heuristics (WORST)
-        self.warnings.append(
-            "Using heuristic risk identification. "
-            "Add Attrition column or ML model for data-driven targeting."
-        )
-
-        if filter_type == 'high_risk':
-            # Simple heuristic: low tenure + low rating
-            conditions = pd.Series([True] * len(df), index=df.index)
-            if 'Tenure' in df.columns:
-                conditions &= df['Tenure'] < df['Tenure'].median()
-            if 'LastRating' in df.columns:
-                conditions &= df['LastRating'] < df['LastRating'].median()
-            return df[conditions].head(int(len(df) * 0.2))
-
-        elif filter_type == 'high_risk_high_performer':
-            if 'LastRating' in df.columns:
-                return df[df['LastRating'] >= 4].head(int(len(df) * 0.1))
-
-        return df.head(int(len(df) * 0.2))
-
-    def _calculate_intervention_effectiveness(
-        self,
-        intervention_type: str,
-        target_df: pd.DataFrame
-    ) -> Tuple[float, str]:
-        """
-        DATA-DRIVEN: Calculate intervention effectiveness from historical data.
-
-        If we have data on past interventions, use that.
-        Otherwise use research-based estimates.
-        """
-        method_used = "research_estimate"
-
-        # Check if we have historical intervention data
-        # (This would require intervention history columns in the data)
-        if 'PastRetentionBonus' in self.df.columns and 'Attrition' in self.df.columns:
-            # Calculate actual effectiveness from history
-            bonus_received = self.df[self.df['PastRetentionBonus'] == 1]
-            no_bonus = self.df[self.df['PastRetentionBonus'] == 0]
-
-            if len(bonus_received) > 20 and len(no_bonus) > 20:
-                bonus_attrition = bonus_received['Attrition'].mean()
-                no_bonus_attrition = no_bonus['Attrition'].mean()
-
-                if no_bonus_attrition > 0:
-                    effectiveness = (no_bonus_attrition - bonus_attrition) / no_bonus_attrition
-                    method_used = "historical_data"
-                    return max(0, min(0.7, effectiveness)), method_used
-
-        # Use research-based estimates with variation
-        base_effectiveness = {
-            'retention_bonus': 0.35,  # Research shows 25-45% effectiveness
-            'career_path': 0.30,      # Development programs ~25-35%
-            'manager_change': 0.25,   # Manager changes ~20-30%
-        }
-
-        effectiveness = base_effectiveness.get(intervention_type, 0.25)
-
-        # Adjust based on target group characteristics
-        if '_ml_risk_score' in target_df.columns:
-            avg_risk = target_df['_ml_risk_score'].mean()
-            # Higher risk employees may respond more to interventions
-            if avg_risk > 0.6:
-                effectiveness *= 1.2
-            elif avg_risk < 0.3:
-                effectiveness *= 0.8
-
-        return min(0.7, effectiveness), method_used
 
     def simulate_attrition_intervention(
         self,
@@ -1012,145 +741,8 @@ class ScenarioEngine:
         target_employees: str,  # 'high_risk', 'high_risk_high_performer', or list of IDs
         intervention_params: Dict[str, Any]
     ) -> ScenarioResult:
-        """
-        Simulate retention intervention effectiveness.
-
-        DATA-DRIVEN: Uses ML predictions and historical data when available.
-
-        Args:
-            intervention_type: Type of intervention
-            target_employees: Who to target
-            intervention_params: Parameters for the intervention
-
-        Returns:
-            ScenarioResult with predictions
-        """
-        scenario_id = str(uuid.uuid4())[:8]
-
-        # DATA-DRIVEN: Identify target employees using ML or data analysis
-        if target_employees in ['high_risk', 'high_risk_high_performer']:
-            target_df = self._identify_high_risk_employees(target_employees)
-        elif isinstance(target_employees, list):
-            target_df = self.df[self.df['EmployeeID'].isin(target_employees)]
-        else:
-            target_df = self._identify_high_risk_employees('high_risk')
-
-        n_targeted = len(target_df)
-        if n_targeted == 0:
-            raise ScenarioEngineError("No employees match the target criteria")
-
-        affected_depts = target_df['Dept'].unique().tolist() if 'Dept' in target_df.columns else []
-        avg_salary = self._mean_salary(target_df)
-
-        # DATA-DRIVEN: Get baseline risk from actual predictions
-        if '_ml_risk_score' in target_df.columns:
-            baseline_risk = target_df['_ml_risk_score'].mean()
-            risk_source = "ML predictions"
-        elif 'Attrition' in self.df.columns:
-            # Use historical attrition for similar employees
-            baseline_risk = self._get_baseline_turnover(target_df)
-            risk_source = "historical attrition"
-        else:
-            baseline_risk = 0.5
-            risk_source = "estimate"
-
-        # DATA-DRIVEN: Calculate effectiveness
-        effectiveness, eff_method = self._calculate_intervention_effectiveness(
-            intervention_type, target_df
-        )
-
-        # Calculate intervention cost
-        if intervention_type == 'retention_bonus':
-            bonus_pct = intervention_params.get('bonus_percentage', 10) / 100
-            intervention_cost = n_targeted * avg_salary * bonus_pct
-        elif intervention_type == 'career_path':
-            per_person_cost = intervention_params.get('cost_per_person', 5000)
-            intervention_cost = n_targeted * per_person_cost
-        elif intervention_type == 'manager_change':
-            intervention_cost = intervention_params.get('change_cost', 10000)
-        else:
-            intervention_cost = 10000
-
-        # Calculate impact
-        expected_retained = n_targeted * baseline_risk * effectiveness
-        retention_improvement = effectiveness * baseline_risk
-
-        replacement_savings = expected_retained * avg_salary * self.replacement_cost_mult
-
-        cost_impact = CostImpact(
-            salary_change=intervention_cost if intervention_type == 'retention_bonus' else 0,
-            training_costs=intervention_cost if intervention_type == 'career_path' else 0,
-            replacement_costs_avoided=replacement_savings,
-            total_cost=intervention_cost,
-            total_benefit=replacement_savings,
-            net_impact=replacement_savings - intervention_cost
-        )
-
-        # Monte Carlo with data-driven uncertainty
-        uncertainty = 0.15 if '_ml_risk_score' in target_df.columns else 0.25
-        mc_result = self._run_monte_carlo(
-            base_outcome=baseline_risk * (1 - effectiveness),
-            outcome_std=baseline_risk * uncertainty,
-            cost_per_outcome=avg_salary * self.replacement_cost_mult,
-            n_affected=n_targeted,
-            intervention_cost=intervention_cost
-        )
-
-        conf_level, conf_score = self._get_confidence_level(n_targeted)
-
-        # Boost confidence if using ML predictions
-        if '_ml_risk_score' in target_df.columns:
-            conf_score = min(1.0, conf_score + 0.15)
-
-        roi = safe_divide(cost_impact.net_impact, intervention_cost, 0) * 100
-
-        # Build data-driven assumptions
-        assumptions = [
-            f"Target group baseline risk: {baseline_risk*100:.1f}% ({risk_source})",
-            f"Intervention effectiveness: {effectiveness*100:.0f}% ({eff_method})",
-            f"Replacement cost: {self.replacement_cost_mult}x salary"
-        ]
-
-        if '_ml_risk_score' in target_df.columns:
-            assumptions.append(f"Targeting {n_targeted} employees identified by ML as high-risk")
-
-        return ScenarioResult(
-            scenario_id=scenario_id,
-            scenario_name=f"{intervention_type.replace('_', ' ').title()} for {target_employees}",
-            scenario_type='intervention',
-            input_parameters={
-                'intervention_type': intervention_type,
-                'target_employees': target_employees,
-                'params': intervention_params
-            },
-            affected_employees=n_targeted,
-            affected_departments=affected_depts,
-            baseline_turnover_rate=round(baseline_risk * 100, 1),
-            projected_turnover_rate=round(baseline_risk * (1 - effectiveness) * 100, 1),
-            turnover_change=round(retention_improvement * 100, 2),
-            turnover_change_pct=round(effectiveness * 100, 1),
-            simulation=mc_result,
-            cost_impact=cost_impact,
-            roi_estimate=round(roi, 1),
-            payback_months=int(safe_divide(intervention_cost, replacement_savings / 12, 999)),
-            confidence_level=conf_level,
-            confidence_score=conf_score,
-            assumptions=assumptions,
-            risks=[
-                "Individual response varies",
-                "May not address root causes",
-                "Could set precedent for future requests"
-            ],
-            recommendation="Recommended" if roi > 50 else "Evaluate alternatives",
-            alternative_actions=[
-                "Combination of interventions",
-                "Target highest-risk individuals only",
-                "Address systemic issues"
-            ],
-            computed_at=datetime.now().isoformat(),
-            engines_used=self.available_engines,
-            data_sources=self.data_sources
-        )
+        """Unavailable until an aggregate intervention-effect model is validated."""
+        raise ScenarioEngineError("Intervention effects and individual risk targeting are unavailable without validated evidence")
 
     # =========================================================================
     # COMPARISON & TEMPLATES
@@ -1191,9 +783,8 @@ class ScenarioEngine:
         best = comparison[0]
         return {
             'scenarios': comparison,
-            'recommended_scenario': best['scenario_name'],
-            'reasoning': f"Highest expected ROI ({best['roi_estimate']}%) with "
-                        f"{best['roi_positive_probability']*100:.0f}% probability of positive return"
+            'recommended_scenario': 'No automatic recommendation',
+            'reasoning': 'Compare assumptions and sensitivity; simulation draw shares are not empirical probabilities of future return.'
         }
 
     def get_scenario_templates(self) -> List[Dict[str, Any]]:

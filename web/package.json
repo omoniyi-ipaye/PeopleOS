@@ -12,7 +12,8 @@
     "start": "next start",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "design:check": "node scripts/validate-design-system.mjs"
+    "design:check": "node scripts/validate-design-system.mjs",
+    "test:analytics": "node --test tests/analytics-renderers.test.cjs"
   },
   "dependencies": {
     "@tanstack/react-query": "5.102.8",

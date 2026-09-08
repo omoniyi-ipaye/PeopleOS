@@ -48,5 +48,8 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Verify analytics renderer contracts
+        run: npm run test:analytics
+
       - name: Build
         run: npm run build

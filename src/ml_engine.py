@@ -135,7 +135,7 @@ class MLEngine:
         processed_df = self.preprocessor.transform(df)
         
         # 2. Select feature columns
-        feature_cols = self.preprocessor.numeric_columns + self.preprocessor.categorical_columns
+        feature_cols = self.feature_names
         X = processed_df[feature_cols]
         
         # 3. Predict
@@ -156,6 +156,7 @@ class MLEngine:
 
         Includes sample size validation and proper CV-SMOTE integration to prevent data leakage.
         """
+        self.is_trained = False
         try:
             self.feature_names = list(X.columns)
 
@@ -266,7 +267,7 @@ class MLEngine:
             
             # Initialize SHAP
             self._prepare_shap(X)
-            
+            self.is_trained = True
             return metrics
             
         except Exception as e:
@@ -526,83 +527,30 @@ class MLEngine:
         if not self.is_trained or self.model is None:
             raise MLEngineError("Model not trained. Call train_model first.")
 
-        # Get probability of positive class (attrition = 1)
-        probabilities = self.model.predict_proba(X)
-
-        if len(self.model.classes_) == 2:
-            # Return probability of attrition (class 1)
-            risk_scores = probabilities[:, 1]
-        else:
-            # If multi-class, return max probability
-            risk_scores = probabilities.max(axis=1)
-
-        return risk_scores
+        probabilities = np.asarray(self.model.predict_proba(X), dtype=float)
+        classes = np.asarray(self.model.classes_)
+        if (classes.ndim != 1 or not np.isin(classes, [0, 1]).all()
+                or probabilities.shape != (len(X), len(classes))
+                or not np.isfinite(probabilities).all()
+                or (probabilities < 0).any() or (probabilities > 1).any()
+                or not np.allclose(probabilities.sum(axis=1), 1)):
+            raise MLEngineError('Expected finite binary attrition probabilities')
+        positive = np.flatnonzero(classes == 1)
+        return probabilities[:, positive[0]] if len(positive) else np.zeros(len(X))
 
     def predict_risk_with_confidence(self, X: pd.DataFrame) -> pd.DataFrame:
+        """Classifier scores; calibrated prediction intervals are unavailable.
+
+        Tree disagreement and arbitrary fixed margins are not confidence intervals.
+        Compatibility fields are nullable until interval coverage is validated.
         """
-        Return risk probabilities with confidence intervals for each employee.
-
-        Uses bootstrap aggregation from Random Forest trees to estimate uncertainty.
-
-        Args:
-            X: Feature DataFrame.
-
-        Returns:
-            DataFrame with risk_score, confidence_lower, confidence_upper, confidence_level.
-        """
-        if not self.is_trained or self.model is None:
-            raise MLEngineError("Model not trained. Call train_model first.")
-
-        risk_scores = self.predict_risk(X)
-
-        # For tree-based models, use individual tree predictions for confidence intervals
-        if hasattr(self.model, 'estimators_'):
-            # Get predictions from each tree
-            tree_predictions = []
-            for tree in self.model.estimators_:
-                if hasattr(tree, 'predict_proba'):
-                    proba = tree.predict_proba(X)
-                    if proba.shape[1] == 2:
-                        tree_predictions.append(proba[:, 1])
-                    else:
-                        tree_predictions.append(proba.max(axis=1))
-
-            if tree_predictions:
-                tree_predictions = np.array(tree_predictions)
-                # Calculate 90% confidence interval
-                lower = np.percentile(tree_predictions, 5, axis=0)
-                upper = np.percentile(tree_predictions, 95, axis=0)
-                std_dev = np.std(tree_predictions, axis=0)
-
-                # Confidence level based on agreement among trees
-                confidence_level = 1 - (std_dev / 0.5)  # Normalize: max std for binary is ~0.5
-                confidence_level = np.clip(confidence_level, 0, 1)
-            else:
-                # Fallback if no tree predictions
-                lower = risk_scores * 0.8
-                upper = np.minimum(risk_scores * 1.2, 1.0)
-                confidence_level = np.full_like(risk_scores, 0.5)
-        else:
-            # Fallback for non-ensemble models (like XGBoost, LogisticRegression)
-            # Use a slightly wider interval for non-confidence-aware models
-            lower = np.maximum(risk_scores - 0.1, 0.0)
-            upper = np.minimum(risk_scores + 0.1, 1.0)
-            confidence_level = np.full_like(risk_scores, 0.6)  # Moderate confidence
-
-        result = pd.DataFrame({
-            'risk_score': risk_scores,
-            'ci_lower': np.round(lower, 3),
-            'ci_upper': np.round(upper, 3),
-            'confidence_level': np.round(confidence_level, 2)
+        return pd.DataFrame({
+            'risk_score': self.predict_risk(X),
+            'ci_lower': None, 'ci_upper': None, 'confidence_level': None,
+            'confidence_category': 'Unavailable',
+            'uncertainty_semantics': 'prediction_interval_not_estimated',
         })
 
-        # Add confidence category
-        result['confidence_category'] = result['confidence_level'].apply(
-            lambda x: 'High' if x >= 0.7 else ('Medium' if x >= 0.4 else 'Low')
-        )
-
-        return result
-    
     def get_risk_category(self, risk_score: float) -> str:
         """
         Categorize risk score into High/Medium/Low.
@@ -613,6 +561,8 @@ class MLEngine:
         Returns:
             Risk category string.
         """
+        if risk_score is None or not np.isfinite(risk_score) or not 0 <= risk_score <= 1:
+            return 'Unavailable'
         if risk_score >= self.risk_threshold_high:
             return "High"
         elif risk_score >= self.risk_threshold_medium:
@@ -643,18 +593,24 @@ class MLEngine:
                 employee_data = X.iloc[[employee_idx]]
                 shap_vals = self.shap_explainer.shap_values(employee_data)
                 
-                # Handle both binary and multi-class
+                positive = np.flatnonzero(np.asarray(self.model.classes_) == 1)
+                if len(positive) != 1:
+                    raise MLEngineError('SHAP explanations require an identified attrition class')
+                class_index = int(positive[0])
                 if isinstance(shap_vals, list):
-                    # Binary classification - use class 1 (attrition)
-                    vals = shap_vals[1][0] if len(shap_vals) > 1 else shap_vals[0][0]
+                    vals = np.asarray(shap_vals[class_index])[0]
                 else:
-                    vals = shap_vals[0]
-                
+                    array = np.asarray(shap_vals)
+                    vals = array[0, :, class_index] if array.ndim == 3 else array[0]
+                if vals.shape != (len(self.feature_names),) or not np.isfinite(vals).all():
+                    raise MLEngineError('SHAP feature contributions do not align with the model')
+
                 # Create driver list
                 for i, feature in enumerate(self.feature_names):
                     drivers.append({
                         'feature': feature,
                         'contribution': float(vals[i]),
+                        'output_units': 'raw_model_output',
                         'value': float(employee_data[feature].iloc[0]) if feature in employee_data.columns else None,
                         'abs_contribution': abs(float(vals[i]))
                     })

@@ -14,7 +14,7 @@ class ForecastingEngine:
         self.history_df = history_df.copy()
 
     def forecast_metric(self, metric: str, periods: int = 12, freq: str = 'M') -> dict[str, Any]:
-        if not 1 <= periods <= 36:
+        if not isinstance(periods, int) or isinstance(periods, bool) or not 1 <= periods <= 36:
             return {'success': False, 'reason': 'Forecast horizon must be 1–36 monthly periods'}
         if freq not in ('M', 'ME'):
             return {'success': False, 'reason': 'Only monthly workforce forecasts are supported'}

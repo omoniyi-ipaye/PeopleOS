@@ -333,7 +333,9 @@ class ExperienceEngine:
             }
 
         row = emp_data.iloc[0]
-        exi = row.get('_exi_score', 0)
+        exi = row.get('_exi_score')
+        if pd.isna(exi):
+            return {'available': False, 'reason': 'No valid measured response for this employee'}
 
         # Determine segment
         segment = 'Unknown'
@@ -389,7 +391,7 @@ class ExperienceEngine:
                 'segment': seg_name,
                 'count': count,
                 'percentage': round(count / total * 100, 1) if total > 0 else 0,
-                'avg_exi': round(seg_df['_exi_score'].mean(), 1) if count > 0 else 0,
+                'avg_exi': round(seg_df['_exi_score'].mean(), 1) if count > 0 else None,
                 'exi_range': f'{low}-{high}',
             })
 
@@ -474,18 +476,20 @@ class ExperienceEngine:
 
         # Analyze correlation with available numeric columns
         numeric_cols = self.df.select_dtypes(include=[np.number]).columns
-        exclude_cols = ['_exi_score', 'EmployeeID']
+        exclude_cols = ['_exi_score', 'EmployeeID'] + [c for c in self.df if c.lower() in self.EXPERIENCE_COLUMNS]
 
         for col in numeric_cols:
             if col in exclude_cols:
                 continue
-            if self.df[col].notna().sum() < 10:
+            pairs = self.df[['_exi_score', col]].replace([np.inf, -np.inf], np.nan).dropna()
+            if len(pairs) < 10 or (pairs.nunique() < 2).any():
                 continue
-
-            corr = self.df['_exi_score'].corr(self.df[col])
+            corr = pairs['_exi_score'].corr(pairs[col])
             if pd.notna(corr):
                 drivers.append({
                     'factor': col,
+                    'sample_size': len(pairs),
+                    'metric_semantics': 'observational_association_excluding_index_components',
                     'correlation': round(corr, 3),
                     'impact': 'High' if abs(corr) >= 0.4 else (
                         'Medium' if abs(corr) >= 0.2 else 'Low'
@@ -522,7 +526,7 @@ class ExperienceEngine:
             factor = driver['factor']
             if 'promotion' in factor.lower():
                 recommendations.append(
-                    "Lack of promotions negatively impacts experience - "
+                    "Years since promotion are associated with lower measured scores - "
                     "review career progression policies"
                 )
             elif 'tenure' in factor.lower() and driver['correlation'] < -0.2:
@@ -532,15 +536,15 @@ class ExperienceEngine:
                 )
             elif 'salary' in factor.lower():
                 recommendations.append(
-                    "Compensation issues affect experience - "
+                    "Salary is associated with measured scores - "
                     "review pay equity and market competitiveness"
                 )
 
         if positive:
             top = positive[0]['factor']
             recommendations.append(
-                f"'{top}' strongly drives positive experience - "
-                "consider expanding programs in this area"
+                f"'{top}' is positively associated with the measured composite - "
+                "investigate confounding and validate on independent data"
             )
 
         return recommendations
@@ -567,7 +571,7 @@ class ExperienceEngine:
         if '_exi_score' not in self.df.columns or not self.df['_exi_score'].notna().any():
             return {'available': False, 'reason': 'EXI not computed'}
 
-        threshold = threshold or self.exp_config.get('thresholds', {}).get('at_risk_exi', 40)
+        threshold = self.exp_config.get('thresholds', {}).get('at_risk_exi', 40) if threshold is None else threshold
 
         at_risk_df = self.df[self.df['_exi_score'] < threshold].copy()
         at_risk_df = at_risk_df.sort_values('_exi_score')
@@ -723,17 +727,18 @@ class ExperienceEngine:
                 return 'Veteran'
 
         self.df['_lifecycle_stage'] = self.df[tenure_col].apply(
-            lambda x: get_stage(float(x)) if pd.notna(x) else 'Unknown'
+            lambda x: get_stage(float(x)) if pd.notna(x) and np.isfinite(float(x)) and float(x) >= 0 else 'Unknown'
         )
 
         stages = []
-        for stage in ['New Hire', 'Ramping', 'Established', 'Veteran']:
+        for stage in ['New Hire', 'Ramping', 'Established', 'Veteran', 'Unknown']:
             stage_df = self.df[self.df['_lifecycle_stage'] == stage]
             if len(stage_df) > 0:
                 stages.append({
                     'stage': stage,
                     'count': len(stage_df),
-                    'avg_exi': round(stage_df['_exi_score'].mean(), 1),
+                    'avg_exi': round(stage_df['_exi_score'].mean(), 1) if stage_df['_exi_score'].notna().any() else None,
+                    'respondent_count': int(stage_df['_exi_score'].count()),
                     'at_risk_count': len(stage_df[stage_df['_exi_score'] < 40]),
                 })
 
@@ -741,10 +746,10 @@ class ExperienceEngine:
         concerns = []
         for i, stage in enumerate(stages[:-1]):
             next_stage = stages[i + 1] if i + 1 < len(stages) else None
-            if next_stage and stage['avg_exi'] - next_stage['avg_exi'] > 10:
+            if next_stage and stage['avg_exi'] is not None and next_stage['avg_exi'] is not None and stage['avg_exi'] - next_stage['avg_exi'] > 10:
                 concerns.append(
-                    f"Experience drops significantly from {stage['stage']} "
-                    f"to {next_stage['stage']}"
+                    f"Observed composite is more than 10 points higher in {stage['stage']} "
+                    f"than {next_stage['stage']}; cross-sectional groups do not establish a lifecycle change"
                 )
 
         return {
@@ -762,6 +767,8 @@ class ExperienceEngine:
         recommendations = []
 
         for stage in stages:
+            if stage['avg_exi'] is None:
+                continue
             if stage['stage'] == 'New Hire' and stage['avg_exi'] < 50:
                 recommendations.append(
                     "New hires have low experience scores - review onboarding program"
@@ -800,7 +807,8 @@ class ExperienceEngine:
         manager_stats = []
         for manager_id in self.df['ManagerID'].dropna().unique():
             team = self.df[self.df['ManagerID'] == manager_id]
-            if len(team) < 2:  # Need at least 2 reports for meaningful analysis
+            respondents = team.dropna(subset=['_exi_score'])
+            if len(respondents) < 2:  # Need at least 2 reports for meaningful analysis
                 continue
 
             avg_exi = team['_exi_score'].mean()
@@ -811,7 +819,8 @@ class ExperienceEngine:
                 'team_size': len(team),
                 'avg_team_exi': round(avg_exi, 1),
                 'at_risk_count': at_risk,
-                'at_risk_percentage': round(at_risk / len(team) * 100, 1),
+                'at_risk_percentage': round(at_risk / len(respondents) * 100, 1),
+                'respondent_count': len(respondents),
             })
 
         # Sort by EXI (lowest first to highlight concerns)
