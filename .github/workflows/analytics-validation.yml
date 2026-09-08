@@ -43,8 +43,11 @@ jobs:
           tests/test_enterprise_recovery_api.py
           tests/test_analytics_launch_matrix.py tests/test_ml_engine.py
           tests/test_agentic_launch_matrix.py tests/test_enterprise_controls_matrix.py
+          tests/test_synthetic_stress_validation.py
       - name: Verify public benchmarks and random-label controls
         run: python scripts/benchmark_analytics.py --output benchmark-results.json
+      - name: Stress deterministic analytics with a fictional organization
+        run: python scripts/synthetic_stress_validation.py --rows 20000 --live-api --output synthetic-stress-results.json
       - name: Verify live application with controlled dummy datasets
         run: python scripts/live_dummy_acceptance.py --output live-acceptance-results
       - name: Publish versioned benchmark evidence
@@ -54,5 +57,6 @@ jobs:
           name: analytics-benchmark-evidence
           path: |
             benchmark-results.json
+            synthetic-stress-results.json
             live-acceptance-results/
           if-no-files-found: warn
