@@ -1111,7 +1111,7 @@
     "src/platform/provenance.py": "a05651f0b3c91695f51636bc20f340fa240a48dd974abd9567c3504a66eeeabc",
     "src/platform/runtime_lock.py": "d6a28590770b4d2f08b0fb3e242a005e67a5ffa99cf016ce7830d3eaddf9a4d1",
     "api/integrity.py": "46ef3e166ff7b6c9e55dce8a6452bd66cad1ba568c690a89f29cef30cd1bc7ab",
-    "src/platform/local_dataset_store.py": "38766a23842ebb5ba7d327b1f18a1d1e24c626139b34d26ebd2d813c5816e9bd",
+    "src/platform/local_dataset_store.py": "30c870296be5f4fcdbc7af8d5dcae036b5833ccf6229a778bce53654cbb278f3",
     "web/app/providers.tsx": "a0f1fc701780b3b8b97416a1f0aea2af063bb65dfaed20c89df1a16f0913fad7",
     "src/agent/orchestrator.py": "17bfb92138c4c022b3ff6395103d63c70727b4c20462ba9e487906a257fdd458",
     "src/agent/planner.py": "8dd480a2d54ed6bdcfd4eeda9b6c6312c89007d3fed645023521338df37d6c84",

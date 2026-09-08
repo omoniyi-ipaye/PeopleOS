@@ -32,11 +32,14 @@ def save_dataset_artifact(dataset_id: str, frame: pd.DataFrame) -> Path:
     target = dataset_artifact_path(dataset_id)
     target.parent.mkdir(parents=True, exist_ok=True)
     descriptor, tmp_name = tempfile.mkstemp(prefix=f'.{target.name}.', suffix='.tmp', dir=target.parent)
-    os.close(descriptor)
     tmp = Path(tmp_name)
     try:
-        frame.to_csv(tmp, index=False)
-        with tmp.open('rb') as handle:
+        # Keep the writable descriptor returned by mkstemp through flush/fsync.
+        # Windows rejects fsync on the read-only descriptor used by the former
+        # write-close-reopen sequence even though POSIX accepts it.
+        with os.fdopen(descriptor, 'w', encoding='utf-8', newline='') as handle:
+            frame.to_csv(handle, index=False)
+            handle.flush()
             os.fsync(handle.fileno())
         os.replace(tmp, target)
     finally:
