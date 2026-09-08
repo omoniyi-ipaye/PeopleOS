@@ -22,6 +22,28 @@ def people(n=20):
     })
 
 
+def test_missing_department_scenario_serializes_and_remains_targetable():
+    from api.routes.scenario import _convert_result
+    frame=people().assign(Dept=[None,'','  ']+['001']*17)
+    engine=ScenarioEngine(frame)
+    result=engine.simulate_compensation_change('percentage',{'scope':'all'},10,6)
+    response=_convert_result(result)
+    assert set(response.affected_departments)=={'Unknown','001'}
+    assert response.cost_impact.salary_change==60000
+    unknown=engine.simulate_compensation_change('percentage',{'scope':'department','department':'Unknown'},10,6)
+    assert unknown.affected_employees==3
+    assert unknown.cost_impact.salary_change==9000
+
+
+def test_succession_unknown_department_preserves_unassessed_people():
+    from src.succession_engine import SuccessionEngine
+    frame=people().assign(Dept=[None,'','  ']+['001']*17)
+    bench=SuccessionEngine(frame).calculate_bench_strength().set_index('Dept')
+    assert bench.Total.sum()==20
+    assert bench.loc['Unknown','Unassessed']==3
+    assert pd.isna(bench.loc['Unknown','BenchStrength'])
+
+
 def test_survey_population_and_score_exclusions_are_counted_separately():
     survey = pd.DataFrame({
         'EmployeeID': ['E0', 'E1', 'E2', 'OTHER', None, ''],

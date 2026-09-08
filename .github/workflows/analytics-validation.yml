@@ -40,10 +40,14 @@ jobs:
           tests/test_runtime_integrity.py tests/test_snapshot_recovery.py
       - name: Verify public benchmarks and random-label controls
         run: python scripts/benchmark_analytics.py --output benchmark-results.json
+      - name: Verify live application with controlled dummy datasets
+        run: python scripts/live_dummy_acceptance.py --output live-acceptance-results
       - name: Publish versioned benchmark evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: analytics-benchmark-evidence
-          path: benchmark-results.json
+          path: |
+            benchmark-results.json
+            live-acceptance-results/
           if-no-files-found: warn

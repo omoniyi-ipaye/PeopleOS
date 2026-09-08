@@ -38,7 +38,8 @@
       "review_status": "reviewed_with_limits",
       "findings": [
         "Invalid ages/ratings/durations no longer contaminate aggregates; unknown distribution buckets reconcile. Department mean excludes unknown outcome shares; correlations render r, not percentages.",
-        "Specialist follow-up preserves sparse outcome columns and exact identity/category lexemes through import/restore. Homepage missing/loading states cannot become zero attrition or total rows as active. Legacy tenure uses the valid active summary."
+        "Specialist follow-up preserves sparse outcome columns and exact identity/category lexemes through import/restore. Homepage missing/loading states cannot become zero attrition or total rows as active. Legacy tenure uses the valid active summary.",
+        "Live dummy-data acceptance: missing/blank departments form one Unknown group in both summary counts and aggregates; measured department sample salary dispersion is retained."
       ],
       "verification": [
         "tests/test_analytics_engine.py",
@@ -46,7 +47,8 @@
         "tests/test_specialist_review_findings.py",
         "tests/test_specialist_measurement_fixes.py",
         "tests/test_runtime_integrity.py",
-        "tests/test_snapshot_recovery.py"
+        "tests/test_snapshot_recovery.py",
+        "scripts/live_dummy_acceptance.py"
       ],
       "renderers": [
         "web/app/page.tsx",
@@ -649,7 +651,8 @@
       "findings": [
         "Validated horizon/count/scope inputs, provenance names actual calculation, financial horizon checks retained. Removed obsolete causal/risk fallbacks and direct individual intervention estimates; no automatic scenario recommendation.",
         "Nonzero elasticity now multiplies proportional pay change (percent / 100); a 10% raise at elasticity .5 and baseline .20 changes the assumed rate by .01, not .10 or 1.0.",
-        "Scenario cache is local to a dataset generation, bounded to100 results and incompatible history/horizons are rejected. Expansion payback is unavailable without a cash-flow schedule; loss-making scenarios do not invent payback."
+        "Scenario cache is local to a dataset generation, bounded to100 results and incompatible history/horizons are rejected. Expansion payback is unavailable without a cash-flow schedule; loss-making scenarios do not invent payback.",
+        "Live dummy-data acceptance: missing/blank departments normalize to Unknown in scenario results and selection; compensation scenarios serialize successfully with missing departments."
       ],
       "verification": [
         "tests/test_engine_renderer_integrity.py",
@@ -657,7 +660,8 @@
         "tests/test_specialist_review_findings.py",
         "tests/test_specialist_measurement_fixes.py",
         "tests/test_runtime_integrity.py",
-        "tests/test_snapshot_recovery.py"
+        "tests/test_snapshot_recovery.py",
+        "scripts/live_dummy_acceptance.py"
       ],
       "renderers": [
         "web/app/scenario-planner/page.tsx"
@@ -789,7 +793,8 @@
       "review_status": "reviewed_with_limits",
       "findings": [
         "Prior recorded-readiness/potential contract retained. Checked aggregate count mapping, unassessed category, weighted renderer denominator and 9-box labels.",
-        "Legacy proxy-based succession presentation retired; use the current recorded-assessment contract."
+        "Legacy proxy-based succession presentation retired; use the current recorded-assessment contract.",
+        "Live dummy-data acceptance: Unknown departments retain all unassessed active employees; bench totals reconcile with the active population."
       ],
       "verification": [
         "tests/test_extended_integrity.py",
@@ -797,7 +802,8 @@
         "tests/test_specialist_review_findings.py",
         "tests/test_specialist_measurement_fixes.py",
         "tests/test_runtime_integrity.py",
-        "tests/test_snapshot_recovery.py"
+        "tests/test_snapshot_recovery.py",
+        "scripts/live_dummy_acceptance.py"
       ],
       "renderers": [
         "web/components/diagnostics/succession-tab.tsx",
@@ -1022,7 +1028,7 @@
     "src/agent/adapters.py": "3b308faf06f134ca2ced70666edb4bf096e5be3b45f0e4fbffe13a9726a3ff10",
     "src/agent/aggregator.py": "377fe30f34fe59486a1f021b4728f870730daac71be4087f3d7a0b8f5362f348",
     "src/agent/people_tools.py": "0a019ce3b678a56aa08000b760e772fd2d428d5956ce93100e5923df745b3210",
-    "src/analytics_engine.py": "84430626aff7b50b1e144447c6624e2fc8051b32cffea889f6c09380095aefcd",
+    "src/analytics_engine.py": "7b60433cb8700961b62941b817940578c5a9a2283b53f144a793ec872bff1119",
     "src/causal_engine.py": "5d1539449101223f775951c238addf12dd4e6f2ff865847324a26ae553e87425",
     "src/clustering_engine.py": "e610883fc991a966a6dcb61ff0995089acc90dfdcdcf90c9bcdbb8ba9366715f",
     "src/compensation_engine.py": "d6ed5c7ed84473cd08bb2465a23b5d789500b6567869e22a45e25bfad811159a",
@@ -1039,11 +1045,11 @@
     "src/nlp_engine.py": "7e9c9df18337c0ed098ac8cad9b245045c367062cc2a0cdeb29b586353502784",
     "src/population.py": "eb6c3cefd02867ff8d0e24e42bec713c1facd6a510991a71e889992fb03ff486",
     "src/quality_of_hire_engine.py": "20c3e2fb3e527fa1da74a2ce41c6e6126e05aa81503a8586045a9a8dfd14169a",
-    "src/scenario_engine.py": "706d2a040c0c62c3bfba4b3dc548e933a77621cd283aca500ef7c4a18e803a93",
+    "src/scenario_engine.py": "15b41a8c079f94168060c9e634f5b45f794b03473f26ea9302ee528ed5922a22",
     "src/sentiment_engine.py": "564bd8658cb00cf83e5041a3bd386ad4eb25cf0d20290d9baf5600cbaf85fcc2",
     "src/serialization.py": "c32f37f9b2240cc0fe510544ac91f36ca269177cc1f9f0f6a6bfbf4cdfa29c0a",
     "src/structural_engine.py": "0a8361e645394da4bc5cc94332e10c6451631ffa7fcbe7bcdbdefac0399bce7e",
-    "src/succession_engine.py": "d76c7bb9bd566161b3a0a3b77574184536f12b7be122e0a54106646ed5aac5af",
+    "src/succession_engine.py": "29d40ef495b036475540182f0f1e1b38195ede2cdf37dcae8e9c3b3e5bb6b83b",
     "src/survival_engine.py": "f1c98261ba616b7ee0f8195f39c86a0d35f1d22efab625939f9aec85044cfe72",
     "src/team_dynamics_engine.py": "cb8eb7c0042c420738e9bc8074d456c52b523ce774010ad00b4f1a7074f9f885",
     "src/vector_engine.py": "4d2fde141f9986b7f8d76975d9efe0be76fef7a8cd7e69949bb7fc5714eeaf35",

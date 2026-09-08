@@ -142,6 +142,8 @@ class ScenarioEngine:
         """
         self.current_df, self.population_resolution = resolve_current_population(employee_df)
         self.df = active_population(self.current_df)
+        if 'Dept' in self.df:
+            self.df['Dept'] = self.df['Dept'].astype('string').str.strip().replace('', pd.NA).fillna('Unknown')
         self.ml_engine = ml_engine
         self.survival_engine = survival_engine
         self.compensation_engine = compensation_engine

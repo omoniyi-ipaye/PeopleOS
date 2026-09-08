@@ -37,6 +37,8 @@ class SuccessionEngine:
             risk_scores: Optional DataFrame with attrition risk predictions.
         """
         self.df = clean_team_frame(active_population(df))
+        if 'Dept' in self.df:
+            self.df['Dept'] = self.df['Dept'].astype('string').str.strip().replace('', pd.NA).fillna('Unknown')
         self.risk_scores = risk_scores
         if risk_scores is not None and risk_scores['EmployeeID'].duplicated().any():
             raise SuccessionEngineError('Risk scores must have unique employee identifiers')

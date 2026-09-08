@@ -9,6 +9,18 @@ import pytest
 from src.analytics_engine import AnalyticsEngine
 
 
+def test_missing_departments_reconcile_and_keep_measured_salary_dispersion():
+    frame=pd.DataFrame({'EmployeeID':['A','B','C','D'], 'Dept':['001',None,'','  '],
+        'Attrition':[0,0,0,0], 'Salary':[50000,60000,90000,75000]})
+    engine=AnalyticsEngine(frame)
+    groups=engine.get_department_aggregates().set_index('Dept')
+    assert engine.get_summary_statistics()['department_count']==2
+    assert groups.loc['Unknown','Headcount']==3
+    assert groups.loc['Unknown','Salary_StdDev']==15000
+    assert pd.isna(groups.loc['001','Salary_StdDev'])
+    assert pd.isna(frame.loc[1,'Dept'])  # The source is not rewritten.
+
+
 class TestAnalyticsEngine:
     """Test cases for AnalyticsEngine class."""
     

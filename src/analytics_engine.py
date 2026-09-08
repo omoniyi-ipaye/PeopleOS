@@ -41,6 +41,8 @@ def _valid_numeric(series: pd.Series, name: str) -> pd.Series:
 class AnalyticsEngine:
     def __init__(self, df: pd.DataFrame):
         self.df, self.population_resolution = resolve_current_population(df)
+        if 'Dept' in self.df:
+            self.df['Dept'] = self.df['Dept'].astype('string').str.strip().replace('', pd.NA).fillna('Unknown')
         self.active_df = active_population(self.df)
         self.config = load_config()
         self.analytics_config = self.config.get('analytics', {})
@@ -89,6 +91,7 @@ class AnalyticsEngine:
                 valid = _valid_numeric(active['Salary'], 'Salary')
                 row['Avg_Salary'] = float(valid.mean()) if not valid.empty else None
                 row['Median_Salary'] = float(valid.median()) if not valid.empty else None
+                row['Salary_StdDev'] = float(valid.std(ddof=1)) if len(valid) > 1 else None
             for source, output in [('Tenure', 'Avg_Tenure'), ('LastRating', 'Avg_Rating'), ('Age', 'Avg_Age')]:
                 if source in active.columns:
                     values = _valid_numeric(active[source], source)
