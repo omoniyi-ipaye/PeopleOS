@@ -61,6 +61,7 @@ class TestSuccessionEngine:
         # Ensure some high performers exist
         sample_succ_data.loc[:10, 'LastRating'] = 4.5
         sample_succ_data.loc[:10, 'Tenure'] = 3.0
+        sample_succ_data.loc[:10, 'PotentialRating'] = 4.5
         
         engine = SuccessionEngine(sample_succ_data)
         hi_pos = engine.identify_high_potentials()

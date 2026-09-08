@@ -9,6 +9,25 @@ import numpy as np
 from src.scenario_engine import ScenarioEngine, ScenarioEngineError
 
 
+def test_absolute_raise_name_preserves_amount_units():
+    frame = pd.DataFrame({'EmployeeID': [f'E{i}' for i in range(50)],
+                          'Dept': 'People', 'Salary': 50000., 'Tenure': 3.,
+                          'LastRating': 4., 'Age': 30, 'Attrition': 0})
+    result = ScenarioEngine(frame).simulate_compensation_change('absolute', {}, 5000, 12)
+    assert '%' not in result.scenario_name
+    assert '5000 annual salary-unit increase per employee' in result.scenario_name
+    assert result.cost_impact.salary_change == 250000
+
+
+def test_market_adjustment_name_retains_percentage_units():
+    frame = pd.DataFrame({'EmployeeID': [f'E{i}' for i in range(50)],
+                          'Dept': 'People', 'Salary': 50000., 'Tenure': 3.,
+                          'LastRating': 4., 'Age': 30, 'Attrition': 0})
+    result = ScenarioEngine(frame).simulate_compensation_change('market_adjustment', {}, 10, 12)
+    assert result.scenario_name.startswith('10% raise')
+    assert result.cost_impact.salary_change == pytest.approx(250000)
+
+
 @pytest.fixture
 def sample_employee_data() -> pd.DataFrame:
     """Returns sample employee data for scenario testing."""

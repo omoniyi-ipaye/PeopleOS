@@ -1,9 +1,11 @@
 {
   "schema_version": 1,
-  "cycle_id": "PEOPLEOS-QUALITY-002",
-  "baseline_commit": "cc197912b107fdd4e67e81e163ab9e351cdaac27",
+  "cycle_id": "PEOPLEOS-QUALITY-003",
+  "baseline_commit": "2ee3ff28d5312a07b34801dee138822fcd5cd99e",
   "state": "local_integration_validation",
-  "goal": "Establish an executable launch baseline for every audited engine method, API operation, routed renderer and supported end-user process using edge-case synthetic evidence.",
+  "goal": "Correct independently reproduced data-to-insight errors for a dependable local-first People-team product; integrate and merge only the candidate verified by all required gates.",
+  "current_pass_report": "docs/validation/LOCAL_LAUNCH_CORRECTIONS.md",
+  "merge_authorization": "User explicitly requested fixes, tests and merge in this pass; deployment remains outside scope.",
   "readiness_claim": "Acceptance is specific to a commit, environment, dataset, actor and use case. No test outcome means perfect or 100 percent trustworthy.",
   "tracks": [
     {
@@ -147,7 +149,7 @@
       "Update draft PRs and evidence"
     ],
     "excluded": [
-      "Automatic merge or production deployment",
+      "Unverified merge or production deployment",
       "Real employee-data ingestion without authorization",
       "External messages or employment decisions",
       "Weakening permissions or tests",
@@ -228,6 +230,7 @@
     }
   ],
   "verification": {
+    "cycle003_local": {"full_python_suite": 749, "renderer_tests": 40, "typescript": "passed", "live_api_restart_checks": 96, "public_benchmark_mechanics": 9, "synthetic_stress_checks": 34, "synthetic_employees": 20000, "live_llm": "not executed: runtime unavailable", "real_embeddings": "not executed: dependencies unavailable"},
     "baseline_commit": "cc197912b107fdd4e67e81e163ab9e351cdaac27",
     "inventory": {
       "engines": 20,
@@ -255,7 +258,7 @@
       "synthetic_stress": "34/34 checks passed on 20000 fictional employee records, including real upload and 32 concurrent reads",
       "repository_wide_legacy_collection": "666 passed, zero failures locally after resolving 29 legacy failures: governed upload fixtures, current safe-contract expectations, salary progression/database state semantics, and dependency-injected vector behavior"
     },
-    "candidate": "pending publication and complete CI",
+    "candidate": "Cycle003 corrections awaiting publication and exact-commit CI; prior baseline 2ee3ff28 passed all five workflows",
     "live_llm": "not evaluated",
     "recurrence": "paused"
   },

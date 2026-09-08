@@ -74,6 +74,28 @@ test.beforeEach(async ({ request }) => {
   expect(reset.ok()).toBeTruthy()
 })
 
+test('Invalid salary preserves headcount and mixed pay units cannot replace verified data', async ({ page }) => {
+  const lines = workforce().toString().split('\n')
+  const first = lines[1].split(',')
+  first[2] = '-1'
+  lines[1] = first.join(',')
+  const accepted = await uploadRaw(page, 'missing-salary.csv', lines.join('\n'))
+  expect(accepted.ok(), await accepted.text()).toBeTruthy()
+  await page.getByRole('link', { name: 'Open Decision Cockpit' }).click()
+  await metric(page, 'Active workforce', '80')
+  await metric(page, 'Observed attrition share', '20.0%')
+
+  const mixed = workforce().toString().split('\n').map((line, index) =>
+    `${line},${index === 0 ? 'PayPeriod' : index === 1 ? 'monthly' : 'annual'}`)
+  const rejected = await uploadRaw(page, 'mixed-pay.csv', mixed.join('\n'))
+  expect(rejected.status()).toBe(400)
+  expect(await rejected.text()).toMatch(/annual salary/i)
+  await page.goto('/')
+  await metric(page, 'Active workforce', '80')
+  await metric(page, 'Observed attrition share', '20.0%')
+  await screenshot(page, 'preserved-population-after-invalid-pay')
+})
+
 test('People analyst uploads, verifies figures, investigates evidence and switches data', async ({ page }) => {
   const browserErrors: string[] = []
   page.on('pageerror', error => browserErrors.push(error.message))

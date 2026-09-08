@@ -546,7 +546,9 @@ class ScenarioEngine:
 
         return ScenarioResult(
             scenario_id=scenario_id,
-            scenario_name=f"{adjustment_value}% raise for {target.get('department', 'selected group')}",
+            scenario_name=(f"{adjustment_value}% raise" if adjustment_type in {'percentage', 'market_adjustment'}
+                           else f"{adjustment_value} annual salary-unit increase per employee")
+                          + f" for {target.get('department', 'selected group')}",
             scenario_type='compensation',
             input_parameters={
                 'adjustment_type': adjustment_type,

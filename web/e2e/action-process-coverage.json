@@ -16,7 +16,7 @@
     "/search": ["unavailable index gate", "no fabricated results"],
     "/scenario-planner": ["whole-workforce compensation", "department expansion", "input-change invalidation", "assumption boundary"],
     "/retention-forecast": ["cohort curve", "cohorts tab", "interpretation boundary"],
-    "/upload": ["valid CSV", "malformed CSV", "duplicate IDs", "template download", "sample load", "reset"],
+    "/upload": ["valid CSV", "malformed CSV", "duplicate IDs", "invalid salary preserves employee count", "mixed pay units rejected without replacing active dataset", "template download", "sample load", "reset"],
     "/platform": ["snapshot integrity", "role", "fitness", "advanced recovery details", "refresh"],
     "/settings": ["runtime state", "capability registry", "dataset features"]
   },

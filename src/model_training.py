@@ -22,6 +22,33 @@ from src.population import normalize_attrition, resolve_current_population
 from src.preprocessor import Preprocessor
 
 
+# Deliberately closed: adding an HR-export column must not silently change the
+# statistical question. These are supported canonical measurements, not evidence
+# that a customer's measurements were recorded before departure.
+SUPPORTED_ATTRITION_PREDICTORS = frozenset({
+    'Dept', 'Tenure', 'Salary', 'LastRating', 'Age', 'Gender', 'JobTitle',
+    'YearsInCurrentRole', 'YearsSinceLastPromotion', 'Education', 'Location',
+})
+
+
+def predictor_contract(columns):
+    """Audit selection without inspecting outcomes or final-holdout scores."""
+    accepted, excluded = [], {}
+    for column in columns:
+        name = ''.join(c for c in str(column).lower() if c.isalnum())
+        if column in SUPPORTED_ATTRITION_PREDICTORS:
+            accepted.append(column)
+        elif any(token in name for token in ('attrition', 'exit', 'termination', 'offboard', 'severance')) or name in {'status', 'employmentstatus', 'isactive'}:
+            excluded[column] = 'outcome_or_post_outcome_field'
+        elif name in {'employeeid', 'employeenumber', 'managerid', 'name', 'email'}:
+            excluded[column] = 'identifier_not_predictor'
+        else:
+            excluded[column] = 'not_in_supported_predictor_contract'
+    return {'version': 'canonical_attrition_predictors_v1', 'accepted_columns': accepted,
+            'excluded_columns': excluded, 'custom_predictors_allowed': False,
+            'pre_outcome_timing_verified': False}
+
+
 @dataclass
 class TrainedModelArtifact:
     engine: MLEngine
@@ -33,7 +60,11 @@ class TrainedModelArtifact:
 class RawFeatures(BaseEstimator, TransformerMixin):
     """Cloneable transformer: each CV fold learns its own preprocessing state."""
     def fit(self, X, y=None):
+        if not X.columns.is_unique:
+            raise MLEngineError('Predictive inputs require unique column names')
+        self.predictor_contract_ = predictor_contract(X.columns)
         self.preprocessor_ = Preprocessor()
+        self.preprocessor_.input_columns = self.predictor_contract_['accepted_columns']
         processed, _ = self.preprocessor_.fit_transform(X, target_column='Attrition')
         self.columns_ = [c for c in self.preprocessor_.numeric_columns + self.preprocessor_.categorical_columns
                          if c in processed and c != 'Attrition']
@@ -46,6 +77,8 @@ class RawFeatures(BaseEstimator, TransformerMixin):
 
 
 def _prepare_raw(df):
+    if not df.columns.is_unique:
+        raise MLEngineError('Predictive inputs require unique column names')
     current, _ = resolve_current_population(df)
     if 'EmployeeID' not in current or current['EmployeeID'].isna().any():
         raise MLEngineError('Predictive training requires non-missing employee identifiers')
@@ -151,6 +184,7 @@ def train_attrition_model(df: pd.DataFrame) -> TrainedModelArtifact:
     best = searches[best_name].best_estimator_
     metrics = binary_metrics(y_test, best.predict_proba(X_test)[:, 1], float(y_train.mean()))
     metrics.update({
+        'predictor_contract': best.named_steps['features'].predictor_contract_,
         'best_model': best_name, 'candidate_cv_average_precision': {n: float(s.best_score_) for n, s in searches.items()},
         'selected_parameters': searches[best_name].best_params_,
         'train_size': len(X_train), 'test_size': len(X_test),
@@ -162,6 +196,9 @@ def train_attrition_model(df: pd.DataFrame) -> TrainedModelArtifact:
         'random_seed': engine.random_seed,
     })
     warnings = engine._validate_sample_size(X_train, y_train)
+    excluded = metrics['predictor_contract']['excluded_columns']
+    if excluded:
+        warnings.append('Excluded columns outside the supported predictor contract: ' + ', '.join(excluded) + '.')
     warnings.append('Retrospective classification only: future departure accuracy has not been validated.')
     if metrics['recall_denominator'] and metrics['recall'] < .5:
         counts = metrics['confusion_matrix']

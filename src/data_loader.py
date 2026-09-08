@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import numpy as np
 from difflib import get_close_matches
 from typing import Any, Dict, Optional
 
@@ -17,7 +18,7 @@ import pandas as pd
 
 from src.logger import get_logger, sanitize_for_logging
 from src.population import normalize_attrition
-from src.data_contract import normalize_measurements
+from src.data_contract import normalize_measurements, is_numeric_measurement
 from src.utils import get_error_message, get_file_extension, load_config
 
 logger = get_logger('data_loader')
@@ -26,10 +27,14 @@ GOLDEN_SCHEMA = {
     'required': ['EmployeeID', 'Dept', 'Tenure', 'Salary', 'LastRating', 'Age', 'Gender', 'JobTitle', 'Location', 'HireDate', 'ManagerID'],
     'optional': ['Attrition', 'PerformanceText', 'RatingHistory', 'PromotionDate', 'StartingSalary', 'YearsInCurrentRole',
                  'YearsSinceLastPromotion', 'PromotionCount', 'InterviewScore', 'AssessmentScore', 'HireSource', 'SnapshotDate',
-                 'Country', 'JobLevel', 'CompaRatio', 'PriorExperienceYears', 'ManagerChangeCount']
+                 'Country', 'JobLevel', 'CompaRatio', 'PriorExperienceYears', 'ManagerChangeCount',
+                 'PayFrequency', 'PayPeriod', 'Currency']
 }
 
 COLUMN_ALIASES = {
+    'payfrequency': ['pay_frequency', 'salary_frequency', 'salaryfrequency'],
+    'payperiod': ['pay_period', 'salary_period', 'salaryperiod', 'salary_basis', 'pay_basis'],
+    'currency': ['salary_currency', 'salarycurrency', 'pay_currency', 'currency_code'],
     'employeeid': ['emp_id', 'employee_id', 'id', 'empid', 'emp_no', 'employee_no', 'staff_id'],
     'snapshotdate': ['date', 'month', 'snapshot_date', 'period', 'as_of_date'],
     'dept': ['department', 'dept_name', 'department_name', 'division', 'team'],
@@ -54,7 +59,8 @@ COLUMN_ALIASES = {
     'hiresource': ['source', 'recruitment_source', 'hiring_channel', 'referral_source'],
 }
 
-CRITICAL_MAPPING_FIELDS = {'EmployeeID', 'Salary', 'Attrition', 'HireDate', 'SnapshotDate', 'Gender', 'Age', 'ManagerID'}
+CRITICAL_MAPPING_FIELDS = {'EmployeeID', 'Salary', 'Attrition', 'HireDate', 'SnapshotDate', 'Gender', 'Age', 'ManagerID',
+                           'PayFrequency', 'PayPeriod', 'Currency'}
 
 
 class DataValidationError(Exception):
@@ -158,6 +164,8 @@ class DataLoader:
         mapped_targets: set[str] = set()
         for col in df.columns:
             mapped = self._canonical_from_alias(str(col).strip().lower().replace(' ', '_').replace('-', '_'))
+            if mapped and mapped in mapped_targets:
+                raise DataValidationError(f"Multiple columns map to '{mapped}'; provide one unambiguous source column")
             if mapped and mapped not in mapped_targets:
                 rename_map[col] = mapped
                 self.column_mapping[col] = mapped
@@ -200,7 +208,10 @@ class DataLoader:
             parsed = pd.to_datetime(frame['SnapshotDate'], errors='coerce', utc=True)
             invalid = int(parsed.isna().sum())
             if invalid:
-                self.validation_warnings.append(f'{invalid} snapshot row(s) have an invalid SnapshotDate')
+                raise DataValidationError(
+                    f'{invalid} snapshot row(s) have a missing or invalid SnapshotDate; '
+                    'correct the dates before importing so the current employee state can be determined'
+                )
             duplicate_snapshots = int(frame.assign(_snapshot=parsed).duplicated(['EmployeeID', '_snapshot']).sum())
             if duplicate_snapshots:
                 raise DataValidationError(f'Duplicate EmployeeID + SnapshotDate rows found: {duplicate_snapshots}')
@@ -212,16 +223,22 @@ class DataLoader:
                 self.validation_warnings.append(f"Column '{col}' excluded (>90% null)")
                 frame = frame.drop(columns=[col])
 
+        self._validate_pay_basis(frame)
+        original = frame
         frame = normalize_measurements(frame)
-
-        invalid_negative = pd.Series(False, index=frame.index)
-        for col in ('Salary', 'Tenure', 'Age'):
-            if col in frame.columns:
-                invalid_negative |= frame[col] < 0
-        if invalid_negative.any():
-            count = int(invalid_negative.sum())
-            frame = frame.loc[~invalid_negative].copy()
-            self.validation_warnings.append(f'Removed {count} rows with impossible negative Salary/Tenure/Age values')
+        for col in frame:
+            if not is_numeric_measurement(col):
+                continue
+            invalid = frame[col].isna() | ~np.isfinite(frame[col])
+            if col in ('Salary', 'StartingSalary', 'Tenure', 'Age'):
+                invalid |= frame[col] < 0
+            supplied = original[col].notna() & original[col].astype('string').str.strip().ne('')
+            count = int((invalid & supplied).sum())
+            frame.loc[invalid, col] = float('nan')
+            if count:
+                self.validation_warnings.append(
+                    f'{count} invalid {col} measurement(s) marked missing; employee rows preserved'
+                )
 
         if 'Attrition' in frame.columns:
             normalized = normalize_attrition(frame['Attrition'])
@@ -237,6 +254,37 @@ class DataLoader:
         if len(frame) < self.min_rows:
             raise DataValidationError(get_error_message('insufficient_data', count=len(frame)))
         return frame
+
+    def _validate_pay_basis(self, frame: pd.DataFrame) -> None:
+        """Accept annual comparable salary only; never guess conversion factors or FX."""
+        basis_columns = [col for col in ('PayFrequency', 'PayPeriod') if col in frame]
+        annual = {'annual', 'annually', 'year', 'yearly', 'per year', 'per annum', 'annualized', 'annualised'}
+        for col in basis_columns:
+            values = frame[col].astype('string').str.strip().str.lower()
+            if not values.isin(annual).all():
+                raise DataValidationError(
+                    f'{col} must explicitly declare annual salary for every row. '
+                    'Convert all Salary and StartingSalary amounts to an annual basis before importing; '
+                    'monthly, hourly, mixed, missing and unknown pay periods cannot be compared safely'
+                )
+        if not basis_columns:
+            self.validation_warnings.append(
+                'Pay basis not supplied: Salary and StartingSalary are interpreted as annual amounts; '
+                'confirm or supply PayPeriod=annual before using pay comparisons'
+            )
+        if 'Currency' in frame:
+            values = frame['Currency'].astype('string').str.strip().str.upper()
+            if values.isna().any() or not values.str.fullmatch('[A-Z]{3}').all() or values.nunique() != 1:
+                raise DataValidationError(
+                    'Currency must contain one shared three-letter currency code for every row. '
+                    'Convert salaries to one reporting currency before importing; automatic FX conversion is unsupported'
+                )
+            frame['Currency'] = values
+        else:
+            self.validation_warnings.append(
+                'Currency not supplied: pay comparisons assume one shared currency; '
+                'confirm or supply Currency before interpreting compensation results'
+            )
 
     def get_column_mapping_report(self) -> dict:
         return {'mappings': self.column_mapping, 'warnings': self.validation_warnings, 'features_enabled': self.features_enabled}

@@ -137,6 +137,7 @@ class EvidencePlanner:
             limitations.append("These observational aggregates cannot establish causes or explain why an outcome occurred.")
         if re.search(r"\b(last|this|next|previous)\s+(month|quarter|year|week)\b|\b20\d{2}\b|\bq[1-4]\b|\b(january|february|march|april|may|june|july|august|september|october|november|december)\b", q):
             limitations.append("This investigation does not apply the requested time filter; evidence describes the loaded current snapshot.")
+            must_abstain = True
         if "turnover" in q:
             limitations.append("Observed attrition share is not a period turnover rate; exposure and dated departures are required for period turnover.")
         if re.search(r"\b(?:for|in|within|among|excluding|except|between)\s+(?:the\s+)?(?:[a-z]+\s+){0,2}(?:department|team|function)\b", q) or any(term in q for term in ["engineering", "sales", "marketing", "operations"]):
@@ -187,11 +188,56 @@ class EvidencePlanner:
         summary_words = set("what is are was were the our my a an and of for in about tell me show give please can you do we have how many employees employee people workforce staff members work here large big size current currently active total headcount count number average mean age salary tenure performance rating overview summary statistics company organization organisation now today just not analyze analyse attrition departure observed recorded share percentage".split())
         summary_words.update({"q1", "q2", "q3", "q4"})
         tokens = set(re.findall(r"[a-z]+[0-9]*", routing_q))
+        # Every meaningful word must belong to the supported aggregate question
+        # vocabulary. Previously only single-tool summaries checked unknown
+        # words, allowing "Finance salary and attrition" to bypass scope gates.
+        # Unknown names/modifiers require clarification, regardless of the
+        # number of selected tools or where those terms occur in the question.
+        aggregate_words = summary_words | set("""
+            review summarize summarise explain compare rank assess aggregate level which why elevated
+            low high highest lowest most least top across by at to with from
+            has does should us it its health overall strategic executive
+            insights insight trends trend analysis analytics metric metrics
+            department departments team teams function functions hotspot hotspots
+            risk risks score scores flight likely leave retention turnover
+            compensation salaries pay equity equal gender gap fairness bias
+            disparity protected group groups adverse impact demographic demographics
+            experience engagement enps pulse work life employee sentiment
+            manager managers span structure stagnation promotion org design
+            organization organisation burnout organizational organisational
+            median minimum min maximum max sum combined std standard deviation
+            variance range percentile percentiles p10 p25 p50 p75 p90 p95 p99
+            payroll budget avg ages old ratings annual rate rates count counts
+            reason reasons cause causes caused causal because correlation
+            correlation association observed recorded departure departures
+            distribution distributions statistic statistics
+        """.split())
+        unresolved = set(re.findall(r"\b\w+\b", routing_q)) - aggregate_words
+        if supported and unresolved:
+            limitations.append("Unrecognized population scope or analysis terms require clarification; no whole-workforce result will be substituted.")
+            must_abstain = True
         if len(tools) == 1 and not required_metrics and not re.search(r"\b(summary|overview|statistics)\b", q):
             supported = False
             limitations.append("The requested workforce metric is not supported by the registered summary tool.")
         if len(tools) == 1 and required_metrics and tokens - summary_words:
             limitations.append("The requested population or time scope is not applied; the available summary is for the whole current workforce only.")
+            must_abstain = True
+        # Named scopes are open-ended (Finance, Madrid, a newly uploaded office,
+        # etc.). Never use a fixed list of department names to decide whether a
+        # filter was requested. None of these tools accepts a typed row filter.
+        scope_clause = re.search(
+            r"\b(?:for|within|among|excluding|except|between|versus|vs)\s+(.+?)(?:[?.;]|$)", routing_q
+        )
+        whole_workforce = r"(?:(?:the|our|all|entire|whole)\s+)*(?:current\s+|active\s+)?(?:workforce|company|organization|organisation|employees|staff|people)(?:\s+(?:overall|as a whole))?"
+        # "for attrition disparity" names an analysis, not a row population.
+        analysis_topic = r"(?:attrition disparity|pay equity|compensation equity|workforce health)"
+        if (scope_clause and not re.fullmatch(f"(?:{whole_workforce}|{analysis_topic})", scope_clause.group(1).strip())) or re.search(
+            r"\b\w+['’]s\s+(?:average\s+|mean\s+)?(?:salary|pay|headcount|tenure|attrition)\b"
+            r"|\b(?:salary|pay|headcount|tenure|attrition)\b[^?.;]*\bby\s+(?:location|office|country|city|department|team|gender|age)\b",
+            routing_q,
+        ):
+            limitations.append("The requested population scope is not applied; these tools provide whole-workforce evidence and cannot answer a filtered or grouped request.")
+            must_abstain = True
         if re.search(r"\b(women|men|female|male|nonbinary|part.time|full.time|contractors?|remote|onsite)\b|\b(in|within|among)\s+(?!our\b|the workforce\b|the company\b|the organization\b)\w+", q):
             limitations.append("Requested subgroup filters are not applied by this investigation; aggregate evidence must not be interpreted as that subgroup's result.")
             must_abstain = True
@@ -202,4 +248,7 @@ class EvidencePlanner:
             supported = False
             limitations.append("Regrettable attrition is not measured by the registered evidence tools.")
         required_metrics = list(dict.fromkeys(required_metrics))
-        return InvestigationPlan(required_metrics=required_metrics, tool_ids=tools if supported else [], rationale="; ".join(reasons), limitations=limitations, supported=supported, must_abstain=must_abstain)
+        # Do not display a whole-workforce number beside a scoped question:
+        # callers may read the number and miss the warning. An unsupported
+        # scope returns an explicit refusal with no substitute aggregate.
+        return InvestigationPlan(required_metrics=required_metrics, tool_ids=tools if supported and not must_abstain else [], rationale="; ".join(reasons), limitations=limitations, supported=supported, must_abstain=must_abstain)

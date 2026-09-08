@@ -14,7 +14,7 @@ interface PlatformStatus {
 }
 
 function percentage(value?: number | null) {
-  if (value === undefined || value === null) return '—'
+  if (value === undefined || value === null || !Number.isFinite(value) || value < 0 || value > 1) return '—'
   return `${(value * 100).toFixed(1)}%`
 }
 
@@ -40,7 +40,9 @@ export default function DecisionCockpitPage() {
 
   const departments = departmentData?.departments ?? []
   const largestDepartment = [...departments].sort((a, b) => b.headcount - a.headcount)[0]
-  const observedAttritionShare = summary.observed_attrition_share ?? summary.turnover_rate ?? null
+  // An explicitly unavailable modern measurement must not revive a legacy value.
+  const rawAttritionShare = summary.observed_attrition_share !== undefined ? summary.observed_attrition_share : summary.turnover_rate
+  const observedAttritionShare = rawAttritionShare != null && Number.isFinite(rawAttritionShare) && rawAttritionShare >= 0 && rawAttritionShare <= 1 ? rawAttritionShare : null
   const rating = summary.lastrating_mean ?? null
   const tenure = summary.tenure_mean ?? null
   const activeCount = summary.active_count ?? null
@@ -51,10 +53,10 @@ export default function DecisionCockpitPage() {
 
   const signals = [
     {
-      tone: observedAttritionShare == null ? 'context' : observedAttritionShare >= 0.15 ? 'attention' : 'stable',
+      tone: 'context' as string,
       icon: TrendingDown,
-      title: observedAttritionShare == null ? 'Recorded attrition evidence is unavailable' : observedAttritionShare >= 0.15 ? 'Recorded attrition share deserves investigation' : 'Recorded attrition share is below the current watch threshold',
-      detail: observedAttritionShare == null ? 'Observed employee outcomes are required before assessing attrition share.' : `${percentage(observedAttritionShare)} of current employee outcome records are marked departed. This is not a period turnover rate.`,
+      title: observedAttritionShare == null ? 'Recorded attrition evidence is unavailable' : 'Recorded employee outcomes',
+      detail: observedAttritionShare == null ? 'Observed employee outcomes are required before assessing attrition share.' : `${percentage(observedAttritionShare)} of known employee outcome records are marked departed. This is not a period turnover rate or a risk assessment; no comparison benchmark has been established.`,
       href: '/workforce-health',
       action: 'Understand the pattern',
     },

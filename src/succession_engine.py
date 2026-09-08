@@ -99,41 +99,39 @@ class SuccessionEngine:
 
     def identify_high_potentials(self) -> pd.DataFrame:
         """
-        Identify high-potential employees for succession.
+        Return recorded high-potential assessments on the 1–5 talent-review scale.
 
         Returns:
             DataFrame with high-potential candidates.
 
-        ⚠️ PA-1 WARNING: This method derives 'Potential' from 'Performance' data.
-        High performers are not necessarily high potentials (different constructs).
-        For accurate succession planning, consider adding a separate 'Potential'
-        assessment from talent review processes.
+        Potential is never inferred from performance, tenure, or attrition risk.
+        The high-potential threshold and Star classification match the 9-box
+        matrix: potential > 3.5, with performance > 3.5 for Stars.
         """
         df = self.df.copy()
 
-        # Filter for high performers with sufficient tenure
-        high_potentials = df[
-            (df['LastRating'] >= self.high_performer_rating) &
-            (df['Tenure'] >= self.min_tenure_years)
-        ].copy()
+        potential = pd.to_numeric(
+            df.get('PotentialRating', pd.Series(np.nan, index=df.index)), errors='coerce'
+        )
+        df['PotentialRating'] = potential.where(potential.between(1, 5))
+        high_potentials = df[df['PotentialRating'] > 3.5].copy()
+        columns = ['EmployeeID', 'Dept', 'Tenure', 'LastRating',
+                   'PotentialLevel', 'AttritionRisk', 'PotentialRating', '_methodology_note']
 
         if high_potentials.empty:
-            return pd.DataFrame(columns=['EmployeeID', 'Dept', 'Tenure', 'LastRating', 'PotentialLevel'])
+            result = pd.DataFrame(columns=columns)
+            result.attrs['assessment_status'] = (
+                'unavailable' if df['PotentialRating'].notna().sum() == 0 else 'no_high_potential_assessments'
+            )
+            return result
 
-        # Calculate potential level
-        # NOTE: This is a proxy based on performance, not a true potential assessment
-        high_potentials['PotentialScore'] = (
-            high_potentials['LastRating'] * 0.6 +
-            np.minimum(high_potentials['Tenure'] / 10, 1) * 0.4 * 5
+        high_potentials['PotentialLevel'] = np.where(
+            (high_potentials['LastRating'] > 3.5).fillna(False), 'Star', 'High'
         )
 
-        high_potentials['PotentialLevel'] = high_potentials['PotentialScore'].apply(
-            lambda x: 'Star' if x >= 4.5 else ('High' if x >= 4.0 else 'Emerging')
-        )
-
-        # Add methodology warning to output
         high_potentials['_methodology_note'] = (
-            'Potential derived from performance rating - validate with talent review'
+            'Recorded PotentialRating > 3.5 on a 1–5 scale; '
+            'Star additionally requires recorded LastRating > 3.5. No inferred potential.'
         )
 
         # Add risk of loss if available
@@ -159,10 +157,7 @@ class SuccessionEngine:
             high_potentials['AttritionRisk'] = 'N/A'
 
 
-        result = high_potentials[[
-            'EmployeeID', 'Dept', 'Tenure', 'LastRating',
-            'PotentialLevel', 'AttritionRisk'
-        ]].copy()
+        result = high_potentials[columns].copy()
 
         return result.sort_values('LastRating', ascending=False)
 
@@ -294,7 +289,7 @@ class SuccessionEngine:
                     'EmployeeID': row['EmployeeID'],
                     'Dept': row['Dept'],
                     'Priority': 'Critical',
-                    'Recommendation': 'Immediate retention intervention needed - high performer at high attrition risk',
+                    'Recommendation': 'Review retention support for an employee with recorded high potential and high attrition risk',
                     'Actions': [
                         'Schedule career development discussion',
                         'Review compensation competitiveness',

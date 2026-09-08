@@ -24,7 +24,7 @@ export function CompensationTab() {
     return <div className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <KPICard title="Mean recorded salary" value={format(summary.avg_salary)} icon={DollarSign} subtitle="Source salary units" insight="Mean of valid positive salaries for current active employees." />
-            <KPICard title="Recorded salary total" value={format(summary.total_payroll)} icon={DollarSign} subtitle="Current employees with valid salaries" insight="Sum of recorded salaries; currency and pay period follow the source contract." />
+            <KPICard title="Recorded salary total" value={format(summary.total_payroll)} icon={DollarSign} subtitle="Current employees with valid salaries" insight="Sum of recorded salaries in source units. No currency conversion or pay-period annualization is implied." />
             <KPICard title="Salary observations" value={summary.headcount} icon={Users} subtitle="Valid positive salary records" insight="Records included in the displayed salary aggregates." />
         </div>
         <Card title="Department salary dispersion" subtitle="Descriptive consistency index (0–100); adjusted pay equity has not been estimated.">

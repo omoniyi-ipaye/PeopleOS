@@ -36,10 +36,13 @@ class Preprocessor:
         self.outlier_bounds: dict[str, tuple[float, float]] = {}
         self.dropped_columns: list[str] = []
         self.reference_date: pd.Timestamp | None = None
+        # Governed training freezes the permitted raw inputs. Legacy standalone
+        # preprocessing retains its existing behavior when no contract is set.
+        self.input_columns: list[str] | None = None
         self._is_fitted = False
 
     def fit_transform(self, df: pd.DataFrame, target_column: str = 'Attrition') -> tuple[pd.DataFrame, dict]:
-        frame = df.copy()
+        frame = self._contract_input(df)
         frame = self._drop_high_null_columns(frame, threshold=0.9, fit=True)
         self._identify_column_types(frame, target_column)
         self.reference_date = self._resolve_reference_date(frame)
@@ -60,6 +63,7 @@ class Preprocessor:
             'dropped_columns': list(self.dropped_columns),
             'reference_date': self.reference_date.isoformat() if self.reference_date is not None else None,
             'fit_scope': 'training_population',
+            'input_columns': self.input_columns,
         }
         logger.info("Preprocessing fitted on %s rows. Shape: %s", len(df), frame.shape)
         return frame, self.feature_metadata
@@ -67,7 +71,7 @@ class Preprocessor:
     def transform(self, df: pd.DataFrame, target_column: str = 'Attrition') -> pd.DataFrame:
         if not self._is_fitted:
             raise PreprocessingError('Preprocessor must be fitted before transform')
-        frame = df.copy()
+        frame = self._contract_input(df)
         frame = frame.drop(columns=[c for c in self.dropped_columns if c in frame.columns], errors='ignore')
         frame = self._engineer_temporal_features(frame, reference_date=self.reference_date)
         for col in self.numeric_columns + self.categorical_columns:
@@ -78,6 +82,13 @@ class Preprocessor:
         frame = self._encode_categorical(frame, target_column, fit=False)
         frame = self._scale_features(frame, target_column, fit=False)
         return frame
+
+    def _contract_input(self, df: pd.DataFrame) -> pd.DataFrame:
+        if self.input_columns is None:
+            return df.copy()
+        if not df.columns.is_unique:
+            raise PreprocessingError('Predictive inputs require unique column names')
+        return df.loc[:, [c for c in self.input_columns if c in df.columns]].copy()
 
     def _drop_high_null_columns(self, df: pd.DataFrame, threshold: float = 0.9, fit: bool = False) -> pd.DataFrame:
         if fit:
