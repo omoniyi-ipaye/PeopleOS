@@ -26,8 +26,49 @@ class InvestigationPlan:
 class EvidencePlanner:
     """Select the smallest useful set of aggregate tools for a question."""
 
+    @staticmethod
+    def _canonical_whole_workforce_question(question: str) -> str:
+        """Recognize complete, unambiguous paraphrases, never strip modifiers.
+
+        A global synonym replacement could erase a named scope or a negation.
+        These closed grammars consume the entire question; anything else goes
+        unchanged through the conservative scope and unsupported-term gates.
+        """
+        whole_scope = (
+            r"(?:for|across|among|within|in)\s+"
+            r"(?:(?:the|our)\s+)?(?:(?:whole|entire)\s+)?"
+            r"(?:workforce|company|organization|organisation)"
+        )
+        prefix = r"(?:please\s+)?(?:(?:can|could)\s+you\s+)?"
+        ending = r"\s*[?.!]?"
+        if re.fullmatch(
+            prefix + r"(?:summari[sz]e|give\s+(?:me|us)\s+a\s+summary\s+of|show(?:\s+me)?)"
+            r"\s+(?:pay|salaries|compensation)\s+" + whole_scope + ending,
+            question,
+        ):
+            return "summarise pay for our workforce"
+        measure = re.fullmatch(
+            prefix + r"(?:what\s+is|show(?:\s+me)?|tell\s+me)\s+(?:the\s+|our\s+)?"
+            r"(?P<stat>average|mean)\s+"
+            r"(?P<metric>pay|salary|age|tenure|performance\s+rating)\s+"
+            + whole_scope + ending,
+            question,
+        )
+        if measure:
+            metric = {"pay": "salary", "performance rating": "rating"}.get(
+                measure["metric"], measure["metric"]
+            )
+            return f'what is {measure["stat"]} {metric} for our workforce'
+        if re.fullmatch(
+            prefix + r"how\s+many\s+(?:people|employees|staff\s+members)\s+"
+            r"(?:do\s+we\s+(?:currently\s+)?have|(?:currently\s+)?work\s+here)" + ending,
+            question,
+        ):
+            return "what is current headcount"
+        return question
+
     def plan(self, question: str) -> InvestigationPlan:
-        q = question.lower()
+        q = self._canonical_whole_workforce_question(question.lower().strip())
 
         risk_or_departure = bool(re.search(
             r"\b(?:risk(?:\s+score)?|flight\s+risk|likely\s+to\s+leave|will\s+leave|attrition|turnover)\b", q

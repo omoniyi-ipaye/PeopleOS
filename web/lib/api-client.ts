@@ -24,9 +24,11 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> 
 export const api = {
   // Upload endpoints
   upload: {
-    uploadFile: async (file: File) => {
+    uploadFile: async (file: File, pay?: { annual: boolean; currency: string }) => {
       const formData = new FormData()
       formData.append('file', file)
+      if (pay?.annual) formData.append('salary_basis', 'annual')
+      if (pay?.currency.trim()) formData.append('salary_currency', pay.currency.trim().toUpperCase())
 
       const response = await fetch(`${API_BASE}/api/upload`, {
         method: 'POST',

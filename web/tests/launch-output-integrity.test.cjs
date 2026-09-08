@@ -24,6 +24,13 @@ function render(Component, props = {}, fixtures = []) {
   finally { client.clear() }
 }
 const Page = require('../app/page').default
+test('currency formatting never assumes dollars and rejects non-finite amounts', () => {
+  const {formatCurrency} = require('../lib/utils')
+  assert.equal(formatCurrency(60000, 'eur'), 'EUR 60,000')
+  assert.equal(formatCurrency(60000), '60,000')
+  assert.equal(formatCurrency(60000, 'EURO'), '60,000')
+  assert.equal(formatCurrency(Infinity, 'EUR'), 'Unavailable')
+})
 function cockpit(summary) {
   return render(Page,{},[
     [['platform','status'],{data:{loaded:true}}],

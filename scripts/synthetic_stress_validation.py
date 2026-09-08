@@ -69,7 +69,7 @@ def synthetic_workforce(rows: int, *, seed: int = SEED, drift: bool = False) -> 
         "JobTitle": np.where(dept == "Engineering", "Engineer", "Specialist"),
         "JobLevel": rng.choice(["L1", "L2", "L3", "L4", "L5"], rows),
         "Tenure": tenure, "Location": location, "Country": np.where(location == "Madrid", "Spain", "Other"),
-        "Salary": salary, "LastRating": rating, "ManagerID": manager,
+        "Salary": salary, "PayPeriod": "annual", "Currency": "EUR", "LastRating": rating, "ManagerID": manager,
         "Attrition": attrition, "HireSource": rng.choice(["Referral", "Direct", "Agency"], rows),
         "HireDate": hire_dates.strftime("%Y-%m-%d"), "SnapshotDate": "2026-09-01",
         "PromotionCount": rng.integers(0, 4, rows), "InterviewScore": np.round(rng.uniform(1, 5, rows), 1),

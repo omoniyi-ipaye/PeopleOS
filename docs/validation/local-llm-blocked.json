@@ -1,0 +1,13 @@
+{
+  "timestamp_utc": "2026-09-08T17:48:04.785522+00:00",
+  "commit": "e09a6c12f2270256880c6a08eed0081fb1d6a8ba",
+  "dirty_tree": true,
+  "host": "http://localhost:11434",
+  "model": "gemma3:4b",
+  "runtime_executed": false,
+  "status": "blocked",
+  "cases": [],
+  "scope": "Actual local LLM evidence selection and deterministic answer rendering; synthetic evidence only",
+  "model_digest": null,
+  "reason": "Ollama Python package is not installed"
+}

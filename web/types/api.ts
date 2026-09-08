@@ -104,6 +104,7 @@ export interface UploadStatus {
     has_data: boolean
     employee_count: number
     features_enabled: Record<string, boolean>
+    reporting_currency?: string | null
     data?: {
         loaded: boolean
         row_count: number

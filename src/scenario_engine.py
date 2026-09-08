@@ -715,7 +715,7 @@ class ScenarioEngine:
             confidence_level=conf_level,
             confidence_score=conf_score,
             assumptions=[
-                f"Average salary: ${avg_salary:,.0f}",
+                f"Average salary: {avg_salary:,.0f} in the source reporting currency (annual)",
                 f"Selection criteria: {selection_criteria}",
                 "Financial results are fixed assumption arithmetic; financial uncertainty has not been estimated.",
                 ("Simple payback divides one-off severance by monthly salary savings; assumes immediate savings and excludes unmodeled effects."

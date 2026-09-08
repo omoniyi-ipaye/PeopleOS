@@ -1,0 +1,232 @@
+{
+  "schema_version": 1,
+  "timestamp_utc": "2026-09-08T17:54:44.737833+00:00",
+  "model": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+  "execution": "real_sentence_transformers_and_faiss",
+  "status": "passed",
+  "checks": [
+    {
+      "id": "english_technical",
+      "query": "Who developed Python automation for payroll data?",
+      "expected": "python",
+      "scope": "english",
+      "retrieved_ids": [
+        "python",
+        "spanish_payroll",
+        "onboarding"
+      ],
+      "passed": true,
+      "scores": [
+        0.05753684011371989,
+        0.03162775422784316,
+        0.028239158995651836
+      ]
+    },
+    {
+      "id": "english_sales",
+      "query": "Who succeeded in customer renewals and enterprise selling?",
+      "expected": "sales",
+      "scope": "english",
+      "retrieved_ids": [
+        "sales",
+        "spanish_onboarding",
+        "onboarding"
+      ],
+      "passed": true,
+      "scores": [
+        0.03795479287415211,
+        0.03228990755624534,
+        0.03169183252015497
+      ]
+    },
+    {
+      "id": "english_benefits",
+      "query": "Who helped new starters enroll in employee benefits?",
+      "expected": "onboarding",
+      "scope": "english",
+      "retrieved_ids": [
+        "onboarding",
+        "spanish_onboarding",
+        "mentoring"
+      ],
+      "passed": true,
+      "scores": [
+        0.053238131397315126,
+        0.041297172051753164,
+        0.03358258549038967
+      ]
+    },
+    {
+      "id": "english_facilities",
+      "query": "Who repairs office furniture and manages building access?",
+      "expected": "facilities",
+      "scope": "english",
+      "retrieved_ids": [
+        "facilities",
+        "python",
+        "spanish_payroll"
+      ],
+      "passed": true,
+      "scores": [
+        0.05234512108942644,
+        0.028190054893094715,
+        0.02657218113286344
+      ]
+    },
+    {
+      "id": "positive_mentoring",
+      "query": "Who actively coached junior engineers?",
+      "expected": "mentoring",
+      "scope": "negation",
+      "retrieved_ids": [
+        "mentoring",
+        "no_mentoring",
+        "onboarding"
+      ],
+      "passed": true,
+      "scores": [
+        0.05250627826420666,
+        0.03169191681065269,
+        0.027721349173902864
+      ]
+    },
+    {
+      "id": "negative_mentoring",
+      "query": "Who did not provide mentoring to junior developers?",
+      "expected": "no_mentoring",
+      "scope": "negation",
+      "retrieved_ids": [
+        "no_mentoring",
+        "mentoring",
+        "spanish_onboarding"
+      ],
+      "passed": true,
+      "scores": [
+        0.04331343551892055,
+        0.04016027403062959,
+        0.02931013663096223
+      ]
+    },
+    {
+      "id": "spanish_payroll",
+      "query": "¿Quién corrigió errores de nómina?",
+      "expected": "spanish_payroll",
+      "scope": "spanish",
+      "retrieved_ids": [
+        "spanish_payroll",
+        "python",
+        "onboarding"
+      ],
+      "passed": true,
+      "scores": [
+        0.0588726367521773,
+        0.036526501687760865,
+        0.03314205993078758
+      ]
+    },
+    {
+      "id": "cross_language_payroll",
+      "query": "Who fixed payroll mistakes and verified social contributions before month-end?",
+      "expected": "spanish_payroll",
+      "scope": "cross_language",
+      "retrieved_ids": [
+        "spanish_payroll",
+        "python",
+        "onboarding"
+      ],
+      "passed": true,
+      "scores": [
+        0.059516507836935795,
+        0.035189726163566235,
+        0.0345818550400728
+      ]
+    },
+    {
+      "id": "cross_language_onboarding",
+      "query": "Who organized employee orientation and explained benefits in Warsaw?",
+      "expected": "spanish_onboarding",
+      "scope": "cross_language",
+      "retrieved_ids": [
+        "spanish_onboarding",
+        "onboarding",
+        "facilities"
+      ],
+      "passed": true,
+      "scores": [
+        0.06547321936677968,
+        0.037506879339760796,
+        0.02902164002201776
+      ]
+    },
+    {
+      "id": "empty_query",
+      "passed": true
+    },
+    {
+      "id": "off_topic_scores_do_not_claim_validated_relevance",
+      "passed": true
+    },
+    {
+      "id": "returned_metadata_cannot_mutate_index_provenance",
+      "passed": true
+    },
+    {
+      "id": "empty_rebuild_clears_previous_records",
+      "passed": true
+    }
+  ],
+  "engine_sha256": "31d4cf669c8dc550dc798193a9d6225da645439d4a63392dd1cd4b486e211bb1",
+  "corpus_sha256": "9032f4d46cc84e952510b453e0fb3f6b7ac4f88923de505a5f3434efe5b65cf3",
+  "limitations": [
+    "Small synthetic acceptance corpus; not population-level validity or an untouched final holdout.",
+    "Nearest neighbors are candidate source texts, not verified assessments or probabilities.",
+    "No validated no-match threshold; off-topic queries may retrieve unrelated records.",
+    "Passing on this model does not validate a different model or revision."
+  ],
+  "commit": "e09a6c12f2270256880c6a08eed0081fb1d6a8ba",
+  "dependencies": {
+    "faiss-cpu": "1.15.0",
+    "sentence-transformers": "2.3.1",
+    "torch": "2.14.0+cpu",
+    "transformers": "4.57.6",
+    "numpy": "1.26.3",
+    "scikit-learn": "1.4.0",
+    "scipy": "1.16.3",
+    "PyYAML": "6.0.1"
+  },
+  "resolved_model_revision": "e8f8c211226b894fcb81acc59f3b34ba3efd5f42",
+  "off_topic_observation": [
+    {
+      "id": "spanish_payroll",
+      "text": "Francis corrigió errores de nómina y verificó las cotizaciones antes del cierre mensual.",
+      "source": {
+        "snapshot": "original"
+      },
+      "squared_l2_distance": 39.616851806640625,
+      "similarity_score": 0.024620322736005493,
+      "score_semantics": "inverse_squared_l2_distance_not_probability_or_validated_relevance"
+    },
+    {
+      "id": "sales",
+      "text": "Blair exceeded enterprise sales targets and renewed customer contracts through careful account management.",
+      "source": {
+        "snapshot": "original"
+      },
+      "squared_l2_distance": 49.091163635253906,
+      "similarity_score": 0.01996360091136324,
+      "score_semantics": "inverse_squared_l2_distance_not_probability_or_validated_relevance"
+    },
+    {
+      "id": "spanish_onboarding",
+      "text": "Gabriel organizó la incorporación de nuevas personas en Varsovia y explicó sus beneficios durante la bienvenida.",
+      "source": {
+        "snapshot": "original"
+      },
+      "squared_l2_distance": 49.13414764404297,
+      "similarity_score": 0.01994648452188898,
+      "score_semantics": "inverse_squared_l2_distance_not_probability_or_validated_relevance"
+    }
+  ],
+  "passed": 13,
+  "total": 13
+}

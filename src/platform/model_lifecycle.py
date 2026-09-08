@@ -100,8 +100,30 @@ class ModelLifecycleService:
             raise
 
     def activate(self, workspace_id: str, model_id: str) -> ModelVersion:
-        if model_id not in self._runtime_artifacts:
+        artifact = self._runtime_artifacts.get(model_id)
+        if artifact is None:
             raise ValueError('Model runtime artifact is unavailable in this process; retrain before activation')
+        workspace = self.store.get_workspace(workspace_id)
+        model = next((m for m in workspace.models if m.model_id == model_id), None)
+        if model is None:
+            raise KeyError('Unknown model')
+        # Candidate state alone is not validation evidence. Recheck the evidence
+        # at release so stale metadata or changed runtime metrics cannot bypass
+        # the current policy. No state is changed until all checks succeed.
+        if model.evaluation.get('passed') is not True:
+            raise ValueError('Model has no recorded passing evaluation; retrain before activation')
+        metrics = getattr(artifact, 'metrics', None)
+        if not isinstance(metrics, dict) or metrics != model.metrics:
+            raise ValueError('Runtime model evaluation differs from the registered model; retrain before activation')
+        if not self.policy.evaluate(metrics)['passed']:
+            raise ValueError('Model no longer meets the current retrospective evaluation gate')
+        fingerprint = metrics.get('training_current_fingerprint')
+        dataset = next((d for d in workspace.datasets if d.dataset_id == model.dataset_id), None)
+        if not fingerprint or dataset is None:
+            raise ValueError('Model training snapshot evidence is unavailable')
+        expected = dataset.quality.get('current_fingerprint')
+        if expected and fingerprint != expected:
+            raise ValueError('Model training data differs from the registered dataset snapshot')
         return self.store.activate_model(workspace_id, model_id)
 
     @classmethod

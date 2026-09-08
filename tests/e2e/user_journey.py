@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import json
+import re
 import time
 import urllib.request
 from pathlib import Path
 
-from playwright.sync_api import Page, sync_playwright
+from playwright.sync_api import Page, expect, sync_playwright
 
 BASE_URL = "http://127.0.0.1:3000"
 API_URL = "http://127.0.0.1:8000"
@@ -102,18 +103,50 @@ def main() -> None:
                 assert_route(page, path, heading, screenshot)
 
         page.goto(f"{BASE_URL}/advisor", wait_until="networkidle", timeout=120_000)
-        textarea = page.get_by_placeholder("Ask about observed attrition, workforce health, compensation disparity or organisation structure…")
-        textarea.fill("What are the most important workforce health signals right now?")
-        page.get_by_role("button", name="Investigate", exact=True).click()
-        page.get_by_text("Evidence ledger", exact=True).wait_for(timeout=180_000)
-        page.get_by_text("Agent boundary", exact=True).wait_for(timeout=30_000)
+        summary = fetch_json(f"{API_URL}/api/analytics/summary")
+        expected_headcount = summary["headcount"]
+        assert isinstance(expected_headcount, int) and expected_headcount > 0, summary
+        question = "What is current headcount?"
+        page.get_by_role("textbox", name="Investigation question", exact=True).fill(question)
+        with page.expect_response(
+            lambda response: response.url.endswith("/api/intelligence/investigate")
+            and response.request.method == "POST", timeout=180_000,
+        ) as investigation_response:
+            page.get_by_role("button", name="Investigate", exact=True).click()
+        response = investigation_response.value
+        assert response.ok, f"Investigation failed: {response.status} {response.text()}"
+        result = response.json()
+        assert result["question"] == question, result
+        assert result["status"] in {"complete", "partial"}, result
+        assert result["evidence"]["provenance"]["dataset_version"] == status["active_dataset_id"], result
+        counts = [item for tool in result["evidence"]["tool_results"]
+                  for item in tool["evidence"] if item.get("metric") == "headcount"]
+        assert len(counts) == 1, counts
+        assert counts[0]["value"] == expected_headcount, (counts, summary)
+        assert counts[0]["source_tool"] == "workforce.summary", counts
+        assert counts[0]["dataset_version"] == status["active_dataset_id"], counts
+        assert re.search(
+            rf"Current active employee count: {expected_headcount:,}(?![\d,])", result["answer"]
+        ), result["answer"]
+        # Verify the complete returned answer is displayed, then independently
+        # inspect the rendered evidence value after opening its actual ledger.
+        expect(page.get_by_text(result["answer"], exact=True)).to_be_visible(timeout=30_000)
+        ledger = page.locator("summary").filter(has_text=re.compile(r"^Evidence ledger \(\d+ items\)$"))
+        expect(ledger).to_be_visible()
+        ledger.click()
+        expect(page.get_by_text(
+            f"Current active employee count: {expected_headcount:,}", exact=True
+        )).to_be_visible()
+        expect(page.get_by_text("Review before action", exact=True)).to_be_visible()
         page.screenshot(path=str(ARTIFACT_DIR / "16-investigation.png"), full_page=True)
 
         body_text = page.locator("body").inner_text().lower()
-        assert "evidence quality" in body_text
-        assert "read-only aggregate analysis" in body_text
-        assert "probability of truth" in body_text
+        assert "heuristic evidence quality" in body_text
+        assert "aggregate, read-only investigation" in body_text
+        assert "not a probability that the answer is true" in body_text
+        assert "does not make employment decisions or change employee records" in body_text
         assert "investigation unavailable" not in body_text, body_text[-2000:]
+        assert "investigation not displayed" not in body_text, body_text[-2000:]
         browser.close()
 
     assert not page_errors, page_errors

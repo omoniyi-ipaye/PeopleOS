@@ -49,6 +49,9 @@ jobs:
           tests/test_launch_input_contract.py tests/test_launch_salary_history.py
           tests/test_launch_ml_contract.py tests/test_launch_agent_grounding.py
           tests/test_launch_succession_evidence.py
+          tests/test_local_llm_transport.py tests/test_real_vector_contract.py
+          tests/test_predictive_release_contract.py tests/test_agent_language_contract.py
+          tests/test_pay_confirmation.py
       - name: Verify public benchmarks and random-label controls
         run: python scripts/benchmark_analytics.py --output benchmark-results.json
       - name: Stress deterministic analytics with a fictional organization
