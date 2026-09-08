@@ -217,10 +217,7 @@ class PeopleIntelligenceAgent:
             # Retain the explicit policy block and audit signal for prohibited prose.
             if not self.policy.evaluate_text(generated).allowed:
                 return generated, getattr(llm, "model", None), []
-            structured = generated.strip()
-            if structured.startswith("```json\n") and structured.endswith("\n```"):
-                structured = structured[len("```json\n"):-len("\n```")].strip()
-            payload = json.loads(structured)
+            payload = json.loads(generated)
             if not isinstance(payload, dict) or set(payload) != {"evidence_ids", "next_step"}:
                 raise ValueError("invalid response schema")
             ids = payload["evidence_ids"]
