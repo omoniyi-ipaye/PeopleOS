@@ -18,7 +18,8 @@ def sample_succ_data():
         'Tenure': np.random.uniform(0.5, 15, 60),
         'Salary': np.random.uniform(50000, 150000, 60),
         'LastRating': np.random.uniform(2, 5, 60),
-        'Age': np.random.randint(22, 60, 60)
+        'Age': np.random.randint(22, 60, 60),
+        'SuccessionReadiness': ['Ready Now', 'Developing', 'Ready 1-2 Years'] * 20
     })
 
 
@@ -60,6 +61,7 @@ class TestSuccessionEngine:
         # Ensure some high performers exist
         sample_succ_data.loc[:10, 'LastRating'] = 4.5
         sample_succ_data.loc[:10, 'Tenure'] = 3.0
+        sample_succ_data.loc[:10, 'PotentialRating'] = 4.5
         
         engine = SuccessionEngine(sample_succ_data)
         hi_pos = engine.identify_high_potentials()

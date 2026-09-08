@@ -10,9 +10,11 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime
 
 import pandas as pd
+from numbers import Real
 
 from src.database import get_database, Database
 from src.logger import get_logger
+from src.population import resolve_current_population
 
 logger = get_logger('merge_engine')
 
@@ -134,6 +136,9 @@ class MergeEngine:
             timestamp=datetime.now().isoformat()
         )
 
+        df = self._prepare_merge_frame(df)
+        result.skipped = result.total - len(df)
+
         # Get existing employees
         existing_df = self.db.get_all_employees()
         existing_ids = set(existing_df['EmployeeID'].astype(str).tolist()) if not existing_df.empty else set()
@@ -178,6 +183,16 @@ class MergeEngine:
 
         return result
 
+    @staticmethod
+    def _prepare_merge_frame(df: pd.DataFrame) -> pd.DataFrame:
+        if df.empty or 'EmployeeID' not in df:
+            return df.iloc[:0].copy()
+        valid = df['EmployeeID'].notna() & df['EmployeeID'].astype(str).str.strip().ne('')
+        frame = df.loc[valid].copy()
+        frame['EmployeeID'] = frame['EmployeeID'].astype(str)
+        frame, _ = resolve_current_population(frame)
+        return frame
+
     def _detect_changes(self, existing: pd.Series, new: pd.Series) -> List[FieldChange]:
         """
         Detect changes between existing and new data for an employee.
@@ -191,7 +206,8 @@ class MergeEngine:
         """
         changes = []
 
-        for df_field, db_field in self.COMPARE_FIELDS:
+        fields = (set(existing.index) | {field for field, _ in self.COMPARE_FIELDS}) - {'EmployeeID', 'created_at', 'updated_at', 'SnapshotDate', 'is_active'}
+        for df_field in sorted(fields):
             old_val = existing.get(df_field)
             new_val = new.get(df_field)
 
@@ -228,7 +244,7 @@ class MergeEngine:
             True if values are effectively equal.
         """
         # Handle numeric comparison with tolerance
-        if isinstance(old_val, (int, float)) and isinstance(new_val, (int, float)):
+        if isinstance(old_val, Real) and isinstance(new_val, Real):
             return abs(float(old_val) - float(new_val)) < 0.001
 
         # String comparison
@@ -250,12 +266,15 @@ class MergeEngine:
         result.file_name = file_name
 
         # Execute the actual upsert
-        db_result = self.db.upsert_employees(df, file_name)
+        frame = self._prepare_merge_frame(df)
+        changed_ids = {item.employee_id for item in result.employee_changes if item.change_type != 'unchanged'}
+        writes = frame[frame['EmployeeID'].isin(changed_ids)] if 'EmployeeID' in frame else frame
+        db_result = self.db.upsert_employees(writes, file_name)
 
         # Update counts from actual database operation
         result.added = db_result['added']
         result.updated = db_result['updated']
-        result.skipped = db_result['skipped']
+        result.skipped += db_result['skipped']
 
         logger.info(f"Merge completed: {result.get_summary_text()}")
 

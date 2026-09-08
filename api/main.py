@@ -43,6 +43,7 @@ from src.logger import get_logger
 from src.platform.health import SystemHealthMonitor
 from src.platform.workspace import WorkspaceStore
 from src.serialization import json_safe
+from src.platform.provenance import runtime_integrity
 
 logger = get_logger('api_main')
 
@@ -72,6 +73,8 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
+from api.integrity import evidence_snapshot_guard
+app.middleware("http")(evidence_snapshot_guard)
 app.middleware("http")(local_first_access_guard)
 
 app.add_middleware(
@@ -142,7 +145,9 @@ async def api_status():
     state = get_local_state()
     workspace = WorkspaceStore().get_workspace("local")
 
+    integrity = runtime_integrity(state, workspace)
     payload = {
+        "integrity": integrity,
         "status": "running",
         "data": {
             "loaded": state.has_data(),
@@ -151,7 +156,7 @@ async def api_status():
         },
         "capabilities": {
             "analytics": state.analytics_engine is not None,
-            "predictive_model": bool(state.ml_engine is not None and state.ml_engine.is_trained),
+            "predictive_model": integrity["model_ready"],
             "compensation": state.compensation_engine is not None,
             "fairness": state.fairness_engine is not None,
             "vector_search": bool(state.vector_engine is not None and state.vector_engine.is_initialized()),

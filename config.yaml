@@ -187,6 +187,7 @@ sentiment:
   enps:
     promoter_threshold: 9    # Score >= 9 = Promoter
     detractor_threshold: 6   # Score <= 6 = Detractor
+    min_group_size: 10       # Suppress small segmented survey groups
   early_warning:
     declining_trajectory: true  # Flag declining 30->60->90 scores
     low_score_threshold: 3.0    # Flag scores below this
@@ -209,6 +210,10 @@ templates:
 
 experience:
   enabled: true
+  # Fixed per-column scales; override to match the source survey instrument.
+  # Never infer a response's scale from its value.
+  signal_scales:
+    engagementscore: [1, 5]
   # Weights for EXI calculation (must sum to 1.0 when all signals present)
   index_weights:
     enps: 0.25

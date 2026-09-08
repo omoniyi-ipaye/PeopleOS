@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "review_id": "PEOPLEOS-AGENTIC-LAUNCH-002",
+  "baseline_commit": "cc197912b107fdd4e67e81e163ab9e351cdaac27",
+  "evaluation_mode": "real deterministic engines with synthetic known answers and controlled model/tool fixtures",
+  "live_llm_evaluated": false,
+  "authority": {
+    "mode": "governed aggregate read-only investigation",
+    "permitted_action": "investigate",
+    "prohibited": [
+      "employee identification or ranking",
+      "consequential employment recommendations",
+      "model-created facts, values, tools or actions"
+    ]
+  },
+  "registered_tools": [
+    {"id": "workforce.summary", "contracts": ["headcount", "record_count", "observed_attrition_share", "salary_mean", "tenure_mean", "age_mean", "lastrating_mean", "department_count"]},
+    {"id": "workforce.department_risk", "contracts": ["department_observed_attrition_share"]},
+    {"id": "workforce.retention_risk", "contracts": ["high_risk_count", "medium_risk_count", "low_risk_count", "mean_risk_score", "held_out_model_metrics_when_available"]},
+    {"id": "workforce.compensation_equity", "contracts": ["salary_dispersion_consistency_score", "salary_attrition_association", "unadjusted_gender_pay_gap_pct"]},
+    {"id": "workforce.fairness", "contracts": ["aggregate_attrition_outcome_disparity_with_small_group_suppression"]},
+    {"id": "workforce.employee_experience", "contracts": ["measured_experience_signals_when_available"]},
+    {"id": "workforce.organization_structure", "contracts": ["manager_span_risk_count", "average_span_of_control", "critical_stagnation_count"]}
+  ],
+  "matrix": [
+    {"area": "intent routing", "cases": ["headcount paraphrases", "domain synonyms", "negated domains", "compound domains"], "expected": "smallest matching allowlisted plan"},
+    {"area": "exact answer contract", "cases": ["multiple requested metrics", "unsupported statistics", "time filters", "named groups", "excluded populations", "unmeasured outcomes"], "expected": "all requested metrics present or visible abstention"},
+    {"area": "individual safety", "cases": ["identify", "reveal", "list", "rank", "fire", "demote"], "expected": "stop before tool execution"},
+    {"area": "model selection", "cases": ["valid IDs", "forged IDs", "duplicates", "empty lists", "wrong types", "extra keys", "unapproved next steps", "prohibited prose", "exceptions"], "expected": "schema-and-ledger verification or deterministic fallback"},
+    {"area": "evidence integrity", "cases": ["missing", "partial", "empty success", "contradictory", "wrong source", "wrong dataset", "wrong model", "sparse measurement coverage"], "expected": "coverage and sufficiency reduced; incompatible evidence discarded"},
+    {"area": "failure handling", "cases": ["tool exception", "reported timeout", "audit write failure", "unsafe label in fallback"], "expected": "safe status and no diagnostic secret in rendered output"},
+    {"area": "traceability", "cases": ["evidence IDs", "tool IDs", "dataset version", "workspace", "model version", "hashed question audit"], "expected": "rendered claims map to the current typed ledger"}
+  ],
+  "confirmed_corrections": [
+    "Negated domains no longer launch unrelated optional tools.",
+    "Staff-count and workforce-size paraphrases map to current active headcount.",
+    "Observed attrition percentage requests use deterministic observed evidence without requiring predictive scores.",
+    "Named-group and exclusion requests cannot report complete when typed filters are unavailable.",
+    "Regrettable attrition explicitly abstains because no registered tool measures it.",
+    "Individual disclosure, ranking and consequential-action requests stop before tools run.",
+    "Raw exception details are retained for diagnosis but omitted from user-facing warnings and answers.",
+    "A policy-blocked synthesis cannot reintroduce an unsafe evidence label through its deterministic fallback."
+  ],
+  "acceptance_evidence": [
+    "tests/test_agentic_launch_matrix.py",
+    "tests/test_agentic_acceptance.py",
+    "tests/test_agent_orchestrator.py",
+    "tests/test_agent_controls.py",
+    "tests/test_agent_evidence.py",
+    "tests/test_output_integrity.py",
+    "tests/test_extended_integrity.py"
+  ],
+  "open_launch_gaps": [
+    "No actual installed LLM has been evaluated for selection accuracy, injection resistance, latency or availability.",
+    "Tool execution is synchronous and has no enforced wall-clock deadline; timeout handling is validated only when a tool reports or raises a timeout.",
+    "Named subgroup, comparison and historical time filters are not typed agent capabilities.",
+    "The planner is deterministic lexical routing and cannot guarantee coverage of every natural-language paraphrase.",
+    "Investigation sessions preserve provenance but do not provide validated multi-turn conversational reference resolution.",
+    "Only seven governed aggregate tools are exposed; other product engines remain available through their dedicated APIs and renderers rather than the agent."
+  ]
+}

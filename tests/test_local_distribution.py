@@ -3,7 +3,9 @@
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
+from src import utils
 from src.local_paths import get_peopleos_paths
 from src.platform.local_dataset_store import load_dataset_artifact, save_dataset_artifact
 from src.platform.workspace import WorkspaceStore
@@ -29,6 +31,39 @@ def test_config_database_path_follows_peopleos_home(monkeypatch, tmp_path: Path)
     monkeypatch.setenv("PEOPLEOS_HOME", str(home))
     config = load_config()
     assert Path(config["persistence"]["database_path"]) == home.resolve() / "data" / "peopleos.db"
+
+
+@pytest.mark.parametrize("source_directory_exists", [False, True])
+@pytest.mark.parametrize("use_peopleos_home", [False, True])
+def test_config_loads_from_bundle_without_requiring_source_directory(
+    monkeypatch, tmp_path: Path, source_directory_exists: bool, use_peopleos_home: bool
+):
+    bundle = tmp_path / "bundle with spaces"
+    bundle.mkdir()
+    if source_directory_exists:
+        (bundle / "src").mkdir()
+    config_text = "version: bundle-fixture\npersistence:\n  database_path: data/peopleos.db\n"
+    (bundle / "config.yaml").write_text(config_text, encoding="utf-8")
+    # PyInstaller assigns __file__ inside the extraction root even when src
+    # lives only in the module archive, not as a physical directory on disk.
+    monkeypatch.setattr(utils, "__file__", str(bundle / "src" / "utils.py"))
+    elsewhere = tmp_path / "unrelated working directory"
+    elsewhere.mkdir()
+    (elsewhere / "config.yaml").write_text("version: wrong-config\n", encoding="utf-8")
+    monkeypatch.chdir(elsewhere)
+    home = tmp_path / "PeopleOS User Data"
+    if use_peopleos_home:
+        monkeypatch.setenv("PEOPLEOS_HOME", str(home))
+    else:
+        monkeypatch.delenv("PEOPLEOS_HOME", raising=False)
+
+    config = load_config()
+
+    assert config["version"] == "bundle-fixture"
+    expected_database = str(home / "data" / "peopleos.db") if use_peopleos_home else "data/peopleos.db"
+    assert config["persistence"]["database_path"] == expected_database
+    assert (bundle / "config.yaml").read_text(encoding="utf-8") == config_text
+    assert (bundle / "src").exists() == source_directory_exists
 
 
 def test_workspace_registry_survives_process_state_outside_bundle(monkeypatch, tmp_path: Path):

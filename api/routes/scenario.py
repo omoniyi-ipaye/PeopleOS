@@ -9,7 +9,8 @@ presented as validated predictions or employee-selection recommendations.
 from dataclasses import asdict
 from typing import Any, Dict
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
+from src.platform.provenance import IntegrityError, snapshot_provenance
 
 from api.dependencies import AppState, get_app_state
 from api.schemas.scenario import (
@@ -30,7 +31,23 @@ from api.schemas.scenario import (
 from src.scenario_engine import ScenarioEngineError
 
 router = APIRouter(prefix="/api/scenario", tags=["scenario"])
-_scenario_cache: Dict[str, Dict[str, Any]] = {}
+def _cache(state):
+    try:
+        snapshot_provenance(state)
+    except IntegrityError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    if not hasattr(state, 'scenario_cache'):
+        state.scenario_cache = {}
+    return state.scenario_cache
+
+
+def _cached_scenario(state, scenario_id):
+    item = _cache(state).get(scenario_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail='Scenario is unavailable in the active dataset snapshot. Run it again.')
+    if item.get('provenance') != snapshot_provenance(state):
+        raise HTTPException(status_code=409, detail='Scenario belongs to another dataset snapshot.')
+    return item
 
 _INTEGRITY_ASSUMPTIONS = [
     "Exploratory scenario only: modeled relationships are associative and assumption-based, not causal treatment-effect estimates.",
@@ -69,7 +86,7 @@ def _sanitize_result(result):
     return result
 
 
-def _convert_result(result) -> ScenarioResultResponse:
+def _convert_result(result, state=None) -> ScenarioResultResponse:
     result = _sanitize_result(result)
     simulation = MonteCarloResultResponse(
         n_iterations=result.simulation.n_iterations,
@@ -114,7 +131,13 @@ def _convert_result(result) -> ScenarioResultResponse:
         engines_used=result.engines_used,
         data_sources=result.data_sources,
     )
-    _scenario_cache[result.scenario_id] = asdict(result)
+    if state is not None:
+        provenance = snapshot_provenance(state)
+        response.provenance = provenance
+        _cache(state)[result.scenario_id] = {**asdict(result), 'provenance': provenance}
+        # Bounded local session history; activation clears it.
+        while len(state.scenario_cache) > 100:
+            del state.scenario_cache[next(iter(state.scenario_cache))]
     return response
 
 
@@ -131,7 +154,7 @@ async def simulate_compensation_change(
             adjustment_value=request.adjustment_value,
             time_horizon_months=request.time_horizon_months,
         )
-        return _convert_result(result)
+        return _convert_result(result, state)
     except ScenarioEngineError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -158,7 +181,7 @@ async def simulate_headcount_change(
             change_percentage=request.change_percentage,
             selection_criteria="performance",
         )
-        return _convert_result(result)
+        return _convert_result(result, state)
     except ScenarioEngineError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -195,12 +218,13 @@ async def compare_scenarios(
 ) -> ScenarioComparisonResponse:
     scenarios = []
     for scenario_id in scenario_ids:
-        if scenario_id not in _scenario_cache:
-            raise HTTPException(status_code=404, detail=f"Scenario {scenario_id} not found. Run the scenario first.")
-        scenarios.append(_scenario_cache[scenario_id])
+        scenarios.append(_cached_scenario(state, scenario_id))
     if len(scenarios) < 2:
         raise HTTPException(status_code=400, detail="Need at least 2 scenarios to compare")
 
+    horizons = {item['input_parameters'].get('time_horizon_months', 12) for item in scenarios}
+    if len(horizons) != 1:
+        raise HTTPException(status_code=409, detail='Scenarios must use the same time horizon for comparison.')
     items = [
         ScenarioComparisonItem(
             scenario_id=item["scenario_id"],
@@ -225,10 +249,9 @@ async def compare_scenarios(
 
 @router.get("/{scenario_id}", response_model=ScenarioResultResponse)
 async def get_scenario(scenario_id: str, state: AppState = Depends(require_scenario)) -> ScenarioResultResponse:
-    if scenario_id not in _scenario_cache:
-        raise HTTPException(status_code=404, detail=f"Scenario {scenario_id} not found")
-    item = _scenario_cache[scenario_id]
+    item = _cached_scenario(state, scenario_id)
     return ScenarioResultResponse(
+        provenance=item["provenance"],
         scenario_id=item["scenario_id"],
         scenario_name=item["scenario_name"],
         scenario_type=item["scenario_type"],
@@ -257,9 +280,8 @@ async def get_scenario(scenario_id: str, state: AppState = Depends(require_scena
 
 @router.delete("/{scenario_id}")
 async def delete_scenario(scenario_id: str, state: AppState = Depends(require_scenario)):
-    if scenario_id not in _scenario_cache:
-        raise HTTPException(status_code=404, detail=f"Scenario {scenario_id} not found")
-    del _scenario_cache[scenario_id]
+    _cached_scenario(state, scenario_id)
+    del state.scenario_cache[scenario_id]
     return {"deleted": True, "scenario_id": scenario_id}
 
 
@@ -317,8 +339,8 @@ async def analyze_sensitivity(
 
 
 @router.get("/history/recent")
-async def get_recent_scenarios(limit: int = 10, state: AppState = Depends(require_scenario)):
-    scenarios = list(_scenario_cache.values())[-limit:]
+async def get_recent_scenarios(limit: int = Query(default=10, ge=1, le=100), state: AppState = Depends(require_scenario)):
+    scenarios = list(_cache(state).values())[-limit:]
     return {
         "available": True,
         "count": len(scenarios),
@@ -330,6 +352,7 @@ async def get_recent_scenarios(limit: int = 10, state: AppState = Depends(requir
                 "computed_at": item["computed_at"],
                 "roi_estimate": item["roi_estimate"],
                 "evidence_strength": "exploratory",
+                "provenance": item["provenance"],
             }
             for item in scenarios
         ],

@@ -1,0 +1,288 @@
+{
+  "schema_version": 1,
+  "scope": "fictional_known_answer_software_and_load_validation_not_real_workforce_or_predictive_certification",
+  "seed": 20260908,
+  "rows": 20000,
+  "workers": 8,
+  "fixture_sha256": "97adb084a65289d7127baec4a4aa92eba5cc2b051bf63506458e7b3b155c651c",
+  "profiles": {
+    "baseline": {
+      "known_outcomes": 19130,
+      "active": 12719
+    },
+    "missingness": {
+      "salary": 1177,
+      "rating": 1053,
+      "employment_status": 870
+    },
+    "privacy": {
+      "tiny_group_records": 7,
+      "reporting_minimum": 10
+    },
+    "drift": {
+      "baseline_attrition_share": 0.33512807109252485,
+      "shifted_attrition_share": 0.5658651332984841
+    },
+    "adversarial": [
+      "duplicate identity",
+      "unrepresentable aggregate payroll",
+      "unused HRIS column",
+      "row permutation"
+    ]
+  },
+  "timings_seconds": {
+    "generation": 0.20037533000140684,
+    "analytics": 0.41956092300097225,
+    "total": 30.58265664800274
+  },
+  "live_api": {
+    "rows_uploaded": 20000,
+    "dataset_id": "ds_318b97feeefa4334a74420a8935c4483",
+    "upload_seconds": 6.580796670001291,
+    "concurrent_reads": 32,
+    "successful_reads": 32,
+    "consistent_dataset_headers": true,
+    "consistent_bodies": true,
+    "summary": {
+      "headcount": 12719,
+      "record_count": 20000,
+      "observed_attrition_share": 0.33512807109252485,
+      "turnover_rate": 0.33512807109252485,
+      "turnover_rate_semantics": "observed_attrition_share_not_period_turnover",
+      "department_count": 5,
+      "salary_mean": 66712.40328738514,
+      "salary_median": 66701.12,
+      "tenure_mean": 12.509709882852425,
+      "tenure_median": 12.53,
+      "age_mean": 43.49249154807768,
+      "lastrating_mean": 3.429996679946879,
+      "attrition_count": 6411,
+      "active_count": 12719,
+      "attrition_known_count": 19130,
+      "salary_observations": 11970,
+      "salary_excluded_count": 749,
+      "tenure_observations": 12719,
+      "tenure_excluded_count": 0,
+      "age_observations": 12719,
+      "age_excluded_count": 0,
+      "lastrating_observations": 12048,
+      "lastrating_excluded_count": 671,
+      "takeaways": [
+        "Observed attrition share in the current outcome population is 33.5%; this is not a period turnover rate."
+      ],
+      "insights": {
+        "attrition_semantics": "Observed snapshot outcome share; period turnover requires a defined period and at-risk denominator."
+      }
+    },
+    "p95_read_seconds": 5.1213059940055246
+  },
+  "checks": [
+    {
+      "name": "unique synthetic identities",
+      "actual": 20000,
+      "expected": 20000,
+      "passed": true
+    },
+    {
+      "name": "record count",
+      "actual": 20000,
+      "expected": 20000,
+      "passed": true
+    },
+    {
+      "name": "active headcount",
+      "actual": 12719,
+      "expected": 12719,
+      "passed": true
+    },
+    {
+      "name": "known outcome denominator",
+      "actual": 19130,
+      "expected": 19130,
+      "passed": true
+    },
+    {
+      "name": "observed attrition share",
+      "actual": 0.33512807109252485,
+      "expected": 0.33512807109252485,
+      "passed": true
+    },
+    {
+      "name": "active salary observations",
+      "actual": 11970,
+      "expected": 11970,
+      "passed": true
+    },
+    {
+      "name": "active payroll",
+      "actual": 798547467.3500001,
+      "expected": 798547467.3499999,
+      "passed": true
+    },
+    {
+      "name": "all analytics JSON values finite",
+      "actual": true,
+      "expected": true,
+      "passed": true
+    },
+    {
+      "name": "department records reconcile",
+      "actual": 20000,
+      "expected": 20000,
+      "passed": true
+    },
+    {
+      "name": "tiny group deliberately present",
+      "actual": 7,
+      "expected": 7,
+      "passed": true
+    },
+    {
+      "name": "permutation invariance: record_count",
+      "actual": 20000,
+      "expected": 20000,
+      "passed": true
+    },
+    {
+      "name": "permutation invariance: active_count",
+      "actual": 12719,
+      "expected": 12719,
+      "passed": true
+    },
+    {
+      "name": "permutation invariance: attrition_known_count",
+      "actual": 19130,
+      "expected": 19130,
+      "passed": true
+    },
+    {
+      "name": "permutation invariance: observed_attrition_share",
+      "actual": 0.33512807109252485,
+      "expected": 0.33512807109252485,
+      "passed": true
+    },
+    {
+      "name": "permutation invariance: salary_mean",
+      "actual": 66712.40328738514,
+      "expected": 66712.40328738514,
+      "passed": true
+    },
+    {
+      "name": "permutation invariance: salary_median",
+      "actual": 66701.12,
+      "expected": 66701.12,
+      "passed": true
+    },
+    {
+      "name": "permutation invariance: salary_observations",
+      "actual": 11970,
+      "expected": 11970,
+      "passed": true
+    },
+    {
+      "name": "survey response denominator",
+      "actual": 10000,
+      "expected": 10000,
+      "passed": true
+    },
+    {
+      "name": "independent eNPS arithmetic",
+      "actual": -46.4,
+      "expected": -46.4,
+      "passed": true
+    },
+    {
+      "name": "drift fixture changes outcome prevalence",
+      "actual": true,
+      "expected": true,
+      "passed": true
+    },
+    {
+      "name": "drift fixture changes pay distribution",
+      "actual": true,
+      "expected": true,
+      "passed": true
+    },
+    {
+      "name": "malformed duplicate identity exists",
+      "actual": true,
+      "expected": true,
+      "passed": true
+    },
+    {
+      "name": "unrepresentable payroll fails closed",
+      "actual": true,
+      "expected": true,
+      "passed": true
+    },
+    {
+      "name": "artifact row-count round trip",
+      "actual": 10000,
+      "expected": 10000,
+      "passed": true
+    },
+    {
+      "name": "artifact identity round trip",
+      "actual": true,
+      "expected": true,
+      "passed": true
+    },
+    {
+      "name": "concurrent registry writes preserved",
+      "actual": 65,
+      "expected": 65,
+      "passed": true
+    },
+    {
+      "name": "concurrent identities remain unique",
+      "actual": 65,
+      "expected": 65,
+      "passed": true
+    },
+    {
+      "name": "live API accepted all rows",
+      "actual": 20000,
+      "expected": 20000,
+      "passed": true
+    },
+    {
+      "name": "live API concurrent reads succeeded",
+      "actual": 32,
+      "expected": 32,
+      "passed": true
+    },
+    {
+      "name": "live API dataset headers remain consistent",
+      "actual": true,
+      "expected": true,
+      "passed": true
+    },
+    {
+      "name": "live API concurrent bodies remain consistent",
+      "actual": true,
+      "expected": true,
+      "passed": true
+    },
+    {
+      "name": "live API active headcount",
+      "actual": 12719,
+      "expected": 12719,
+      "passed": true
+    },
+    {
+      "name": "live API completes within bounded validation timeout",
+      "actual": true,
+      "expected": true,
+      "passed": true
+    },
+    {
+      "name": "live API p95 concurrent read latency below 10 seconds",
+      "actual": true,
+      "expected": true,
+      "passed": true
+    }
+  ],
+  "passed": 34,
+  "failed": 0,
+  "complete": true
+}

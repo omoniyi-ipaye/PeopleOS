@@ -53,7 +53,7 @@ class SurvivalEngine:
         self.df['Tenure'] = pd.to_numeric(self.df['Tenure'], errors='coerce')
         if self.has_attrition:
             self.df['Attrition'] = normalize_attrition(self.df['Attrition'])
-        invalid_duration = self.df['Tenure'].isna() | (self.df['Tenure'] < 0)
+        invalid_duration = ~np.isfinite(self.df['Tenure']) | (self.df['Tenure'] < 0)
         if invalid_duration.any():
             self.warnings.append(f'Excluded {int(invalid_duration.sum())} row(s) with invalid survival duration')
         self.df = self.df.loc[~invalid_duration].copy()
@@ -63,8 +63,9 @@ class SurvivalEngine:
                 self.warnings.append(f'Excluded {int(unknown.sum())} row(s) with unknown Attrition outcome from survival fitting')
                 self.df = self.df.loc[~unknown].copy()
             self.df['Attrition'] = self.df['Attrition'].astype(int)
-        exclude = {'EmployeeID', 'Attrition', 'Tenure', 'HireDate', 'PromotionDate', 'RatingHistory', 'PerformanceText', 'Gender', 'Dept', 'Location', 'JobTitle', 'ManagerID', 'HireSource', 'SnapshotDate'}
-        self.available_covariates = [c for c in self.df.columns if c not in exclude and pd.api.types.is_numeric_dtype(self.df[c])]
+        exclude = {'EmployeeID', 'Attrition', 'Tenure', 'HireDate', 'PromotionDate', 'RatingHistory', 'PerformanceText', 'Gender', 'Dept', 'Location', 'JobTitle', 'ManagerID', 'HireSource', 'SnapshotDate', 'is_active', 'TerminationDate', 'ExitDate'}
+        configured = self.config.get('survival', {}).get('cox_covariates', [])
+        self.available_covariates = [c for c in configured if c in self.df and c not in exclude and pd.api.types.is_numeric_dtype(self.df[c])]
         if self.has_attrition and int(self.df['Attrition'].sum()) < MIN_EVENTS_FOR_MODEL:
             self.warnings.append(f'Only {int(self.df["Attrition"].sum())} observed attrition events; Cox estimates may be unstable.')
 
@@ -75,7 +76,8 @@ class SurvivalEngine:
         sf = kmf.survival_function_.iloc[:, 0]
         timeline = sf.index.to_numpy(dtype=float)
         values = sf.to_numpy(dtype=float)
-        restricted_mean = float(np.trapz(values, timeline)) if len(timeline) > 1 else 0.0
+        # Kaplan-Meier is right-continuous: integrate each horizontal step.
+        restricted_mean = float(np.sum(values[:-1] * np.diff(timeline)))
         points = []
         for t, probability in zip(timeline, values):
             event_rows = kmf.event_table.index[kmf.event_table.index <= t]
@@ -86,14 +88,16 @@ class SurvivalEngine:
             'median_survival_months': None if np.isinf(kmf.median_survival_time_) else float(kmf.median_survival_time_),
             'median_survival_years': None if np.isinf(kmf.median_survival_time_) else round(float(kmf.median_survival_time_) / 12, 2),
             'mean_survival_months': restricted_mean,
+            'restricted_mean_horizon_months': float(timeline[-1]),
+            'mean_semantics': 'restricted_mean_through_last_observed_duration',
             'confidence_intervals': {
-                'lower': kmf.confidence_interval_survival_function_.iloc[:, 0].tolist()[:20],
-                'upper': kmf.confidence_interval_survival_function_.iloc[:, 1].tolist()[:20],
+                'lower': kmf.confidence_interval_survival_function_.iloc[:, 0].tolist(),
+                'upper': kmf.confidence_interval_survival_function_.iloc[:, 1].tolist(),
             },
             'semantics': 'cohort_survival_from_employment_origin_not_individual_future_probability',
         }
-        for months in (6, 12, 24, 36, 60):
-            result[f'survival_at_{months}mo'] = round(float(kmf.predict(months)), 3)
+        for months in (3, 6, 12, 24, 36, 60):
+            result[f'survival_at_{months}mo'] = round(float(kmf.predict(months)), 3) if months <= timeline[-1] else None
         return result
 
     def fit_kaplan_meier(self, segment_by: Optional[str] = None) -> Dict[str, Any]:
@@ -116,7 +120,7 @@ class SurvivalEngine:
                     results['segments'][str(segment)] = {
                         'segment_name': str(segment), 'median_survival_months': segment_result['median_survival_months'],
                         'sample_size': len(group), 'events': int(group['Attrition'].sum()),
-                        'survival_function': [{'time_months': p['time_months'], 'survival_probability': p['survival_probability']} for p in segment_result['survival_function'][:20]],
+                        'survival_function': [{'time_months': p['time_months'], 'survival_probability': p['survival_probability']} for p in segment_result['survival_function']],
                     }
             return results
         except ImportError:
@@ -126,6 +130,7 @@ class SurvivalEngine:
             return {'available': False, 'reason': f'Kaplan-Meier fitting failed ({type(exc).__name__})'}
 
     def fit_cox_proportional_hazards(self) -> Dict[str, Any]:
+        self.cox_fitted, self.cox_model = False, None
         if not self.has_attrition:
             return {'available': False, 'reason': 'Attrition is required for Cox analysis'}
         if not self.available_covariates:
@@ -136,7 +141,7 @@ class SurvivalEngine:
         except ImportError:
             return {'available': False, 'reason': 'lifelines library not installed'}
 
-        raw = self.df[['Tenure', 'Attrition'] + self.available_covariates].copy().dropna()
+        raw = self.df[['Tenure', 'Attrition'] + self.available_covariates].copy().replace([np.inf, -np.inf], np.nan).dropna()
         if len(raw) < MIN_SAMPLE_FOR_COX or int(raw['Attrition'].sum()) < MIN_EVENTS_FOR_MODEL:
             return {'available': False, 'reason': 'Insufficient rows/events for stable Cox estimation'}
         cox = raw[['Tenure', 'Attrition']].copy()
@@ -202,6 +207,15 @@ class SurvivalEngine:
     def generate_cohort_insights(self, filters: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         frame = self.df.copy(); parts = []
         filters = filters or {}
+        required_columns = {'Dept': 'Dept', 'Location': 'Location', 'tenure_min': 'Tenure',
+                            'tenure_max': 'Tenure', 'years_since_promotion_min': 'YearsSinceLastPromotion'}
+        if any(key not in required_columns or required_columns[key] not in frame for key in filters):
+            return {'cohort_size': 0, 'filters_applied': {}, 'warning': 'Requested cohort filter is unavailable'}
+        for key in ('tenure_min', 'tenure_max', 'years_since_promotion_min'):
+            if key in filters and (not isinstance(filters[key], (int, float)) or not np.isfinite(filters[key]) or filters[key] < 0):
+                return {'cohort_size': 0, 'filters_applied': {}, 'warning': 'Cohort durations must be finite and non-negative'}
+        if filters.get('tenure_min', 0) > filters.get('tenure_max', float('inf')):
+            return {'cohort_size': 0, 'filters_applied': {}, 'warning': 'Cohort duration range is reversed'}
         for key in ('Dept', 'Location'):
             if key in filters and key in frame.columns:
                 frame = frame[frame[key] == filters[key]]; parts.append(f'{key}={filters[key]}')

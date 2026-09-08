@@ -1,3 +1,4 @@
+from src.export import format_measurement
 """
 Dashboard Layout module for PeopleOS.
 
@@ -296,11 +297,11 @@ def render_overview_tab(analytics_data: dict, insight_interpreter=None) -> None:
         if turnover is not None:
             if insight_interpreter:
                 insight = insight_interpreter.interpret_metric('turnover_rate', turnover)
-                render_metric_with_insight("Turnover Rate", f"{turnover:.1%}", insight)
+                render_metric_with_insight("Observed attrition share", f"{turnover:.1%}", insight)
             else:
-                render_kpi_card("Turnover Rate", f"{turnover:.1%}")
+                render_kpi_card("Observed attrition share", f"{turnover:.1%}")
         else:
-            render_kpi_card("Turnover Rate", "N/A")
+            render_kpi_card("Observed attrition share", "N/A")
     
     with col3:
         if insight_interpreter:
@@ -310,7 +311,7 @@ def render_overview_tab(analytics_data: dict, insight_interpreter=None) -> None:
             render_kpi_card("Departments", dept_count)
     
     with col4:
-        if avg_tenure:
+        if avg_tenure is not None and pd.notna(avg_tenure):
             if insight_interpreter:
                 insight = insight_interpreter.interpret_metric('tenure_mean', avg_tenure)
                 render_metric_with_insight("Avg Tenure", f"{avg_tenure:.1f} years", insight)
@@ -361,7 +362,7 @@ def render_overview_tab(analytics_data: dict, insight_interpreter=None) -> None:
         if 'salary_bands' in analytics_data and not analytics_data['salary_bands'].empty:
             salary_insight = None
             if insight_interpreter:
-                salary_insight = "This shows salary distribution across quartiles. A bell curve suggests balanced pay; heavy skewing may indicate equity issues."
+                salary_insight = "Salary quartiles partition observed pay values. Their counts do not establish pay equity; role mix, coverage and adjusted comparisons need separate analysis."
             
             render_bar_chart(
                 analytics_data['salary_bands'],
@@ -393,11 +394,11 @@ def render_overview_tab(analytics_data: dict, insight_interpreter=None) -> None:
         t_stats = analytics_data['temporal_stats']
         c1, c2, c3 = st.columns(3)
         with c1:
-            render_kpi_card("Avg Rating Velocity", f"{t_stats.get('avg_velocity', 0):.2f}")
+            render_kpi_card("Avg Rating Velocity", format_measurement(t_stats.get('avg_velocity'), '.2f'))
         with c2:
-            render_kpi_card("Avg Promotion Lag", f"{t_stats.get('avg_promo_lag', 0):.1f} mo")
+            render_kpi_card("Avg Promotion Lag", format_measurement(t_stats.get('avg_promo_lag'), '.1f') + ' mo')
         with c3:
-            render_kpi_card("Avg Salary Growth", f"{t_stats.get('avg_salary_growth', 0):.1%}")
+            render_kpi_card("Avg Salary Growth", format_measurement(t_stats.get('avg_salary_growth'), '.1%'))
 
 
 def render_diagnostics_tab(analytics_data: dict, comp_data: dict = None, 
@@ -451,108 +452,8 @@ def render_future_radar_tab(
     full_df: Optional[pd.DataFrame] = None,
     ml_engine: Optional[Any] = None
 ) -> None:
-    """
-    Render the Future Radar (Predictive) tab content.
-
-    Args:
-        ml_data: Dictionary with ML results.
-        features_enabled: Whether predictive features are enabled.
-        full_df: Full DataFrame for employee detail view.
-        ml_engine: Trained ML engine for predictions.
-    """
-    st.header("🔮 Future Radar - Attrition Prediction")
-    
-    if not features_enabled:
-        render_warning_banner(
-            "Predictive analytics requires an 'Attrition' column in your data. "
-            "Please upload data with historical attrition information."
-        )
-        return
-    
-    # Prediction quality metrics with plain English explanations
-    if 'metrics' in ml_data:
-        st.subheader("How Reliable Are These Predictions?")
-        st.caption("These numbers show how well we can predict who might leave based on your historical data")
-
-        metrics = ml_data['metrics']
-        col1, col2, col3, col4 = st.columns(4)
-
-        with col1:
-            render_metric_with_insight(
-                "Correct Predictions", f"{metrics.get('accuracy', 0):.1%}",
-                f"Out of all predictions, {metrics.get('accuracy', 0)*100:.0f}% were correct. Higher is better."
-            )
-        with col2:
-            render_metric_with_insight(
-                "Alert Accuracy", f"{metrics.get('precision', 0):.1%}",
-                "When we flag someone as at-risk, how often we're right. Higher means fewer false alarms."
-            )
-        with col3:
-            render_metric_with_insight(
-                "Coverage", f"{metrics.get('recall', 0):.1%}",
-                "Of employees who actually left, what percentage did we catch? Higher means fewer surprises."
-            )
-        with col4:
-            reliability_rating = "Excellent" if metrics.get('f1', 0) > 0.8 else "Good" if metrics.get('f1', 0) > 0.6 else "Fair"
-            render_metric_with_insight(
-                "Overall Reliability", f"{metrics.get('f1', 0):.1%}",
-                f"Combined measure of prediction quality. Rating: {reliability_rating}."
-            )
-    
-    st.divider()
-    
-    # What factors drive risk - plain English
-    if 'feature_importances' in ml_data:
-        st.subheader("What Factors Matter Most?")
-        st.markdown("""
-        <div style="background: rgba(59, 130, 246, 0.1); padding: 10px 15px; border-radius: 8px; margin-bottom: 15px; border-left: 3px solid #3b82f6;">
-            <span style="color: #3b82f6; font-size: 12px; font-weight: 600;">WHY PEOPLE LEAVE</span>
-            <p style="color: #e2e8f0; font-size: 13px; margin: 5px 0 0 0;">
-                Based on your data, these factors have the biggest impact on whether employees stay or go.
-                Longer bars mean stronger influence. Focus your retention efforts on improving these areas.
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-        render_feature_importance_chart(ml_data['feature_importances'], title="Top Risk Factors")
-    
-    # Risk distribution
-    if 'risk_distribution' in ml_data:
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            render_risk_distribution(ml_data['risk_distribution'])
-        
-        with col2:
-            st.subheader("Risk Summary")
-            total_emp = sum(ml_data['risk_distribution'].values())
-            for category, count in ml_data['risk_distribution'].items():
-                pct = (count / total_emp * 100) if total_emp > 0 else 0
-                emoji = "🔴" if category == "High" else ("🟡" if category == "Medium" else "🟢")
-                st.markdown(f"{emoji} **{category} Risk**: {count} employees ({pct:.0f}%)")
-    
-    # High risk employees with WHY column
-    if 'high_risk_employees' in ml_data and not ml_data['high_risk_employees'].empty:
-        st.subheader("⚠️ High-Risk Employees")
-        st.markdown("""
-        <div style="background: rgba(239, 68, 68, 0.1); padding: 10px 15px; border-radius: 8px; margin-bottom: 15px; border-left: 3px solid #ef4444;">
-            <span style="color: #ef4444; font-size: 12px; font-weight: 600;">⚠️ ACTION NEEDED</span>
-            <p style="color: #e2e8f0; font-size: 13px; margin: 5px 0 0 0;">
-                These employees show elevated risk of leaving based on patterns in your data. 
-                Consider proactive engagement: 1-on-1 conversations, career development discussions, or compensation reviews.
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-        render_data_table(ml_data['high_risk_employees'])
-        render_export_section(ml_data['high_risk_employees'], "Export High-Risk List", "high_risk_employees")
-
-        # Employee detail analysis
-        st.divider()
-        if full_df is not None and ml_engine is not None:
-            render_employee_detail_section(
-                ml_data['high_risk_employees'],
-                full_df,
-                ml_engine
-            )
+    """Legacy prediction surface: governed activation requires the current application."""
+    st.info("Predictive evidence is available in Retention Signals after governed model evaluation and activation. This legacy view does not establish future departure accuracy.")
 
 
 def render_semantic_search_tab(vector_engine: Any, df: pd.DataFrame = None) -> None:
@@ -613,7 +514,7 @@ def render_strategic_advisor_tab(llm_data: dict, analytics_summary: dict,
                 with col2:
                     turnover = analytics_summary.get('turnover_rate')
                     if turnover:
-                        st.metric("Turnover Rate", f"{turnover:.1%}")
+                        st.metric("Observed attrition share", f"{turnover:.1%}")
                 with col3:
                     high_risk = analytics_summary.get('high_risk_count', 0)
                     st.metric("High Risk", high_risk)
@@ -629,13 +530,13 @@ def render_strategic_advisor_tab(llm_data: dict, analytics_summary: dict,
         col1, col2, col3, col4 = st.columns(4)
         
         with col1:
-            st.metric("Avg Tenure", f"{analytics_summary.get('tenure_mean', 0):.1f} yrs")
+            st.metric("Avg Tenure", format_measurement(analytics_summary.get('tenure_mean'), '.1f') + ' yrs')
         with col2:
-            st.metric("Avg Rating", f"{analytics_summary.get('lastrating_mean', 0):.1f}")
+            st.metric("Avg Rating", format_measurement(analytics_summary.get('lastrating_mean'), '.1f'))
         with col3:
-            st.metric("Avg Salary", f"${analytics_summary.get('salary_mean', 0):,.0f}")
+            st.metric("Avg Salary", format_measurement(analytics_summary.get('salary_mean'), ',.0f'))
         with col4:
-            st.metric("Avg Age", f"{analytics_summary.get('age_mean', 0):.0f}")
+            st.metric("Avg Age", format_measurement(analytics_summary.get('age_mean'), '.0f'))
     
     st.divider()
     
@@ -685,13 +586,13 @@ def render_nlp_insights_tab(nlp_data: dict, features_enabled: bool = False) -> N
         col1, col2, col3, col4 = st.columns(4)
 
         with col1:
-            render_kpi_card("Avg Sentiment", f"{summary.get('avg_sentiment', 0):.2f}")
+            render_kpi_card("Avg Sentiment", format_measurement(summary.get('avg_sentiment'), '.2f'))
         with col2:
-            render_kpi_card("Positive", f"{summary.get('positive_pct', 0):.0f}%")
+            render_kpi_card("Positive", format_measurement(summary.get('positive_pct'), '.0f') + '%')
         with col3:
-            render_kpi_card("Neutral", f"{summary.get('neutral_pct', 0):.0f}%")
+            render_kpi_card("Neutral", format_measurement(summary.get('neutral_pct'), '.0f') + '%')
         with col4:
-            render_kpi_card("Negative", f"{summary.get('negative_pct', 0):.0f}%")
+            render_kpi_card("Negative", format_measurement(summary.get('negative_pct'), '.0f') + '%')
 
         st.divider()
 
@@ -760,23 +661,28 @@ def render_compensation_tab(comp_data: dict, df: Optional[pd.DataFrame] = None) 
         col1, col2, col3, col4 = st.columns(4)
 
         with col1:
-            render_kpi_card("Total Payroll", f"${summary.get('total_payroll', 0):,.0f}")
+            render_kpi_card("Recorded salary total", format_measurement(summary.get('total_payroll'), ',.0f'))
         with col2:
-            render_kpi_card("Avg Salary", f"${summary.get('avg_salary', 0):,.0f}")
+            render_kpi_card("Avg Salary", format_measurement(summary.get('avg_salary'), ',.0f'))
         with col3:
-            render_kpi_card("Median Salary", f"${summary.get('median_salary', 0):,.0f}")
+            render_kpi_card("Median Salary", format_measurement(summary.get('median_salary'), ',.0f'))
         with col4:
-            render_kpi_card("Salary Range", f"${summary.get('salary_range', 0):,.0f}")
+            render_kpi_card("Salary Range", format_measurement(summary.get('salary_range'), ',.0f'))
 
     st.divider()
 
     # Salary distribution
     if df is not None and 'Salary' in df.columns and 'Dept' in df.columns:
-        render_salary_distribution_chart(df)
+        from src.population import active_population
+        salary_frame = active_population(df)
+        salary_values = pd.to_numeric(salary_frame['Salary'], errors='coerce')
+        salary_frame = salary_frame.loc[salary_values.gt(0) & salary_values.lt(float('inf'))].copy()
+        salary_frame['Salary'] = salary_values.loc[salary_frame.index]
+        render_salary_distribution_chart(salary_frame)
 
     # Pay equity scorecards
     if 'equity' in comp_data and not comp_data['equity'].empty:
-        st.subheader("Pay Equity by Department")
+        st.subheader("Department Salary Dispersion")
         render_pay_equity_scorecard(comp_data['equity'])
 
         with st.expander("View Detailed Equity Data"):
@@ -802,77 +708,8 @@ def render_compensation_tab(comp_data: dict, df: Optional[pd.DataFrame] = None) 
 
 
 def render_succession_tab(succ_data: dict) -> None:
-    """
-    Render the Succession Planning tab content.
-
-    Args:
-        succ_data: Dictionary with succession analysis results.
-    """
-    st.header("🎯 Succession Planning")
-
-    if not succ_data:
-        render_info_banner("Upload data to view succession planning analysis.")
-        return
-
-    # Pipeline visualization
-    if 'pipeline' in succ_data:
-        st.subheader("Succession Pipeline")
-        render_succession_pipeline(succ_data['pipeline'])
-
-    st.divider()
-
-    # Bench strength
-    if 'bench_strength' in succ_data and not succ_data['bench_strength'].empty:
-        st.subheader("Bench Strength by Department")
-
-        # Summary metrics
-        bench_df = succ_data['bench_strength']
-        strong = len(bench_df[bench_df['Status'] == 'Strong'])
-        adequate = len(bench_df[bench_df['Status'] == 'Adequate'])
-        weak = len(bench_df[bench_df['Status'] == 'Weak'])
-
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("Strong Bench", strong, delta=None)
-        with col2:
-            st.metric("Adequate Bench", adequate, delta=None)
-        with col3:
-            st.metric("Weak Bench", weak, delta=None)
-
-        render_data_table(bench_df)
-
-    st.divider()
-
-    # 9-box grid
-    if 'nine_box_summary' in succ_data and not succ_data['nine_box_summary'].empty:
-        render_9box_grid(succ_data['nine_box_summary'])
-
-    st.divider()
-
-    # Readiness matrix
-    if 'readiness' in succ_data and not succ_data['readiness'].empty:
-        st.subheader("Readiness Matrix")
-        render_readiness_matrix(succ_data['readiness'])
-
-    # High potentials
-    if 'high_potentials' in succ_data and not succ_data['high_potentials'].empty:
-        st.subheader("⭐ High-Potential Employees")
-        render_data_table(succ_data['high_potentials'])
-
-    # Critical gaps
-    if 'gaps' in succ_data and not succ_data['gaps'].empty:
-        st.subheader("⚠️ Succession Gaps")
-        render_data_table(succ_data['gaps'])
-
-    # Recommendations
-    if 'recommendations' in succ_data and succ_data['recommendations']:
-        st.subheader("Retention Recommendations")
-        for rec in succ_data['recommendations'][:5]:
-            with st.expander(f"{rec['EmployeeID']} - {rec['Dept']} ({rec['Priority']})"):
-                st.markdown(f"**{rec['Recommendation']}**")
-                if 'Actions' in rec:
-                    for action in rec['Actions']:
-                        st.markdown(f"• {action}")
+    """Retired proxy-based succession display; use the recorded assessment API."""
+    st.info('Legacy succession proxies are unavailable. Use the current succession analysis with recorded potential and readiness assessments.')
 
 
 def render_team_dynamics_tab(team_data: dict) -> None:
@@ -902,7 +739,7 @@ def render_team_dynamics_tab(team_data: dict) -> None:
         with col3:
             render_kpi_card("At Risk", summary.get('at_risk_teams', 0))
         with col4:
-            render_kpi_card("Avg Health", f"{summary.get('avg_health_score', 0):.0%}")
+            render_kpi_card("Team composite", format_measurement(summary.get('avg_health_score'), '.0%'))
 
     st.divider()
 

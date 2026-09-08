@@ -58,6 +58,9 @@ def test_evaluation_policy_requires_discrimination_calibration_and_leakage_safet
     policy = ModelEvaluationPolicy(min_auc=0.60, max_brier=0.30)
 
     accepted = policy.evaluate({
+        "baseline_brier_score": 0.25, "average_precision": 0.7, "baseline_average_precision": 0.5,
+        "calibration_error": 0.05, "cv_preprocessing_fold_local": True,
+        "test_size": 100, "test_class_counts": {"0": 50, "1": 50},
         "roc_auc": 0.72,
         "brier_score": 0.20,
         "holdout_untouched_by_fit": True,
@@ -97,12 +100,22 @@ def test_session_persists_hash_not_question(tmp_path):
 
 def test_health_recovery_is_bounded_to_control_plane(tmp_path):
     path = tmp_path / "broken.json"
-    path.write_text("not-json", encoding="utf-8")
     store = WorkspaceStore(str(path))
-    health = SystemHealthMonitor(store).check()
-    assert health["status"] == "healthy"
+    original = b"not-json"
+    path.write_bytes(original)
+    with pytest.raises(RuntimeError, match="original bytes were retained"):
+        WorkspaceStore(str(path))
+    assert path.read_bytes() == original
+    result = SystemHealthMonitor(store).recover()
+    assert (tmp_path / result["quarantine"]["filename"]).read_bytes() == original
+    assert result["status"] == "metadata_reinitialized"
+    assert result["requires_review"] is True
+    health = result["health"]
+    assert health["status"] == "degraded"
     assert "activate a model" in health["governed_only"]
     assert "change employee data" in health["governed_only"]
+    assert store.get_workspace("local").active_dataset_id is None
+    assert store.get_workspace("local").active_model_id is None
 
 
 def test_registry_file_is_valid_json_after_atomic_writes(tmp_path):

@@ -13,6 +13,11 @@ activation-fitted transform for model evaluation.
 from __future__ import annotations
 
 from typing import Any, Dict, Optional
+from types import SimpleNamespace
+from copy import deepcopy
+from uuid import uuid4
+from src.platform.provenance import frame_fingerprint
+from src.platform.runtime_lock import runtime_mutation
 
 import pandas as pd
 
@@ -47,6 +52,7 @@ def _initialize_read_only_engines(state) -> None:
     from src.analytics_engine import AnalyticsEngine
     from src.compensation_engine import CompensationEngine
     from src.experience_engine import ExperienceEngine
+    from src.fairness_engine import FairnessEngine
     from src.insight_interpreter import InsightInterpreter
     from src.nlp_engine import NLPEngine
     from src.quality_of_hire_engine import QualityOfHireEngine
@@ -70,6 +76,7 @@ def _initialize_read_only_engines(state) -> None:
             return None
 
     state.analytics_engine = AnalyticsEngine(raw)
+    state.fairness_engine = safe(lambda: FairnessEngine(raw), 'FairnessEngine') if 'Attrition' in raw else None
     state.compensation_engine = safe(lambda: CompensationEngine(raw), 'CompensationEngine')
     state.succession_engine = safe(lambda: SuccessionEngine(raw, None), 'SuccessionEngine')
     state.team_dynamics_engine = safe(lambda: TeamDynamicsEngine(raw), 'TeamDynamicsEngine')
@@ -103,7 +110,7 @@ def _initialize_read_only_engines(state) -> None:
     )
 
 
-def activate_dataframe(
+def _populate_dataframe(
     state,
     historical: pd.DataFrame,
     *,
@@ -112,6 +119,13 @@ def activate_dataframe(
     """Activate validated rows from any source without fitting a predictive model."""
     current, population = resolve_current_population(historical.copy())
 
+    if 'EmployeeID' not in current or current['EmployeeID'].isna().any() or current['EmployeeID'].astype(str).str.strip().eq('').any():
+        raise ValueError('Every workforce row requires a nonempty EmployeeID')
+    state.enps_df = None
+    state.onboarding_df = None
+    state.nlp_results = None
+    state.model_provenance = None
+    state.scenario_cache = {}
     state.historical_df = historical.copy()
     state.raw_df = current
     state.active_df = active_population(current)
@@ -148,14 +162,40 @@ def activate_dataframe(
     }
 
 
+def prepare_dataframe(state, historical, *, feature_flags=None, workspace_id='local', dataset_id=None):
+    """Build an isolated candidate; failures cannot partially replace live engines."""
+    candidate = SimpleNamespace(**state.__dict__)
+    candidate.preprocessor = deepcopy(state.preprocessor)
+    if feature_flags is None:
+        feature_flags = {'predictive': 'Attrition' in historical, 'nlp': 'PerformanceText' in historical and bool(historical['PerformanceText'].notna().any())}
+    result = _populate_dataframe(candidate, historical, feature_flags=feature_flags)
+    candidate.runtime_provenance = {
+        'workspace_id': workspace_id, 'dataset_id': dataset_id,
+        'generation': uuid4().hex, 'current_fingerprint': frame_fingerprint(candidate.raw_df),
+        'source_rows': len(historical), 'current_rows': len(candidate.raw_df),
+        'active_rows': len(candidate.active_df),
+        'unknown_status_rows': int(candidate.raw_df.Attrition.isna().sum()) if 'Attrition' in candidate.raw_df else 0,
+        'population_contract': 'observed_status' if 'Attrition' in candidate.raw_df else 'active_only_input',
+    }
+    result['provenance'] = candidate.runtime_provenance
+    result['auxiliary_inputs_cleared'] = True
+    return candidate, result
+
+
+@runtime_mutation
+def activate_dataframe(state, historical, *, feature_flags=None, workspace_id='local', dataset_id=None):
+    candidate, result = prepare_dataframe(state, historical, feature_flags=feature_flags, workspace_id=workspace_id, dataset_id=dataset_id)
+    state.__dict__.update(candidate.__dict__)
+    return result
+
+
+@runtime_mutation
 def load_dataset(state, file_path: str, file_name: str = 'upload') -> Dict[str, Any]:
-    """Load and activate a canonical current-state dataset without model fitting."""
-    result = state.data_loader.load_and_merge(file_path, file_name)
-    activation = activate_dataframe(
-        state,
-        result['df'],
-        feature_flags=state.data_loader.features_enabled.copy(),
-    )
-    activation['merge_result'] = result.get('merge_result')
-    activation['report'] = result.get('report')
+    """Activate a complete upload as its own snapshot; never blend workspaces via SQLite."""
+    loader = deepcopy(state.data_loader)
+    frame = loader.load(file_path)
+    activation = activate_dataframe(state, frame, feature_flags=loader.features_enabled.copy())
+    state.data_loader = loader
+    activation['merge_result'] = None
+    activation['report'] = loader.get_column_mapping_report()
     return activation

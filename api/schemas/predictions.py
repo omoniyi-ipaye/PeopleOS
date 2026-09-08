@@ -14,6 +14,12 @@ class ModelMetrics(BaseModel):
     roc_auc: Optional[float] = None
     brier_score: Optional[float] = None
     calibration_error: Optional[float] = None
+    baseline_brier_score: Optional[float] = None
+    brier_skill_score: Optional[float] = None
+    average_precision: Optional[float] = None
+    baseline_average_precision: Optional[float] = None
+    validation_checks: Optional[Dict[str, bool]] = None
+    future_departure_validated: bool = False
     best_model: str
     train_size: int
     test_size: int

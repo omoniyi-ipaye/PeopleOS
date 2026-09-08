@@ -7,6 +7,8 @@ from pydantic import BaseModel
 
 from api.dependencies import get_app_state, AppState
 
+from src.serialization import json_safe
+
 router = APIRouter(prefix="/api/fairness", tags=["fairness"])
 
 
@@ -16,9 +18,10 @@ class FourFifthsResult(BaseModel):
     group: str
     selection_rate: float
     reference_rate: float
-    ratio: float
-    passes_rule: bool
+    ratio: float | None
+    passes_rule: bool | None
     status: str
+    metric_semantics: str = "favorable_retained_share_screening_not_compliance_determination"
 
 
 class FairnessAnalysisResponse(BaseModel):
@@ -41,7 +44,7 @@ def require_fairness(state: AppState = Depends(get_app_state)) -> AppState:
     if state.fairness_engine is None:
         raise HTTPException(
             status_code=400,
-            detail="Fairness analysis requires predictions. Upload data with Attrition column."
+            detail="Recorded outcome disparity analysis requires Attrition and protected-group data."
         )
 
     return state
@@ -52,7 +55,7 @@ async def get_four_fifths_analysis(
     state: AppState = Depends(require_fairness)
 ) -> List[FourFifthsResult]:
     """
-    Get four-fifths rule analysis for EEOC compliance.
+    Get descriptive favorable-outcome ratio screening; no compliance determination.
     """
     analysis_df = state.fairness_engine.calculate_four_fifths_rule('Attrition', favorable=False)
 
@@ -64,11 +67,11 @@ async def get_four_fifths_analysis(
         results.append(FourFifthsResult(
             attribute=row['attribute'],
             group=str(row['group']),
-            selection_rate=float(row['rate']),
-            reference_rate=float(row['rate']),  # Reference is the min rate for unfavorable
-            ratio=float(row['adverse_impact_ratio']),
-            passes_rule=bool(row['passes_4_5_rule']),
-            status='Pass' if row['passes_4_5_rule'] else 'Violation'
+            selection_rate=float(row['favorable_rate']),
+            reference_rate=float(row['reference_favorable_rate']),
+            ratio=json_safe(row['adverse_impact_ratio']),
+            passes_rule=json_safe(row['passes_4_5_rule']),
+            status='Unavailable' if json_safe(row['passes_4_5_rule']) is None else ('No screening signal' if row['passes_4_5_rule'] else 'Screening signal')
         ))
 
     return results
@@ -92,11 +95,11 @@ async def get_fairness_analysis(
             four_fifths.append(FourFifthsResult(
                 attribute=row['attribute'],
                 group=str(row['group']),
-                selection_rate=float(row['rate']),
-                reference_rate=float(row['rate']),
-                ratio=float(row['adverse_impact_ratio']),
-                passes_rule=bool(row['passes_4_5_rule']),
-                status='Pass' if row['passes_4_5_rule'] else 'Violation'
+                selection_rate=float(row['favorable_rate']),
+                reference_rate=float(row['reference_favorable_rate']),
+                ratio=json_safe(row['adverse_impact_ratio']),
+                passes_rule=json_safe(row['passes_4_5_rule']),
+                status='Unavailable' if json_safe(row['passes_4_5_rule']) is None else ('No screening signal' if row['passes_4_5_rule'] else 'Screening signal')
             ))
 
     return FairnessAnalysisResponse(
@@ -127,7 +130,7 @@ async def get_demographic_parity(
             'rate': float(row['rate']),
             'count': int(row['count']),
             'disparity': float(row['disparity']),
-            'parity_ratio': float(row['parity_ratio'])
+            'parity_ratio': json_safe(row['parity_ratio'])
         })
 
     return {'results': results}

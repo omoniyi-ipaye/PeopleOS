@@ -1,0 +1,21 @@
+{
+  "method": "React server rendering using captured live API responses; no browser hydration",
+  "checks": [
+    {
+      "name": "Known workforce",
+      "passed": true
+    },
+    {
+      "name": "Unknown outcomes",
+      "passed": true
+    },
+    {
+      "name": "Recorded compensation",
+      "passed": true
+    },
+    {
+      "name": "Missing experience evidence",
+      "passed": true
+    }
+  ]
+}

@@ -58,19 +58,16 @@ class TestMLEngine:
         assert all(0 <= score <= 1 for score in risk_scores)
     
     def test_get_risk_drivers(self, sample_valid_data: pd.DataFrame):
-        """Test getting risk drivers for an employee."""
+        """Individual drivers fail closed when local SHAP evidence is absent."""
         engine = MLEngine()
         
         features = sample_valid_data[['Tenure', 'Salary', 'LastRating', 'Age']].copy()
         target = sample_valid_data['Attrition']
         
         engine.train_model(features, target)
-        drivers = engine.get_risk_drivers(0, features)
-        
-        assert isinstance(drivers, list)
-        assert len(drivers) > 0
-        assert 'feature' in drivers[0]
-        assert 'contribution' in drivers[0]
+        engine.shap_explainer = None
+        with pytest.raises(MLEngineError, match='SHAP explainer not available'):
+            engine.get_risk_drivers(0, features)
     
     def test_get_recommendations(self, sample_valid_data: pd.DataFrame):
         """Test recommendation generation for high-risk employees."""
@@ -141,6 +138,5 @@ class TestMLEngine:
         importance_df = engine.get_feature_importance_summary()
         
         assert not importance_df.empty
-        assert 'Feature' in importance_df.columns
-        assert 'Importance' in importance_df.columns
+        assert list(importance_df.columns) == ['feature', 'importance']
         assert len(importance_df) == len(features.columns)

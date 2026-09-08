@@ -17,7 +17,10 @@ def load_config() -> dict:
     to the user's application-data directory. The installed application bundle
     therefore remains immutable across upgrades.
     """
-    config_path = os.path.join(os.path.dirname(__file__), '..', 'config.yaml')
+    # Frozen modules may live only in PyInstaller's archive: the physical src
+    # directory need not exist. Collapse src/.. before opening the bundled file
+    # so POSIX path traversal does not fail on that missing directory.
+    config_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'config.yaml'))
     with open(config_path, 'r', encoding='utf-8') as f:
         config = yaml.safe_load(f)
 

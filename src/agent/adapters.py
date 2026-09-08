@@ -6,6 +6,7 @@ pseudo-probability that the evidence is 'true'.
 """
 
 from time import perf_counter
+from src.platform.provenance import IntegrityError, validated_risk_scores
 from typing import Any, Dict, List
 
 import pandas as pd
@@ -33,14 +34,26 @@ class WorkforceSummaryTool:
             labels = {
                 'headcount': 'Current active employee count', 'record_count': 'Current employee record count',
                 'observed_attrition_share': 'Observed attrition share', 'salary_mean': 'Average active-employee salary',
-                'tenure_mean': 'Average active-employee tenure', 'lastrating_mean': 'Average active-employee rating',
+                'tenure_mean': 'Average active-employee tenure', 'age_mean': 'Average active-employee age', 'lastrating_mean': 'Average active-employee rating',
                 'department_count': 'Active department count',
             }
+            warnings = []
             for metric, label in labels.items():
                 value = stats.get(metric)
+                metadata = {'confidence_basis': 'deterministic_calculation'}
+                if metric.endswith('_mean'):
+                    column = metric[:-5]
+                    measured = stats.get(f'{column}_observations')
+                    excluded = stats.get(f'{column}_excluded_count')
+                    metadata.update(population='current active employees', measured_count=measured,
+                                    eligible_count=stats.get('headcount'), excluded_count=excluded)
+                    if excluded:
+                        warnings.append(f'{label} uses {measured} of {stats.get("headcount")} active employees; {excluded} missing or invalid measurements were excluded.')
+                    elif value is None:
+                        warnings.append(f'{label} is unavailable because no valid measurement is present.')
                 if value is not None:
-                    evidence.append(EvidenceItem(kind=EvidenceKind.DERIVED, claim=f'{label}: {value}', source_tool=self.tool_id, value=value, metric=metric, confidence=1.0, dataset_version=context.dataset_version, metadata={'confidence_basis': 'deterministic_calculation'}))
-            return ToolResult(tool_id=self.tool_id, status=ToolResultStatus.SUCCESS, summary='Current workforce summary calculated.', evidence=evidence, duration_ms=_elapsed_ms(started), metadata={'metrics': stats, 'metric_contract': 'current_state_active_first'})
+                    evidence.append(EvidenceItem(kind=EvidenceKind.DERIVED, claim=f'{label}: {value}', source_tool=self.tool_id, value=value, metric=metric, confidence=1.0, dataset_version=context.dataset_version, metadata=metadata))
+            return ToolResult(tool_id=self.tool_id, status=ToolResultStatus.SUCCESS, summary='Current workforce summary calculated.', evidence=evidence, warnings=warnings, duration_ms=_elapsed_ms(started), metadata={'metrics': stats, 'metric_contract': 'current_state_active_first'})
         except Exception as exc:
             return ToolResult(tool_id=self.tool_id, status=ToolResultStatus.FAILED, summary='Workforce summary calculation failed.', error=str(exc), duration_ms=_elapsed_ms(started))
 
@@ -76,9 +89,13 @@ class RetentionRiskTool:
     def __init__(self, state: Any): self.state = state
 
     def execute(self, context: ToolContext) -> ToolResult:
-        started = perf_counter(); scores = getattr(self.state, 'risk_scores', None)
-        if scores is None or len(scores) == 0:
-            return ToolResult(tool_id=self.tool_id, status=ToolResultStatus.PARTIAL, summary='Predictive retention risk is unavailable for the current dataset.', warnings=['A trained and activated predictive model is required.'], duration_ms=_elapsed_ms(started))
+        started = perf_counter()
+        try:
+            scores = validated_risk_scores(self.state)
+        except IntegrityError as exc:
+            return ToolResult(tool_id=self.tool_id, status=ToolResultStatus.PARTIAL,
+                summary='Predictive retention risk is unavailable for the current dataset.',
+                warnings=[str(exc)], duration_ms=_elapsed_ms(started))
         try:
             counts = scores['risk_category'].value_counts().to_dict(); total = int(len(scores))
             high, medium, low = (int(counts.get(k, 0)) for k in ('High', 'Medium', 'Low'))

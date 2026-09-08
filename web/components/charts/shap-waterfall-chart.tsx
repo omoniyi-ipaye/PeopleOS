@@ -41,6 +41,10 @@ export function ShapWaterfallChart({
     return bars
   }, [features, baseValue])
 
+  const reconciles = [baseValue, prediction, ...features.map(f => f.contribution)].every(Number.isFinite)
+    && Math.abs(baseValue + features.reduce((sum, f) => sum + f.contribution, 0) - prediction) <= 1e-5
+  if (!reconciles) return <p role="status">Explanation unavailable: the baseline and contributions do not reconcile with the prediction in the same units.</p>
+
   const maxValue = Math.max(
     baseValue,
     prediction,
@@ -148,11 +152,11 @@ export function ShapWaterfallChart({
       <div className="flex items-center justify-center gap-6 pt-4 text-xs text-text-secondary dark:text-text-dark-secondary font-medium">
         <div className="flex items-center gap-2">
           <div className="w-3 h-3 rounded bg-danger/80" />
-          <span>Increases Risk</span>
+          <span>Increases model output</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-3 h-3 rounded bg-success/80" />
-          <span>Decreases Risk</span>
+          <span>Decreases model output</span>
         </div>
       </div>
     </div>

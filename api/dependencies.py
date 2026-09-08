@@ -20,6 +20,7 @@ from src.data_loader import DataLoader
 from src.logger import get_logger
 from src.preprocessor import Preprocessor
 from src.utils import load_config
+from src.platform.runtime_lock import runtime_mutation
 
 logger = get_logger('api_dependencies')
 
@@ -47,6 +48,9 @@ class AppState:
         self.raw_df: Optional[pd.DataFrame] = None
         self.active_df: Optional[pd.DataFrame] = None
         self.population_resolution: Any = None
+        self.runtime_provenance = None
+        self.model_provenance = None
+        self.scenario_cache = {}
 
         self.processed_df: Optional[pd.DataFrame] = None
         self.features_df: Optional[pd.DataFrame] = None
@@ -85,6 +89,7 @@ class AppState:
         from src.platform.runtime_loader import load_dataset
         return load_dataset(self, file_path, file_name)
 
+    @runtime_mutation
     def load_from_database(self) -> bool:
         """Restore the durable active local dataset, then fall back to legacy SQLite.
 
@@ -93,23 +98,39 @@ class AppState:
         """
         from src.platform.runtime_loader import activate_dataframe
 
+        if getattr(self, 'workspace_id', 'local') != 'local':
+            return False
+        # Another waiting restore/upload may already have supplied a snapshot.
+        if self.has_data():
+            return True
+
         try:
             from src.platform.local_dataset_store import load_dataset_artifact
             from src.platform.workspace import WorkspaceStore
 
-            workspace = WorkspaceStore().get_workspace('local')
+            store = WorkspaceStore()
+            workspace = store.get_workspace('local')
             if workspace.active_dataset_id:
-                persisted = load_dataset_artifact(workspace.active_dataset_id)
+                record = next(d for d in workspace.datasets if d.dataset_id == workspace.active_dataset_id)
+                persisted = load_dataset_artifact(record.dataset_id, expected_sha256=record.quality.get('artifact_sha256'))
                 if persisted is not None and not persisted.empty:
                     # Reconstruct feature availability from the persisted source.
                     feature_flags = {
                         'predictive': 'Attrition' in persisted.columns,
                         'nlp': 'PerformanceText' in persisted.columns and persisted['PerformanceText'].notna().any(),
                     }
-                    activate_dataframe(self, persisted, feature_flags=feature_flags)
+                    if WorkspaceStore().get_workspace('local').active_dataset_id != record.dataset_id:
+                        raise ValueError('Selected dataset changed during restore; retry the request')
+                    activate_dataframe(self, persisted, feature_flags=feature_flags, workspace_id='local', dataset_id=workspace.active_dataset_id)
                     return True
+                return False
+            if store._read().get('recovery_required'):
+                # A repaired registry must not silently revive unregistered
+                # legacy SQLite data; explicit dataset activation is required.
+                return False
         except Exception as exc:
-            logger.warning('Canonical dataset restore unavailable; trying SQLite fallback: %s', exc)
+            logger.warning('Canonical dataset restore failed: %s', exc)
+            return False
 
         df = self.data_loader.load_from_database()
         if df is None or df.empty:
@@ -159,6 +180,7 @@ class AppState:
         matches = self.processed_df[self.processed_df['EmployeeID'].astype(str) == str(employee_id)]
         return None if matches.empty else int(matches.index[0])
 
+    @runtime_mutation
     def reset(self) -> None:
         """Reset runtime state and clear the local persistent employee store."""
         try:
@@ -166,11 +188,15 @@ class AppState:
             get_database().clear_all_data()
         except Exception as exc:
             logger.error('Failed to clear database during reset: %s', exc)
+            raise RuntimeError('Persistent employee data could not be cleared; runtime data was retained') from exc
 
         self.historical_df = None
         self.raw_df = None
         self.active_df = None
         self.population_resolution = None
+        self.runtime_provenance = None
+        self.model_provenance = None
+        self.scenario_cache = {}
         self.processed_df = None
         self.features_df = None
         self.target_series = None

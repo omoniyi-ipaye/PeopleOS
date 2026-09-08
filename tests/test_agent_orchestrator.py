@@ -1,6 +1,8 @@
 """End-to-end tests for the governed People Intelligence Agent."""
 
 import pandas as pd
+from types import SimpleNamespace
+from src.platform.provenance import frame_fingerprint
 
 from src.agent.orchestrator import PeopleIntelligenceAgent
 from src.agent.policy import HRAdvicePolicy
@@ -48,6 +50,11 @@ class FakeState:
 
     def __init__(self, llm_client=None):
         self.llm_client = llm_client
+        self.raw_df = pd.DataFrame({'EmployeeID':[f'E{i}' for i in range(100)], 'Attrition':[0]*90+[1]*10})
+        self.risk_scores = pd.DataFrame({'EmployeeID':[f'E{i}' for i in range(90)], 'risk_score':([.82,.79,.61,.20]*23)[:90]})
+        self.ml_engine = SimpleNamespace(is_trained=True, get_risk_category=lambda score:'High' if score>=.7 else 'Medium' if score>=.4 else 'Low')
+        self.runtime_provenance = {'workspace_id':'local','dataset_id':'fixture','generation':'one','current_fingerprint':frame_fingerprint(self.raw_df)}
+        self.model_provenance = {**self.runtime_provenance,'model_id':'fixture-model'}
 
 
 def test_agent_runs_plan_tools_aggregates_and_falls_back_without_llm():
@@ -55,7 +62,8 @@ def test_agent_runs_plan_tools_aggregates_and_falls_back_without_llm():
         "Why is attrition elevated?"
     )
 
-    assert answer.status == "complete"
+    assert answer.status == "partial"
+    assert "cannot establish causes" in " ".join(answer.warnings)
     assert answer.model is None
     assert answer.confidence > 0.7
     assert "workforce.summary" in answer.tools_used

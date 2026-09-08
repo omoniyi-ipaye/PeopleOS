@@ -22,6 +22,16 @@ class SourceEffectiveness(BaseModel):
     hire_count: int
     pct_of_total: float
     avg_performance: Optional[float] = None
+    performance_observations: Optional[int] = None
+    promotion_observations: Optional[int] = None
+    outcome_observations: Optional[int] = None
+    quality_components: List[str] = Field(default_factory=list)
+    quality_weights: Dict[str, float] = Field(default_factory=dict)
+    component_observations: Dict[str, int] = Field(default_factory=dict)
+    component_coverage: Dict[str, float] = Field(default_factory=dict)
+    minimum_component_observations: Optional[int] = None
+    quality_unavailable_reason: Optional[str] = None
+    quality_semantics: Optional[str] = None
     high_performers: Optional[int] = None
     high_performer_rate: Optional[float] = None
     attrition_count: Optional[int] = None
@@ -32,7 +42,7 @@ class SourceEffectiveness(BaseModel):
     promotion_rate: Optional[float] = None
     avg_tenure: Optional[float] = None
     avg_interview_score: Optional[float] = None
-    quality_score: float
+    quality_score: Optional[float] = None
     grade: str  # A, B, C, D
     recommendation: str
 
@@ -100,6 +110,9 @@ class HiringInsights(BaseModel):
 
 
 class CohortPerformance(BaseModel):
+    performance_observations: Optional[int] = None
+    outcome_observations: Optional[int] = None
+    metric_semantics: str = 'observed_cohort_outcomes_not_exposure_adjusted_retention'
     """Performance metrics for a cohort."""
     cohort_name: str
     count: int

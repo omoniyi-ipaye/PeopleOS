@@ -8,6 +8,7 @@ causal proof or as a basis for automatic hiring decisions.
 from typing import List
 
 import pandas as pd
+from src.serialization import json_safe
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from api.dependencies import AppState, get_app_state
@@ -96,7 +97,7 @@ def _safe_correlation_response(raw: dict) -> CorrelationAnalysisResponse:
 
 def _safe_source(row: dict) -> SourceEffectiveness:
     """Remove unsupported automatic investment recommendations from source metrics."""
-    payload = dict(row)
+    payload = json_safe(dict(row))
     payload["recommendation"] = "Compare with role mix, tenure exposure, cost and future cohorts before changing source allocation."
     return SourceEffectiveness(**payload)
 
@@ -138,7 +139,7 @@ async def get_quality_of_hire_analysis(state: AppState = Depends(require_quality
         )
 
     _normalize_correlation_inputs(state)
-    results = state.quality_of_hire_engine.analyze_all()
+    results = json_safe(state.quality_of_hire_engine.analyze_all())
     source_rows = [_safe_source(item) for item in results.get("source_effectiveness", [])]
     correlations = _safe_correlation_response(results.get("correlations", {})) if results.get("correlations") else None
     retention = _safe_correlation_response(results.get("retention_correlations", {})) if results.get("retention_correlations") else None
@@ -203,7 +204,7 @@ async def get_cohort_analysis(
         return []
     output = []
     for _, row in frame.iterrows():
-        data = row.to_dict()
+        data = json_safe(row.to_dict())
         cohort_name = str(data.pop(cohort_by, "Unknown"))
         output.append(CohortPerformance(cohort_name=cohort_name, **data))
     return output

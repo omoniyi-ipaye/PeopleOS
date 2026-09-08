@@ -168,17 +168,17 @@ class TestMLPredictionPipeline:
         importance_df = ml_engine.get_feature_importance_summary()
 
         assert not importance_df.empty
-        assert 'Feature' in importance_df.columns
-        assert 'Importance' in importance_df.columns
+        assert 'feature' in importance_df.columns
+        assert 'importance' in importance_df.columns
         assert len(importance_df) == len(numeric_features.columns)
 
 
-class TestLLMFallbackBehavior:
-    """Test LLM client fallback behavior."""
+class TestLLMFailureBehavior:
+    """Test that unavailable generation fails closed without fabrication."""
 
-    def test_llm_unavailable_returns_fallback(self):
-        """Test that LLM client returns fallback when unavailable."""
-        from src.llm_client import LLMClient
+    def test_llm_unavailable_raises_explicit_error(self):
+        """An unavailable LLM must never produce an invented summary."""
+        from src.llm_client import LLMClient, LLMClientError
 
         client = LLMClient()
 
@@ -190,15 +190,12 @@ class TestLLMFallbackBehavior:
             'departments': 5
         }
 
-        result = client.get_strategic_summary(metrics)
+        with pytest.raises(LLMClientError, match='not available'):
+            client.get_strategic_summary(metrics)
 
-        # Should always return a dict with status
-        assert isinstance(result, dict)
-        assert 'status' in result or 'message' in result
-
-    def test_action_items_always_returns_list(self):
-        """Test action items returns recommendations even without LLM."""
-        from src.llm_client import LLMClient
+    def test_action_items_unavailable_raises_explicit_error(self):
+        """Unavailable generation must not fabricate recommendations."""
+        from src.llm_client import LLMClient, LLMClientError
 
         client = LLMClient()
 
@@ -208,11 +205,8 @@ class TestLLMFallbackBehavior:
             'high_risk_count': 20
         }
 
-        result = client.get_action_items(metrics)
-
-        assert isinstance(result, dict)
-        if 'recommendations' in result:
-            assert isinstance(result['recommendations'], list)
+        with pytest.raises(LLMClientError, match='not available'):
+            client.get_action_items(metrics)
 
 
 class TestExportFunctionality:

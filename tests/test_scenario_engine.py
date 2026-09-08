@@ -9,6 +9,25 @@ import numpy as np
 from src.scenario_engine import ScenarioEngine, ScenarioEngineError
 
 
+def test_absolute_raise_name_preserves_amount_units():
+    frame = pd.DataFrame({'EmployeeID': [f'E{i}' for i in range(50)],
+                          'Dept': 'People', 'Salary': 50000., 'Tenure': 3.,
+                          'LastRating': 4., 'Age': 30, 'Attrition': 0})
+    result = ScenarioEngine(frame).simulate_compensation_change('absolute', {}, 5000, 12)
+    assert '%' not in result.scenario_name
+    assert '5000 annual salary-unit increase per employee' in result.scenario_name
+    assert result.cost_impact.salary_change == 250000
+
+
+def test_market_adjustment_name_retains_percentage_units():
+    frame = pd.DataFrame({'EmployeeID': [f'E{i}' for i in range(50)],
+                          'Dept': 'People', 'Salary': 50000., 'Tenure': 3.,
+                          'LastRating': 4., 'Age': 30, 'Attrition': 0})
+    result = ScenarioEngine(frame).simulate_compensation_change('market_adjustment', {}, 10, 12)
+    assert result.scenario_name.startswith('10% raise')
+    assert result.cost_impact.salary_change == pytest.approx(250000)
+
+
 @pytest.fixture
 def sample_employee_data() -> pd.DataFrame:
     """Returns sample employee data for scenario testing."""
@@ -69,7 +88,7 @@ class TestScenarioEngineInitialization:
         engine = ScenarioEngine(sample_employee_data)
 
         assert engine is not None
-        assert len(engine.df) == 100
+        assert len(engine.df) == int((sample_employee_data['Attrition'] == 0).sum())
         assert engine.n_simulations == 1000  # Default
 
     def test_init_without_ml_engines(self, sample_employee_data):
@@ -105,7 +124,7 @@ class TestCompensationScenarios:
 
         assert result.scenario_id is not None
         assert result.scenario_type == 'compensation'
-        assert result.affected_employees == 100
+        assert result.affected_employees == int((sample_employee_data['Attrition'] == 0).sum())
         assert result.baseline_turnover_rate >= 0
         assert result.projected_turnover_rate >= 0
         assert result.projected_turnover_rate <= result.baseline_turnover_rate
@@ -217,43 +236,22 @@ class TestInterventionScenarios:
     """Tests for intervention scenarios."""
 
     def test_retention_bonus(self, sample_employee_data):
-        """Test retention bonus intervention."""
+        """Unvalidated retention_bonus effects must stay unavailable."""
         engine = ScenarioEngine(sample_employee_data)
-
-        result = engine.simulate_attrition_intervention(
-            intervention_type='retention_bonus',
-            target_employees='high_risk',
-            intervention_params={'bonus_percentage': 10}
-        )
-
-        assert result.scenario_type == 'intervention'
-        assert result.cost_impact.replacement_costs_avoided >= 0
-        assert result.roi_estimate is not None
+        with pytest.raises(ScenarioEngineError, match="unavailable"):
+            engine.simulate_attrition_intervention("retention_bonus", "high_risk", {})
 
     def test_career_path_intervention(self, sample_employee_data):
-        """Test career path intervention."""
+        """Unvalidated career_path effects must stay unavailable."""
         engine = ScenarioEngine(sample_employee_data)
-
-        result = engine.simulate_attrition_intervention(
-            intervention_type='career_path',
-            target_employees='high_risk_high_performer',
-            intervention_params={'cost_per_person': 5000}
-        )
-
-        assert result.scenario_type == 'intervention'
-        assert result.cost_impact.training_costs > 0
+        with pytest.raises(ScenarioEngineError, match="unavailable"):
+            engine.simulate_attrition_intervention("career_path", "high_risk", {})
 
     def test_manager_change_intervention(self, sample_employee_data):
-        """Test manager change intervention."""
+        """Unvalidated manager_change effects must stay unavailable."""
         engine = ScenarioEngine(sample_employee_data)
-
-        result = engine.simulate_attrition_intervention(
-            intervention_type='manager_change',
-            target_employees='high_risk',
-            intervention_params={'change_cost': 10000}
-        )
-
-        assert result.scenario_type == 'intervention'
+        with pytest.raises(ScenarioEngineError, match="unavailable"):
+            engine.simulate_attrition_intervention("manager_change", "high_risk", {})
 
 
 class TestMonteCarloSimulation:
@@ -373,8 +371,8 @@ class TestConfidenceLevels:
             adjustment_value=5.0
         )
 
-        assert result.confidence_level == 'High'
-        assert result.confidence_score >= 0.8
+        assert result.confidence_level == 'Exploratory'
+        assert result.confidence_score == 0.5
 
     def test_low_confidence_small_sample(self, sample_employee_data):
         """Test lower confidence with small sample."""
@@ -389,7 +387,7 @@ class TestConfidenceLevels:
         )
 
         # With only 5 affected, confidence should be lower
-        assert result.confidence_level in ['Low', 'Medium']
+        assert result.confidence_level == 'Exploratory'
 
 
 class TestCostCalculations:
@@ -468,14 +466,11 @@ class TestEdgeCases:
 
         engine = ScenarioEngine(df)
 
-        result = engine.simulate_compensation_change(
-            adjustment_type='percentage',
-            target={'scope': 'all'},
-            adjustment_value=5.0
-        )
+        with pytest.raises(ScenarioEngineError, match='annual Salary'):
+            engine.simulate_compensation_change(
+                adjustment_type='percentage', target={'scope': 'all'}, adjustment_value=5.0
+            )
 
-        # Should use default salary assumption
-        assert result.scenario_id is not None
 
 
 class TestResultSerialization:

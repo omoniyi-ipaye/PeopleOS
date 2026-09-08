@@ -11,6 +11,8 @@ from typing import Optional
 
 from src.logger import get_logger
 from src.utils import load_config
+from src.population import active_population
+from src.team_dynamics_engine import clean_team_frame
 
 logger = get_logger('succession_engine')
 
@@ -34,8 +36,12 @@ class SuccessionEngine:
             df: DataFrame with employee data.
             risk_scores: Optional DataFrame with attrition risk predictions.
         """
-        self.df = df.copy()
+        self.df = clean_team_frame(active_population(df))
+        if 'Dept' in self.df:
+            self.df['Dept'] = self.df['Dept'].astype('string').str.strip().replace('', pd.NA).fillna('Unknown')
         self.risk_scores = risk_scores
+        if risk_scores is not None and risk_scores['EmployeeID'].duplicated().any():
+            raise SuccessionEngineError('Risk scores must have unique employee identifiers')
         self.config = load_config()
         self.succ_config = self.config.get('succession', {})
 
@@ -66,34 +72,12 @@ class SuccessionEngine:
         """
         df = self.df.copy()
 
-        # Normalize tenure score (0-1)
-        max_tenure = df['Tenure'].max()
-        df['TenureScore'] = df['Tenure'] / max_tenure if max_tenure > 0 else 0
-
-        # Normalize rating score (assuming 1-5 scale)
-        df['RatingScore'] = (df['LastRating'] - 1) / 4  # Convert 1-5 to 0-1
-
-        # Risk of loss score (inverse - lower risk = higher score)
-        if self.risk_scores is not None and not self.risk_scores.empty:
-            df = df.merge(
-                self.risk_scores[['EmployeeID', 'risk_score']],
-                on='EmployeeID',
-                how='left'
-            )
-            df['RiskScore'] = 1 - df['risk_score'].fillna(0.5)  # Invert: low risk = high score
-        else:
-            df['RiskScore'] = 0.5  # Neutral if no risk data
-
-        # Calculate weighted readiness score
-        weights = self.readiness_weights
-        df['ReadinessScore'] = (
-            weights.get('tenure', 0.3) * df['TenureScore'] +
-            weights.get('rating', 0.4) * df['RatingScore'] +
-            weights.get('risk_of_loss', 0.3) * df['RiskScore']
-        )
-
-        # Assign readiness level
-        df['ReadinessLevel'] = df['ReadinessScore'].apply(self._get_readiness_level)
+        # Readiness is a recorded talent-review assessment, not a prediction
+        # from tenure, performance, or attrition risk.
+        labels = df.get('SuccessionReadiness', pd.Series('Unassessed', index=df.index)).astype('string').str.strip()
+        scores = {'Ready Now': 1., 'Ready 1-2 Years': .7, 'Developing': .3, 'Early Career': .1}
+        df['ReadinessLevel'] = labels.where(labels.isin(scores), 'Unassessed').fillna('Unassessed')
+        df['ReadinessScore'] = df['ReadinessLevel'].map(scores)
 
         result = df[['EmployeeID', 'Dept', 'Tenure', 'LastRating', 'ReadinessScore', 'ReadinessLevel']].copy()
         result['ReadinessScore'] = result['ReadinessScore'].round(2)
@@ -102,6 +86,8 @@ class SuccessionEngine:
 
     def _get_readiness_level(self, score: float) -> str:
         """Map readiness score to level."""
+        if pd.isna(score):
+            return 'Unassessed'
         if score >= 0.75:
             return 'Ready Now'
         elif score >= 0.5:
@@ -113,41 +99,39 @@ class SuccessionEngine:
 
     def identify_high_potentials(self) -> pd.DataFrame:
         """
-        Identify high-potential employees for succession.
+        Return recorded high-potential assessments on the 1–5 talent-review scale.
 
         Returns:
             DataFrame with high-potential candidates.
 
-        ⚠️ PA-1 WARNING: This method derives 'Potential' from 'Performance' data.
-        High performers are not necessarily high potentials (different constructs).
-        For accurate succession planning, consider adding a separate 'Potential'
-        assessment from talent review processes.
+        Potential is never inferred from performance, tenure, or attrition risk.
+        The high-potential threshold and Star classification match the 9-box
+        matrix: potential > 3.5, with performance > 3.5 for Stars.
         """
         df = self.df.copy()
 
-        # Filter for high performers with sufficient tenure
-        high_potentials = df[
-            (df['LastRating'] >= self.high_performer_rating) &
-            (df['Tenure'] >= self.min_tenure_years)
-        ].copy()
+        potential = pd.to_numeric(
+            df.get('PotentialRating', pd.Series(np.nan, index=df.index)), errors='coerce'
+        )
+        df['PotentialRating'] = potential.where(potential.between(1, 5))
+        high_potentials = df[df['PotentialRating'] > 3.5].copy()
+        columns = ['EmployeeID', 'Dept', 'Tenure', 'LastRating',
+                   'PotentialLevel', 'AttritionRisk', 'PotentialRating', '_methodology_note']
 
         if high_potentials.empty:
-            return pd.DataFrame(columns=['EmployeeID', 'Dept', 'Tenure', 'LastRating', 'PotentialLevel'])
+            result = pd.DataFrame(columns=columns)
+            result.attrs['assessment_status'] = (
+                'unavailable' if df['PotentialRating'].notna().sum() == 0 else 'no_high_potential_assessments'
+            )
+            return result
 
-        # Calculate potential level
-        # NOTE: This is a proxy based on performance, not a true potential assessment
-        high_potentials['PotentialScore'] = (
-            high_potentials['LastRating'] * 0.6 +
-            np.minimum(high_potentials['Tenure'] / 10, 1) * 0.4 * 5
+        high_potentials['PotentialLevel'] = np.where(
+            (high_potentials['LastRating'] > 3.5).fillna(False), 'Star', 'High'
         )
 
-        high_potentials['PotentialLevel'] = high_potentials['PotentialScore'].apply(
-            lambda x: 'Star' if x >= 4.5 else ('High' if x >= 4.0 else 'Emerging')
-        )
-
-        # Add methodology warning to output
         high_potentials['_methodology_note'] = (
-            'Potential derived from performance rating - validate with talent review'
+            'Recorded PotentialRating > 3.5 on a 1–5 scale; '
+            'Star additionally requires recorded LastRating > 3.5. No inferred potential.'
         )
 
         # Add risk of loss if available
@@ -173,10 +157,7 @@ class SuccessionEngine:
             high_potentials['AttritionRisk'] = 'N/A'
 
 
-        result = high_potentials[[
-            'EmployeeID', 'Dept', 'Tenure', 'LastRating',
-            'PotentialLevel', 'AttritionRisk'
-        ]].copy()
+        result = high_potentials[columns].copy()
 
         return result.sort_values('LastRating', ascending=False)
 
@@ -198,7 +179,8 @@ class SuccessionEngine:
                 'Ready 1-2 Years': len(dept_data[dept_data['ReadinessLevel'] == 'Ready 1-2 Years']),
                 'Developing': len(dept_data[dept_data['ReadinessLevel'] == 'Developing']),
                 'Early Career': len(dept_data[dept_data['ReadinessLevel'] == 'Early Career']),
-                'Total': len(dept_data)
+                'Total': len(dept_data),
+                'Unassessed': int((dept_data['ReadinessLevel'] == 'Unassessed').sum())
             }
 
         return pipeline
@@ -214,9 +196,9 @@ class SuccessionEngine:
 
         results = []
         for dept, counts in pipeline.items():
-            total = counts['Total']
+            total = counts['Total'] - counts['Unassessed']
             if total == 0:
-                strength = 0
+                strength = np.nan
             else:
                 # Weighted score: Ready Now has highest weight
                 strength = (
@@ -227,7 +209,9 @@ class SuccessionEngine:
                 ) / total
 
             # Determine status
-            if strength >= 0.6:
+            if not np.isfinite(strength):
+                status = 'Unassessed'
+            elif strength >= 0.6:
                 status = 'Strong'
             elif strength >= 0.4:
                 status = 'Adequate'
@@ -240,11 +224,14 @@ class SuccessionEngine:
                 'ReadyNow': counts['Ready Now'],
                 'ReadySoon': counts['Ready 1-2 Years'],
                 'Developing': counts['Developing'],
-                'Total': total,
+                'Total': counts['Total'],
+                'Assessed': total,
+                'Unassessed': counts['Unassessed'],
+                'AssessmentCoverage': total / counts['Total'] if counts['Total'] else 0.,
                 'Status': status
             })
 
-        return pd.DataFrame(results).sort_values('BenchStrength', ascending=True)
+        return pd.DataFrame(results, columns=['Dept','BenchStrength','ReadyNow','ReadySoon','Developing','Total','Status','Assessed','Unassessed','AssessmentCoverage']).sort_values('BenchStrength', ascending=True)
 
     def identify_critical_gaps(self) -> pd.DataFrame:
         """
@@ -257,9 +244,12 @@ class SuccessionEngine:
 
         # Flag departments with no ready successors
         gaps = bench_df[
-            (bench_df['ReadyNow'] == 0) |
-            (bench_df['BenchStrength'] < 0.3)
+            (bench_df['Assessed'] > 0) & ((bench_df['ReadyNow'] == 0) |
+            (bench_df['BenchStrength'] < 0.3))
         ].copy()
+
+        if gaps.empty:
+            return gaps.assign(GapSeverity=pd.Series(dtype=str), Recommendation=pd.Series(dtype=str))
 
         gaps['GapSeverity'] = gaps.apply(
             lambda x: 'Critical' if x['ReadyNow'] == 0 and x['ReadySoon'] == 0
@@ -299,7 +289,7 @@ class SuccessionEngine:
                     'EmployeeID': row['EmployeeID'],
                     'Dept': row['Dept'],
                     'Priority': 'Critical',
-                    'Recommendation': 'Immediate retention intervention needed - high performer at high attrition risk',
+                    'Recommendation': 'Review retention support for an employee with recorded high potential and high attrition risk',
                     'Actions': [
                         'Schedule career development discussion',
                         'Review compensation competitiveness',
@@ -341,18 +331,9 @@ class SuccessionEngine:
             labels=['Low', 'Medium', 'High']
         )
 
-        # Potential (based on rating trajectory and growth signals)
-        # Note: Uses RatingVelocity if available for better potential assessment
-        if 'RatingVelocity' in df.columns:
-            # RatingVelocity captures growth trajectory - better proxy for potential
-            df['PotentialScore'] = (
-                df['LastRating'] * 0.6 +
-                (df['RatingVelocity'].clip(-1, 1) + 1) * 2.5 * 0.4  # Normalize -1 to 1 -> 0 to 5
-            )
-        else:
-            # Fallback: Use pure performance as proxy for potential
-            # Avoids conflating experience (tenure) with growth capacity (potential)
-            df['PotentialScore'] = df['LastRating']
+        # Explicit, separately measured potential uses the documented 1–5 scale.
+        potential = pd.to_numeric(df.get('PotentialRating', pd.Series(np.nan, index=df.index)), errors='coerce')
+        df['PotentialScore'] = potential.where(potential.between(1, 5))
 
         df['Potential'] = pd.cut(
             df['PotentialScore'],
@@ -365,6 +346,8 @@ class SuccessionEngine:
             perf = row['Performance']
             pot = row['Potential']
 
+            if pd.isna(perf) or pd.isna(pot):
+                return 'Unassessed'
             if perf == 'High' and pot == 'High':
                 return 'Stars'
             elif perf == 'High' and pot == 'Medium':

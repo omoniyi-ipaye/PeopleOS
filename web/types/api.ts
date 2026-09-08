@@ -121,7 +121,7 @@ export interface UploadResponse {
 
 export interface TeamHealth {
     dept: string
-    health_score: number
+    health_score: number | null
     avg_tenure: number | null
     avg_rating: number | null
     headcount: number
@@ -135,7 +135,7 @@ export interface DiversityMetrics {
     tenure_diversity: number | null
     age_diversity: number | null
     salary_equity: number | null
-    overall_diversity: number
+    overall_diversity: number | null
 }
 
 export interface TeamAnalysis {
@@ -171,6 +171,12 @@ export interface ModelMetrics {
     recall: number
     roc_auc?: number | null
     brier_score?: number | null
+    baseline_brier_score?: number | null
+    average_precision?: number | null
+    baseline_average_precision?: number | null
+    evaluation_semantics?: string | null
+    future_departure_validated?: boolean
+    validation_checks?: Record<string, boolean>
     calibration_error?: number | null
     best_model: string
     reliability: string
@@ -214,6 +220,8 @@ export interface SearchResult {
         dept: string
         text: string
         similarity_score: number
+        squared_l2_distance?: number | null
+        score_semantics?: string
     }[]
 }
 

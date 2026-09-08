@@ -6,12 +6,14 @@ outlier and employee compa-ratio lists are outside the enterprise aggregate
 boundary and are disabled.
 """
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from api.dependencies import AppState, get_app_state
+
+from src.serialization import json_safe
 
 router = APIRouter(prefix="/api/compensation", tags=["compensation"])
 
@@ -25,6 +27,11 @@ class CompensationSummary(BaseModel):
     salary_range: float
     std_dev: float
     headcount: int
+    active_count: Optional[int] = None
+    salary_observations: Optional[int] = None
+    excluded_salary_count: Optional[int] = None
+    salary_coverage: Optional[float] = None
+    population: str = 'current_active_employees_with_valid_positive_salary'
 
 
 class SalaryDispersionScore(BaseModel):
@@ -66,11 +73,17 @@ def _summary(engine) -> CompensationSummary:
         salary_range=raw['salary_range'],
         std_dev=raw['std_dev'],
         headcount=raw['headcount'],
+        active_count=raw.get('active_count'),
+        salary_observations=raw.get('salary_observations'),
+        excluded_salary_count=raw.get('excluded_salary_count'),
+        salary_coverage=raw.get('salary_coverage'),
     )
 
 
 def _dispersion(engine) -> List[SalaryDispersionScore]:
     frame = engine.calculate_pay_equity_score()
+    if not frame.empty and 'Headcount' in frame:
+        frame = frame[frame['Headcount'] >= 10]
     output = []
     for _, row in frame.iterrows():
         output.append(SalaryDispersionScore(
@@ -118,13 +131,15 @@ async def get_gender_pay_gap(state: AppState = Depends(require_compensation)) ->
 @router.get("/by-tenure")
 async def get_salary_by_tenure(state: AppState = Depends(require_compensation)) -> List[Dict[str, Any]]:
     frame = state.compensation_engine.get_salary_by_tenure()
+    if not frame.empty and 'Count' in frame:
+        frame = frame[frame['Count'] >= 10]
     return [
         {
             'tenure_bucket': str(row['TenureBucket']),
-            'mean': float(row['Mean']),
-            'median': float(row['Median']),
-            'min': float(row['Min']),
-            'max': float(row['Max']),
+            'mean': json_safe(row['Mean']),
+            'median': json_safe(row['Median']),
+            'min': json_safe(row['Min']),
+            'max': json_safe(row['Max']),
             'count': int(row['Count']),
             'population': 'current_active_employees_with_valid_salary',
         }

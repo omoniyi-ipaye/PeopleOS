@@ -8,7 +8,8 @@ import { Button, EmptyState, MetricCard, Page, PageHeader, SectionHeader, StateS
 interface DatasetRecord { dataset_id: string; version: number; source_name: string; row_count: number; state: string; created_at: string }
 interface ModelRecord { model_id: string; version: number; model_family: string; state: string; metrics: Record<string, number> }
 interface Workspace { workspace_id: string; name: string; active_dataset_id?: string | null; active_model_id?: string | null; datasets: DatasetRecord[]; models: ModelRecord[]; sessions: Array<{ session_id: string; state: string }> }
-interface Health { status: string; checks: Array<{ id: string; healthy: boolean }>; interrupted_jobs?: string[]; adaptation_level?: string; autonomous_recovery_envelope?: string[]; governed_only?: string[] }
+interface Integrity {status: string; issues: string[]; model_ready: boolean; snapshot?: {dataset_id?: string; source_rows: number; current_rows: number; active_rows: number; unknown_status_rows: number; population_contract: string}}
+interface Health { runtime_integrity?: Integrity; status: string; checks: Array<{ id: string; healthy: boolean }>; interrupted_jobs?: string[]; adaptation_level?: string; autonomous_recovery_envelope?: string[]; governed_only?: string[] }
 interface Fitness { status: string; checks: Record<string, boolean>; observed: { dataset_age_days?: number | null; model_age_days?: number | null; model_auc?: number | null } }
 interface Actor { actor_id: string; role: string; permissions: string[] }
 
@@ -37,14 +38,22 @@ export default function TrustCenterPage() {
   if (error) return <Page><EmptyState title="Trust state is unavailable" description={error} action={<Button onClick={() => void load()}><RefreshCw className="h-4 w-4" />Retry</Button>} /></Page>
 
   const activeDataset = workspace?.datasets.find((item) => item.dataset_id === workspace.active_dataset_id)
-  const activeModel = workspace?.models.find((item) => item.model_id === workspace.active_model_id)
-  const failedChecks = fitness ? Object.entries(fitness.checks).filter(([, passed]) => !passed) : []
-  const trustHealthy = health?.status === 'healthy' && failedChecks.length === 0
+  const activeModel = health?.runtime_integrity?.model_ready ? workspace?.models.find((item) => item.model_id === workspace.active_model_id) : undefined
+  const snapshot = health?.runtime_integrity?.snapshot
+  const evidenceReady = health?.runtime_integrity?.status === 'verified'
+  const failedChecks = fitness ? Object.entries(fitness.checks).filter(([key, passed]) => !passed && !(key.includes('model_') && !activeModel)) : []
+  const trustHealthy = health?.status === 'healthy' && evidenceReady && failedChecks.length === 0
 
   return <Page>
-    <PageHeader eyebrow="Govern · Trust Center" title="Can I trust this analysis?" description="See the source, model state, access boundary and recovery controls behind PeopleOS outputs." actions={<Button variant="secondary" size="sm" onClick={() => void load()}><RefreshCw className="h-4 w-4" />Refresh</Button>} />
+    <PageHeader eyebrow="Govern · Trust Center" title="Can I trust this analysis?" description="See the source, model state, access boundary and recovery controls behind PeopleOS outputs. These checks describe operational integrity, not a certification of predictive accuracy." actions={<Button variant="secondary" size="sm" onClick={() => void load()}><RefreshCw className="h-4 w-4" />Refresh</Button>} />
 
     <StateSummary title={trustHealthy ? 'Core evidence path is healthy' : 'Some capabilities need attention'} description={activeModel ? 'A governed predictive model is active in addition to deterministic evidence.' : 'No predictive model is active. People Intelligence relies on deterministic aggregate evidence and marks predictive capabilities unavailable.'} tone={trustHealthy ? 'success' : 'warning'} />
+
+    <Surface padding="lg"><SectionHeader title="Dataset integrity" description="Checks that the loaded population and results belong to the selected dataset. This does not certify statistical accuracy." />
+      <div className="mt-4"><StatusBadge tone={evidenceReady ? 'success' : 'warning'}>{evidenceReady ? 'Snapshot verified' : 'Evidence unavailable'}</StatusBadge></div>
+      {health?.runtime_integrity?.issues.map((issue) => <p key={issue} className="mt-2 text-sm text-text-secondary">{issue}</p>)}
+      {snapshot && <p className="mt-3 text-sm text-text-secondary">{snapshot.source_rows.toLocaleString()} source rows · {snapshot.current_rows.toLocaleString()} current employee records · {snapshot.active_rows.toLocaleString()} active · {snapshot.unknown_status_rows.toLocaleString()} unknown statuses. {snapshot.population_contract === 'active_only_input' ? 'Input has no status column and is interpreted as an active-only roster.' : 'Population resolved from recorded statuses.'}</p>}
+    </Surface>
 
     <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <MetricCard label="Data source" value={activeDataset ? `Dataset v${activeDataset.version}` : 'None'} detail={activeDataset ? `${activeDataset.row_count.toLocaleString()} rows · ${activeDataset.source_name}` : 'Add data first'} icon={Database} tone={activeDataset ? 'success' : 'neutral'} />
@@ -54,13 +63,13 @@ export default function TrustCenterPage() {
     </section>
 
     <div className="grid gap-6 lg:grid-cols-2">
-      <Surface padding="lg"><SectionHeader title="What PeopleOS can use now" description="Capabilities grounded in the active lifecycle state." /><div className="mt-5 space-y-2"><TrustRow label="Aggregate workforce analysis" state={activeDataset ? 'Available' : 'Unavailable'} tone={activeDataset ? 'success' : 'warning'} /><TrustRow label="Evidence-backed investigations" state={activeDataset ? 'Available' : 'Unavailable'} tone={activeDataset ? 'success' : 'warning'} /><TrustRow label="Predictive risk analysis" state={activeModel ? 'Model active' : 'Not active'} tone={activeModel ? 'success' : 'neutral'} /><TrustRow label="Investigation history" state={`${workspace?.sessions.length ?? 0} tracked`} tone="info" /></div></Surface>
+      <Surface padding="lg"><SectionHeader title="What PeopleOS can use now" description="Capabilities grounded in the active lifecycle state." /><div className="mt-5 space-y-2"><TrustRow label="Aggregate workforce analysis" state={evidenceReady ? 'Available' : 'Unavailable'} tone={evidenceReady ? 'success' : 'warning'} /><TrustRow label="Evidence-backed investigations" state={evidenceReady ? 'Available' : 'Unavailable'} tone={evidenceReady ? 'success' : 'warning'} /><TrustRow label="Predictive risk analysis" state={activeModel ? 'Experimental model active' : 'Not active'} tone={activeModel ? 'info' : 'neutral'} /><TrustRow label="Investigation history" state={`${workspace?.sessions.length ?? 0} tracked`} tone="info" /></div></Surface>
       <Surface padding="lg"><SectionHeader title="Fitness checks" description="Deterministic lifecycle checks, not AI judgement." /><div className="mt-5 space-y-2">{fitness ? Object.entries(fitness.checks).map(([key, passed]) => { const modelCheck = key.includes('model_') && !activeModel; return <TrustRow key={key} label={key.replaceAll('_', ' ')} state={modelCheck ? 'Not applicable' : passed ? 'Pass' : 'Attention'} tone={modelCheck ? 'neutral' : passed ? 'success' : 'warning'} /> }) : <EmptyState title="No fitness result available" />}</div></Surface>
     </div>
 
     <Surface padding="lg">
-      <button type="button" onClick={() => setAdvanced((value) => !value)} className="flex w-full items-center justify-between gap-4 text-left"><div><div className="font-semibold">Advanced governance & recovery</div><div className="mt-1 text-sm text-text-secondary">Lifecycle identifiers, bounded recovery and governed-only actions.</div></div><span className="text-xs font-semibold text-accent">{advanced ? 'Hide' : 'Show'}</span></button>
-      {advanced && <div className="mt-6 grid gap-6 border-t border-border pt-6 lg:grid-cols-2"><div><div className="text-xs font-semibold uppercase tracking-wider text-success">May recover automatically</div><ul className="mt-3 space-y-2 text-sm leading-6 text-text-secondary">{health?.autonomous_recovery_envelope?.map((item) => <li key={item}>• {item}</li>)}</ul></div><div><div className="text-xs font-semibold uppercase tracking-wider text-warning">Requires governed action</div><ul className="mt-3 space-y-2 text-sm leading-6 text-text-secondary">{health?.governed_only?.map((item) => <li key={item}>• {item}</li>)}</ul></div><div className="lg:col-span-2 rounded-2xl bg-background-secondary p-4 font-mono text-xs leading-6 text-text-muted">Active dataset: {activeDataset?.dataset_id ?? 'none'}<br />Active model: {activeModel?.model_id ?? 'none'}<br />Workspace: {workspace?.workspace_id ?? 'local'}</div></div>}
+      <button type="button" onClick={() => setAdvanced((value) => !value)} aria-expanded={advanced} aria-controls="governance-details" className="flex w-full items-center justify-between gap-4 text-left"><div><div className="font-semibold">Advanced governance & recovery</div><div className="mt-1 text-sm text-text-secondary">Lifecycle identifiers, bounded recovery and governed-only actions.</div></div><span className="text-xs font-semibold text-accent">{advanced ? 'Hide' : 'Show'}</span></button>
+      {advanced && <div id="governance-details" className="mt-6 grid gap-6 border-t border-border pt-6 lg:grid-cols-2"><div><div className="text-xs font-semibold uppercase tracking-wider text-success">May recover automatically</div><ul className="mt-3 space-y-2 text-sm leading-6 text-text-secondary">{health?.autonomous_recovery_envelope?.map((item) => <li key={item}>• {item}</li>)}</ul></div><div><div className="text-xs font-semibold uppercase tracking-wider text-warning">Requires governed action</div><ul className="mt-3 space-y-2 text-sm leading-6 text-text-secondary">{health?.governed_only?.map((item) => <li key={item}>• {item}</li>)}</ul></div><div className="lg:col-span-2 rounded-2xl bg-background-secondary p-4 font-mono text-xs leading-6 text-text-muted">Active dataset: {activeDataset?.dataset_id ?? 'none'}<br />Active model: {activeModel?.model_id ?? 'none'}<br />Workspace: {workspace?.workspace_id ?? 'local'}</div></div>}
     </Surface>
 
     <StateSummary title="Consequential employment actions remain outside agent autonomy" description="PeopleOS may analyse and explain. It does not terminate, demote, discipline or change pay." tone="success" />

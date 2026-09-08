@@ -259,7 +259,12 @@ class Database:
 
     def get_all_employees(self) -> pd.DataFrame:
         """
-        Retrieve all active employees as a DataFrame.
+        Retrieve all employee records as a DataFrame.
+
+        Terminated and soft-deleted rows are intentionally retained so
+        historical analytics and supervised outcomes remain available. Use
+        the ``is_active`` column (or ``active_population``) for current-only
+        analysis.
 
         Returns:
             DataFrame with all employee data in the expected format.
@@ -332,7 +337,8 @@ class Database:
         Insert or update employees from a DataFrame.
 
         Uses auto-update strategy: new data overwrites existing for same EmployeeID.
-        Creates historical snapshots before updating.
+        Records each successfully written state at its supplied snapshot date
+        (or upload time), including the latest state.
 
         Args:
             df: DataFrame with employee data (must have EmployeeID column).
@@ -403,13 +409,26 @@ class Database:
             upload_id = cursor.lastrowid
 
             for _, row in df.iterrows():
+                emp_id = None
+                cursor.execute('SAVEPOINT employee_write')
                 try:
                     raw_emp_id = row.get('EmployeeID')
                     # Handle None, NaN, and empty string
                     if pd.isna(raw_emp_id) or raw_emp_id == '' or raw_emp_id is None:
+                        cursor.execute('RELEASE SAVEPOINT employee_write')
                         skipped += 1
                         continue
                     emp_id = str(raw_emp_id)
+
+                    snapshot_date = row.get('SnapshotDate')
+                    if pd.isna(snapshot_date):
+                        snapshot_date = None
+                    else:
+                        # SQLite cannot bind pandas Timestamp objects. Use one
+                        # UTC representation so timestamp sorting is meaningful.
+                        snapshot_date = pd.to_datetime(
+                            snapshot_date, errors='raise', utc=True
+                        ).strftime('%Y-%m-%d %H:%M:%S.%f')
 
                     # Check if employee exists
                     cursor.execute(
@@ -426,15 +445,6 @@ class Database:
                         data['attrition'] = None
 
                     if existing:
-                        # Extract snapshot date if provided in row
-                        snapshot_date = row.get('SnapshotDate')
-                        if pd.isna(snapshot_date):
-                            snapshot_date = None
-
-                        # Create snapshot before updating (if history enabled)
-                        if self.keep_history:
-                            self._create_snapshot(cursor, emp_id, upload_id, snapshot_date)
-
                         # Update existing employee
                         update_fields = [f"{col} = ?" for col in data.keys() if col != 'employee_id']
                         update_sql = f"""
@@ -455,7 +465,6 @@ class Database:
                         ]
                         
                         cursor.execute(update_sql, update_params)
-                        updated += 1
                     else:
                         # Insert new employee
                         cols = list(data.keys())
@@ -474,18 +483,20 @@ class Database:
                         ]
                         
                         cursor.execute(insert_sql, insert_params)
+
+                    # Store the state observed by this upload, never the prior
+                    # state labelled with the incoming observation's date.
+                    if self.keep_history:
+                        self._create_snapshot(cursor, emp_id, upload_id, snapshot_date)
+                    cursor.execute('RELEASE SAVEPOINT employee_write')
+                    if existing:
+                        updated += 1
+                    else:
                         added += 1
 
-                        # Extract snapshot date if provided in row
-                        snapshot_date = row.get('SnapshotDate')
-                        if pd.isna(snapshot_date):
-                            snapshot_date = None
-
-                        # Create initial snapshot for new employee
-                        if self.keep_history:
-                            self._create_snapshot(cursor, emp_id, upload_id, snapshot_date)
-
                 except Exception as e:
+                    cursor.execute('ROLLBACK TO SAVEPOINT employee_write')
+                    cursor.execute('RELEASE SAVEPOINT employee_write')
                     logger.warning(f"Error processing employee {emp_id}: {e}")
                     skipped += 1
 
@@ -558,9 +569,22 @@ class Database:
                     attrition as Attrition
                 FROM employee_snapshots
                 WHERE employee_id = ?
-                ORDER BY snapshot_date ASC
+                ORDER BY snapshot_date ASC, snapshot_id ASC
             """
             return pd.read_sql_query(query, conn, params=(employee_id,))
+
+    def get_salary_progression(self, employee_id: str) -> pd.DataFrame:
+        """Return dated salary observations for one employee.
+
+        This is a projection of the immutable snapshot history; it does not
+        estimate or interpolate compensation between uploads.
+        """
+        history = self.get_employee_history(employee_id)
+        if history.empty:
+            return pd.DataFrame(columns=['snapshot_date', 'salary'])
+        return history.loc[:, ['snapshot_date', 'Salary']].rename(
+            columns={'Salary': 'salary'}
+        )
 
     def get_historical_snapshots(self, start_date: str) -> pd.DataFrame:
         """
@@ -589,7 +613,7 @@ class Database:
                     interview_score as InterviewScore
                 FROM employee_snapshots
                 WHERE snapshot_date >= ?
-                ORDER BY snapshot_date ASC
+                ORDER BY snapshot_date ASC, snapshot_id ASC
             """
             return pd.read_sql_query(query, conn, params=(start_date,))
 

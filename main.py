@@ -234,7 +234,7 @@ def run_analytics(df: pd.DataFrame) -> dict:
         'headcount': engine.get_headcount(),
         'turnover_rate': engine.get_turnover_rate(),
         'department_count': df['Dept'].nunique() if 'Dept' in df.columns else 0,
-        'tenure_mean': df['Tenure'].mean() if 'Tenure' in df.columns else None,
+        'tenure_mean': engine.get_summary_statistics().get('tenure_mean'),
         'dept_stats': engine.get_department_aggregates(),
         'tenure_distribution': engine.get_tenure_distribution(),
         'age_distribution': engine.get_age_distribution(),

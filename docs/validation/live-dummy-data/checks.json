@@ -1,0 +1,739 @@
+{
+  "commit": "650c9f9f9d852333971a17daef15664e67a78525",
+  "checks": [
+    {
+      "name": "workforce-a HTTP status",
+      "actual": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "name": "summary-a HTTP status",
+      "actual": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "name": "A summary record_count",
+      "actual": 120,
+      "expected": 120,
+      "passed": true
+    },
+    {
+      "name": "A summary active_count",
+      "actual": 80,
+      "expected": 80,
+      "passed": true
+    },
+    {
+      "name": "A summary attrition_count",
+      "actual": 20,
+      "expected": 20,
+      "passed": true
+    },
+    {
+      "name": "A summary observed_attrition_share",
+      "actual": 0.2,
+      "expected": 0.2,
+      "passed": true
+    },
+    {
+      "name": "A summary salary_mean",
+      "actual": 75000.0,
+      "expected": 75000,
+      "passed": true
+    },
+    {
+      "name": "A summary salary_median",
+      "actual": 75000.0,
+      "expected": 75000,
+      "passed": true
+    },
+    {
+      "name": "A summary tenure_mean",
+      "actual": 2.0,
+      "expected": 2,
+      "passed": true
+    },
+    {
+      "name": "A summary lastrating_mean",
+      "actual": 4.0,
+      "expected": 4,
+      "passed": true
+    },
+    {
+      "name": "A summary department_count",
+      "actual": 3,
+      "expected": 3,
+      "passed": true
+    },
+    {
+      "name": "A response dataset",
+      "actual": "ds_72cf619ca4774ad4816da167f8855986",
+      "expected": "ds_72cf619ca4774ad4816da167f8855986",
+      "passed": true
+    },
+    {
+      "name": "status-a HTTP status",
+      "actual": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "name": "A snapshot source_rows",
+      "actual": 240,
+      "expected": 240,
+      "passed": true
+    },
+    {
+      "name": "A snapshot current_rows",
+      "actual": 120,
+      "expected": 120,
+      "passed": true
+    },
+    {
+      "name": "A snapshot active_rows",
+      "actual": 80,
+      "expected": 80,
+      "passed": true
+    },
+    {
+      "name": "A snapshot unknown_status_rows",
+      "actual": 20,
+      "expected": 20,
+      "passed": true
+    },
+    {
+      "name": "Untrained model is unavailable",
+      "actual": false,
+      "expected": false,
+      "passed": true
+    },
+    {
+      "name": "compensation-a HTTP status",
+      "actual": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "name": "A compensation total_payroll",
+      "actual": 6000000.0,
+      "expected": 6000000,
+      "passed": true
+    },
+    {
+      "name": "A compensation avg_salary",
+      "actual": 75000.0,
+      "expected": 75000,
+      "passed": true
+    },
+    {
+      "name": "A compensation median_salary",
+      "actual": 75000.0,
+      "expected": 75000,
+      "passed": true
+    },
+    {
+      "name": "A compensation headcount",
+      "actual": 80,
+      "expected": 80,
+      "passed": true
+    },
+    {
+      "name": "departments-a HTTP status",
+      "actual": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "name": "Department groups reconcile",
+      "actual": 80,
+      "expected": 80,
+      "passed": true
+    },
+    {
+      "name": "Leading-zero department labels survive",
+      "actual": [
+        "001",
+        "002",
+        "Unknown"
+      ],
+      "expected": [
+        "001",
+        "002",
+        "Unknown"
+      ],
+      "passed": true
+    },
+    {
+      "name": "Department salary dispersion remains measured",
+      "actual": 15297.058540778355,
+      "expected": 15297.058540778355,
+      "passed": true
+    },
+    {
+      "name": "team-a HTTP status",
+      "actual": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "name": "Team groups reconcile",
+      "actual": 80,
+      "expected": 80,
+      "passed": true
+    },
+    {
+      "name": "Unknown team retained",
+      "actual": 26,
+      "expected": 26,
+      "passed": true
+    },
+    {
+      "name": "survey-upload HTTP status",
+      "actual": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "name": "enps-a HTTP status",
+      "actual": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "name": "eNPS (30 promoters - 20 detractors) / 60",
+      "actual": 16.7,
+      "expected": 16.7,
+      "passed": true
+    },
+    {
+      "name": "eNPS valid response count",
+      "actual": 60,
+      "expected": 60,
+      "passed": true
+    },
+    {
+      "name": "sentiment-a HTTP status",
+      "actual": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "name": "Survey coverage input_rows",
+      "actual": 63,
+      "expected": 63,
+      "passed": true
+    },
+    {
+      "name": "Survey coverage matched_rows",
+      "actual": 61,
+      "expected": 61,
+      "passed": true
+    },
+    {
+      "name": "Survey coverage unmatched_rows",
+      "actual": 1,
+      "expected": 1,
+      "passed": true
+    },
+    {
+      "name": "Survey coverage missing_employee_id_rows",
+      "actual": 1,
+      "expected": 1,
+      "passed": true
+    },
+    {
+      "name": "Survey coverage invalid_score_rows",
+      "actual": 1,
+      "expected": 1,
+      "passed": true
+    },
+    {
+      "name": "Survey coverage valid_score_rows",
+      "actual": 60,
+      "expected": 60,
+      "passed": true
+    },
+    {
+      "name": "scenario-a HTTP status",
+      "actual": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "name": "Six-month 10% raise on annual 6m payroll",
+      "actual": 300000.0,
+      "expected": 300000,
+      "passed": true
+    },
+    {
+      "name": "Scenario affected active population",
+      "actual": 80,
+      "expected": 80,
+      "passed": true
+    },
+    {
+      "name": "Scenario preserves Unknown department",
+      "actual": [
+        "001",
+        "002",
+        "Unknown"
+      ],
+      "expected": [
+        "001",
+        "002",
+        "Unknown"
+      ],
+      "passed": true
+    },
+    {
+      "name": "quality-a HTTP status",
+      "actual": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "name": "experience-a HTTP status",
+      "actual": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "name": "fairness-a HTTP status",
+      "actual": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "name": "survival-a HTTP status",
+      "actual": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "name": "structural-a HTTP status",
+      "actual": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "name": "succession-a HTTP status",
+      "actual": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "name": "geo-a HTTP status",
+      "actual": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "name": "network-a HTTP status",
+      "actual": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "name": "model-lab-a HTTP status",
+      "actual": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "name": "search-a HTTP status",
+      "actual": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "name": "forecast-a HTTP status",
+      "actual": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "name": "Experience cannot infer a score without surveys",
+      "actual": null,
+      "expected": null,
+      "passed": true
+    },
+    {
+      "name": "Female observed retained share",
+      "actual": 0.8,
+      "expected": 0.8,
+      "passed": true
+    },
+    {
+      "name": "Female favorable outcome ratio",
+      "actual": 1.0,
+      "expected": 1,
+      "passed": true
+    },
+    {
+      "name": "Male observed retained share",
+      "actual": 0.8,
+      "expected": 0.8,
+      "passed": true
+    },
+    {
+      "name": "Male favorable outcome ratio",
+      "actual": 1.0,
+      "expected": 1,
+      "passed": true
+    },
+    {
+      "name": "KM survival after 20 events among 100 known outcomes",
+      "actual": 0.8,
+      "expected": 0.8,
+      "passed": true
+    },
+    {
+      "name": "KM restricted mean through 24 months",
+      "actual": 24.0,
+      "expected": 24,
+      "passed": true
+    },
+    {
+      "name": "KM does not extrapolate unsupported 36-month survival",
+      "actual": null,
+      "expected": null,
+      "passed": true
+    },
+    {
+      "name": "Recorded manager has 79 active direct reports",
+      "actual": 79,
+      "expected": 79,
+      "passed": true
+    },
+    {
+      "name": "Succession department totals reconcile",
+      "actual": 80,
+      "expected": 80,
+      "passed": true
+    },
+    {
+      "name": "Missing readiness remains unassessed",
+      "actual": 80,
+      "expected": 80,
+      "passed": true
+    },
+    {
+      "name": "Missing readiness has no bench score",
+      "actual": true,
+      "expected": true,
+      "passed": true
+    },
+    {
+      "name": "City does not invent country mapping",
+      "actual": 80,
+      "expected": 80,
+      "passed": true
+    },
+    {
+      "name": "Reporting lines cannot invent collaboration",
+      "actual": false,
+      "expected": false,
+      "passed": true
+    },
+    {
+      "name": "No prospective model metrics invented",
+      "actual": null,
+      "expected": null,
+      "passed": true
+    },
+    {
+      "name": "Two annual snapshots cannot invent monthly forecasts",
+      "actual": false,
+      "expected": false,
+      "passed": true
+    },
+    {
+      "name": "No embeddings means unavailable search",
+      "actual": false,
+      "expected": false,
+      "passed": true
+    },
+    {
+      "name": "workforce-b HTTP status",
+      "actual": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "name": "summary-b HTTP status",
+      "actual": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "name": "status-b HTTP status",
+      "actual": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "name": "departments-b HTTP status",
+      "actual": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "name": "Unknown outcomes do not become active",
+      "actual": 0,
+      "expected": 0,
+      "passed": true
+    },
+    {
+      "name": "Unknown attrition stays null",
+      "actual": null,
+      "expected": null,
+      "passed": true
+    },
+    {
+      "name": "No active salary stays null",
+      "actual": null,
+      "expected": null,
+      "passed": true
+    },
+    {
+      "name": "quality-b HTTP status",
+      "actual": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "name": "Sparse source ratings cannot create scores",
+      "actual": true,
+      "expected": true,
+      "passed": true
+    },
+    {
+      "name": "stale-scenario HTTP status",
+      "actual": 404,
+      "expected": 404,
+      "passed": true
+    },
+    {
+      "name": "sentiment-b HTTP status",
+      "actual": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "name": "Dataset switch clears survey evidence",
+      "actual": false,
+      "expected": false,
+      "passed": true
+    },
+    {
+      "name": "activate-a HTTP status",
+      "actual": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "name": "summary-restored HTTP status",
+      "actual": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "name": "A -> B -> A restores original outputs",
+      "actual": {
+        "headcount": 80,
+        "record_count": 120,
+        "observed_attrition_share": 0.2,
+        "turnover_rate": 0.2,
+        "turnover_rate_semantics": "observed_attrition_share_not_period_turnover",
+        "department_count": 3,
+        "salary_mean": 75000.0,
+        "salary_median": 75000.0,
+        "tenure_mean": 2.0,
+        "tenure_median": 2.0,
+        "age_mean": 30.0,
+        "lastrating_mean": 4.0,
+        "attrition_count": 20,
+        "active_count": 80,
+        "takeaways": [
+          "Observed attrition share in the current outcome population is 20.0%; this is not a period turnover rate."
+        ],
+        "insights": {
+          "attrition_semantics": "Observed snapshot outcome share; period turnover requires a defined period and at-risk denominator."
+        }
+      },
+      "expected": {
+        "headcount": 80,
+        "record_count": 120,
+        "observed_attrition_share": 0.2,
+        "turnover_rate": 0.2,
+        "turnover_rate_semantics": "observed_attrition_share_not_period_turnover",
+        "department_count": 3,
+        "salary_mean": 75000.0,
+        "salary_median": 75000.0,
+        "tenure_mean": 2.0,
+        "tenure_median": 2.0,
+        "age_mean": 30.0,
+        "lastrating_mean": 4.0,
+        "attrition_count": 20,
+        "active_count": 80,
+        "takeaways": [
+          "Observed attrition share in the current outcome population is 20.0%; this is not a period turnover rate."
+        ],
+        "insights": {
+          "attrition_semantics": "Observed snapshot outcome share; period turnover requires a defined period and at-risk denominator."
+        }
+      },
+      "passed": true
+    },
+    {
+      "name": "invalid-duplicate HTTP status",
+      "actual": 400,
+      "expected": 400,
+      "passed": true
+    },
+    {
+      "name": "summary-after-invalid HTTP status",
+      "actual": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "name": "Rejected upload leaves current output intact",
+      "actual": {
+        "headcount": 80,
+        "record_count": 120,
+        "observed_attrition_share": 0.2,
+        "turnover_rate": 0.2,
+        "turnover_rate_semantics": "observed_attrition_share_not_period_turnover",
+        "department_count": 3,
+        "salary_mean": 75000.0,
+        "salary_median": 75000.0,
+        "tenure_mean": 2.0,
+        "tenure_median": 2.0,
+        "age_mean": 30.0,
+        "lastrating_mean": 4.0,
+        "attrition_count": 20,
+        "active_count": 80,
+        "takeaways": [
+          "Observed attrition share in the current outcome population is 20.0%; this is not a period turnover rate."
+        ],
+        "insights": {
+          "attrition_semantics": "Observed snapshot outcome share; period turnover requires a defined period and at-risk denominator."
+        }
+      },
+      "expected": {
+        "headcount": 80,
+        "record_count": 120,
+        "observed_attrition_share": 0.2,
+        "turnover_rate": 0.2,
+        "turnover_rate_semantics": "observed_attrition_share_not_period_turnover",
+        "department_count": 3,
+        "salary_mean": 75000.0,
+        "salary_median": 75000.0,
+        "tenure_mean": 2.0,
+        "tenure_median": 2.0,
+        "age_mean": 30.0,
+        "lastrating_mean": 4.0,
+        "attrition_count": 20,
+        "active_count": 80,
+        "takeaways": [
+          "Observed attrition share in the current outcome population is 20.0%; this is not a period turnover rate."
+        ],
+        "insights": {
+          "attrition_semantics": "Observed snapshot outcome share; period turnover requires a defined period and at-risk denominator."
+        }
+      },
+      "passed": true
+    },
+    {
+      "name": "restart-load HTTP status",
+      "actual": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "name": "summary-restart HTTP status",
+      "actual": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "name": "Fresh-process output matches pre-restart",
+      "actual": {
+        "headcount": 80,
+        "record_count": 120,
+        "observed_attrition_share": 0.2,
+        "turnover_rate": 0.2,
+        "turnover_rate_semantics": "observed_attrition_share_not_period_turnover",
+        "department_count": 3,
+        "salary_mean": 75000.0,
+        "salary_median": 75000.0,
+        "tenure_mean": 2.0,
+        "tenure_median": 2.0,
+        "age_mean": 30.0,
+        "lastrating_mean": 4.0,
+        "attrition_count": 20,
+        "active_count": 80,
+        "takeaways": [
+          "Observed attrition share in the current outcome population is 20.0%; this is not a period turnover rate."
+        ],
+        "insights": {
+          "attrition_semantics": "Observed snapshot outcome share; period turnover requires a defined period and at-risk denominator."
+        }
+      },
+      "expected": {
+        "headcount": 80,
+        "record_count": 120,
+        "observed_attrition_share": 0.2,
+        "turnover_rate": 0.2,
+        "turnover_rate_semantics": "observed_attrition_share_not_period_turnover",
+        "department_count": 3,
+        "salary_mean": 75000.0,
+        "salary_median": 75000.0,
+        "tenure_mean": 2.0,
+        "tenure_median": 2.0,
+        "age_mean": 30.0,
+        "lastrating_mean": 4.0,
+        "attrition_count": 20,
+        "active_count": 80,
+        "takeaways": [
+          "Observed attrition share in the current outcome population is 20.0%; this is not a period turnover rate."
+        ],
+        "insights": {
+          "attrition_semantics": "Observed snapshot outcome share; period turnover requires a defined period and at-risk denominator."
+        }
+      },
+      "passed": true
+    },
+    {
+      "name": "status-restart HTTP status",
+      "actual": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "name": "Fresh-process canonical history preserved",
+      "actual": 240,
+      "expected": 240,
+      "passed": true
+    }
+  ],
+  "source_sha256": {
+    "src/analytics_engine.py": "7b60433cb8700961b62941b817940578c5a9a2283b53f144a793ec872bff1119",
+    "src/scenario_engine.py": "15b41a8c079f94168060c9e634f5b45f794b03473f26ea9302ee528ed5922a22",
+    "src/succession_engine.py": "29d40ef495b036475540182f0f1e1b38195ede2cdf37dcae8e9c3b3e5bb6b83b",
+    "api/routes/sentiment.py": "0e3bd773f6aaf569dd7200d0c2a1f6ad65cc220b3f8b5ec96d8159023a3e602d",
+    "scripts/live_dummy_acceptance.py": "b2b5e62b674aa833471c4dccf13239a3aff1ec7b5b87ea393aef06dd5f666323"
+  },
+  "versions": {
+    "pydantic": "2.5.3",
+    "uvicorn": "0.34.3",
+    "pandas": "2.2.3",
+    "fastapi": "0.109.0"
+  },
+  "complete": true,
+  "passed": 96,
+  "failed": 0
+}

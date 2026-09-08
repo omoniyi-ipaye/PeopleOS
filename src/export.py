@@ -13,6 +13,12 @@ import pandas as pd
 
 from src.logger import get_logger
 
+def format_measurement(value, spec=''):
+    from src.serialization import json_safe
+    value = json_safe(value)
+    return format(value, spec) if isinstance(value, (int, float)) else 'Unavailable'
+
+
 logger = get_logger('export')
 
 
@@ -102,12 +108,12 @@ def export_risk_report(
             summary_data['Metric'].extend([
                 'Total Headcount',
                 'Number of Departments',
-                'Turnover Rate'
+                'Observed Attrition Share'
             ])
             summary_data['Value'].extend([
                 analytics_data.get('headcount', 'N/A'),
                 analytics_data.get('department_count', 'N/A'),
-                f"{analytics_data.get('turnover_rate', 0):.1%}" if analytics_data.get('turnover_rate') else 'N/A'
+                format_measurement(analytics_data.get('observed_attrition_share', analytics_data.get('turnover_rate')), '.1%')
             ])
 
         if ml_data and ml_data.get('metrics'):
@@ -119,10 +125,10 @@ def export_risk_report(
                 'Model F1 Score'
             ])
             summary_data['Value'].extend([
-                f"{metrics.get('accuracy', 0):.1%}",
-                f"{metrics.get('precision', 0):.1%}",
-                f"{metrics.get('recall', 0):.1%}",
-                f"{metrics.get('f1', 0):.1%}"
+                format_measurement(metrics.get('accuracy'), '.1%'),
+                format_measurement(metrics.get('precision'), '.1%'),
+                format_measurement(metrics.get('recall'), '.1%'),
+                format_measurement(metrics.get('f1'), '.1%')
             ])
 
         if ml_data and ml_data.get('risk_distribution'):
@@ -259,8 +265,8 @@ def export_executive_briefing_pdf(
     
     metric_items = [
         ('Headcount', metrics.get('headcount', 'N/A')),
-        ('Avg Tenure', f"{metrics.get('tenure_mean', 0):.1f} yrs"),
-        ('Avg Rating', f"{metrics.get('lastrating_mean', 0):.1f}"),
+        ('Avg Tenure', format_measurement(metrics.get('tenure_mean'), ".1f") + " yrs"),
+        ('Avg Rating', format_measurement(metrics.get('lastrating_mean'), ".1f")),
     ]
     for label, value in metric_items:
         pdf.cell(60, 6, f'{label}: {value}')
@@ -288,7 +294,7 @@ def export_executive_briefing_pdf(
             if risk:
                 pdf.multi_cell(0, 6, f'{i}. {risk}')
     else:
-        pdf.multi_cell(0, 6, 'No risks identified.')
+        pdf.multi_cell(0, 6, 'No risk evidence supplied.')
     pdf.ln(5)
 
     # Strategic Opportunities
@@ -303,7 +309,7 @@ def export_executive_briefing_pdf(
             if opp:
                 pdf.multi_cell(0, 6, f'{i}. {opp}')
     else:
-        pdf.multi_cell(0, 6, 'No opportunities identified.')
+        pdf.multi_cell(0, 6, 'No opportunity evidence supplied.')
     pdf.ln(5)
 
     # Recommended Actions
@@ -320,7 +326,7 @@ def export_executive_briefing_pdf(
                 priority = priority_labels[i-1] if i <= 3 else 'ACTION'
                 pdf.multi_cell(0, 6, f'[{priority}] {action}')
     else:
-        pdf.multi_cell(0, 6, 'No actions identified.')
+        pdf.multi_cell(0, 6, 'No actions supplied.')
 
     # Output to bytes
     buffer = io.BytesIO()

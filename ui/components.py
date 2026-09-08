@@ -8,6 +8,7 @@ tables, and charts.
 from typing import Any, Optional
 
 import pandas as pd
+from src.export import format_measurement
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
@@ -782,7 +783,7 @@ def render_salary_distribution_chart(df: pd.DataFrame, title: str = "Salary Dist
 
 def render_pay_equity_scorecard(equity_df: pd.DataFrame) -> None:
     """
-    Render pay equity scorecard.
+    Render salary dispersion scorecard.
 
     Args:
         equity_df: DataFrame with Dept, EquityScore, Status columns.
@@ -795,7 +796,7 @@ def render_pay_equity_scorecard(equity_df: pd.DataFrame) -> None:
     for i, (_, row) in enumerate(equity_df.head(4).iterrows()):
         with cols[i]:
             status = row['Status']
-            color = '#28a745' if status == 'Good' else '#ffc107' if status == 'Fair' else '#dc3545'
+            color = '#94a3b8'  # Dispersion is descriptive, not a pass/fail equity decision.
 
             st.markdown(f"""
             <div style="
@@ -818,10 +819,9 @@ def render_pay_equity_scorecard(equity_df: pd.DataFrame) -> None:
     # Add insight explanation
     st.markdown("""
     <div style="background: rgba(34, 197, 94, 0.1); padding: 10px 15px; border-radius: 8px; margin: 10px 0 15px 0; border-left: 3px solid #22c55e;">
-        <span style="color: #22c55e; font-size: 11px; font-weight: 600;">💡 WHAT PAY EQUITY MEANS</span>
+        <span style="color: #22c55e; font-size: 11px; font-weight: 600;">SALARY DISPERSION</span>
         <p style="color: #e2e8f0; font-size: 13px; margin: 5px 0 0 0;">
-            Higher scores = more consistent pay within the department. Low scores may indicate pay gaps 
-            that warrant investigation (e.g., gender, tenure, or role-based disparities).
+            Higher scores describe more consistent observed pay within the department. This does not establish adjusted pay equity or explain differences in role mix.
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -1037,7 +1037,7 @@ def render_team_health_cards(health_df: pd.DataFrame) -> None:
                     {row['Dept']}
                 </div>
                 <div style="font-size: 1.8rem; color: {color}; font-weight: bold;">
-                    {row['HealthScore']:.0%}
+                    {format_measurement(row['HealthScore'], '.0%')}
                 </div>
                 <div style="font-size: 0.8rem; color: #888;">
                     {status} | {row['Headcount']} employees
@@ -1142,7 +1142,7 @@ def render_search_results(results: list[dict]) -> None:
             with c2:
                 score = res.get('similarity_score', 0)
                 st.progress(score)
-                st.caption(f"Match Similarity: {score:.1%}")
+                st.caption(f"Similarity index: {score:.3f} (not a probability)")
             st.divider()
 
 

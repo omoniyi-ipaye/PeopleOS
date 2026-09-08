@@ -16,6 +16,7 @@ class ENPSGroupResult(BaseModel):
 
 
 class ENPSResponse(BaseModel):
+    survey_coverage: Dict[str, Any] = Field(default_factory=dict)
     """eNPS calculation response."""
     available: bool
     reason: Optional[str] = None
@@ -29,6 +30,9 @@ class ENPSResponse(BaseModel):
     detractor_pct: Optional[float] = None
     interpretation: Optional[str] = None
     by_group: List[ENPSGroupResult] = []
+    minimum_group_size: Optional[int] = None
+    suppressed_group_count: int = 0
+    suppressed_response_count: int = 0
 
 
 class ENPSTrendPoint(BaseModel):
@@ -41,6 +45,7 @@ class ENPSTrendPoint(BaseModel):
 
 
 class ENPSTrendsResponse(BaseModel):
+    survey_coverage: Dict[str, Any] = Field(default_factory=dict)
     """eNPS trends over time response."""
     available: bool
     reason: Optional[str] = None
@@ -59,6 +64,7 @@ class ENPSDriver(BaseModel):
 
 
 class ENPSDriversResponse(BaseModel):
+    survey_coverage: Dict[str, Any] = Field(default_factory=dict)
     """eNPS drivers analysis response."""
     available: bool
     reason: Optional[str] = None
@@ -90,6 +96,7 @@ class OnboardingTrajectorySummary(BaseModel):
 
 
 class OnboardingTrajectoryResponse(BaseModel):
+    survey_coverage: Dict[str, Any] = Field(default_factory=dict)
     """Onboarding trajectory analysis response."""
     available: bool
     reason: Optional[str] = None
@@ -113,6 +120,7 @@ class SurveyTypeMetrics(BaseModel):
 
 
 class OnboardingHealthResponse(BaseModel):
+    survey_coverage: Dict[str, Any] = Field(default_factory=dict)
     """Onboarding health assessment response."""
     available: bool
     reason: Optional[str] = None
@@ -141,6 +149,7 @@ class EarlyWarningSummary(BaseModel):
 
 
 class EarlyWarningsResponse(BaseModel):
+    survey_coverage: Dict[str, Any] = Field(default_factory=dict)
     """Early warnings detection response."""
     available: bool
     warnings: List[EarlyWarning] = []
@@ -153,12 +162,14 @@ class SentimentSummary(BaseModel):
     enps_available: bool
     onboarding_available: bool
     overall_enps: Optional[float] = None
-    employees_at_risk: int
+    survey_flags_available: bool = False
+    employees_at_risk: Optional[int]
     total_warnings: int
     total_recommendations: int
 
 
 class SentimentAnalysisResponse(BaseModel):
+    survey_coverage: Dict[str, Any] = Field(default_factory=dict)
     """Complete sentiment analysis response."""
     enps: Dict[str, Any]
     enps_trends: Dict[str, Any]
@@ -172,6 +183,7 @@ class SentimentAnalysisResponse(BaseModel):
 
 
 class SurveyUploadResponse(BaseModel):
+    survey_coverage: Dict[str, Any] = Field(default_factory=dict)
     """Response after uploading survey data."""
     success: bool
     message: str

@@ -4,145 +4,88 @@ import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api-client'
 import { Card } from '@/components/ui/card'
 import { KPICard } from '@/components/dashboard/kpi-card'
-import { Target, Users, TrendingUp, AlertCircle, Info } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
+import { Target, Users, ClipboardCheck, AlertCircle } from 'lucide-react'
 import { NineBoxGrid } from '@/components/charts/nine-box-grid'
 
+interface BenchRow {
+    dept: string
+    ready_now: number
+    ready_soon: number
+    developing: number
+    assessed: number
+    unassessed: number
+    total: number
+}
+interface NineBoxRow { category: string; count: number; percentage: number }
+interface GapRow { dept: string; ready_now: number; ready_soon: number; recommendation: string }
+
 export function SuccessionTab() {
-    const { data: nineBoxData, isLoading: nineBoxLoading } = useQuery<any>({
+    const nineBox = useQuery({
         queryKey: ['succession', '9box', 'summary'],
-        queryFn: api.succession.get9BoxSummary as any,
+        queryFn: () => api.succession.get9BoxSummary() as Promise<NineBoxRow[]>,
     })
-
-    const { data: benchStrength, isLoading: benchLoading } = useQuery<any>({
+    const bench = useQuery({
         queryKey: ['succession', 'bench-strength'],
-        queryFn: api.succession.getBenchStrength as any,
+        queryFn: () => api.succession.getBenchStrength() as Promise<BenchRow[]>,
     })
-
-    const { data: gaps } = useQuery<any>({
+    const gaps = useQuery({
         queryKey: ['succession', 'gaps'],
-        queryFn: api.succession.getGaps as any,
+        queryFn: () => api.succession.getGaps() as Promise<GapRow[]>,
     })
 
-    const { data: highPotentials } = useQuery<any>({
-        queryKey: ['succession', 'high-potentials'],
-        queryFn: api.succession.getHighPotentials as any,
-    })
+    if (nineBox.isLoading || bench.isLoading || gaps.isLoading) {
+        return <p role="status">Loading recorded assessments…</p>
+    }
+    if (nineBox.isError || bench.isError || gaps.isError) {
+        return <p role="alert">Succession assessments are unavailable. Retry when the data is available.</p>
+    }
 
-    if (nineBoxLoading || benchLoading) return <div className="animate-pulse space-y-4">
-        <div className="h-24 bg-surface dark:bg-surface-dark rounded-xl" />
-        <div className="grid grid-cols-2 gap-4">
-            <div className="h-64 bg-surface dark:bg-surface-dark rounded-xl" />
-            <div className="h-64 bg-surface dark:bg-surface-dark rounded-xl" />
-        </div>
-    </div>
-
-    const readyNow = benchStrength?.reduce((acc: number, curr: any) => acc + curr.ready_now, 0) || 0
-    const avgBench = benchStrength?.reduce((acc: number, curr: any) => acc + curr.bench_strength, 0) / (benchStrength?.length || 1) || 0
+    const rows = bench.data ?? []
+    const assessed = rows.reduce((sum, row) => sum + row.assessed, 0)
+    const total = rows.reduce((sum, row) => sum + row.total, 0)
+    const readyNow = rows.reduce((sum, row) => sum + row.ready_now, 0)
+    // Combine assessment counts directly; do not average rounded department scores.
+    const points = rows.reduce((sum, row) => sum + row.ready_now + .7 * row.ready_soon +
+        .3 * row.developing + .1 * (row.assessed - row.ready_now - row.ready_soon - row.developing), 0)
 
     return (
         <div className="space-y-6">
-            {/* Metrics */}
+            <p className="text-sm text-text-secondary">
+                These summaries describe recorded talent-review assessments. Readiness requires a
+                SuccessionReadiness assessment; the matrix requires separate performance and potential
+                ratings on a 1–5 scale. Missing assessments remain unassessed. Role coverage and future
+                performance have not been established by these summaries.
+            </p>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <KPICard
-                    title="Promotion Ready"
-                    value={readyNow}
-                    icon={Target}
-                    subtitle="Succession candidates"
-                    variant="success"
-                    insight="Employees identified as capable of moving into more senior roles immediately."
-                />
-                <KPICard
-                    title="Bench Strength"
-                    value={`${(avgBench * 100).toFixed(0)}%`}
-                    icon={Users}
-                    subtitle="Org-wide avg"
-                    variant={avgBench < 0.3 ? 'danger' : avgBench < 0.6 ? 'warning' : 'success'}
-                    insight="A measure of how many roles have a qualified successor ready to step in."
-                />
-                <KPICard
-                    title="High Potentials"
-                    value={highPotentials?.length || 0}
-                    icon={TrendingUp}
-                    subtitle="Top tier talent"
-                    insight="Employees showing the strongest combination of high performance and career potential."
-                />
-                <KPICard
-                    title="Key Role Risks"
-                    value={gaps?.length || 0}
-                    icon={AlertCircle}
-                    subtitle="Roles without successors"
-                    variant={(gaps?.length || 0) > 0 ? 'danger' : 'default'}
-                    insight="Critical positions that currently lack a clear internal successor."
-                />
+                <KPICard title="Recorded Ready Now" value={assessed ? readyNow : 'Unassessed'} icon={Target}
+                    subtitle="Among assessed employees" insight="Count of recorded Ready Now assessments." />
+                <KPICard title="Assessment Index" value={assessed ? `${(points / assessed).toFixed(3)} / 1` : 'Unavailable'} icon={Users}
+                    subtitle="Weighted assessed records" insight="Average of Ready Now = 1, Ready 1–2 Years = .7, Developing = .3 and Early Career = .1. This is a descriptive index." />
+                <KPICard title="Assessment Coverage" value={total ? `${(assessed / total * 100).toFixed(1)}%` : 'Unavailable'} icon={ClipboardCheck}
+                    subtitle={`${assessed} assessed; ${total - assessed} unassessed`}
+                    insight="Share of active employees with a recognized recorded readiness assessment." />
+                <KPICard title="Departments for Review" value={assessed ? (gaps.data?.length ?? 0) : 'Unassessed'} icon={AlertCircle}
+                    subtitle="Based on available assessments" insight="Departments with assessed records but no Ready Now assessment, or an assessment index below .3. Missing assessments limit interpretation." />
             </div>
-
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* 9-Box Matrix */}
-                <Card title="Talent Calibration" subtitle="Performance vs Potential (Succession Matrix)">
-                    <div className="h-[400px]">
-                        <NineBoxGrid data={nineBoxData || []} />
-                    </div>
+                <Card title="Recorded Talent Assessments" subtitle="Performance and separately assessed potential">
+                    <NineBoxGrid data={nineBox.data ?? []} />
                 </Card>
-
-                {/* Critical Gaps Table */}
-                <Card title="Role Succession Risks" subtitle="Departments needing immediate successor planning">
+                <Card title="Department Assessment Review" subtitle="Review incomplete coverage before drawing conclusions">
                     <div className="space-y-4">
-                        {gaps?.map((gap: any) => (
-                            <div key={gap.dept} className="p-4 rounded-xl bg-surface-hover dark:bg-surface-dark-hover border border-border dark:border-border-dark">
-                                <div className="flex justify-between items-start mb-2">
-                                    <div className="font-bold text-text-primary dark:text-text-dark-primary">{gap.dept}</div>
-                                    <Badge variant={gap.gap_severity === 'Critical' ? 'danger' : 'warning'}>
-                                        {gap.gap_severity} Gap
-                                    </Badge>
-                                </div>
-                                <div className="text-xs text-text-secondary dark:text-text-dark-secondary mb-3">
-                                    Readiness: {gap.ready_now} Ready Now • {gap.ready_soon} Ready Soon
-                                </div>
-                                <div className="p-2 bg-accent/5 rounded-lg border border-accent/10 flex gap-2">
-                                    <Info className="w-4 h-4 text-accent shrink-0 mt-0.5" />
-                                    <p className="text-[10px] text-accent font-medium leading-normal">
-                                        {gap.recommendation}
-                                    </p>
-                                </div>
+                        {gaps.data?.map(gap => (
+                            <div key={gap.dept} className="p-4 rounded-xl border border-border dark:border-border-dark">
+                                <p className="font-bold">{gap.dept}</p>
+                                <p className="text-sm">Recorded: {gap.ready_now} Ready Now; {gap.ready_soon} Ready 1–2 Years</p>
+                                <p className="mt-2 text-sm text-text-secondary">{gap.recommendation}</p>
                             </div>
                         ))}
-                        {(gaps?.length === 0 || !gaps) && (
-                            <div className="h-64 flex items-center justify-center text-text-muted text-sm">
-                                No critical succession gaps detected
-                            </div>
-                        )}
+                        {!gaps.data?.length && <p className="text-sm text-text-muted">
+                            {assessed ? 'No departments meet the review rule among assessed records.' : 'No recorded readiness assessments are available.'}
+                        </p>}
                     </div>
                 </Card>
             </div>
-
-            {/* Identified Candidates */}
-            <Card title="Succession Candidates" subtitle="High-potential employees identified for future leadership roles">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {highPotentials?.map((hp: any) => (
-                        <div key={hp.employee_id} className="p-4 rounded-xl bg-surface-hover dark:bg-surface-dark-hover border border-border dark:border-border-dark flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center">
-                                    <Users className="w-5 h-5 text-accent" />
-                                </div>
-                                <div>
-                                    <div className="font-bold text-sm text-text-primary dark:text-text-dark-primary">{hp.employee_id}</div>
-                                    <div className="text-[10px] text-text-secondary dark:text-text-dark-secondary">{hp.dept}</div>
-                                </div>
-                            </div>
-                            <div className="text-right">
-                                <Badge variant="success" size="sm" className="mb-1">{hp.potential_level}</Badge>
-                                <div className="text-[10px] text-text-muted">Rating: {hp.last_rating}</div>
-                            </div>
-                        </div>
-                    ))}
-                    {(highPotentials?.length === 0 || !highPotentials) && (
-                        <div className="col-span-full h-32 flex items-center justify-center text-text-muted text-sm">
-                            No candidates identified yet
-                        </div>
-                    )}
-                </div>
-            </Card>
         </div>
     )
 }

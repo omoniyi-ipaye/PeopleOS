@@ -158,7 +158,8 @@ class TestExecuteMerge:
         result = merge_engine.execute_merge(sample_df, "test_upload.csv")
 
         assert result.added == 3
-        assert temp_db.get_employee_count() == 3
+        assert temp_db.get_employee_count() == 2  # Two active; one recorded departure.
+        assert len(temp_db.get_all_employees()) == 3
 
     def test_execute_merge_updates(self, merge_engine, temp_db, sample_df):
         """Test that execute_merge updates existing records."""

@@ -1,0 +1,666 @@
+{
+  "scope": "synthetic_and_public_mechanics_validation_not_enterprise_certification",
+  "versions": {
+    "python": "3.12.13",
+    "numpy": "1.26.4",
+    "pandas": "2.2.3",
+    "scikit-learn": "1.4.0",
+    "scipy": "1.17.0",
+    "lifelines": "0.30.3",
+    "xgboost": "2.0.3",
+    "lightgbm": "4.6.0"
+  },
+  "ibm": {
+    "source_url": "https://raw.githubusercontent.com/IBM/employee-attrition-aif360/13287d5f717dc978eda249aef4665e04c7cec8b0/data/emp_attrition.csv",
+    "source_commit": "13287d5f717dc978eda249aef4665e04c7cec8b0",
+    "sha256": "a5c31e38bd7fafc9bc333884eb181b06b41b8e5e488e8f7ccb27199fb3be7659",
+    "license": "ODbL database / DbCL contents; see upstream README",
+    "synthetic": true,
+    "rows": 1470,
+    "active_employees": 1233,
+    "annualized_payroll": 101097216.0,
+    "mapping": "EmployeeNumber\u2192EmployeeID; Department\u2192Dept; YearsAtCompany\u2192Tenure; PerformanceRating\u2192LastRating; JobRole\u2192JobTitle; MonthlyIncome\u00d712\u2192Salary; Yes/No\u21921/0",
+    "metrics": {
+      "accuracy": 0.8537414965986394,
+      "precision": 0.6666666666666666,
+      "recall": 0.1702127659574468,
+      "f1": 0.2711864406779661,
+      "roc_auc": 0.8036867947282281,
+      "average_precision": 0.4885996945571767,
+      "baseline_average_precision": 0.1598639455782313,
+      "brier_score": 0.10773037764375122,
+      "baseline_brier_score": 0.13431035679577952,
+      "brier_skill_score": 0.19789969877336766,
+      "calibration_error": 0.03721259813597362,
+      "calibration_bins": [
+        {
+          "count": 170,
+          "mean_probability": 0.04518159006393569,
+          "observed_share": 0.041176470588235294
+        },
+        {
+          "count": 53,
+          "mean_probability": 0.13858238481125743,
+          "observed_share": 0.18867924528301888
+        },
+        {
+          "count": 26,
+          "mean_probability": 0.24697648218044868,
+          "observed_share": 0.34615384615384615
+        },
+        {
+          "count": 21,
+          "mean_probability": 0.34964007706869216,
+          "observed_share": 0.42857142857142855
+        },
+        {
+          "count": 12,
+          "mean_probability": 0.45801496257384616,
+          "observed_share": 0.3333333333333333
+        },
+        {
+          "count": 2,
+          "mean_probability": 0.5360757410526276,
+          "observed_share": 0.5
+        },
+        {
+          "count": 3,
+          "mean_probability": 0.6246659358342489,
+          "observed_share": 0.6666666666666666
+        },
+        {
+          "count": 3,
+          "mean_probability": 0.7509950995445251,
+          "observed_share": 0.3333333333333333
+        },
+        {
+          "count": 2,
+          "mean_probability": 0.8453533947467804,
+          "observed_share": 1.0
+        },
+        {
+          "count": 2,
+          "mean_probability": 0.9441408216953278,
+          "observed_share": 1.0
+        }
+      ],
+      "calibration_method": "10_equal_width_bins_weighted_by_sample_count",
+      "test_class_counts": {
+        "0": 247,
+        "1": 47
+      },
+      "best_model": "xgboost",
+      "candidate_cv_average_precision": {
+        "random_forest": 0.5332421054981147,
+        "xgboost": 0.5869789164476497,
+        "lightgbm": 0.580436405626437
+      },
+      "selected_parameters": {
+        "model__learning_rate": 0.1,
+        "model__max_depth": 3,
+        "model__n_estimators": 100
+      },
+      "train_size": 1176,
+      "test_size": 294,
+      "preprocessing_fit_scope": "each_cv_training_fold_then_full_training_partition",
+      "cv_preprocessing_fold_local": true,
+      "holdout_untouched_by_fit": true,
+      "evaluation_semantics": "retrospective_employee_holdout_not_future_departure_validation",
+      "future_departure_validated": false,
+      "sampling_method": "original_rows_no_synthetic_interpolation_of_category_codes",
+      "random_seed": 42,
+      "reliability": "Retrospective only",
+      "validation_checks": {
+        "auc_present_and_valid": true,
+        "auc_at_least_minimum": true,
+        "brier_present_and_valid": true,
+        "brier_at_most_maximum": true,
+        "preprocessing_fit_on_training_only": true,
+        "cv_preprocessing_fold_local": true,
+        "brier_beats_training_prevalence_baseline": true,
+        "average_precision_beats_prevalence": true,
+        "weighted_calibration_error_at_most_015": true,
+        "holdout_at_least_50_and_10_per_class": true
+      },
+      "warnings": [
+        "Retrospective classification only: future departure accuracy has not been validated."
+      ],
+      "feature_count": 30,
+      "feature_importances": {
+        "Age": 0.036507248878479004,
+        "DailyRate": 0.02130599319934845,
+        "DistanceFromHome": 0.021760500967502594,
+        "Education": 0.0183341596275568,
+        "EnvironmentSatisfaction": 0.032841913402080536,
+        "HourlyRate": 0.01707172952592373,
+        "JobInvolvement": 0.025137366726994514,
+        "JobLevel": 0.058709681034088135,
+        "JobSatisfaction": 0.02769365720450878,
+        "MonthlyRate": 0.019702695310115814,
+        "NumCompaniesWorked": 0.03276630491018295,
+        "PercentSalaryHike": 0.016863126307725906,
+        "LastRating": 0.0,
+        "RelationshipSatisfaction": 0.020377445966005325,
+        "StockOptionLevel": 0.06279647350311279,
+        "TotalWorkingYears": 0.15258195996284485,
+        "TrainingTimesLastYear": 0.0174713097512722,
+        "WorkLifeBalance": 0.02798621356487274,
+        "Tenure": 0.0534701831638813,
+        "YearsInCurrentRole": 0.02284955233335495,
+        "YearsSinceLastPromotion": 0.024688582867383957,
+        "YearsWithCurrManager": 0.06208965554833412,
+        "Salary": 0.032611142843961716,
+        "BusinessTravel": 0.023810211569070816,
+        "Dept": 0.01903245411813259,
+        "EducationField": 0.01329572219401598,
+        "Gender": 0.014456321485340595,
+        "JobTitle": 0.03333147615194321,
+        "MaritalStatus": 0.03370503708720207,
+        "OverTime": 0.056751880794763565
+      }
+    },
+    "evaluation": {
+      "passed": true,
+      "checks": {
+        "auc_present_and_valid": true,
+        "auc_at_least_minimum": true,
+        "brier_present_and_valid": true,
+        "brier_at_most_maximum": true,
+        "preprocessing_fit_on_training_only": true,
+        "cv_preprocessing_fold_local": true,
+        "brier_beats_training_prevalence_baseline": true,
+        "average_precision_beats_prevalence": true,
+        "weighted_calibration_error_at_most_015": true,
+        "holdout_at_least_50_and_10_per_class": true
+      },
+      "thresholds": {
+        "min_auc": 0.6,
+        "max_brier": 0.3,
+        "max_weighted_ece": 0.15,
+        "min_test_size": 50,
+        "min_test_per_class": 10
+      },
+      "scope": "minimum_retrospective_gate_not_enterprise_or_future_prediction_certification",
+      "observed": {
+        "auc": 0.8036867947282281,
+        "brier_score": 0.10773037764375122,
+        "calibration_error": 0.03721259813597362
+      }
+    }
+  },
+  "random_label_controls": [
+    {
+      "label_permutation_seed": 7,
+      "metrics": {
+        "accuracy": 0.8401360544217688,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "roc_auc": 0.48832802136273584,
+        "average_precision": 0.18647965524159454,
+        "baseline_average_precision": 0.1598639455782313,
+        "brier_score": 0.14100685575384955,
+        "baseline_brier_score": 0.13431035679577952,
+        "brier_skill_score": -0.04985839601522413,
+        "calibration_error": 0.06111923160449582,
+        "calibration_bins": [
+          {
+            "count": 80,
+            "mean_probability": 0.07198546272702515,
+            "observed_share": 0.175
+          },
+          {
+            "count": 147,
+            "mean_probability": 0.14554241983866206,
+            "observed_share": 0.1564625850340136
+          },
+          {
+            "count": 50,
+            "mean_probability": 0.23379772216081618,
+            "observed_share": 0.14
+          },
+          {
+            "count": 12,
+            "mean_probability": 0.34556856006383896,
+            "observed_share": 0.16666666666666666
+          },
+          {
+            "count": 5,
+            "mean_probability": 0.4571835994720459,
+            "observed_share": 0.2
+          }
+        ],
+        "calibration_method": "10_equal_width_bins_weighted_by_sample_count",
+        "test_class_counts": {
+          "0": 247,
+          "1": 47
+        },
+        "best_model": "xgboost",
+        "candidate_cv_average_precision": {
+          "random_forest": 0.1514757597276065,
+          "xgboost": 0.15972187078717684,
+          "lightgbm": 0.15927545310801097
+        },
+        "selected_parameters": {
+          "model__learning_rate": 0.1,
+          "model__max_depth": 3,
+          "model__n_estimators": 100
+        },
+        "train_size": 1176,
+        "test_size": 294,
+        "preprocessing_fit_scope": "each_cv_training_fold_then_full_training_partition",
+        "cv_preprocessing_fold_local": true,
+        "holdout_untouched_by_fit": true,
+        "evaluation_semantics": "retrospective_employee_holdout_not_future_departure_validation",
+        "future_departure_validated": false,
+        "sampling_method": "original_rows_no_synthetic_interpolation_of_category_codes",
+        "random_seed": 42,
+        "reliability": "Insufficient validation",
+        "validation_checks": {
+          "auc_present_and_valid": true,
+          "auc_at_least_minimum": false,
+          "brier_present_and_valid": true,
+          "brier_at_most_maximum": true,
+          "preprocessing_fit_on_training_only": true,
+          "cv_preprocessing_fold_local": true,
+          "brier_beats_training_prevalence_baseline": false,
+          "average_precision_beats_prevalence": true,
+          "weighted_calibration_error_at_most_015": true,
+          "holdout_at_least_50_and_10_per_class": true
+        },
+        "warnings": [
+          "Retrospective classification only: future departure accuracy has not been validated.",
+          "Model did not meet the minimum retrospective evaluation gate; activation is blocked."
+        ],
+        "feature_count": 30,
+        "feature_importances": {
+          "Age": 0.04067682474851608,
+          "DailyRate": 0.029714589938521385,
+          "DistanceFromHome": 0.02840960957109928,
+          "Education": 0.024640977382659912,
+          "EnvironmentSatisfaction": 0.027968158945441246,
+          "HourlyRate": 0.035099878907203674,
+          "JobInvolvement": 0.05067763850092888,
+          "JobLevel": 0.032310742884874344,
+          "JobSatisfaction": 0.03253735229372978,
+          "MonthlyRate": 0.030118398368358612,
+          "NumCompaniesWorked": 0.025273622944951057,
+          "PercentSalaryHike": 0.020375628024339676,
+          "LastRating": 0.0,
+          "RelationshipSatisfaction": 0.03628777712583542,
+          "StockOptionLevel": 0.026901820674538612,
+          "TotalWorkingYears": 0.03391505032777786,
+          "TrainingTimesLastYear": 0.028867658227682114,
+          "WorkLifeBalance": 0.03810243308544159,
+          "Tenure": 0.0374617725610733,
+          "YearsInCurrentRole": 0.04361249879002571,
+          "YearsSinceLastPromotion": 0.03753482550382614,
+          "YearsWithCurrManager": 0.024808596819639206,
+          "Salary": 0.027317650616168976,
+          "BusinessTravel": 0.06219002977013588,
+          "Dept": 0.033655427396297455,
+          "EducationField": 0.028598951175808907,
+          "Gender": 0.030226977542042732,
+          "JobTitle": 0.030453788116574287,
+          "MaritalStatus": 0.04684799909591675,
+          "OverTime": 0.05541336536407471
+        }
+      },
+      "evaluation": {
+        "passed": false,
+        "checks": {
+          "auc_present_and_valid": true,
+          "auc_at_least_minimum": false,
+          "brier_present_and_valid": true,
+          "brier_at_most_maximum": true,
+          "preprocessing_fit_on_training_only": true,
+          "cv_preprocessing_fold_local": true,
+          "brier_beats_training_prevalence_baseline": false,
+          "average_precision_beats_prevalence": true,
+          "weighted_calibration_error_at_most_015": true,
+          "holdout_at_least_50_and_10_per_class": true
+        },
+        "thresholds": {
+          "min_auc": 0.6,
+          "max_brier": 0.3,
+          "max_weighted_ece": 0.15,
+          "min_test_size": 50,
+          "min_test_per_class": 10
+        },
+        "scope": "minimum_retrospective_gate_not_enterprise_or_future_prediction_certification",
+        "observed": {
+          "auc": 0.48832802136273584,
+          "brier_score": 0.14100685575384955,
+          "calibration_error": 0.06111923160449582
+        }
+      }
+    },
+    {
+      "label_permutation_seed": 19,
+      "metrics": {
+        "accuracy": 0.8401360544217688,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "roc_auc": 0.48970626238263415,
+        "average_precision": 0.1813707492430977,
+        "baseline_average_precision": 0.1598639455782313,
+        "brier_score": 0.1375647739588603,
+        "baseline_brier_score": 0.13431035679577952,
+        "brier_skill_score": -0.024230574921553893,
+        "calibration_error": 0.037487822641827616,
+        "calibration_bins": [
+          {
+            "count": 42,
+            "mean_probability": 0.0783966915415866,
+            "observed_share": 0.19047619047619047
+          },
+          {
+            "count": 196,
+            "mean_probability": 0.14645739777811936,
+            "observed_share": 0.14795918367346939
+          },
+          {
+            "count": 48,
+            "mean_probability": 0.23090029011170068,
+            "observed_share": 0.14583333333333334
+          },
+          {
+            "count": 6,
+            "mean_probability": 0.3249488522609075,
+            "observed_share": 0.5
+          },
+          {
+            "count": 2,
+            "mean_probability": 0.4431050270795822,
+            "observed_share": 0.0
+          }
+        ],
+        "calibration_method": "10_equal_width_bins_weighted_by_sample_count",
+        "test_class_counts": {
+          "0": 247,
+          "1": 47
+        },
+        "best_model": "xgboost",
+        "candidate_cv_average_precision": {
+          "random_forest": 0.1898081805871715,
+          "xgboost": 0.2019213278105759,
+          "lightgbm": 0.195205159189444
+        },
+        "selected_parameters": {
+          "model__learning_rate": 0.05,
+          "model__max_depth": 3,
+          "model__n_estimators": 100
+        },
+        "train_size": 1176,
+        "test_size": 294,
+        "preprocessing_fit_scope": "each_cv_training_fold_then_full_training_partition",
+        "cv_preprocessing_fold_local": true,
+        "holdout_untouched_by_fit": true,
+        "evaluation_semantics": "retrospective_employee_holdout_not_future_departure_validation",
+        "future_departure_validated": false,
+        "sampling_method": "original_rows_no_synthetic_interpolation_of_category_codes",
+        "random_seed": 42,
+        "reliability": "Insufficient validation",
+        "validation_checks": {
+          "auc_present_and_valid": true,
+          "auc_at_least_minimum": false,
+          "brier_present_and_valid": true,
+          "brier_at_most_maximum": true,
+          "preprocessing_fit_on_training_only": true,
+          "cv_preprocessing_fold_local": true,
+          "brier_beats_training_prevalence_baseline": false,
+          "average_precision_beats_prevalence": true,
+          "weighted_calibration_error_at_most_015": true,
+          "holdout_at_least_50_and_10_per_class": true
+        },
+        "warnings": [
+          "Retrospective classification only: future departure accuracy has not been validated.",
+          "Model did not meet the minimum retrospective evaluation gate; activation is blocked."
+        ],
+        "feature_count": 30,
+        "feature_importances": {
+          "Age": 0.03310013562440872,
+          "DailyRate": 0.037760041654109955,
+          "DistanceFromHome": 0.03782256320118904,
+          "Education": 0.045806434005498886,
+          "EnvironmentSatisfaction": 0.0,
+          "HourlyRate": 0.038410596549510956,
+          "JobInvolvement": 0.056758154183626175,
+          "JobLevel": 0.020999038591980934,
+          "JobSatisfaction": 0.025555811822414398,
+          "MonthlyRate": 0.03960779309272766,
+          "NumCompaniesWorked": 0.0348072424530983,
+          "PercentSalaryHike": 0.023921290412545204,
+          "LastRating": 0.0,
+          "RelationshipSatisfaction": 0.06443359702825546,
+          "StockOptionLevel": 0.01865338906645775,
+          "TotalWorkingYears": 0.03959945961833,
+          "TrainingTimesLastYear": 0.0410890132188797,
+          "WorkLifeBalance": 0.03980407118797302,
+          "Tenure": 0.024422084912657738,
+          "YearsInCurrentRole": 0.025183767080307007,
+          "YearsSinceLastPromotion": 0.033132538199424744,
+          "YearsWithCurrManager": 0.05667304992675781,
+          "Salary": 0.03281642869114876,
+          "BusinessTravel": 0.029796099290251732,
+          "Dept": 0.038638293743133545,
+          "EducationField": 0.0303927231580019,
+          "Gender": 0.049185242503881454,
+          "JobTitle": 0.03339708596467972,
+          "MaritalStatus": 0.02274954877793789,
+          "OverTime": 0.025484493002295494
+        }
+      },
+      "evaluation": {
+        "passed": false,
+        "checks": {
+          "auc_present_and_valid": true,
+          "auc_at_least_minimum": false,
+          "brier_present_and_valid": true,
+          "brier_at_most_maximum": true,
+          "preprocessing_fit_on_training_only": true,
+          "cv_preprocessing_fold_local": true,
+          "brier_beats_training_prevalence_baseline": false,
+          "average_precision_beats_prevalence": true,
+          "weighted_calibration_error_at_most_015": true,
+          "holdout_at_least_50_and_10_per_class": true
+        },
+        "thresholds": {
+          "min_auc": 0.6,
+          "max_brier": 0.3,
+          "max_weighted_ece": 0.15,
+          "min_test_size": 50,
+          "min_test_per_class": 10
+        },
+        "scope": "minimum_retrospective_gate_not_enterprise_or_future_prediction_certification",
+        "observed": {
+          "auc": 0.48970626238263415,
+          "brier_score": 0.1375647739588603,
+          "calibration_error": 0.037487822641827616
+        }
+      }
+    },
+    {
+      "label_permutation_seed": 43,
+      "metrics": {
+        "accuracy": 0.8333333333333334,
+        "precision": 0.25,
+        "recall": 0.02127659574468085,
+        "f1": 0.0392156862745098,
+        "roc_auc": 0.45886811956240847,
+        "average_precision": 0.1651603124421261,
+        "baseline_average_precision": 0.1598639455782313,
+        "brier_score": 0.1446287787189125,
+        "baseline_brier_score": 0.13431035679577952,
+        "brier_skill_score": -0.0768252141480219,
+        "calibration_error": 0.08175745238961817,
+        "calibration_bins": [
+          {
+            "count": 85,
+            "mean_probability": 0.07519707031109754,
+            "observed_share": 0.1411764705882353
+          },
+          {
+            "count": 148,
+            "mean_probability": 0.13889186683337432,
+            "observed_share": 0.1891891891891892
+          },
+          {
+            "count": 43,
+            "mean_probability": 0.2398062244404194,
+            "observed_share": 0.09302325581395349
+          },
+          {
+            "count": 8,
+            "mean_probability": 0.3298185132443905,
+            "observed_share": 0.0
+          },
+          {
+            "count": 6,
+            "mean_probability": 0.4339381804068883,
+            "observed_share": 0.3333333333333333
+          },
+          {
+            "count": 2,
+            "mean_probability": 0.5163398087024689,
+            "observed_share": 0.5
+          },
+          {
+            "count": 1,
+            "mean_probability": 0.6695327162742615,
+            "observed_share": 0.0
+          },
+          {
+            "count": 1,
+            "mean_probability": 0.7283810973167419,
+            "observed_share": 0.0
+          }
+        ],
+        "calibration_method": "10_equal_width_bins_weighted_by_sample_count",
+        "test_class_counts": {
+          "0": 247,
+          "1": 47
+        },
+        "best_model": "xgboost",
+        "candidate_cv_average_precision": {
+          "random_forest": 0.18953332715937246,
+          "xgboost": 0.191078019391283,
+          "lightgbm": 0.181311355549808
+        },
+        "selected_parameters": {
+          "model__learning_rate": 0.05,
+          "model__max_depth": 5,
+          "model__n_estimators": 100
+        },
+        "train_size": 1176,
+        "test_size": 294,
+        "preprocessing_fit_scope": "each_cv_training_fold_then_full_training_partition",
+        "cv_preprocessing_fold_local": true,
+        "holdout_untouched_by_fit": true,
+        "evaluation_semantics": "retrospective_employee_holdout_not_future_departure_validation",
+        "future_departure_validated": false,
+        "sampling_method": "original_rows_no_synthetic_interpolation_of_category_codes",
+        "random_seed": 42,
+        "reliability": "Insufficient validation",
+        "validation_checks": {
+          "auc_present_and_valid": true,
+          "auc_at_least_minimum": false,
+          "brier_present_and_valid": true,
+          "brier_at_most_maximum": true,
+          "preprocessing_fit_on_training_only": true,
+          "cv_preprocessing_fold_local": true,
+          "brier_beats_training_prevalence_baseline": false,
+          "average_precision_beats_prevalence": true,
+          "weighted_calibration_error_at_most_015": true,
+          "holdout_at_least_50_and_10_per_class": true
+        },
+        "warnings": [
+          "Retrospective classification only: future departure accuracy has not been validated.",
+          "Model did not meet the minimum retrospective evaluation gate; activation is blocked."
+        ],
+        "feature_count": 30,
+        "feature_importances": {
+          "Age": 0.03296690061688423,
+          "DailyRate": 0.030055755749344826,
+          "DistanceFromHome": 0.03410143405199051,
+          "Education": 0.030948463827371597,
+          "EnvironmentSatisfaction": 0.034869927912950516,
+          "HourlyRate": 0.04309074580669403,
+          "JobInvolvement": 0.025649022310972214,
+          "JobLevel": 0.022003168240189552,
+          "JobSatisfaction": 0.022816859185695648,
+          "MonthlyRate": 0.03291028365492821,
+          "NumCompaniesWorked": 0.036363616585731506,
+          "PercentSalaryHike": 0.038041599094867706,
+          "LastRating": 0.0,
+          "RelationshipSatisfaction": 0.03653125464916229,
+          "StockOptionLevel": 0.04196804389357567,
+          "TotalWorkingYears": 0.035060517489910126,
+          "TrainingTimesLastYear": 0.03253140673041344,
+          "WorkLifeBalance": 0.02955976128578186,
+          "Tenure": 0.04478386789560318,
+          "YearsInCurrentRole": 0.04149036481976509,
+          "YearsSinceLastPromotion": 0.04271729663014412,
+          "YearsWithCurrManager": 0.03303112834692001,
+          "Salary": 0.046189237385988235,
+          "BusinessTravel": 0.021083896979689598,
+          "Dept": 0.019167369231581688,
+          "EducationField": 0.03382348641753197,
+          "Gender": 0.03208639472723007,
+          "JobTitle": 0.04212357848882675,
+          "MaritalStatus": 0.04033030942082405,
+          "OverTime": 0.04370426759123802
+        }
+      },
+      "evaluation": {
+        "passed": false,
+        "checks": {
+          "auc_present_and_valid": true,
+          "auc_at_least_minimum": false,
+          "brier_present_and_valid": true,
+          "brier_at_most_maximum": true,
+          "preprocessing_fit_on_training_only": true,
+          "cv_preprocessing_fold_local": true,
+          "brier_beats_training_prevalence_baseline": false,
+          "average_precision_beats_prevalence": true,
+          "weighted_calibration_error_at_most_015": true,
+          "holdout_at_least_50_and_10_per_class": true
+        },
+        "thresholds": {
+          "min_auc": 0.6,
+          "max_brier": 0.3,
+          "max_weighted_ece": 0.15,
+          "min_test_size": 50,
+          "min_test_per_class": 10
+        },
+        "scope": "minimum_retrospective_gate_not_enterprise_or_future_prediction_certification",
+        "observed": {
+          "auc": 0.45886811956240847,
+          "brier_score": 0.1446287787189125,
+          "calibration_error": 0.08175745238961817
+        }
+      }
+    }
+  ],
+  "waltons": {
+    "source": "lifelines.datasets.load_waltons",
+    "rows": 163,
+    "fixture_sha256": "15de145fab46631806857b47dd3f92f35c081886d5a21bf9ca89b86b0d245cbf",
+    "units": "Original T units mapped mechanically to engine months; not employment durations",
+    "curve_points_checked": 33,
+    "independent_restricted_mean": 50.133969323185624,
+    "engine_restricted_mean": 50.13396932318564
+  },
+  "checks_passed": [
+    "source_hash",
+    "active_headcount",
+    "annualized_active_payroll",
+    "disjoint_employee_holdout",
+    "exported_artifact_inference_matches_evaluation",
+    "three_random_label_controls_rejected",
+    "independent_product_limit_curve",
+    "independent_step_rmst",
+    "aligned_ci_arrays"
+  ]
+}

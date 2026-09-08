@@ -1,0 +1,59 @@
+name: People Team Browser Acceptance
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+    paths: ['src/**', 'api/**', 'web/**', 'scripts/run_browser_acceptance.py', 'requirements*.txt', '.github/workflows/browser-acceptance.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  real_people_team_journeys:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      OPENBLAS_NUM_THREADS: '1'
+      OMP_NUM_THREADS: '1'
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: requirements-validation.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install isolated runtime dependencies
+        run: python -m pip install -r requirements-validation.txt
+      - name: Install locked frontend dependencies
+        working-directory: web
+        run: npm ci
+      - name: Install Chromium and system dependencies
+        working-directory: web
+        run: npx playwright install --with-deps chromium
+      - name: Build actual production frontend
+        working-directory: web
+        run: npm run build
+      - name: Run desktop and mobile end-user journeys
+        working-directory: web
+        run: npm run test:e2e
+      - name: Validate action and process coverage ledger
+        run: python -m json.tool web/e2e/action-process-coverage.json > /dev/null
+      - name: Preserve browser evidence and server logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: people-team-browser-evidence
+          path: |
+            web/browser-artifacts/
+            web/e2e/action-process-coverage.json
+          if-no-files-found: warn
+          retention-days: 14

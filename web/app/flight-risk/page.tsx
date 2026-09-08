@@ -41,7 +41,12 @@ export default function RetentionSignalsPage() {
     return <Page><StateSummary title="Checking predictive retention capability" description="Reading the governed model lifecycle before requesting predictive outputs." tone="info" /></Page>
   }
 
-  if (!hasActiveModel || platform.isError || metrics.isError || !metrics.data) {
+  if (platform.isError || !platform.data) return <Page>
+    <PageHeader eyebrow="Understand · Retention Signals" title="Predictive capability state is unavailable" description="PeopleOS could not verify the governed model lifecycle. Retry the connection before interpreting predictive outputs." />
+    <EmptyState title="Model state could not be verified" description="No predictive conclusion is shown while the platform status is unavailable." />
+  </Page>
+
+  if (!hasActiveModel || metrics.isError || !metrics.data) {
     return <Page>
       <PageHeader eyebrow="Understand · Retention Signals" title="Predictive retention signals are not active" description="PeopleOS keeps predictive risk separate from deterministic analytics. Predictive views appear only after a model has been trained, evaluated and explicitly activated." />
       <StateSummary title="Deterministic analysis remains available" description="No predictive call is made without an active governed model. You can continue with observed workforce evidence now." tone="info" />
@@ -74,6 +79,9 @@ export default function RetentionSignalsPage() {
     </Page>
   }
 
+  if (predictions.isLoading) return <Page><StateSummary title="Loading model scores" description="Reading aggregate scores for the active dataset." tone="info" /></Page>
+  if (predictions.isError || !predictions.data?.distribution) return <Page><EmptyState title="Aggregate model scores are unavailable" description="No distribution can be shown until valid scores for the current dataset are available." /></Page>
+
   const model = metrics.data
   const distribution = predictions.data?.distribution
   const total = (distribution?.high_risk ?? 0) + (distribution?.medium_risk ?? 0) + (distribution?.low_risk ?? 0)
@@ -84,7 +92,7 @@ export default function RetentionSignalsPage() {
 
   return <Page>
     <PageHeader eyebrow="Understand · Retention Signals" title="Where is predictive retention pressure concentrated?" description="Aggregate predictive signals are shown with enough model context to interpret them safely, without turning model diagnostics into the main experience." />
-    <StateSummary title="Predictive signal, not an employment decision" description="Use retention scores to prioritise systemic investigation, not as the sole basis for consequential individual action." tone="info" />
+    <StateSummary title="Retrospective model evidence" description="The employee holdout measures classification of recorded outcomes. Accuracy for future departures has not been validated. Use scores for aggregate investigation; they do not establish an employee’s probability of leaving in a defined future period." tone="info" />
 
     <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
       <MetricCard label="People scored" value={total.toLocaleString()} detail="Aggregate predictive coverage" icon={Users} />
@@ -94,7 +102,7 @@ export default function RetentionSignalsPage() {
 
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(300px,0.65fr)]">
       <Surface padding="lg"><SectionHeader title="Risk distribution" description="Population-level bands from the active predictive model." /><div className="mt-6 space-y-5"><DistributionRow label="High" count={distribution?.high_risk ?? 0} percent={highPct} tone="danger" /><DistributionRow label="Medium" count={distribution?.medium_risk ?? 0} percent={mediumPct} tone="warning" /><DistributionRow label="Low" count={distribution?.low_risk ?? 0} percent={lowPct} tone="success" /></div></Surface>
-      <Surface padding="md"><SectionHeader title="Model context" description="Supporting qualification for the active prediction." /><div className="mt-4 space-y-2"><MetricRow label="F1" value={`${(model.f1 * 100).toFixed(1)}%`} /><MetricRow label="Precision" value={`${(model.precision * 100).toFixed(1)}%`} /><MetricRow label="Recall" value={`${(model.recall * 100).toFixed(1)}%`} /><MetricRow label="Reliability" value={model.reliability ?? 'Unknown'} /></div></Surface>
+      <Surface padding="md"><SectionHeader title="Model context" description="Supporting qualification for the active prediction." /><div className="mt-4 space-y-2"><MetricRow label="F1" value={`${(model.f1 * 100).toFixed(1)}%`} /><MetricRow label="Precision" value={`${(model.precision * 100).toFixed(1)}%`} /><MetricRow label="Recall" value={`${(model.recall * 100).toFixed(1)}%`} /><MetricRow label="Average precision / baseline" value={`${model.average_precision?.toFixed(3) ?? '—'} / ${model.baseline_average_precision?.toFixed(3) ?? '—'}`} /><MetricRow label="Brier error / baseline" value={`${model.brier_score?.toFixed(3) ?? '—'} / ${model.baseline_brier_score?.toFixed(3) ?? '—'}`} /><MetricRow label="Reliability" value={model.reliability ?? 'Unknown'} /></div></Surface>
     </div>
 
     <Surface padding="lg"><SectionHeader title="Strongest model features" description="Feature importance explains model influence, not causal drivers of attrition." /><div className="mt-5 grid gap-3 md:grid-cols-2">{features.length ? features.map((item, index) => <div key={`${item.feature}-${index}`} className="flex items-center justify-between gap-4 rounded-2xl border border-border p-4"><div><div className="font-medium">{item.feature}</div><div className="text-xs text-text-muted">Relative model importance</div></div><StatusBadge tone="neutral">{typeof item.importance === 'number' ? item.importance.toFixed(3) : '—'}</StatusBadge></div>) : <EmptyState title="Feature importance is not available" description="The active model did not expose a feature-importance view." />}</div></Surface>

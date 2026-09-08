@@ -1,7 +1,7 @@
 {
   "system_id": "peopleos",
   "name": "PeopleOS People Intelligence System",
-  "version": "3.0-transition",
+  "version": "3.0-integrity-hardening",
   "purpose": "Investigate workforce questions using governed deterministic analytics, traceable evidence, explicit data/model lifecycle, and bounded AI synthesis without automating consequential employment decisions.",
   "stage": "TRANSITION",
   "evidence_state": "Observed+Proposed",
@@ -25,67 +25,568 @@
     ]
   },
   "actors": [
-    {"id": "actor-people-user", "name": "People/HR user", "type": "human"},
-    {"id": "actor-admin", "name": "PeopleOS administrator", "type": "human"}
+    {
+      "id": "actor-people-user",
+      "name": "People/HR user",
+      "type": "human"
+    },
+    {
+      "id": "actor-admin",
+      "name": "PeopleOS administrator",
+      "type": "human"
+    }
   ],
   "components": [
-    {"id": "cmp-web", "name": "Next.js UI", "stage": "TARGET"},
-    {"id": "cmp-api", "name": "FastAPI API", "stage": "TARGET"},
-    {"id": "cmp-workspace", "name": "Workspace Store", "stage": "TRANSITION"},
-    {"id": "cmp-data", "name": "Dataset Lifecycle", "stage": "TRANSITION"},
-    {"id": "cmp-model", "name": "Model Lifecycle", "stage": "TRANSITION"},
-    {"id": "cmp-agent", "name": "People Intelligence Agent", "stage": "TARGET"},
-    {"id": "cmp-tools", "name": "Governed Tool Registry", "stage": "TARGET"},
-    {"id": "cmp-evidence", "name": "Evidence Bundle", "stage": "TARGET"},
-    {"id": "cmp-policy", "name": "Policy/Privacy Boundary", "stage": "TARGET"},
-    {"id": "cmp-health", "name": "Health and Recovery Monitor", "stage": "TRANSITION"},
-    {"id": "cmp-legacy", "name": "Legacy AppState compatibility", "stage": "AS-IS"}
+    {
+      "id": "cmp-web",
+      "name": "Next.js UI",
+      "stage": "TARGET"
+    },
+    {
+      "id": "cmp-api",
+      "name": "FastAPI API",
+      "stage": "TARGET"
+    },
+    {
+      "id": "cmp-workspace",
+      "name": "Workspace Store",
+      "stage": "TRANSITION"
+    },
+    {
+      "id": "cmp-data",
+      "name": "Dataset Lifecycle",
+      "stage": "TRANSITION"
+    },
+    {
+      "id": "cmp-model",
+      "name": "Model Lifecycle",
+      "stage": "TRANSITION"
+    },
+    {
+      "id": "cmp-agent",
+      "name": "People Intelligence Agent",
+      "stage": "TARGET"
+    },
+    {
+      "id": "cmp-tools",
+      "name": "Governed Tool Registry",
+      "stage": "TARGET"
+    },
+    {
+      "id": "cmp-evidence",
+      "name": "Evidence Bundle",
+      "stage": "TARGET"
+    },
+    {
+      "id": "cmp-policy",
+      "name": "Policy/Privacy Boundary",
+      "stage": "TARGET"
+    },
+    {
+      "id": "cmp-health",
+      "name": "Health and Recovery Monitor",
+      "stage": "TRANSITION"
+    },
+    {
+      "id": "cmp-legacy",
+      "name": "Legacy AppState compatibility",
+      "stage": "AS-IS"
+    }
   ],
   "flows": [
-    {"id": "flow-investigate", "type": "work", "from": "actor-people-user", "to": "cmp-agent", "label": "workforce question"},
-    {"id": "flow-plan", "type": "authority", "from": "cmp-agent", "to": "cmp-tools", "label": "allowlisted deterministic plan"},
-    {"id": "flow-evidence", "type": "information", "from": "cmp-tools", "to": "cmp-evidence", "label": "aggregate evidence with provenance"},
-    {"id": "flow-policy", "type": "authority", "from": "cmp-evidence", "to": "cmp-policy", "label": "synthesis/output enforcement"},
-    {"id": "flow-workspace", "type": "state", "from": "cmp-api", "to": "cmp-workspace", "label": "workspace/session identity"},
-    {"id": "flow-dataset", "type": "state", "from": "cmp-workspace", "to": "cmp-data", "label": "versioned dataset activation"},
-    {"id": "flow-model", "type": "state", "from": "cmp-data", "to": "cmp-model", "label": "explicit train/evaluate/activate lifecycle"},
-    {"id": "flow-health", "type": "feedback", "from": "cmp-health", "to": "cmp-workspace", "label": "bounded metadata recovery"}
+    {
+      "id": "flow-investigate",
+      "type": "work",
+      "from": "actor-people-user",
+      "to": "cmp-agent",
+      "label": "workforce question"
+    },
+    {
+      "id": "flow-plan",
+      "type": "authority",
+      "from": "cmp-agent",
+      "to": "cmp-tools",
+      "label": "allowlisted deterministic plan"
+    },
+    {
+      "id": "flow-evidence",
+      "type": "information",
+      "from": "cmp-tools",
+      "to": "cmp-evidence",
+      "label": "aggregate evidence with provenance"
+    },
+    {
+      "id": "flow-policy",
+      "type": "authority",
+      "from": "cmp-evidence",
+      "to": "cmp-policy",
+      "label": "synthesis/output enforcement"
+    },
+    {
+      "id": "flow-workspace",
+      "type": "state",
+      "from": "cmp-api",
+      "to": "cmp-workspace",
+      "label": "workspace/session identity"
+    },
+    {
+      "id": "flow-dataset",
+      "type": "state",
+      "from": "cmp-workspace",
+      "to": "cmp-data",
+      "label": "versioned dataset activation"
+    },
+    {
+      "id": "flow-model",
+      "type": "state",
+      "from": "cmp-data",
+      "to": "cmp-model",
+      "label": "explicit train/evaluate/activate lifecycle"
+    },
+    {
+      "id": "flow-health",
+      "type": "feedback",
+      "from": "cmp-health",
+      "to": "cmp-workspace",
+      "label": "bounded metadata recovery"
+    }
   ],
   "states": {
-    "dataset": ["registered", "validated", "active", "superseded", "rejected"],
-    "model": ["created", "training", "evaluating", "candidate", "active", "rejected", "retired", "failed"],
-    "session": ["open", "complete", "failed", "archived"]
+    "dataset": [
+      "registered",
+      "validated",
+      "active",
+      "superseded",
+      "rejected"
+    ],
+    "model": [
+      "created",
+      "training",
+      "evaluating",
+      "candidate",
+      "active",
+      "rejected",
+      "retired",
+      "failed"
+    ],
+    "session": [
+      "open",
+      "complete",
+      "failed",
+      "archived"
+    ]
   },
   "controls": [
-    {"id": "ctl-local", "mechanism": "loopback default plus token guard for non-local requests", "enforced": true},
-    {"id": "ctl-agent-tools", "mechanism": "allowlisted read-only aggregate tools", "enforced": true},
-    {"id": "ctl-small-groups", "mechanism": "small-group suppression for fairness evidence", "enforced": true},
-    {"id": "ctl-llm", "mechanism": "transport-level LLM policy boundary", "enforced": true},
-    {"id": "ctl-model-activation", "mechanism": "candidate-only model activation after deterministic evaluation", "enforced": true},
-    {"id": "ctl-autonomy", "mechanism": "L2 recovery envelope excludes HR data/actions and model activation", "enforced": true}
+    {
+      "id": "ctl-local",
+      "mechanism": "Validated loopback Host/Origin plus server-token identity for remote requests; centralized mutation permissions; legacy file sessions retired",
+      "enforced": true
+    },
+    {
+      "id": "ctl-agent-tools",
+      "mechanism": "allowlisted read-only aggregate tools",
+      "enforced": true
+    },
+    {
+      "id": "ctl-small-groups",
+      "mechanism": "small-group suppression for fairness evidence",
+      "enforced": true
+    },
+    {
+      "id": "ctl-llm",
+      "mechanism": "transport-level LLM policy boundary",
+      "enforced": true
+    },
+    {
+      "id": "ctl-model-activation",
+      "mechanism": "candidate-only model activation after deterministic evaluation",
+      "enforced": true
+    },
+    {
+      "id": "ctl-autonomy",
+      "mechanism": "L2 recovery envelope excludes HR data/actions and model activation",
+      "enforced": true
+    },
+    {
+      "id": "ctl-snapshot",
+      "mechanism": "Shared runtime lock; prepare-before-commit activation; dataset fingerprints and artifact checksums; incompatible requests rejected",
+      "enforced": true
+    },
+    {
+      "id": "ctl-measurement",
+      "mechanism": "Declared numeric measurement contract; exact categorical/ID lexemes; sparse status preservation; oversized imports rejected",
+      "enforced": true
+    },
+    {
+      "id": "ctl-consumer-evidence",
+      "mechanism": "Shared probability and population validation for API/agent; missing/zero distinction and dataset-switch cache reset in UI",
+      "enforced": true
+    },
+    {
+      "id": "ctl-measured-support",
+      "mechanism": "Component-specific source score sample thresholds, common weights, survey population reconciliation and coverage metadata",
+      "enforced": true
+    },
+    {
+      "id": "ctl-evidence-selection",
+      "mechanism": "LLM selects verified evidence IDs; server renders factual claims; required metrics and unsupported scopes checked",
+      "enforced": true
+    },
+    {
+      "id": "ctl-registry-preservation",
+      "mechanism": "Invalid registry fails closed at startup; explicit runtime recovery verifies an exclusive quarantine before shell replacement and remains degraded pending dataset reconciliation",
+      "enforced": true
+    }
   ],
   "risks": [
-    {"id": "risk-global-state", "description": "legacy routes still depend on process-global AppState", "status": "transitioning", "control": "cmp-workspace"},
-    {"id": "risk-model-coupling", "description": "legacy upload path can still eagerly initialize ML", "status": "transitioning", "control": "cmp-model"},
-    {"id": "risk-frontend", "description": "frontend migration must pass Next.js 16 build", "status": "open", "control": "CI frontend modernization gate"}
+    {
+      "id": "risk-global-state",
+      "description": "Only the local data runtime is supported; all evidence is bound to a dataset generation and shared mutation boundary",
+      "status": "mitigated_for_local_runtime",
+      "control": "ctl-snapshot"
+    },
+    {
+      "id": "risk-model-coupling",
+      "description": "Upload initializes read-only analytics; explicit model activation validates snapshot and score population before committing",
+      "status": "mitigated",
+      "control": "ctl-model-activation"
+    },
+    {
+      "id": "risk-frontend",
+      "description": "frontend migration must pass Next.js 16 build",
+      "status": "open",
+      "control": "CI frontend modernization gate"
+    }
   ],
   "health": {
-    "signals": ["workspace registry readable", "active dataset reference consistent", "active model reference consistent", "agent CI green", "frontend CI green"],
+    "signals": [
+      "workspace registry readable",
+      "active dataset reference consistent",
+      "active model reference consistent",
+      "agent CI green",
+      "frontend CI green",
+      "runtime dataset fingerprint matches loaded frame",
+      "registry dataset and runtime identity agree",
+      "model output covers exactly the current active IDs",
+      "unknown status count reported",
+      "stale request rejected with HTTP409",
+      "registry recovery requires dataset reconciliation",
+      "desktop and mobile browser journeys green for candidate commit"
+    ],
     "loop": "Desired state -> Sense -> Detect -> Diagnose -> Authorize -> Respond -> Recover -> Verify -> Learn",
     "autonomy_level": "L2",
     "maximum_blast_radius": "control-plane metadata only"
   },
   "build_steps": [
-    {"id": "STEP-001", "name": "Create workspace identity", "owner": "platform", "completion_evidence": "workspace record exists"},
-    {"id": "STEP-002", "name": "Register and validate dataset version", "owner": "data", "completion_evidence": "dataset hash, schema, quality and state recorded"},
-    {"id": "STEP-003", "name": "Activate dataset version", "owner": "data", "completion_evidence": "one active dataset per workspace"},
-    {"id": "STEP-004", "name": "Train model explicitly", "owner": "ml", "completion_evidence": "versioned model metrics recorded"},
-    {"id": "STEP-005", "name": "Evaluate candidate model", "owner": "ml", "completion_evidence": "deterministic evaluation pass/fail"},
-    {"id": "STEP-006", "name": "Activate passing candidate", "owner": "governance", "completion_evidence": "active model reference and retired prior model"},
-    {"id": "STEP-007", "name": "Open investigation session", "owner": "agent", "completion_evidence": "session bound to workspace/dataset/model"},
-    {"id": "STEP-008", "name": "Execute governed investigation", "owner": "agent", "completion_evidence": "evidence bundle, policy result and audit event"},
-    {"id": "STEP-009", "name": "Run health and bounded recovery", "owner": "operations", "completion_evidence": "fitness checks healthy or degraded with bounded actions"},
-    {"id": "STEP-010", "name": "Pass release gates", "owner": "engineering", "completion_evidence": "agent, platform and frontend CI green"}
+    {
+      "id": "STEP-001",
+      "name": "Create workspace identity",
+      "owner": "platform",
+      "completion_evidence": "workspace record exists"
+    },
+    {
+      "id": "STEP-002",
+      "name": "Register and validate dataset version",
+      "owner": "data",
+      "completion_evidence": "dataset hash, schema, quality and state recorded"
+    },
+    {
+      "id": "STEP-003",
+      "name": "Activate dataset version",
+      "owner": "data",
+      "completion_evidence": "one active dataset per workspace"
+    },
+    {
+      "id": "STEP-004",
+      "name": "Train model explicitly",
+      "owner": "ml",
+      "completion_evidence": "versioned model metrics recorded"
+    },
+    {
+      "id": "STEP-005",
+      "name": "Evaluate candidate model",
+      "owner": "ml",
+      "completion_evidence": "deterministic evaluation pass/fail"
+    },
+    {
+      "id": "STEP-006",
+      "name": "Activate passing candidate",
+      "owner": "governance",
+      "completion_evidence": "active model reference and retired prior model"
+    },
+    {
+      "id": "STEP-007",
+      "name": "Open investigation session",
+      "owner": "agent",
+      "completion_evidence": "session bound to workspace/dataset/model"
+    },
+    {
+      "id": "STEP-008",
+      "name": "Execute governed investigation",
+      "owner": "agent",
+      "completion_evidence": "evidence bundle, policy result and audit event"
+    },
+    {
+      "id": "STEP-009",
+      "name": "Run health and bounded recovery",
+      "owner": "operations",
+      "completion_evidence": "fitness checks healthy or degraded with bounded actions"
+    },
+    {
+      "id": "STEP-010",
+      "name": "Pass release gates",
+      "owner": "engineering",
+      "completion_evidence": "agent, platform and frontend CI green"
+    },
+    {
+      "id": "STEP-011",
+      "name": "Resolve immutable desktop configuration",
+      "stage": "TRANSITION",
+      "owner": "engineering",
+      "executor": "src.utils.load_config",
+      "trigger": "desktop workspace initialization and API health check",
+      "inputs": [
+        "module __file__",
+        "bundled config.yaml",
+        "optional PEOPLEOS_HOME"
+      ],
+      "action": "Normalize the module-relative config path before opening it; preserve the PEOPLEOS_HOME database override.",
+      "state_transition": "bundled config unread -> configuration loaded -> workspace can initialize",
+      "control": "Read immutable config from the bundle, independent of cwd; never create missing package directories or rewrite bundled config.",
+      "exceptions": "A genuinely missing config must still raise FileNotFoundError and fail the packaged smoke gate.",
+      "recovery": "Correct the PR candidate and rebuild; do not bypass health checks or change user data.",
+      "verification": "tests/test_local_distribution.py covers absent/present src directories, spaces, unrelated cwd and PEOPLEOS_HOME.",
+      "completion_evidence": "Local Desktop Build passes API/UI smoke checks on Windows x64, macOS ARM64 and Linux x64 for the same candidate.",
+      "validation": "A packaged app can initialize its local workspace and serve its UI without an installed source tree.",
+      "baseline_evidence": {
+        "commit": "93d675f195249de801994bf6ad9c8930c5f1f618",
+        "run": "https://github.com/omoniyi-ipaye/PeopleOS/actions/runs/34124504592",
+        "observed": "Windows passes; macOS and Linux fail opening _MEI.../src/../config.yaml and return HTTP 500 during smoke."
+      },
+      "target": "All three packaged smoke jobs pass with existing launcher, packager and Windows settings preserved.",
+      "rollback": "Revert this config-path change if the candidate regresses Windows; retain the previous diagnostics and packaging settings."
+    },
+    {
+      "id": "STEP-012",
+      "name": "Preserve input identity and measurement populations",
+      "stage": "TRANSITION",
+      "evidence_state": "Observed",
+      "owner": "data",
+      "executor": "src.data_contract and DataLoader",
+      "trigger": "CSV/JSON upload",
+      "inputs": [
+        "Complete source file"
+      ],
+      "action": "Read exact lexemes; map declared fields; retain sparse outcomes; reject missing IDs and oversized inputs",
+      "state_transition": "source -> validated complete snapshot",
+      "control": "No implicit truncation or cross-dataset SQLite merge",
+      "recovery": "Reject with actionable validation error; previous snapshot stays active",
+      "automation_boundary": "deterministic local runtime",
+      "verification": "tests/test_specialist_review_findings.py; tests/test_snapshot_recovery.py",
+      "completion_evidence": "Known-answer and fault-injection regression contracts pass",
+      "validation": "Result fidelity and real-world measurement validity remain separate; prospective organizational validation required for stronger predictive claims"
+    },
+    {
+      "id": "STEP-013",
+      "name": "Commit a verified dataset snapshot",
+      "stage": "TRANSITION",
+      "evidence_state": "Observed",
+      "owner": "platform",
+      "executor": "runtime_loader + upload/platform routes",
+      "trigger": "Upload, activation or restore",
+      "inputs": [
+        "Validated artifact and registry identity"
+      ],
+      "action": "Prepare engines and preprocessing in isolation, verify artifact bytes, commit metadata/runtime under the shared local mutation lock, clear auxiliary caches",
+      "state_transition": "previous snapshot -> new generation",
+      "control": "Registry, runtime and auxiliary result scope stay aligned",
+      "recovery": "Retain previous snapshot on preparation/storage failure; reject conflicting requests",
+      "automation_boundary": "deterministic local runtime",
+      "verification": "tests/test_runtime_integrity.py; tests/test_snapshot_recovery.py",
+      "completion_evidence": "Known-answer and fault-injection regression contracts pass",
+      "validation": "Result fidelity and real-world measurement validity remain separate; prospective organizational validation required for stronger predictive claims"
+    },
+    {
+      "id": "STEP-014",
+      "name": "Validate and commit a model",
+      "stage": "TRANSITION",
+      "evidence_state": "Observed",
+      "owner": "ml",
+      "executor": "ModelLifecycleService + platform routes",
+      "trigger": "Explicit train/activate",
+      "inputs": [
+        "Active dataset identity, evaluated artifact, current active rows"
+      ],
+      "action": "Fit only bound data; validate transformed scores before activation; recover missing artifacts through a real retraining attempt",
+      "state_transition": "candidate -> scored candidate -> active",
+      "control": "No metadata activation before successful scoring; no retired/missing artifact reuse",
+      "recovery": "Keep previous active model/runtime on failure",
+      "automation_boundary": "deterministic local runtime",
+      "verification": "tests/test_runtime_integrity.py; tests/test_specialist_review_findings.py",
+      "completion_evidence": "Known-answer and fault-injection regression contracts pass",
+      "validation": "Result fidelity and real-world measurement validity remain separate; prospective organizational validation required for stronger predictive claims"
+    },
+    {
+      "id": "STEP-015",
+      "name": "Reconcile measured cohorts",
+      "stage": "TRANSITION",
+      "evidence_state": "Observed",
+      "owner": "analytics",
+      "executor": "SentimentEngine + QualityOfHireEngine + TeamDynamicsEngine",
+      "trigger": "Analysis request",
+      "inputs": [
+        "Matched survey rows and current employee population"
+      ],
+      "action": "Choose latest eligible survey responses, compute totals before truncation, compare source scores on common supported components",
+      "state_transition": "observed inputs -> measured aggregate evidence",
+      "control": "Unknown groups preserved; component n>=10; unmatched survey rows reported",
+      "recovery": "Return unavailable with coverage when support is insufficient",
+      "automation_boundary": "deterministic local runtime",
+      "verification": "tests/test_specialist_measurement_fixes.py",
+      "completion_evidence": "Known-answer and fault-injection regression contracts pass",
+      "validation": "Result fidelity and real-world measurement validity remain separate; prospective organizational validation required for stronger predictive claims"
+    },
+    {
+      "id": "STEP-016",
+      "name": "Render evidence from the correct snapshot",
+      "stage": "TRANSITION",
+      "evidence_state": "Observed",
+      "owner": "web/API",
+      "executor": "shared provenance validator + snapshot middleware + React consumers",
+      "trigger": "API/agent response and UI rendering",
+      "inputs": [
+        "Dataset-bound evidence including nulls, sample counts and assumptions"
+      ],
+      "action": "Validate population/probabilities; reject overlapping dataset/model changes; preserve missing vs zero; reset query results after switches",
+      "state_transition": "verified evidence -> display with source/coverage",
+      "control": "No fabricated zero, categorical rewrite, incompatible comparison or individual proxy ranking",
+      "recovery": "HTTP409/retry or explicit unavailable state; no old value fallback",
+      "automation_boundary": "deterministic local runtime",
+      "verification": "tests/test_runtime_integrity.py; tests/test_snapshot_recovery.py; web/tests/specialist-review-renderers.test.cjs",
+      "completion_evidence": "Known-answer and fault-injection regression contracts pass",
+      "validation": "Result fidelity and real-world measurement validity remain separate; prospective organizational validation required for stronger predictive claims"
+    },
+    {
+      "id": "STEP-017",
+      "name": "Enforce identity at every mutation",
+      "stage": "TRANSITION",
+      "evidence_state": "Observed+Proposed",
+      "owner": "security",
+      "executor": "api.security",
+      "trigger": "Incoming API request",
+      "inputs": [
+        "Transport, browser origin, server identity and requested operation"
+      ],
+      "action": "Validate local trust and explicit role permission before the handler executes",
+      "state_transition": "request -> authorized execution or denied without mutation",
+      "control": "New remote mutation routes denied until mapped; legacy file sessions return410",
+      "recovery": "Correct configuration; never infer owner from untrusted proxy headers",
+      "automation_boundary": "Authorized bounded local development; production changes require a separate release decision",
+      "verification": "tests/test_enterprise_controls.py",
+      "completion_evidence": "Candidate-specific local and CI evidence recorded in the quality cycle; pending gates remain explicit",
+      "validation": "Use-case-specific acceptance, not proof of enterprise validity or perfect trust"
+    },
+    {
+      "id": "STEP-018",
+      "name": "Select and render grounded agent evidence",
+      "stage": "TRANSITION",
+      "evidence_state": "Observed+Proposed",
+      "owner": "agent",
+      "executor": "Planner, adapters, aggregator and orchestrator",
+      "trigger": "Investigation submission",
+      "inputs": [
+        "Question and verified successful tool evidence"
+      ],
+      "action": "Retain requested metrics, measured denominators, warnings and supported scopes; allow LLM to select verified IDs only",
+      "state_transition": "question -> evidence -> complete, partial or insufficient answer",
+      "control": "No generated factual prose, invented question coverage or unsupported causal inference",
+      "recovery": "Deterministic cited fallback and visible limitations",
+      "automation_boundary": "Authorized bounded local development; production changes require a separate release decision",
+      "verification": "tests/test_agentic_acceptance.py; tests/test_agent_orchestrator.py",
+      "completion_evidence": "Candidate-specific local and CI evidence recorded in the quality cycle; pending gates remain explicit",
+      "validation": "Use-case-specific acceptance, not proof of enterprise validity or perfect trust"
+    },
+    {
+      "id": "STEP-019",
+      "name": "Preserve corrupt metadata before recovery",
+      "stage": "TRANSITION",
+      "evidence_state": "Observed+Proposed",
+      "owner": "operations",
+      "executor": "WorkspaceStore and SystemHealthMonitor",
+      "trigger": "Startup read or explicit runtime recovery",
+      "inputs": [
+        "Existing registry bytes and local runtime lock"
+      ],
+      "action": "Fail closed on malformed startup metadata; quarantine and verify before explicit shell reconstruction",
+      "state_transition": "corrupt metadata -> preserved quarantine -> degraded shell -> explicit dataset reconciliation",
+      "control": "Never silently discard existing bytes or advertise full historical recovery",
+      "recovery": "Restore a verified backup when startup is blocked; inspect quarantine and reconcile history",
+      "automation_boundary": "Authorized bounded local development; production changes require a separate release decision",
+      "verification": "tests/test_enterprise_recovery.py",
+      "completion_evidence": "Candidate-specific local and CI evidence recorded in the quality cycle; pending gates remain explicit",
+      "validation": "Use-case-specific acceptance, not proof of enterprise validity or perfect trust"
+    },
+    {
+      "id": "STEP-020",
+      "name": "Exercise the production interface with known answers",
+      "stage": "TRANSITION",
+      "evidence_state": "Observed+Proposed",
+      "owner": "quality",
+      "executor": "Repository Playwright CI",
+      "trigger": "Candidate pull request",
+      "inputs": [
+        "Isolated synthetic fixtures, actual API and built frontend"
+      ],
+      "action": "Run upload, dashboard, advisor, Trust Center and dataset-switch journeys at desktop and mobile sizes",
+      "state_transition": "candidate -> recorded browser pass or actionable failure",
+      "control": "No response mocks, retries hiding flakes or substitution of SSR for browser evidence",
+      "recovery": "Inspect logs/screenshots/traces; fix reproduction and rerun candidate gates",
+      "automation_boundary": "Authorized bounded local development; production changes require a separate release decision",
+      "verification": "web/e2e/people-team.spec.ts; .github/workflows/browser-acceptance.yml",
+      "completion_evidence": "Candidate-specific local and CI evidence recorded in the quality cycle; pending gates remain explicit",
+      "validation": "Use-case-specific acceptance, not proof of enterprise validity or perfect trust"
+    },
+    {
+      "id": "STEP-021",
+      "name": "Run bounded specialist improvement cycles",
+      "stage": "TRANSITION",
+      "evidence_state": "Observed+Proposed",
+      "owner": "engineering",
+      "executor": "Authorized review automation and specialist agents",
+      "trigger": "Recurring scheduled iteration",
+      "inputs": [
+        "Current repository head, active CI and durable quality backlog"
+      ],
+      "action": "Finish pending verification, reproduce prioritized gaps, delegate disjoint fixes and publish a reviewable candidate",
+      "state_transition": "baseline -> findings -> fixes -> independent gates -> next backlog",
+      "control": "One integrating cycle; no automatic merge, deployment, real HR ingestion or employment action",
+      "recovery": "Checkpoint incomplete work; report blocked gates without weakening them",
+      "automation_boundary": "Authorized bounded local development; production changes require a separate release decision",
+      "verification": "model/quality_cycle.json; docs/validation/ENTERPRISE_IMPROVEMENT_CYCLE.md",
+      "completion_evidence": "Candidate-specific local and CI evidence recorded in the quality cycle; pending gates remain explicit",
+      "validation": "Use-case-specific acceptance, not proof of enterprise validity or perfect trust"
+    }
   ],
-  "build_readiness": "BUILD READY WITH ASSUMPTIONS"
+  "analytics_validation": {
+    "scope": "synthetic and public benchmark validation; enterprise acceptance remains conditional",
+    "evidence": "docs/validation/ANALYTICS_VALIDATION.md",
+    "benchmark": "docs/validation/public-benchmark-results.json",
+    "workflow": ".github/workflows/analytics-validation.yml",
+    "model_gate": "Fold-local raw-data CV; employee holdout; Brier and AP baselines; weighted calibration and class support",
+    "forecast_boundary": "Retrospective classification is not validated future-departure prediction",
+    "remaining": "Prospective temporal and subgroup validation on source-verified organization data",
+    "extended_integrity": "tests/test_extended_integrity.py: active team denominators, recorded succession assessment coverage, survey joins/dates, hiring exposure, vector replacement/alignment and fail-closed agent evidence",
+    "engine_renderer_inventory": "model/engine_audit.json",
+    "engine_renderer_report": "docs/validation/ENGINE_RENDERER_AUDIT.md",
+    "specialist_review": "docs/validation/PEOPLE_ANALYTICS_ML_SPECIALIST_REVIEW.md",
+    "specialist_remediation": "docs/validation/SPECIALIST_REMEDIATION.md",
+    "runtime_scope": "Single local workforce runtime, single application process; no non-local data isolation or cross-process mutation guarantee"
+  },
+  "build_readiness": "BUILD READY WITH ASSUMPTIONS",
+  "quality_cycle": {
+    "model": "model/quality_cycle.json",
+    "report": "docs/validation/ENTERPRISE_IMPROVEMENT_CYCLE.md",
+    "mode": "bounded specialist review, fix, independent acceptance, reviewable candidate",
+    "enterprise_certification": false
+  }
 }

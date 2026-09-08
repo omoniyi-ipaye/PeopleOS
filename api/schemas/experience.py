@@ -35,6 +35,8 @@ class ExperienceIndexResponse(BaseModel):
     exi_std: Optional[float] = Field(None, description="Standard deviation of EXI")
     exi_median: Optional[float] = Field(None, description="Median EXI score")
     total_employees: Optional[int] = None
+    respondent_count: Optional[int] = None
+    response_coverage: Optional[float] = None
     signals_available: Optional[int] = Field(None, description="Number of experience signals")
     interpretation: Optional[str] = None
     benchmark: Optional[str] = Field(None, description="Above/Below average")
@@ -58,7 +60,7 @@ class EngagementSegment(BaseModel):
     segment: str = Field(..., description="Segment name (Thriving, Content, etc.)")
     count: int = Field(..., description="Number of employees")
     percentage: float = Field(..., description="Percentage of workforce")
-    avg_exi: float = Field(..., description="Average EXI in segment")
+    avg_exi: Optional[float] = Field(None, description="Average EXI among measured respondents")
     exi_range: str = Field(..., description="EXI score range for segment")
 
 
@@ -76,6 +78,8 @@ class SegmentsResponse(BaseModel):
 
 class ExperienceDriver(BaseModel):
     """Factor that drives experience scores."""
+    sample_size: int = 0
+    metric_semantics: str = "observational_association_excluding_index_components"
     factor: str = Field(..., description="Factor/column name")
     correlation: float = Field(..., description="Correlation with EXI")
     impact: str = Field(..., description="High, Medium, or Low")
@@ -123,7 +127,8 @@ class LifecycleStage(BaseModel):
     """Experience metrics for a lifecycle stage."""
     stage: str = Field(..., description="New Hire, Ramping, Established, Veteran")
     count: int
-    avg_exi: float
+    avg_exi: Optional[float] = None
+    respondent_count: int = 0
     at_risk_count: int
 
 

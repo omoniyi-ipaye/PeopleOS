@@ -117,6 +117,7 @@ class NLPEngine:
             return pd.DataFrame(columns=['EmployeeID', 'sentiment_score', 'sentiment_label'])
         
         # Use LLM for sentiment analysis
+        df = df[df['PerformanceText'].fillna('').astype(str).str.strip().ne('')].drop_duplicates('EmployeeID')
         texts = df['PerformanceText'].fillna('').tolist()
         employee_ids = df['EmployeeID'].tolist()
 
@@ -129,15 +130,10 @@ class NLPEngine:
                 results.extend(batch_results)
             except Exception as e:
                 logger.error(f"Failed to analyze sentiment for batch: {e}")
-                # Fallback to neutral for failed batch
-                for eid in batch_ids:
-                    results.append({
-                        'EmployeeID': eid,
-                        'sentiment_score': 0.5,
-                        'sentiment_label': 'Neutral'
-                    })
+                # Failed inference is missing evidence, never neutral sentiment.
+                continue
 
-        return pd.DataFrame(results)
+        return pd.DataFrame(results, columns=['EmployeeID', 'sentiment_score', 'sentiment_label'])
 
 
     def _analyze_sentiment_batch(self, texts: list, employee_ids: list) -> list:
@@ -158,7 +154,21 @@ class NLPEngine:
             parsed = self._parse_json_response(raw_response)
 
             if parsed and isinstance(parsed, list):
-                return parsed
+                allowed = {str(value) for value in employee_ids}
+                seen, valid = set(), []
+                for item in parsed:
+                    if not isinstance(item, dict):
+                        raise NLPEngineError('Sentiment rows must be objects')
+                    eid = str(item.get('EmployeeID'))
+                    score = item.get('sentiment_score')
+                    if eid not in allowed or eid in seen or not isinstance(score, (float, int)) or not 0 <= score <= 1:
+                        raise NLPEngineError('Sentiment response has invalid identity or score')
+                    expected_label = 'Positive' if score > .6 else 'Negative' if score < .4 else 'Neutral'
+                    if isinstance(score, bool) or item.get('sentiment_label') != expected_label:
+                        raise NLPEngineError('Sentiment label is invalid')
+                    seen.add(eid)
+                    valid.append(item)
+                return valid
             else:
                 raise NLPEngineError("Failed to parse LLM sentiment response")
 
@@ -207,6 +217,7 @@ Rules:
             return {'technical_skills': [], 'soft_skills': [], 'skill_counts': {}}
 
         # Sample texts for skill extraction
+        df = df[df['PerformanceText'].fillna('').astype(str).str.strip().ne('')].drop_duplicates('EmployeeID')
         texts = df['PerformanceText'].fillna('').tolist()
         sample_size = min(50, len(texts))
         sample_texts = texts[:sample_size]
@@ -227,6 +238,11 @@ Rules:
             parsed = self._parse_json_response(raw_response)
 
             if parsed and isinstance(parsed, dict):
+                for category in ('technical_skills', 'soft_skills'):
+                    skills = parsed.get(category, [])
+                    if not isinstance(skills, list) or any(not isinstance(skill, str) or not skill.strip() for skill in skills):
+                        raise NLPEngineError('Skill categories require lists of nonempty strings')
+                    parsed[category] = list(dict.fromkeys(skill.strip() for skill in skills))
                 # Count skill occurrences across all texts
                 skill_counts = self._count_skills_in_texts(texts, parsed)
                 parsed['skill_counts'] = skill_counts
@@ -272,7 +288,7 @@ Rules:
         for text in texts:
             text_lower = text.lower()
             for skill in all_skills:
-                if skill.lower() in text_lower:
+                if re.search(r'(?<!\w)' + re.escape(skill.lower()) + r'(?!\w)', text_lower):
                     counts[skill] += 1
 
         return counts
@@ -294,6 +310,7 @@ Rules:
             logger.warning("Topic extraction skipped: LLM unavailable")
             return []
 
+        df = df[df['PerformanceText'].fillna('').astype(str).str.strip().ne('')].drop_duplicates('EmployeeID')
         texts = df['PerformanceText'].fillna('').tolist()
         sample_size = min(50, len(texts))
         sample_texts = texts[:sample_size]
@@ -313,12 +330,21 @@ Rules:
             raw_response = response.get('response', '')
             parsed = self._parse_json_response(raw_response)
 
-            if parsed and isinstance(parsed, list):
-                return parsed[:self.topics_count]
-            elif parsed and isinstance(parsed, dict) and 'topics' in parsed:
-                return parsed['topics'][:self.topics_count]
-            else:
-                raise NLPEngineError("Failed to parse LLM topic response")
+            topics = parsed.get('topics') if isinstance(parsed, dict) else parsed
+            if not isinstance(topics, list):
+                raise NLPEngineError('Topic response must be a list')
+            valid = []
+            for topic in topics:
+                if not isinstance(topic, dict) or any(not isinstance(topic.get(key), str) or not topic[key].strip() for key in ('name', 'description')):
+                    raise NLPEngineError('Topics require a name and description')
+                if topic.get('sentiment') not in {'Positive', 'Neutral', 'Negative', 'Mixed'}:
+                    raise NLPEngineError('Topic sentiment label is invalid')
+                # An LLM estimate is not a counted share of source reviews.
+                valid.append({'name': topic['name'], 'description': topic['description'],
+                              'sentiment': topic['sentiment'], 'prevalence': None,
+                              'measurement_semantics': 'generated_theme_not_measured_prevalence',
+                              'sample_size': sample_size})
+            return valid[:self.topics_count]
 
         except Exception as e:
             logger.error(f"Topic extraction failed: {str(e)}")
@@ -351,54 +377,11 @@ Rules:
 - Return ONLY the JSON array, no other text."""
 
     def generate_employee_summary(self, employee_data: dict) -> str:
-        """
-        Generate an AI summary for an individual employee.
-
-        Args:
-            employee_data: Dictionary with employee information.
-
-        Returns:
-            Natural language summary string.
-        """
-        if not self.is_available:
-            raise NLPEngineError("NLP Engine unavailable: employee summary requires LLM")
-
-        prompt = self._build_employee_summary_prompt(employee_data)
-
-        try:
-            response = self.llm_client.client.generate(
-                model=self.llm_client.model,
-                prompt=prompt,
-                options={
-                    'temperature': 0.6,
-                    'num_predict': 200
-                }
-            )
-
-            summary = response.get('response', '').strip()
-            if summary:
-                return summary
-            raise NLPEngineError("LLM returned empty summary")
-        except Exception as e:
-            logger.error(f"Employee summary generation failed: {str(e)}")
-            raise NLPEngineError(f"Employee summary generation failed: {str(e)}")
-
-
-    def _build_employee_summary_prompt(self, employee_data: dict) -> str:
-        """Build prompt for employee summary generation."""
-        data_json = json.dumps(employee_data, indent=2)
-
-        return f"""Generate a brief, professional summary for this employee based on their data.
-
-EMPLOYEE DATA:
-{data_json}
-
-Rules:
-- Maximum 2 sentences
-- Focus on performance trends and strengths
-- No termination or disciplinary language
-- Be objective and professional
-- Return ONLY the summary text, no other formatting."""
+        """Retired: ungrounded LLM-generated individual summaries are outside scope."""
+        return (
+            'Unavailable: individual employee summaries are disabled because generated prose '
+            'is not governed aggregate evidence.'
+        )
 
     def get_sentiment_summary(self, sentiment_df: pd.DataFrame) -> dict:
         """
@@ -410,30 +393,39 @@ Rules:
         Returns:
             Dictionary with sentiment summary statistics.
         """
-        if sentiment_df.empty:
+        required = {'sentiment_score', 'sentiment_label'}
+        if sentiment_df.empty or not required.issubset(sentiment_df.columns):
             return {
-                'avg_sentiment': 0.5,
+                'avg_sentiment': None,
                 'positive_count': 0,
                 'neutral_count': 0,
                 'negative_count': 0,
                 'positive_pct': 0,
                 'neutral_pct': 0,
-                'negative_pct': 0
+                'negative_pct': 0,
+                'sentiment_observations': 0,
+                'excluded_sentiment_rows': int(len(sentiment_df)),
             }
-
-        total = len(sentiment_df)
-        positive = len(sentiment_df[sentiment_df['sentiment_label'] == 'Positive'])
-        neutral = len(sentiment_df[sentiment_df['sentiment_label'] == 'Neutral'])
-        negative = len(sentiment_df[sentiment_df['sentiment_label'] == 'Negative'])
+        score = pd.to_numeric(sentiment_df['sentiment_score'], errors='coerce')
+        expected = score.map(lambda value: 'Positive' if value > .6 else 'Negative' if value < .4 else 'Neutral')
+        valid = score.notna() & score.between(0, 1) & sentiment_df['sentiment_label'].eq(expected)
+        measured = sentiment_df.loc[valid].copy()
+        measured['sentiment_score'] = score.loc[valid]
+        total = len(measured)
+        positive = len(measured[measured['sentiment_label'] == 'Positive'])
+        neutral = len(measured[measured['sentiment_label'] == 'Neutral'])
+        negative = len(measured[measured['sentiment_label'] == 'Negative'])
 
         return {
-            'avg_sentiment': round(sentiment_df['sentiment_score'].mean(), 2),
+            'avg_sentiment': round(measured['sentiment_score'].mean(), 2) if total else None,
             'positive_count': positive,
             'neutral_count': neutral,
             'negative_count': negative,
             'positive_pct': round((positive / total) * 100, 1) if total > 0 else 0,
             'neutral_pct': round((neutral / total) * 100, 1) if total > 0 else 0,
-            'negative_pct': round((negative / total) * 100, 1) if total > 0 else 0
+            'negative_pct': round((negative / total) * 100, 1) if total > 0 else 0,
+            'sentiment_observations': total,
+            'excluded_sentiment_rows': int(len(sentiment_df) - total),
         }
 
     def get_sentiment_by_department(self, df: pd.DataFrame, sentiment_df: pd.DataFrame) -> pd.DataFrame:
@@ -450,7 +442,27 @@ Rules:
         if sentiment_df.empty or 'Dept' not in df.columns:
             return pd.DataFrame()
 
-        merged = df[['EmployeeID', 'Dept']].merge(sentiment_df, on='EmployeeID')
+        from src.population import resolve_current_population
+        current, _ = resolve_current_population(df)
+        current['EmployeeID'] = current['EmployeeID'].astype(str)
+        sentiment_df = sentiment_df.copy()
+        sentiment_df['EmployeeID'] = sentiment_df['EmployeeID'].astype(str)
+        required = {'EmployeeID', 'sentiment_score', 'sentiment_label'}
+        if not required.issubset(sentiment_df.columns):
+            return pd.DataFrame()
+        score = pd.to_numeric(sentiment_df['sentiment_score'], errors='coerce')
+        expected = score.map(lambda value: 'Positive' if value > .6 else 'Negative' if value < .4 else 'Neutral')
+        valid = score.notna() & score.between(0, 1) & sentiment_df['sentiment_label'].eq(expected)
+        sentiment_df = sentiment_df.loc[valid].copy()
+        sentiment_df['sentiment_score'] = score.loc[valid]
+        merged = current[['EmployeeID', 'Dept']].merge(sentiment_df.drop_duplicates('EmployeeID'), on='EmployeeID', validate='one_to_one')
+        merged['Dept'] = merged['Dept'].fillna('Unknown')
+
+        # Department sentiment is an aggregate result; suppress small cells.
+        sizes = merged.groupby('Dept')['EmployeeID'].transform('count')
+        merged = merged[sizes >= 10]
+        if merged.empty:
+            return pd.DataFrame()
 
         dept_sentiment = merged.groupby('Dept').agg({
             'sentiment_score': 'mean',

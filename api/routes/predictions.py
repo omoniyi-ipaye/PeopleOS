@@ -5,6 +5,8 @@ individual recommendation endpoints are deliberately disabled because they can
 be misused for consequential employment decisions.
 """
 
+from src.platform.provenance import IntegrityError, validated_risk_scores
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from api.dependencies import AppState, get_app_state
@@ -17,8 +19,10 @@ def require_predictions(state: AppState = Depends(get_app_state)) -> AppState:
     if not state.has_data():
         if not state.load_from_database():
             raise HTTPException(status_code=400, detail='No data loaded. Please upload a file first.')
-    if state.ml_engine is None or not state.ml_engine.is_trained or state.model_metrics is None:
-        raise HTTPException(status_code=409, detail='No activated predictive model is available in the current runtime.')
+    try:
+        validated_risk_scores(state)
+    except IntegrityError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     return state
 
 
@@ -29,6 +33,11 @@ def _model_metrics(state: AppState) -> ModelMetrics:
         roc_auc=metrics.get('roc_auc'), brier_score=metrics.get('brier_score'), calibration_error=metrics.get('calibration_error'),
         best_model=metrics['best_model'], train_size=metrics['train_size'], test_size=metrics['test_size'],
         reliability=metrics.get('reliability', 'Unknown'), warnings=metrics.get('warnings'),
+        baseline_brier_score=metrics.get('baseline_brier_score'), brier_skill_score=metrics.get('brier_skill_score'),
+        average_precision=metrics.get('average_precision'), baseline_average_precision=metrics.get('baseline_average_precision'),
+        validation_checks=metrics.get('validation_checks'),
+        evaluation_semantics=metrics.get('evaluation_semantics', 'unvalidated'),
+        future_departure_validated=metrics.get('future_departure_validated', False),
     )
 
 
@@ -56,9 +65,10 @@ async def get_aggregate_risk_distribution(
     offset: int = Query(default=0, ge=0, description='Deprecated compatibility parameter.'),
     state: AppState = Depends(require_predictions),
 ) -> PredictionsResponse:
-    if state.risk_scores is None or state.risk_scores.empty:
-        raise HTTPException(status_code=404, detail='Aggregate predictive scores are not available.')
-    frame = state.risk_scores
+    try:
+        frame = validated_risk_scores(state)
+    except IntegrityError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     high = int((frame['risk_category'] == 'High').sum())
     medium = int((frame['risk_category'] == 'Medium').sum())
     low = int((frame['risk_category'] == 'Low').sum())

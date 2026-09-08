@@ -7,6 +7,17 @@ import pytest
 import numpy as np
 
 
+def golden_identity_fields(n: int) -> dict:
+    """Required governed upload fields shared by loader-facing fixtures."""
+    return {
+        'Gender': ['Female' if i % 2 else 'Male' for i in range(n)],
+        'JobTitle': ['Analyst'] * n,
+        'Location': ['Madrid'] * n,
+        'HireDate': ['2024-01-01'] * n,
+        'ManagerID': ['MGR001'] * n,
+    }
+
+
 @pytest.fixture
 def sample_valid_data() -> pd.DataFrame:
     """Returns a valid sample DataFrame for testing."""
@@ -20,7 +31,8 @@ def sample_valid_data() -> pd.DataFrame:
         'Salary': np.random.uniform(40000, 150000, n).round(0),
         'LastRating': np.random.uniform(1, 5, n).round(1),
         'Age': np.random.randint(22, 65, n),
-        'Attrition': np.random.choice([0, 1], n, p=[0.85, 0.15])
+        'Attrition': np.random.choice([0, 1], n, p=[0.85, 0.15]),
+        **golden_identity_fields(n),
     })
 
 
@@ -48,7 +60,8 @@ def sample_edge_case_data() -> pd.DataFrame:
         'Salary': np.random.uniform(50000, 100000, n).round(0),
         'LastRating': np.random.uniform(2, 5, n).round(1),
         'Age': np.random.randint(25, 55, n),
-        'Attrition': np.random.choice([0, 1], n)
+        'Attrition': np.random.choice([0, 1], n),
+        **golden_identity_fields(n),
     })
     
     # Add some nulls
@@ -70,7 +83,8 @@ def sample_data_with_fuzzy_columns() -> pd.DataFrame:
         'years_of_service': np.random.uniform(1, 10, n).round(1),
         'compensation': np.random.uniform(50000, 100000, n).round(0),
         'rating': np.random.uniform(2, 5, n).round(1),
-        'employee_age': np.random.randint(25, 55, n)
+        'employee_age': np.random.randint(25, 55, n),
+        **golden_identity_fields(n),
     })
 
 
@@ -86,7 +100,8 @@ def sample_data_with_duplicates() -> pd.DataFrame:
         'Tenure': np.random.uniform(1, 10, n).round(1),
         'Salary': np.random.uniform(50000, 100000, n).round(0),
         'LastRating': np.random.uniform(2, 5, n).round(1),
-        'Age': np.random.randint(25, 55, n)
+        'Age': np.random.randint(25, 55, n),
+        **golden_identity_fields(n),
     })
     
     # Add duplicates
@@ -122,7 +137,8 @@ def sample_data_minimum_rows() -> pd.DataFrame:
         'Salary': np.random.uniform(40000, 100000, n).round(0),
         'LastRating': np.random.uniform(1, 5, n).round(1),
         'Age': np.random.randint(22, 60, n),
-        'Attrition': np.random.choice([0, 1], n, p=[0.8, 0.2])
+        'Attrition': np.random.choice([0, 1], n, p=[0.8, 0.2]),
+        **golden_identity_fields(n),
     })
 
 
@@ -139,7 +155,8 @@ def sample_data_large() -> pd.DataFrame:
         'Salary': np.random.uniform(30000, 200000, n).round(0),
         'LastRating': np.random.uniform(1, 5, n).round(1),
         'Age': np.random.randint(20, 65, n),
-        'Attrition': np.random.choice([0, 1], n, p=[0.85, 0.15])
+        'Attrition': np.random.choice([0, 1], n, p=[0.85, 0.15]),
+        **golden_identity_fields(n),
     })
 
 
@@ -156,5 +173,6 @@ def sample_data_single_class() -> pd.DataFrame:
         'Salary': np.random.uniform(40000, 100000, n).round(0),
         'LastRating': np.random.uniform(1, 5, n).round(1),
         'Age': np.random.randint(22, 60, n),
-        'Attrition': np.zeros(n, dtype=int)  # All zeros - no attrition
+        'Attrition': np.zeros(n, dtype=int),  # All zeros - no attrition
+        **golden_identity_fields(n),
     })

@@ -21,11 +21,21 @@ class AnalyticsSummary(BaseModel):
     lastrating_mean: Optional[float] = None
     attrition_count: Optional[int] = None
     active_count: Optional[int] = None
+    attrition_known_count: Optional[int] = None
+    salary_observations: Optional[int] = None
+    salary_excluded_count: Optional[int] = None
+    tenure_observations: Optional[int] = None
+    tenure_excluded_count: Optional[int] = None
+    age_observations: Optional[int] = None
+    age_excluded_count: Optional[int] = None
+    lastrating_observations: Optional[int] = None
+    lastrating_excluded_count: Optional[int] = None
     takeaways: List[str] = []
     insights: Dict[str, str] = {}
 
 
 class DepartmentStats(BaseModel):
+    outcome_observations: int = 0
     dept: str
     headcount: int
     total_records: Optional[int] = None
@@ -42,6 +52,8 @@ class DepartmentStats(BaseModel):
 class DepartmentList(BaseModel):
     departments: List[DepartmentStats]
     total_departments: int
+    minimum_group_size: int = 10
+    suppressed_department_count: int = 0
 
 
 class TenureDistribution(BaseModel):
@@ -96,4 +108,6 @@ class CorrelationsResponse(BaseModel):
 class HighRiskDepartmentsResponse(BaseModel):
     departments: List[HighRiskDepartment]
     threshold: float
+    minimum_group_size: int = 10
+    suppressed_department_count: int = 0
     threshold_semantics: str = "observed_attrition_share_screening_threshold"

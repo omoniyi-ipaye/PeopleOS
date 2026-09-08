@@ -7,6 +7,7 @@ import { api } from '@/lib/api-client'
 import { Button } from '@/components/ui/button'
 
 interface PlatformStatus {
+  integrity?: { snapshot?: { source_rows?: number; active_rows?: number } }
   status: string
   data?: { loaded?: boolean; row_count?: number; active_dataset?: boolean }
   capabilities?: { predictive_model?: boolean; llm?: boolean; people_intelligence?: boolean }
@@ -15,21 +16,21 @@ interface PlatformStatus {
 
 export function Header() {
   const queryClient = useQueryClient()
-  const { data: status } = useQuery<PlatformStatus>({
+  const { data: status, isLoading, isError } = useQuery<PlatformStatus>({
     queryKey: ['platform', 'status'],
     queryFn: () => api.getStatus() as Promise<PlatformStatus>,
     refetchInterval: 30_000,
   })
 
   const hasData = Boolean(status?.data?.loaded)
-  const activeModel = Boolean(status?.workspace?.active_model)
+  const activeModel = Boolean(status?.capabilities?.predictive_model)
 
   return (
-    <header className="flex min-h-14 items-center justify-between gap-4 border-b border-slate-200/70 bg-white/85 px-5 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/85 md:px-7" aria-label="PeopleOS context">
+    <header className="flex min-h-14 items-center justify-between gap-2 border-b border-slate-200/70 bg-white/85 pl-16 pr-3 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/85 md:px-7" aria-label="PeopleOS context">
       <div className="flex min-w-0 items-center gap-2 text-xs text-text-muted">
         <Database className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-        <span className="truncate">{hasData ? `${status?.data?.row_count?.toLocaleString() ?? 0} people in active data` : 'No active dataset'}</span>
-        {hasData && <><span aria-hidden="true">·</span><span className="hidden sm:inline">{activeModel ? 'predictive model active' : 'evidence-first analysis'}</span></>}
+        <span className="truncate">{isLoading ? 'Checking data source…' : isError ? 'Data source unavailable' : hasData ? `${(status?.integrity?.snapshot?.source_rows ?? status?.data?.row_count)?.toLocaleString() ?? 'Unknown'} source records${status?.integrity?.snapshot?.active_rows == null ? '' : ` · ${status.integrity.snapshot.active_rows.toLocaleString()} active employees`}` : 'No active dataset'}</span>
+        {hasData && <><span aria-hidden="true">·</span><span className="hidden sm:inline">{activeModel ? 'experimental model available' : 'evidence-first analysis'}</span></>}
       </div>
       <div className="flex items-center gap-1">
         <Link href="/platform" className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-text-muted transition hover:bg-background-secondary hover:text-text-primary">

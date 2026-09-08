@@ -89,7 +89,8 @@ async def optimize_model():
     lab = _model_lab()
     plan = lab.generate_refinement_plan()
     return {
-        "status": "success",
-        "message": "Model optimization cycle triggered.",
-        "plan_applied": plan,
+        "status": "review_only",
+        "message": "Review generated; no model or feature changes were applied.",
+        "plan_applied": False,
+        "plan": plan,
     }

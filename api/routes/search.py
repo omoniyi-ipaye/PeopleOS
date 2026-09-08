@@ -16,6 +16,8 @@ class SearchResult(BaseModel):
     dept: str
     text: str
     similarity_score: float
+    squared_l2_distance: float | None = None
+    score_semantics: str = 'inverse_squared_l2_distance_not_probability_or_validated_relevance'
 
 
 class SearchResponse(BaseModel):
@@ -55,7 +57,10 @@ async def search_performance_reviews(
     The search uses sentence-transformers embeddings and FAISS
     for efficient similarity search.
     """
-    results = state.vector_engine.search(query, top_k=top_k)
+    try:
+        results = state.vector_engine.search(query, top_k=top_k)
+    except (RuntimeError, ValueError) as exc:
+        raise HTTPException(status_code=503, detail="Semantic search is unavailable; no relevance result was produced.") from exc
 
     search_results = []
     for result in results:
@@ -63,7 +68,8 @@ async def search_performance_reviews(
             employee_id=result['EmployeeID'],
             dept=result.get('Dept', 'Unknown'),
             text=result.get('text', ''),
-            similarity_score=float(result['similarity_score'])
+            similarity_score=float(result['similarity_score']),
+            squared_l2_distance=result.get('squared_l2_distance')
         ))
 
     return SearchResponse(

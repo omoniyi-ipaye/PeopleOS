@@ -7,6 +7,7 @@ core analytics never depend on Ollama availability.
 
 from typing import Any
 import json
+import math
 
 from src.logger import get_logger
 
@@ -31,11 +32,6 @@ class InsightInterpreter:
 
     def interpret_metric(self, metric_name: str, value: Any, context: dict = None) -> str:
         """Return an explanation without making the LLM a runtime dependency."""
-        if self.llm_available:
-            try:
-                return self._get_llm_interpretation(metric_name, value, context)
-            except Exception as exc:
-                logger.warning("Falling back to deterministic metric interpretation: %s", exc)
         return self._get_deterministic_interpretation(metric_name, value, context)
 
     def _get_deterministic_interpretation(self, metric_name: str, value: Any, context: dict = None) -> str:
@@ -48,14 +44,12 @@ class InsightInterpreter:
         except (TypeError, ValueError):
             return f"{label.capitalize()} is available in the current dataset."
 
+        if not math.isfinite(numeric):
+            return 'There is not enough data to interpret this metric reliably.'
         if metric_name == 'headcount':
             return f"The active workforce contains {int(numeric):,} people. Use department and location breakdowns to understand where that workforce is concentrated."
         if metric_name == 'turnover_rate':
-            if numeric >= BENCHMARKS['turnover_rate']['high']:
-                return f"Turnover is {numeric * 100:.1f}%, which is in the high watch range. Investigate where departures are concentrated before choosing an intervention."
-            if numeric <= BENCHMARKS['turnover_rate']['low']:
-                return f"Turnover is {numeric * 100:.1f}%, which is in the lower watch range. Continue monitoring for concentrated team-level issues."
-            return f"Turnover is {numeric * 100:.1f}%. Review department-level patterns to see whether the overall rate hides local pressure."
+            return f"Observed attrition share is {numeric * 100:.1f}% among records with known outcomes. A period turnover rate requires dated events and a defined exposure denominator."
         if metric_name == 'tenure_mean':
             if numeric < BENCHMARKS['tenure_mean']['low']:
                 return f"Average tenure is {numeric:.1f} years, suggesting a relatively new or fast-changing workforce. Check onboarding and early-tenure retention."
@@ -142,13 +136,8 @@ In 1-2 sentences, explain the main pattern and the decision-relevant takeaway. A
             takeaways.append(f"Current workforce: {int(headcount):,} people.")
 
         turnover = summary.get('turnover_rate')
-        if turnover is not None:
-            if turnover > 0.20:
-                takeaways.append(f"Turnover is {turnover * 100:.1f}% and should be investigated by department and tenure.")
-            elif turnover < 0.10:
-                takeaways.append(f"Turnover is {turnover * 100:.1f}%, currently in the lower watch range.")
-            else:
-                takeaways.append(f"Turnover is {turnover * 100:.1f}%; check whether pressure is concentrated in specific teams.")
+        if turnover is not None and math.isfinite(float(turnover)):
+            takeaways.append(f"Observed attrition share: {turnover * 100:.1f}% among known outcomes; no period turnover rate is established.")
 
         rating = summary.get('lastrating_mean')
         if rating is not None:

@@ -57,15 +57,15 @@ export function NLPTab() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <KPICard
                     title="Tone of Feedback"
-                    value={sentiment_summary.avg_sentiment?.toFixed(2) || '0.00'}
+                    value={sentiment_summary.avg_sentiment?.toFixed(2) ?? 'Unavailable'}
                     icon={Smile}
-                    subtitle="Overall sentiment (0-1)"
-                    variant={sentiment_summary.avg_sentiment > 0.6 ? 'success' : sentiment_summary.avg_sentiment < 0.4 ? 'danger' : 'warning'}
-                    insight="The average emotional tone of performance feedback, where higher means more positive."
+                    subtitle="Model-assigned sentiment (0-1)"
+                    variant={sentiment_summary.avg_sentiment == null ? 'warning' : sentiment_summary.avg_sentiment > 0.6 ? 'success' : sentiment_summary.avg_sentiment < 0.4 ? 'danger' : 'warning'}
+                    insight="Exploratory text-model output; accuracy on workforce feedback has not been validated."
                 />
                 <KPICard
                     title="Positive Feedback"
-                    value={`${(sentiment_summary.positive_pct || 0).toFixed(0)}%`}
+                    value={sentiment_summary.avg_sentiment == null ? 'Unavailable' : `${sentiment_summary.positive_pct.toFixed(0)}%`}
                     icon={Brain}
                     subtitle="Review sentiment"
                     insight="The percentage of performance reviews with a primarily positive tone."
@@ -96,7 +96,7 @@ export function NLPTab() {
                                 <div className="flex justify-between items-start mb-2">
                                     <div className="font-bold text-text-primary dark:text-text-dark-primary group-hover:text-accent transition-colors">{topic.name}</div>
                                     <Badge variant="default" className="bg-accent/10 text-accent border-accent/20">
-                                        {topic.prevalence}
+                                        {topic.prevalence ?? 'Prevalence not measured'}
                                     </Badge>
                                 </div>
                                 <p className="text-xs text-text-secondary dark:text-text-dark-secondary leading-relaxed">

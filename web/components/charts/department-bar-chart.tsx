@@ -14,8 +14,8 @@ import {
 interface DepartmentData {
   dept: string
   headcount: number
-  avg_salary?: number
-  turnover_rate?: number
+  avg_salary?: number | null
+  turnover_rate?: number | null
 }
 
 interface DepartmentBarChartProps {
@@ -33,12 +33,14 @@ const COLORS = [
 
 export function DepartmentBarChart({ data, dataKey = 'headcount' }: DepartmentBarChartProps) {
   const chartData = data
-    .filter((d) => d[dataKey] !== undefined && d[dataKey] !== null)
+    .filter((d) => d[dataKey] != null && Number.isFinite(d[dataKey]))
     .sort((a, b) => (b[dataKey] || 0) - (a[dataKey] || 0))
-    .slice(0, 8)
+
+  if (!chartData.length) return <p role="status">Department measurements are unavailable for this metric.</p>
+  const metricLabel = dataKey === 'turnover_rate' ? 'Observed attrition share (not period turnover)' : dataKey === 'avg_salary' ? 'Mean recorded salary (source units)' : 'Active employees'
 
   const formatValue = (value: number) => {
-    if (dataKey === 'avg_salary') return `$${value.toLocaleString()}`
+    if (dataKey === 'avg_salary') return value.toLocaleString()
     if (dataKey === 'turnover_rate') return `${(value * 100).toFixed(1)}%`
     return value.toString()
   }
@@ -47,7 +49,7 @@ export function DepartmentBarChart({ data, dataKey = 'headcount' }: DepartmentBa
     <ResponsiveContainer width="100%" height={300}>
       <BarChart data={chartData} layout="vertical" margin={{ top: 5, right: 30, left: 80, bottom: 5 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
-        <XAxis type="number" stroke="var(--text-muted)" fontSize={12} />
+        <XAxis type="number" stroke="var(--text-muted)" fontSize={12} tickFormatter={formatValue} />
         <YAxis type="category" dataKey="dept" stroke="var(--text-muted)" fontSize={12} width={75} tickLine={false} />
         <Tooltip
           contentStyle={{
@@ -59,7 +61,7 @@ export function DepartmentBarChart({ data, dataKey = 'headcount' }: DepartmentBa
             boxShadow: 'var(--shadow-raised)',
           }}
           itemStyle={{ color: 'inherit' }}
-          formatter={(value) => [formatValue(Number(value ?? 0)), dataKey]}
+          formatter={(value) => [value == null || !Number.isFinite(Number(value)) ? 'Unavailable' : formatValue(Number(value)), metricLabel]}
         />
         <Bar dataKey={dataKey} radius={[0, 4, 4, 0]}>
           {chartData.map((_, index) => (

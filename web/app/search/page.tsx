@@ -11,12 +11,15 @@ import type { SearchResult, SearchStatus } from '@/types/api'
 export default function SearchPage() {
   const [query, setQuery] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
-  const { data: status } = useQuery<SearchStatus>({ queryKey: ['search', 'status'], queryFn: () => api.search.getStatus() as Promise<SearchStatus> })
-  const { data, isLoading } = useQuery<SearchResult>({ queryKey: ['search', 'results', searchTerm], queryFn: () => api.search.search(searchTerm, 10) as Promise<SearchResult>, enabled: searchTerm.length >= 3 })
+  const { data: status, isLoading: statusLoading, isError: statusError, refetch: retryStatus } = useQuery<SearchStatus>({ queryKey: ['search', 'status'], queryFn: () => api.search.getStatus() as Promise<SearchStatus> })
+  const { data, isLoading, isError, refetch } = useQuery<SearchResult>({ queryKey: ['search', 'results', searchTerm], queryFn: () => api.search.search(searchTerm, 10) as Promise<SearchResult>, enabled: searchTerm.length >= 3 })
 
   const submit = (event: FormEvent) => { event.preventDefault(); if (query.trim().length >= 3) setSearchTerm(query.trim()) }
 
-  if (status?.available === false) return <Page>
+  if (statusLoading) return <Page><StateSummary title="Checking research capability" description="Confirming that the active dataset has a prepared workforce-text evidence index." tone="info" /></Page>
+  if (statusError || !status) return <Page><EmptyState title="Research capability is unavailable" description="PeopleOS could not verify the active text index. Retry before searching or interpreting results." action={<Button onClick={() => void retryStatus()}>Retry capability check</Button>} /></Page>
+
+  if (status.available === false) return <Page>
     <PageHeader eyebrow="Investigate · Research" title="Search is not available for this dataset" description="Semantic research appears only when the active dataset contains supported workforce text and an evidence index has been prepared." />
     <StateSummary title="Structured evidence is still available" description={status.reason || 'This dataset does not currently provide the text evidence required for semantic research.'} tone="info" />
 
@@ -51,20 +54,20 @@ export default function SearchPage() {
 
   return (
     <Page>
-      <PageHeader eyebrow="Investigate · Research" title="Search the evidence in workforce text" description="Use semantic retrieval to find relevant passages. Search results are evidence candidates, not conclusions or employee decisions." />
+      <PageHeader eyebrow="Investigate · Research" title="Search the evidence in workforce text" description="Use semantic retrieval to find relevant passages. Search results are evidence candidates. Ranking scores order the retrieved passages; they are not probabilities or validated relevance ratings." />
 
       <Surface padding="lg">
         <form onSubmit={submit} className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
           <Input label="Research query" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="e.g. leadership potential, manager support, career growth" leading={<Search className="h-4 w-4" />} />
           <Button type="submit" disabled={query.trim().length < 3} isLoading={isLoading}>Search evidence <ArrowRight className="h-4 w-4" /></Button>
         </form>
-        <div className="mt-4 flex items-center gap-2 text-xs text-text-muted"><FileText className="h-3.5 w-3.5" />{status?.indexed_records ?? 0} indexed records</div>
+        <div className="mt-4 flex items-center gap-2 text-xs text-text-muted"><FileText className="h-3.5 w-3.5" />{Number.isFinite(status.indexed_records) ? status.indexed_records.toLocaleString() : 'Unavailable'} indexed records</div>
       </Surface>
 
       {searchTerm ? <Surface padding="lg">
         <SectionHeader title={`Results for “${searchTerm}”`} description="Ranked by semantic similarity. Review the underlying text before drawing a conclusion." />
         <div className="mt-5 space-y-3">
-          {isLoading ? <StateSummary title="Searching evidence" description="Comparing your query with the indexed workforce text." tone="info" /> : results.length ? results.map((result, index) => <article key={`${result.employee_id}-${index}`} className="rounded-2xl border border-border p-5"><div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"><div><div className="flex flex-wrap items-center gap-2"><span className="font-semibold">Record {index + 1}</span>{result.dept ? <StatusBadge tone="neutral">{result.dept}</StatusBadge> : null}</div><p className="mt-3 text-sm leading-7 text-text-secondary">{result.text}</p></div><StatusBadge tone={result.similarity_score >= .8 ? 'success' : result.similarity_score >= .6 ? 'info' : 'neutral'}>{(result.similarity_score * 100).toFixed(0)}% match</StatusBadge></div></article>) : <EmptyState title="No relevant evidence found" description="Try a broader concept or different wording." />}
+          {isLoading ? <StateSummary title="Searching evidence" description="Comparing your query with the indexed workforce text." tone="info" /> : isError ? <EmptyState title="Search unavailable" description="The search could not complete. Retry before interpreting the results." action={<Button onClick={() => void refetch()}>Retry search</Button>} /> : results.length ? results.map((result, index) => <article key={`${result.employee_id}-${index}`} className="rounded-2xl border border-border p-5"><div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className="font-semibold">Record {index + 1}</span>{result.dept ? <StatusBadge tone="neutral">{result.dept}</StatusBadge> : null}</div><p className="mt-3 break-words text-sm leading-7 text-text-secondary">{result.text}</p></div><StatusBadge tone="neutral">Ranking score {Number.isFinite(result.similarity_score) ? result.similarity_score.toFixed(3) : 'Unavailable'}</StatusBadge></div></article>) : <EmptyState title="No relevant evidence found" description="Try a broader concept or different wording." />}
         </div>
       </Surface> : <Surface padding="lg"><EmptyState icon={Search} title="Start with a workforce question" description="Search works best for concepts and themes rather than exact employee identifiers." /></Surface>}
 

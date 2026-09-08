@@ -8,6 +8,8 @@ from fastapi import APIRouter, HTTPException, Depends, Query, UploadFile, File
 from fastapi.responses import FileResponse
 from typing import Optional, List
 
+from src.platform.runtime_lock import RUNTIME_MUTATION_LOCK
+from src.serialization import json_safe
 from api.dependencies import get_app_state, AppState
 from api.schemas.sentiment import (
     ENPSResponse,
@@ -63,9 +65,10 @@ async def get_sentiment_analysis(
     - Onboarding trajectory analysis
     - Early warning detection
     """
-    results = state.sentiment_engine.analyze_all()
+    results = json_safe(state.sentiment_engine.analyze_all())
 
     return SentimentAnalysisResponse(
+        survey_coverage=results.get('survey_coverage', {}),
         enps=results.get('enps', {}),
         enps_trends=results.get('enps_trends', {}),
         enps_drivers=results.get('enps_drivers', {}),
@@ -110,6 +113,7 @@ async def get_enps(
 
     if not results.get('available', False):
         return ENPSResponse(
+        survey_coverage=results.get('survey_coverage', {}),
             available=False,
             reason=results.get('reason', 'eNPS analysis not available')
         )
@@ -119,6 +123,7 @@ async def get_enps(
         by_group.append(ENPSGroupResult(**g))
 
     return ENPSResponse(
+        survey_coverage=results.get('survey_coverage', {}),
         available=True,
         overall_enps=results.get('overall_enps'),
         total_responses=results.get('total_responses'),
@@ -129,7 +134,10 @@ async def get_enps(
         passive_pct=results.get('passive_pct'),
         detractor_pct=results.get('detractor_pct'),
         interpretation=results.get('interpretation'),
-        by_group=by_group
+        by_group=by_group,
+        minimum_group_size=results.get('minimum_group_size'),
+        suppressed_group_count=results.get('suppressed_group_count', 0),
+        suppressed_response_count=results.get('suppressed_response_count', 0),
     )
 
 
@@ -150,11 +158,13 @@ async def get_enps_trends(
 
     if not results.get('available', False):
         return ENPSTrendsResponse(
+        survey_coverage=results.get('survey_coverage', {}),
             available=False,
             reason=results.get('reason', 'Trend analysis not available')
         )
 
     return ENPSTrendsResponse(
+        survey_coverage=results.get('survey_coverage', {}),
         available=True,
         period_type=results.get('period_type'),
         trends=[ENPSTrendPoint(**t) for t in results.get('trends', [])],
@@ -177,11 +187,13 @@ async def get_enps_drivers(
 
     if not results.get('available', False):
         return ENPSDriversResponse(
+        survey_coverage=results.get('survey_coverage', {}),
             available=False,
             reason=results.get('reason', 'Driver analysis not available')
         )
 
     return ENPSDriversResponse(
+        survey_coverage=results.get('survey_coverage', {}),
         available=True,
         drivers=[ENPSDriver(**d) for d in results.get('drivers', [])],
         top_driver=results.get('top_driver'),
@@ -209,11 +221,13 @@ async def get_onboarding_trajectories(
 
     if not results.get('available', False):
         return OnboardingTrajectoryResponse(
+        survey_coverage=results.get('survey_coverage', {}),
             available=False,
             reason=results.get('reason', 'Onboarding analysis not available')
         )
 
     return OnboardingTrajectoryResponse(
+        survey_coverage=results.get('survey_coverage', {}),
         available=True,
         trajectories=[OnboardingTrajectory(**t) for t in results.get('trajectories', [])],
         summary=OnboardingTrajectorySummary(**results.get('summary', {})) if results.get('summary') else None,
@@ -234,11 +248,13 @@ async def get_onboarding_health(
 
     if not results.get('available', False):
         return OnboardingHealthResponse(
+        survey_coverage=results.get('survey_coverage', {}),
             available=False,
             reason=results.get('reason', 'Onboarding health not available')
         )
 
     return OnboardingHealthResponse(
+        survey_coverage=results.get('survey_coverage', {}),
         available=True,
         by_survey_type=[SurveyTypeMetrics(**s) for s in results.get('by_survey_type', [])],
         dimension_scores=[DimensionScore(**d) for d in results.get('dimension_scores', [])],
@@ -261,6 +277,7 @@ async def get_early_warnings(
 
     if not results.get('available', False):
         return EarlyWarningsResponse(
+        survey_coverage=results.get('survey_coverage', {}),
             available=False,
             warnings=[],
             summary=None,
@@ -268,6 +285,7 @@ async def get_early_warnings(
         )
 
     return EarlyWarningsResponse(
+        survey_coverage=results.get('survey_coverage', {}),
         available=True,
         warnings=[EarlyWarning(**w) for w in results.get('warnings', [])],
         summary=EarlyWarningSummary(**results.get('summary', {})) if results.get('summary') else None,
@@ -351,69 +369,73 @@ async def upload_enps_survey(
     file: UploadFile = File(...),
     state: AppState = Depends(get_app_state)
 ) -> SurveyUploadResponse:
-    """
-    Upload eNPS survey data.
+    with RUNTIME_MUTATION_LOCK:
+        """
+        Upload eNPS survey data.
 
-    Expected columns:
-    - EmployeeID (required)
-    - SurveyDate (required)
-    - eNPSScore (required, 0-10)
-    - Optional: EngagementScore, WellbeingScore, GrowthScore, etc.
-    """
-    import pandas as pd
-    import tempfile
+        Expected columns:
+        - EmployeeID (required)
+        - SurveyDate (required)
+        - eNPSScore (required, 0-10)
+        - Optional: EngagementScore, WellbeingScore, GrowthScore, etc.
+        """
+        import pandas as pd
+        import tempfile
 
-    if not file.filename.endswith('.csv'):
-        raise HTTPException(
-            status_code=400,
-            detail="Only CSV files are supported"
-        )
-
-    # Save uploaded file
-    with tempfile.NamedTemporaryFile(delete=False, suffix='.csv') as tmp:
-        shutil.copyfileobj(file.file, tmp)
-        tmp_path = tmp.name
-
-    try:
-        df = pd.read_csv(tmp_path)
-
-        required_cols = ['EmployeeID', 'SurveyDate', 'eNPSScore']
-        missing = [c for c in required_cols if c not in df.columns]
-
-        if missing:
+        if not file.filename.endswith('.csv'):
             raise HTTPException(
                 status_code=400,
-                detail=f"Missing required columns: {missing}"
+                detail="Only CSV files are supported"
             )
 
-        warnings = []
+        # Save uploaded file
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.csv') as tmp:
+            shutil.copyfileobj(file.file, tmp)
+            tmp_path = tmp.name
 
-        # Validate score range
-        if (df['eNPSScore'] < 0).any() or (df['eNPSScore'] > 10).any():
-            warnings.append("Some eNPSScore values are outside 0-10 range")
+        try:
+            df = pd.read_csv(tmp_path, dtype={'EmployeeID': 'string'}, keep_default_na=False, na_values=[''])
 
-        # Store in state for sentiment engine
-        state.enps_df = df
+            required_cols = ['EmployeeID', 'SurveyDate', 'eNPSScore']
+            missing = [c for c in required_cols if c not in df.columns]
 
-        # Reinitialize sentiment engine
-        from src.sentiment_engine import SentimentEngine
-        state.sentiment_engine = SentimentEngine(
-            employee_df=state.raw_df,
-            enps_df=state.enps_df,
-            onboarding_df=getattr(state, 'onboarding_df', None)
-        )
+            if missing:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Missing required columns: {missing}"
+                )
 
-        return SurveyUploadResponse(
-            success=True,
-            message=f"Successfully loaded {len(df)} eNPS survey responses",
-            rows_loaded=len(df),
-            survey_type='eNPS',
-            columns_found=list(df.columns),
-            warnings=warnings
-        )
+            df['EmployeeID'] = df['EmployeeID'].str.strip().replace('', pd.NA)
+            warnings = []
 
-    finally:
-        os.unlink(tmp_path)
+            df['eNPSScore'] = pd.to_numeric(df['eNPSScore'], errors='coerce')
+            # Validate score range
+            if (df['eNPSScore'] < 0).any() or (df['eNPSScore'] > 10).any():
+                warnings.append("Some eNPSScore values are outside 0-10 range")
+
+            # Prepare all derived state before replacing a previously valid survey.
+            from src.sentiment_engine import SentimentEngine
+            candidate_engine = SentimentEngine(
+                employee_df=state.raw_df,
+                enps_df=df,
+                onboarding_df=getattr(state, 'onboarding_df', None)
+            )
+
+            response = SurveyUploadResponse(
+                survey_coverage=candidate_engine.survey_coverage,
+                success=True,
+                message=f"Successfully loaded {len(df)} eNPS survey responses",
+                rows_loaded=len(df),
+                survey_type='eNPS',
+                columns_found=list(df.columns),
+                warnings=warnings
+            )
+            state.enps_df = df
+            state.sentiment_engine = candidate_engine
+            return response
+
+        finally:
+            os.unlink(tmp_path)
 
 
 @router.post("/upload/onboarding", response_model=SurveyUploadResponse)
@@ -421,69 +443,72 @@ async def upload_onboarding_survey(
     file: UploadFile = File(...),
     state: AppState = Depends(get_app_state)
 ) -> SurveyUploadResponse:
-    """
-    Upload onboarding survey data.
+    with RUNTIME_MUTATION_LOCK:
+        """
+        Upload onboarding survey data.
 
-    Expected columns:
-    - EmployeeID (required)
-    - SurveyType (required: "30-day", "60-day", or "90-day")
-    - SurveyDate (required)
-    - OverallScore (required, 1-5)
-    - Optional: ClarityOfRole, ManagerSupport, TeamIntegration, etc.
-    """
-    import pandas as pd
-    import tempfile
+        Expected columns:
+        - EmployeeID (required)
+        - SurveyType (required: "30-day", "60-day", or "90-day")
+        - SurveyDate (required)
+        - OverallScore (required, 1-5)
+        - Optional: ClarityOfRole, ManagerSupport, TeamIntegration, etc.
+        """
+        import pandas as pd
+        import tempfile
 
-    if not file.filename.endswith('.csv'):
-        raise HTTPException(
-            status_code=400,
-            detail="Only CSV files are supported"
-        )
-
-    # Save uploaded file
-    with tempfile.NamedTemporaryFile(delete=False, suffix='.csv') as tmp:
-        shutil.copyfileobj(file.file, tmp)
-        tmp_path = tmp.name
-
-    try:
-        df = pd.read_csv(tmp_path)
-
-        required_cols = ['EmployeeID', 'SurveyType', 'SurveyDate', 'OverallScore']
-        missing = [c for c in required_cols if c not in df.columns]
-
-        if missing:
+        if not file.filename.endswith('.csv'):
             raise HTTPException(
                 status_code=400,
-                detail=f"Missing required columns: {missing}"
+                detail="Only CSV files are supported"
             )
 
-        warnings = []
+        # Save uploaded file
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.csv') as tmp:
+            shutil.copyfileobj(file.file, tmp)
+            tmp_path = tmp.name
 
-        # Validate survey types
-        valid_types = ['30-day', '60-day', '90-day']
-        invalid_types = set(df['SurveyType'].unique()) - set(valid_types)
-        if invalid_types:
-            warnings.append(f"Unknown survey types found: {invalid_types}")
+        try:
+            df = pd.read_csv(tmp_path, dtype={'EmployeeID': 'string'}, keep_default_na=False, na_values=[''])
 
-        # Store in state for sentiment engine
-        state.onboarding_df = df
+            required_cols = ['EmployeeID', 'SurveyType', 'SurveyDate', 'OverallScore']
+            missing = [c for c in required_cols if c not in df.columns]
 
-        # Reinitialize sentiment engine
-        from src.sentiment_engine import SentimentEngine
-        state.sentiment_engine = SentimentEngine(
-            employee_df=state.raw_df,
-            enps_df=getattr(state, 'enps_df', None),
-            onboarding_df=state.onboarding_df
-        )
+            if missing:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Missing required columns: {missing}"
+                )
 
-        return SurveyUploadResponse(
-            success=True,
-            message=f"Successfully loaded {len(df)} onboarding survey responses",
-            rows_loaded=len(df),
-            survey_type='Onboarding',
-            columns_found=list(df.columns),
-            warnings=warnings
-        )
+            df['EmployeeID'] = df['EmployeeID'].str.strip().replace('', pd.NA)
+            warnings = []
 
-    finally:
-        os.unlink(tmp_path)
+            # Validate survey types
+            valid_types = ['30-day', '60-day', '90-day']
+            invalid_types = set(df['SurveyType'].unique()) - set(valid_types)
+            if invalid_types:
+                warnings.append(f"Unknown survey types found: {invalid_types}")
+
+            # Prepare all derived state before replacing a previously valid survey.
+            from src.sentiment_engine import SentimentEngine
+            candidate_engine = SentimentEngine(
+                employee_df=state.raw_df,
+                enps_df=getattr(state, 'enps_df', None),
+                onboarding_df=df
+            )
+
+            response = SurveyUploadResponse(
+                survey_coverage=candidate_engine.survey_coverage,
+                success=True,
+                message=f"Successfully loaded {len(df)} onboarding survey responses",
+                rows_loaded=len(df),
+                survey_type='Onboarding',
+                columns_found=list(df.columns),
+                warnings=warnings
+            )
+            state.onboarding_df = df
+            state.sentiment_engine = candidate_engine
+            return response
+
+        finally:
+            os.unlink(tmp_path)

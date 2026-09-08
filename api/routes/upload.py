@@ -2,6 +2,8 @@
 
 import os
 import tempfile
+from types import SimpleNamespace
+from src.platform.runtime_lock import RUNTIME_MUTATION_LOCK, runtime_mutation
 from typing import Dict, Any, Optional
 
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
@@ -10,8 +12,10 @@ from pydantic import BaseModel, Field
 
 from api.dependencies import get_app_state, AppState
 from src.platform.local_dataset_store import save_dataset_artifact
+from src.platform.local_dataset_store import remove_dataset_artifact
 from src.platform.runtime_loader import load_dataset
 from src.platform.workspace import DatasetState, ModelState, WorkspaceStore
+from uuid import uuid4
 
 router = APIRouter(prefix="/api/upload", tags=["upload"])
 _store = WorkspaceStore()
@@ -49,23 +53,33 @@ class DatabaseStatusResponse(BaseModel):
     active_dataset_id: Optional[str] = None
 
 
+@runtime_mutation
 def _register_loaded_dataset(state: AppState, source_name: str, content_hash: str, workspace_id: str = "local"):
-    dataset = _store.register_dataset(
-        workspace_id=workspace_id,
-        source_name=source_name,
-        content_hash=content_hash,
-        row_count=len(state.raw_df) if state.raw_df is not None else 0,
-        columns=list(state.raw_df.columns) if state.raw_df is not None else [],
-        quality={
-            "missing_cells": int(state.raw_df.isna().sum().sum()) if state.raw_df is not None else 0,
-            "duplicate_rows": int(state.raw_df.duplicated().sum()) if state.raw_df is not None else 0,
-        },
-    )
     source_frame = state.historical_df if state.historical_df is not None else state.raw_df
     if source_frame is None or source_frame.empty:
         raise ValueError("Loaded dataset has no rows to persist")
-    save_dataset_artifact(dataset.dataset_id, source_frame)
-    return _store.activate_dataset(workspace_id, dataset.dataset_id)
+    dataset_id = f"ds_{uuid4().hex}"
+    path = save_dataset_artifact(dataset_id, source_frame)
+    try:
+        activated = _store.register_active_dataset(
+            workspace_id=workspace_id,
+            dataset_id=dataset_id,
+            source_name=source_name,
+            content_hash=content_hash,
+            row_count=len(state.raw_df),
+            columns=list(state.raw_df.columns),
+            quality={
+                "missing_cells": int(state.raw_df.isna().sum().sum()),
+                "duplicate_rows": int(state.raw_df.duplicated().sum()),
+                'artifact_sha256': _store.hash_bytes(path.read_bytes()),
+                'current_fingerprint': state.runtime_provenance['current_fingerprint'],
+            },
+        )
+    except Exception:
+        remove_dataset_artifact(dataset_id)
+        raise
+    state.runtime_provenance = {**state.runtime_provenance, 'workspace_id': workspace_id, 'dataset_id': dataset_id, 'dataset_version': activated.version, 'source_name': source_name}
+    return activated
 
 
 def _clear_active_lifecycle(workspace_id: str = "local") -> None:
@@ -92,21 +106,24 @@ async def upload_file(file: UploadFile = File(...), state: AppState = Depends(ge
 
     try:
         content = await file.read()
-        with tempfile.NamedTemporaryFile(delete=False, suffix=f".{ext}") as tmp:
-            tmp.write(content)
-            tmp_path = tmp.name
-        result = load_dataset(state, tmp_path, file.filename)
-        dataset = _register_loaded_dataset(state, file.filename, _store.hash_bytes(content))
-        return UploadResponse(
-            success=True,
-            message=f"Successfully activated {result['rows_loaded']} employees as dataset v{dataset.version}",
-            rows_loaded=result['rows_loaded'],
-            columns=result['columns'],
-            features_enabled=result['features_enabled'],
-            dataset_id=dataset.dataset_id,
-            dataset_version=dataset.version,
-            deferred=result.get('deferred', {}),
-        )
+        with RUNTIME_MUTATION_LOCK:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=f".{ext}") as tmp:
+                tmp.write(content)
+                tmp_path = tmp.name
+            candidate = SimpleNamespace(**state.__dict__)
+            result = load_dataset(candidate, tmp_path, file.filename)
+            dataset = _register_loaded_dataset(candidate, file.filename, _store.hash_bytes(content))
+            state.__dict__.update(candidate.__dict__)
+            return UploadResponse(
+                success=True,
+                message=f"Successfully activated {result['rows_loaded']} employees as dataset v{dataset.version}",
+                rows_loaded=result['rows_loaded'],
+                columns=result['columns'],
+                features_enabled=result['features_enabled'],
+                dataset_id=dataset.dataset_id,
+                dataset_version=dataset.version,
+                deferred=result.get('deferred', {}),
+            )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
     finally:
@@ -144,27 +161,36 @@ async def load_sample_data(state: AppState = Depends(get_app_state)) -> UploadRe
     if not os.path.exists(sample_path):
         raise HTTPException(status_code=404, detail="Sample data file not found")
     try:
-        content = open(sample_path, "rb").read()
-        result = load_dataset(state, sample_path, "sample_hr_data.csv")
-        dataset = _register_loaded_dataset(state, "sample_hr_data.csv", _store.hash_bytes(content))
-        return UploadResponse(
-            success=True,
-            message=f"Successfully activated {result['rows_loaded']} employees from sample data as dataset v{dataset.version}",
-            rows_loaded=result['rows_loaded'],
-            columns=result['columns'],
-            features_enabled=result['features_enabled'],
-            dataset_id=dataset.dataset_id,
-            dataset_version=dataset.version,
-            deferred=result.get('deferred', {}),
-        )
+        with RUNTIME_MUTATION_LOCK:
+            content = open(sample_path, "rb").read()
+            candidate = SimpleNamespace(**state.__dict__)
+            result = load_dataset(candidate, sample_path, "sample_hr_data.csv")
+            dataset = _register_loaded_dataset(candidate, "sample_hr_data.csv", _store.hash_bytes(content))
+            state.__dict__.update(candidate.__dict__)
+            return UploadResponse(
+                success=True,
+                message=f"Successfully activated {result['rows_loaded']} employees from sample data as dataset v{dataset.version}",
+                rows_loaded=result['rows_loaded'],
+                columns=result['columns'],
+                features_enabled=result['features_enabled'],
+                dataset_id=dataset.dataset_id,
+                dataset_version=dataset.version,
+                deferred=result.get('deferred', {}),
+            )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/reset")
 async def reset_data(state: AppState = Depends(get_app_state)) -> Dict[str, Any]:
-    state.reset()
-    _clear_active_lifecycle("local")
+    with RUNTIME_MUTATION_LOCK:
+        previous = _store.get_workspace('local')
+        _clear_active_lifecycle('local')
+        try:
+            state.reset()
+        except Exception:
+            _store._replace_workspace(previous)
+            raise
     return {
         "success": True,
         "message": "Active local data has been reset. Dataset/model version history is retained for auditability.",

@@ -26,6 +26,8 @@ from api.schemas.analytics import (
     TenureDistribution,
 )
 
+from src.serialization import json_safe
+
 router = APIRouter(prefix="/api/analytics", tags=["analytics"])
 
 
@@ -60,6 +62,15 @@ async def get_analytics_summary(state: AppState = Depends(require_data)) -> Anal
         lastrating_mean=stats.get('lastrating_mean'),
         attrition_count=stats.get('attrition_count'),
         active_count=stats.get('active_count'),
+        attrition_known_count=stats.get('attrition_known_count'),
+        salary_observations=stats.get('salary_observations'),
+        salary_excluded_count=stats.get('salary_excluded_count'),
+        tenure_observations=stats.get('tenure_observations'),
+        tenure_excluded_count=stats.get('tenure_excluded_count'),
+        age_observations=stats.get('age_observations'),
+        age_excluded_count=stats.get('age_excluded_count'),
+        lastrating_observations=stats.get('lastrating_observations'),
+        lastrating_excluded_count=stats.get('lastrating_excluded_count'),
         takeaways=takeaways,
         insights={'attrition_semantics': 'Observed snapshot outcome share; period turnover requires a defined period and at-risk denominator.'},
     )
@@ -68,13 +79,19 @@ async def get_analytics_summary(state: AppState = Depends(require_data)) -> Anal
 @router.get("/departments", response_model=DepartmentList)
 async def get_department_stats(state: AppState = Depends(require_data)) -> DepartmentList:
     frame = state.analytics_engine.get_department_aggregates()
+    minimum_group_size = 10
+    eligible = frame['Total_Records'].fillna(0) >= minimum_group_size if 'Total_Records' in frame else pd.Series(False, index=frame.index)
+    suppressed = int((~eligible).sum())
+    frame = frame.loc[eligible]
     departments = []
     for _, row in frame.iterrows():
+        row = json_safe(row.to_dict())
         share = row.get('Observed_Attrition_Share', row.get('Turnover_Rate'))
         departments.append(DepartmentStats(
             dept=row['Dept'],
             headcount=int(row.get('Headcount', 0)),
             total_records=int(row.get('Total_Records', 0)),
+            outcome_observations=int(row.get('Outcome_Observations', 0)),
             avg_salary=row.get('Avg_Salary'),
             median_salary=row.get('Median_Salary'),
             salary_std_dev=row.get('Salary_StdDev'),
@@ -84,7 +101,9 @@ async def get_department_stats(state: AppState = Depends(require_data)) -> Depar
             observed_attrition_share=share,
             turnover_rate=share,
         ))
-    return DepartmentList(departments=departments, total_departments=len(departments))
+    return DepartmentList(departments=departments, total_departments=len(departments),
+                          minimum_group_size=minimum_group_size,
+                          suppressed_department_count=suppressed)
 
 
 @router.get("/distributions", response_model=DistributionsResponse)
@@ -94,8 +113,8 @@ async def get_distributions(state: AppState = Depends(require_data)) -> Distribu
         TenureDistribution(
             tenure_range=str(row['Tenure_Range']),
             count=int(row['Count']),
-            observed_attrition_share=row.get('Observed_Attrition_Share', row.get('Turnover_Rate')),
-            turnover_rate=row.get('Observed_Attrition_Share', row.get('Turnover_Rate')),
+            observed_attrition_share=json_safe(row.get('Observed_Attrition_Share', row.get('Turnover_Rate'))),
+            turnover_rate=json_safe(row.get('Observed_Attrition_Share', row.get('Turnover_Rate'))),
         ) for _, row in tenure_frame.iterrows()
     ]
     age_frame = state.analytics_engine.get_age_distribution()
@@ -125,6 +144,10 @@ async def get_high_risk_departments(
     state: AppState = Depends(require_data),
 ) -> HighRiskDepartmentsResponse:
     frame = state.analytics_engine.get_high_risk_departments(threshold=threshold)
+    minimum_group_size = 10
+    eligible = frame['Total_Records'].fillna(0) >= minimum_group_size if 'Total_Records' in frame else pd.Series(False, index=frame.index)
+    suppressed = int((~eligible).sum())
+    frame = frame.loc[eligible]
     used = state.analytics_engine.high_risk_threshold if threshold is None else threshold
     departments = []
     for _, row in frame.iterrows():
@@ -134,7 +157,9 @@ async def get_high_risk_departments(
             headcount=int(row.get('Headcount', 0)), avg_salary=row.get('Avg_Salary'), avg_rating=row.get('Avg_Rating'),
             reason='Observed attrition share exceeds the configured aggregate screening threshold; local causes are not inferred.',
         ))
-    return HighRiskDepartmentsResponse(departments=departments, threshold=used)
+    return HighRiskDepartmentsResponse(departments=departments, threshold=used,
+                                       minimum_group_size=minimum_group_size,
+                                       suppressed_department_count=suppressed)
 
 
 @router.get("/clusters")
@@ -152,41 +177,10 @@ async def get_cluster_members(cluster_id: int, state: AppState = Depends(require
 async def get_forecast(metric: str = "headcount", periods: int = Query(default=12, ge=1, le=36), state: AppState = Depends(require_data)):
     """Forecast only from genuine repeated dated snapshots; never synthetic backfill."""
     history = getattr(state, 'historical_df', None)
-    if history is None or history.empty or 'SnapshotDate' not in history.columns:
-        return {'success': False, 'reason': 'Forecasting requires genuine repeated SnapshotDate observations. PeopleOS will not synthesize historical data from HireDate or tenure.'}
-    data = history.copy()
-    data['SnapshotDate'] = pd.to_datetime(data['SnapshotDate'], errors='coerce')
-    data = data.dropna(subset=['SnapshotDate'])
-    if data['SnapshotDate'].nunique() < 3:
-        return {'success': False, 'reason': 'At least three distinct observed snapshot dates are required for a forecast.'}
-
-    key = metric.lower()
-    if key == 'headcount':
-        series = data.groupby('SnapshotDate')['EmployeeID'].nunique().sort_index()
-    elif key == 'salary':
-        data['Salary'] = pd.to_numeric(data['Salary'], errors='coerce')
-        series = data.groupby('SnapshotDate')['Salary'].mean().dropna().sort_index()
-    else:
-        if metric not in data.columns:
-            return {'success': False, 'reason': f"Metric '{metric}' is not available in the observed snapshot history."}
-        numeric = pd.to_numeric(data[metric], errors='coerce')
-        data = data.assign(_metric=numeric)
-        series = data.groupby('SnapshotDate')['_metric'].mean().dropna().sort_index()
-
-    if len(series) < 3:
-        return {'success': False, 'reason': 'Insufficient observed snapshot points after cleaning.'}
-
-    from statsmodels.tsa.holtwinters import ExponentialSmoothing
-    daily = series.resample('D').mean().interpolate(method='time').ffill().bfill()
-    fit = ExponentialSmoothing(daily, trend='add' if len(daily) >= 30 else None, initialization_method='estimated').fit()
-    forecast = fit.forecast(periods * 30)
-    return {
-        'success': True,
-        'metric': key,
-        'history': [{'date': d.strftime('%Y-%m-%d'), 'value': float(v)} for d, v in series.items()][-24:],
-        'forecast': [{'date': d.strftime('%Y-%m-%d'), 'value': float(v)} for d, v in forecast.resample('ME').mean().items()][:periods],
-        'semantics': 'time_series_extrapolation_from_observed_snapshots_not_causal_forecast',
-    }
+    if history is None or history.empty:
+        return {'success': False, 'reason': 'Forecasting requires observed monthly workforce censuses'}
+    from src.forecasting_engine import ForecastingEngine
+    return ForecastingEngine(history).forecast_metric(metric, periods)
 
 
 @router.get("/compare-groups")

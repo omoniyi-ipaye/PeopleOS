@@ -25,9 +25,55 @@ from src.utils import load_config
 logger = get_logger('analytics_engine')
 
 
+def _valid_numeric(series: pd.Series, name: str) -> pd.Series:
+    values = pd.to_numeric(series, errors='coerce').replace([np.inf, -np.inf], np.nan).dropna()
+    if name == 'Salary':
+        values = values[values > 0]
+    elif name == 'Tenure':
+        values = values[values >= 0]
+    elif name == 'Age':
+        values = values[values.between(1, 120)]
+    elif name == 'LastRating':
+        values = values[values.between(1, 5)]
+    return values
+
+
+def _stable_location(values: pd.Series) -> tuple[Optional[float], Optional[float], Optional[float]]:
+    """Return finite mean, median and sample deviation without float-sum overflow."""
+    array = values.to_numpy(dtype=float)
+    if not len(array):
+        return None, None, None
+    ordinary = (
+        float(values.mean()),
+        float(values.median()),
+        float(values.std(ddof=1)) if len(values) > 1 else None,
+    )
+    if all(value is None or np.isfinite(value) for value in ordinary):
+        return ordinary
+    scale = float(np.max(np.abs(array)))
+    if scale == 0:
+        return 0.0, 0.0, 0.0 if len(array) > 1 else None
+    scaled = array / scale
+    mean = float(np.mean(scaled) * scale)
+    ordered = np.sort(scaled)
+    midpoint = len(ordered) // 2
+    median_scaled = float(ordered[midpoint]) if len(ordered) % 2 else float(
+        ordered[midpoint - 1] + (ordered[midpoint] - ordered[midpoint - 1]) / 2
+    )
+    median = float(median_scaled * scale)
+    deviation = float(np.std(scaled, ddof=1) * scale) if len(array) > 1 else None
+    return (
+        mean if np.isfinite(mean) else None,
+        median if np.isfinite(median) else None,
+        deviation if deviation is None or np.isfinite(deviation) else None,
+    )
+
+
 class AnalyticsEngine:
     def __init__(self, df: pd.DataFrame):
         self.df, self.population_resolution = resolve_current_population(df)
+        if 'Dept' in self.df:
+            self.df['Dept'] = self.df['Dept'].astype('string').str.strip().replace('', pd.NA).fillna('Unknown')
         self.active_df = active_population(self.df)
         self.config = load_config()
         self.analytics_config = self.config.get('analytics', {})
@@ -64,20 +110,20 @@ class AnalyticsEngine:
             known_attrition = current['Attrition'].dropna() if 'Attrition' in current.columns else pd.Series(dtype=float)
             attrition_share = float(known_attrition.mean()) if not known_attrition.empty else None
             row: dict[str, Any] = {
-                'Dept': dept,
+                'Dept': str(dept) if pd.notna(dept) else 'Unknown',
                 'Total_Records': int(len(current)),
+                'Outcome_Observations': int(len(known_attrition)),
                 'Headcount': int(len(active)),
                 'Observed_Attrition_Share': attrition_share,
                 # Compatibility alias; not a period turnover rate.
                 'Turnover_Rate': attrition_share,
             }
             if 'Salary' in active.columns:
-                valid = pd.to_numeric(active['Salary'], errors='coerce').dropna()
-                row['Avg_Salary'] = float(valid.mean()) if not valid.empty else None
-                row['Median_Salary'] = float(valid.median()) if not valid.empty else None
+                valid = _valid_numeric(active['Salary'], 'Salary')
+                row['Avg_Salary'], row['Median_Salary'], row['Salary_StdDev'] = _stable_location(valid)
             for source, output in [('Tenure', 'Avg_Tenure'), ('LastRating', 'Avg_Rating'), ('Age', 'Avg_Age')]:
                 if source in active.columns:
-                    values = pd.to_numeric(active[source], errors='coerce').dropna()
+                    values = _valid_numeric(active[source], source)
                     row[output] = float(values.mean()) if not values.empty else None
             rows.append(row)
         return pd.DataFrame(rows)
@@ -85,7 +131,9 @@ class AnalyticsEngine:
     def get_correlations(self, target_column: str = 'Attrition', max_features: int = 20) -> pd.DataFrame:
         if target_column not in self.df.columns:
             return pd.DataFrame()
-        numeric = self.df.select_dtypes(include=[np.number]).copy()
+        numeric = self.df.select_dtypes(include=[np.number]).drop(columns=['EmployeeID'], errors='ignore').replace([np.inf, -np.inf], np.nan)
+        for col in numeric:
+            numeric[col] = _valid_numeric(numeric[col], col).reindex(numeric.index)
         if target_column not in numeric.columns or numeric[target_column].dropna().nunique() < 2:
             return pd.DataFrame()
         if len(numeric.columns) > max_features + 1:
@@ -110,10 +158,13 @@ class AnalyticsEngine:
         }
         for col in ('Salary', 'Tenure', 'LastRating', 'Age'):
             if col in self.active_df.columns:
-                values = pd.to_numeric(self.active_df[col], errors='coerce').dropna()
-                result[f'{col.lower()}_mean'] = float(values.mean()) if not values.empty else None
-                result[f'{col.lower()}_median'] = float(values.median()) if not values.empty else None
-                result[f'{col.lower()}_std'] = float(values.std()) if len(values) > 1 else None
+                values = _valid_numeric(self.active_df[col], col)
+                mean, median, deviation = _stable_location(values)
+                result[f'{col.lower()}_mean'] = mean
+                result[f'{col.lower()}_median'] = median
+                result[f'{col.lower()}_std'] = deviation
+                result[f'{col.lower()}_observations'] = int(len(values))
+                result[f'{col.lower()}_excluded_count'] = int(len(self.active_df) - len(values))
         if 'Attrition' in self.df.columns:
             result['attrition_count'] = int((self.df['Attrition'] == 1).sum())
             result['attrition_known_count'] = int(self.df['Attrition'].notna().sum())
@@ -127,7 +178,7 @@ class AnalyticsEngine:
         result = {}
         for col, key in [('RatingVelocity', 'avg_velocity'), ('PromotionLag', 'avg_promo_lag'), ('SalaryGrowth', 'avg_salary_growth')]:
             if col in frame.columns:
-                values = pd.to_numeric(frame[col], errors='coerce').dropna()
+                values = _valid_numeric(frame[col], col)
                 if not values.empty:
                     result[key] = float(values.mean())
         return result
@@ -138,12 +189,12 @@ class AnalyticsEngine:
         active = self.active_df.copy()
         bins = [0, 1, 2, 5, 10, float('inf')]
         labels = ['<1 year', '1-2 years', '2-5 years', '5-10 years', '10+ years']
-        active['Tenure_Bucket'] = pd.cut(pd.to_numeric(active['Tenure'], errors='coerce'), bins=bins, labels=labels, right=False)
+        active['Tenure_Bucket'] = pd.cut(_valid_numeric(active['Tenure'], 'Tenure').reindex(active.index), bins=bins, labels=labels, right=False).cat.add_categories('Unknown').fillna('Unknown')
         distribution = active['Tenure_Bucket'].value_counts(sort=False).rename_axis('Tenure_Range').reset_index(name='Count')
         # Attrition outcome by tenure is calculated over current records, because active-only data cannot contain departed outcomes.
         if 'Attrition' in self.df.columns:
             current = self.df.copy()
-            current['Tenure_Bucket'] = pd.cut(pd.to_numeric(current['Tenure'], errors='coerce'), bins=bins, labels=labels, right=False)
+            current['Tenure_Bucket'] = pd.cut(_valid_numeric(current['Tenure'], 'Tenure').reindex(current.index), bins=bins, labels=labels, right=False).cat.add_categories('Unknown').fillna('Unknown')
             shares = current.groupby('Tenure_Bucket', observed=False)['Attrition'].mean().rename('Observed_Attrition_Share')
             distribution = distribution.merge(shares.reset_index().rename(columns={'Tenure_Bucket': 'Tenure_Range'}), on='Tenure_Range', how='left')
             distribution['Turnover_Rate'] = distribution['Observed_Attrition_Share']
@@ -154,13 +205,13 @@ class AnalyticsEngine:
             return pd.DataFrame()
         bins = [0, 25, 35, 45, 55, float('inf')]
         labels = ['Under 25', '25-34', '35-44', '45-54', '55+']
-        bucket = pd.cut(pd.to_numeric(self.active_df['Age'], errors='coerce'), bins=bins, labels=labels, right=False)
+        bucket = pd.cut(_valid_numeric(self.active_df['Age'], 'Age').reindex(self.active_df.index), bins=bins, labels=labels, right=False).cat.add_categories('Unknown').fillna('Unknown')
         return bucket.value_counts(sort=False).rename_axis('Age_Range').reset_index(name='Count')
 
     def get_salary_bands(self) -> pd.DataFrame:
         if 'Salary' not in self.active_df.columns:
             return pd.DataFrame()
-        salary = pd.to_numeric(self.active_df['Salary'], errors='coerce').dropna()
+        salary = _valid_numeric(self.active_df['Salary'], 'Salary')
         if salary.empty:
             return pd.DataFrame()
         quantiles = salary.quantile([0, .25, .5, .75, 1]).values
@@ -184,11 +235,11 @@ class AnalyticsEngine:
         if group_col not in self.active_df.columns or metric_col not in self.active_df.columns:
             return {'success': False, 'reason': 'Columns not found'}
         frame = self.active_df.dropna(subset=[group_col, metric_col]).copy()
-        frame[metric_col] = pd.to_numeric(frame[metric_col], errors='coerce')
+        frame[metric_col] = _valid_numeric(frame[metric_col], metric_col).reindex(frame.index)
         grouped = frame.dropna(subset=[metric_col]).groupby(group_col)[metric_col]
-        eligible = [(name, group.values) for name, group in grouped if len(group) > 5]
+        eligible = [(name, group.values) for name, group in grouped if len(group) >= 10]
         if len(eligible) < 2:
-            return {'success': False, 'reason': 'Not enough groups with data (>5 samples)'}
+            return {'success': False, 'reason': 'Not enough groups with data (at least 10 samples)'}
         names = [name for name, _ in eligible]
         values = [vals for _, vals in eligible]
         try:
@@ -198,9 +249,14 @@ class AnalyticsEngine:
             else:
                 stat, p_value = stats.f_oneway(*values)
                 test_name = 'One-way ANOVA'
+            if not np.isfinite(stat) or not np.isfinite(p_value):
+                return {'success': False, 'reason': 'Group variation is insufficient for a finite statistical test.'}
             return {
                 'success': True, 'test_name': test_name, 'statistic': float(stat), 'p_value': float(p_value),
                 'is_significant': bool(p_value < .05), 'groups_compared': names,
+                'group_observations': {str(name): int(len(vals)) for name, vals in eligible},
+                'sample_size': int(sum(len(vals) for vals in values)),
+                'population': 'current_active_employees_with_valid_metric_and_group_label',
                 'interpretation': f"Observed group difference for {metric_col}; {test_name} p={p_value:.4f}. Statistical significance does not establish causation or unfairness."
             }
         except Exception as exc:
@@ -210,7 +266,9 @@ class AnalyticsEngine:
     def get_confidence_interval(self, col: str, confidence: float = 0.95) -> Optional[tuple]:
         if col not in self.active_df.columns:
             return None
-        data = pd.to_numeric(self.active_df[col], errors='coerce').dropna()
+        if not 0 < confidence < 1:
+            raise ValueError('confidence must be between zero and one')
+        data = _valid_numeric(self.active_df[col], col)
         if len(data) < 2:
             return None
         mean = data.mean()

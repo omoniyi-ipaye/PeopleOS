@@ -11,7 +11,9 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import tempfile
 import threading
+from functools import wraps
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
@@ -21,6 +23,21 @@ from uuid import uuid4
 from pydantic import BaseModel, Field
 
 from src.local_paths import get_peopleos_paths
+
+
+# Every store instance in this process targets the same control-plane class of
+# file.  A per-instance lock permits lost updates when API modules construct
+# separate WorkspaceStore objects, so serialize the complete read/modify/write
+# transaction across instances.
+_REGISTRY_LOCK = threading.RLock()
+
+
+def registry_mutation(function):
+    @wraps(function)
+    def guarded(self, *args, **kwargs):
+        with self._lock:
+            return function(self, *args, **kwargs)
+    return guarded
 
 
 def _utcnow() -> str:
@@ -86,6 +103,7 @@ class InvestigationSession(BaseModel):
     workspace_id: str
     dataset_id: Optional[str] = None
     model_id: Optional[str] = None
+    actor_id: Optional[str] = None
     state: SessionState = SessionState.OPEN
     question_hashes: List[str] = Field(default_factory=list)
     request_ids: List[str] = Field(default_factory=list)
@@ -118,7 +136,7 @@ class WorkspaceStore:
     def __init__(self, path: Optional[str] = None):
         default_path = os.getenv("PEOPLEOS_WORKSPACE_REGISTRY") or str(get_peopleos_paths().registry)
         self.path = Path(path or default_path)
-        self._lock = threading.RLock()
+        self._lock = _REGISTRY_LOCK
         self.path.parent.mkdir(parents=True, exist_ok=True)
         if not self.path.exists():
             self._write({"schema_version": 1, "workspaces": []})
@@ -137,21 +155,36 @@ class WorkspaceStore:
             try:
                 with self.path.open("r", encoding="utf-8") as handle:
                     payload = json.load(handle)
-            except (FileNotFoundError, json.JSONDecodeError):
-                payload = {"schema_version": 1, "workspaces": []}
-            payload.setdefault("schema_version", 1)
-            payload.setdefault("workspaces", [])
+                if not isinstance(payload, dict) or payload.get("schema_version") != 1 or not isinstance(payload.get("workspaces"), list):
+                    raise ValueError("Invalid registry schema")
+                records = [WorkspaceRecord.model_validate(item) for item in payload["workspaces"]]
+                identifiers = [record.workspace_id for record in records]
+                if len(identifiers) != len(set(identifiers)):
+                    raise ValueError("Duplicate workspace identities")
+            except (FileNotFoundError, ValueError, UnicodeError) as exc:
+                raise RuntimeError(
+                    "Workspace registry is missing or invalid; original bytes were retained. "
+                    "Restore a verified backup before startup, or use explicit bounded recovery "
+                    "from an already-running instance."
+                ) from exc
             return payload
 
     def _write(self, payload: Dict[str, Any]) -> None:
         with self._lock:
             self.path.parent.mkdir(parents=True, exist_ok=True)
-            tmp = self.path.with_suffix(self.path.suffix + ".tmp")
-            with tmp.open("w", encoding="utf-8") as handle:
-                json.dump(payload, handle, indent=2, sort_keys=True)
-                handle.flush()
-                os.fsync(handle.fileno())
-            os.replace(tmp, self.path)
+            descriptor, tmp_name = tempfile.mkstemp(
+                prefix=f'.{self.path.name}.', suffix='.tmp', dir=self.path.parent,
+            )
+            tmp = Path(tmp_name)
+            try:
+                with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+                    json.dump(payload, handle, indent=2, sort_keys=True)
+                    handle.flush()
+                    os.fsync(handle.fileno())
+                os.replace(tmp, self.path)
+            finally:
+                if tmp.exists():
+                    tmp.unlink()
 
     def list_workspaces(self) -> List[WorkspaceRecord]:
         payload = self._read()
@@ -188,6 +221,7 @@ class WorkspaceStore:
             self._write(payload)
             return workspace
 
+    @registry_mutation
     def register_dataset(
         self,
         *,
@@ -197,11 +231,12 @@ class WorkspaceStore:
         row_count: int,
         columns: List[str],
         quality: Optional[Dict[str, Any]] = None,
+        dataset_id: Optional[str] = None,
     ) -> DatasetVersion:
         workspace = self.ensure_workspace(workspace_id)
         next_version = 1 + max((dataset.version for dataset in workspace.datasets), default=0)
         dataset = DatasetVersion(
-            dataset_id=f"ds_{uuid4().hex}",
+            dataset_id=dataset_id or f"ds_{uuid4().hex}",
             workspace_id=workspace_id,
             version=next_version,
             source_name=source_name,
@@ -211,9 +246,53 @@ class WorkspaceStore:
             quality=quality or {},
             state=DatasetState.VALIDATED,
         )
+        if any(item.dataset_id == dataset.dataset_id for item in workspace.datasets):
+            raise ValueError(f"Duplicate dataset: {dataset.dataset_id}")
         workspace.datasets.append(dataset)
         return self._replace_workspace(workspace).datasets[-1]
 
+    @registry_mutation
+    def register_active_dataset(
+        self,
+        *,
+        workspace_id: str,
+        dataset_id: str,
+        source_name: str,
+        content_hash: str,
+        row_count: int,
+        columns: List[str],
+        quality: Optional[Dict[str, Any]] = None,
+    ) -> DatasetVersion:
+        """Register and activate one persisted dataset in a single registry write."""
+        with self._lock:
+            workspace = self.ensure_workspace(workspace_id)
+            if any(item.dataset_id == dataset_id for item in workspace.datasets):
+                raise ValueError(f"Duplicate dataset: {dataset_id}")
+            dataset = DatasetVersion(
+                dataset_id=dataset_id,
+                workspace_id=workspace_id,
+                version=1 + max((item.version for item in workspace.datasets), default=0),
+                source_name=source_name,
+                content_hash=content_hash,
+                row_count=row_count,
+                columns=columns,
+                quality=quality or {},
+                state=DatasetState.ACTIVE,
+                activated_at=_utcnow(),
+            )
+            for prior in workspace.datasets:
+                if prior.state == DatasetState.ACTIVE:
+                    prior.state = DatasetState.SUPERSEDED
+            for model in workspace.models:
+                if model.state == ModelState.ACTIVE:
+                    model.state = ModelState.RETIRED
+            workspace.active_dataset_id = dataset_id
+            workspace.active_model_id = None
+            workspace.datasets.append(dataset)
+            self._replace_workspace(workspace)
+            return dataset
+
+    @registry_mutation
     def activate_dataset(self, workspace_id: str, dataset_id: str) -> DatasetVersion:
         workspace = self.get_workspace(workspace_id)
         selected: Optional[DatasetVersion] = None
@@ -226,10 +305,15 @@ class WorkspaceStore:
                 dataset.state = DatasetState.SUPERSEDED
         if selected is None:
             raise KeyError(f"Unknown dataset: {dataset_id}")
+        for model in workspace.models:
+            if model.state == ModelState.ACTIVE:
+                model.state = ModelState.RETIRED
+        workspace.active_model_id = None
         workspace.active_dataset_id = selected.dataset_id
         self._replace_workspace(workspace)
         return selected
 
+    @registry_mutation
     def create_model(
         self,
         *,
@@ -252,6 +336,7 @@ class WorkspaceStore:
         self._replace_workspace(workspace)
         return model
 
+    @registry_mutation
     def update_model(
         self,
         workspace_id: str,
@@ -281,11 +366,14 @@ class WorkspaceStore:
         self._replace_workspace(workspace)
         return selected
 
+    @registry_mutation
     def activate_model(self, workspace_id: str, model_id: str) -> ModelVersion:
         workspace = self.get_workspace(workspace_id)
         selected: Optional[ModelVersion] = None
         for model in workspace.models:
             if model.model_id == model_id:
+                if model.dataset_id != workspace.active_dataset_id:
+                    raise ValueError('Model dataset differs from the active dataset')
                 if model.state != ModelState.CANDIDATE:
                     raise ValueError("Only an evaluated candidate model can be activated")
                 model.state = ModelState.ACTIVE
@@ -299,24 +387,38 @@ class WorkspaceStore:
         self._replace_workspace(workspace)
         return selected
 
+    @registry_mutation
     def open_session(
         self,
         *,
         workspace_id: str,
         dataset_id: Optional[str] = None,
         model_id: Optional[str] = None,
+        actor_id: Optional[str] = None,
     ) -> InvestigationSession:
         workspace = self.ensure_workspace(workspace_id)
+        selected_dataset = dataset_id or workspace.active_dataset_id
+        selected_model = model_id or workspace.active_model_id
+        if selected_dataset and not any(d.dataset_id == selected_dataset for d in workspace.datasets):
+            raise KeyError('Unknown investigation dataset')
+        if selected_model:
+            model = next((m for m in workspace.models if m.model_id == selected_model), None)
+            if model is None:
+                raise KeyError('Unknown investigation model')
+            if model.dataset_id != selected_dataset:
+                raise ValueError('Investigation model and dataset are incompatible')
         session = InvestigationSession(
             session_id=f"session_{uuid4().hex}",
             workspace_id=workspace_id,
             dataset_id=dataset_id or workspace.active_dataset_id,
             model_id=model_id or workspace.active_model_id,
+            actor_id=actor_id,
         )
         workspace.sessions.append(session)
         self._replace_workspace(workspace)
         return session
 
+    @registry_mutation
     def record_request(self, workspace_id: str, session_id: str, request_id: str, question: str) -> InvestigationSession:
         workspace = self.get_workspace(workspace_id)
         selected: Optional[InvestigationSession] = None
@@ -332,6 +434,7 @@ class WorkspaceStore:
         self._replace_workspace(workspace)
         return selected
 
+    @registry_mutation
     def close_session(self, workspace_id: str, session_id: str, *, failed: bool = False) -> InvestigationSession:
         workspace = self.get_workspace(workspace_id)
         selected: Optional[InvestigationSession] = None

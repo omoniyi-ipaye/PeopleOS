@@ -12,11 +12,11 @@ export default function WorkforceHealthPage() {
     queryKey: ['analytics', 'departments'],
     queryFn: () => api.analytics.getDepartments() as Promise<DepartmentList>,
   })
-  const { data: correlationData } = useQuery<CorrelationsResponse>({
+  const { data: correlationData, isError: correlationError } = useQuery<CorrelationsResponse>({
     queryKey: ['analytics', 'correlations'],
     queryFn: () => api.analytics.getCorrelations(10) as Promise<CorrelationsResponse>,
   })
-  const { data: riskData } = useQuery<HighRiskDepartmentsResponse>({
+  const { data: riskData, isError: riskError } = useQuery<HighRiskDepartmentsResponse>({
     queryKey: ['analytics', 'high-risk-departments'],
     queryFn: () => api.analytics.getHighRiskDepartments() as Promise<HighRiskDepartmentsResponse>,
   })
@@ -29,18 +29,21 @@ export default function WorkforceHealthPage() {
   const highRisk = riskData?.departments ?? []
   const correlations = correlationData?.correlations ?? []
   const totalHeadcount = departments.reduce((sum, item) => sum + (item.headcount || 0), 0)
-  const avgAttritionShare = departments.length ? departments.reduce((sum, item) => sum + (item.turnover_rate ?? 0), 0) / departments.length : 0
+  const observedDepartments = departments.filter(item => item.turnover_rate != null)
+  const avgAttritionShare = observedDepartments.length ? observedDepartments.reduce((sum, item) => sum + item.turnover_rate!, 0) / observedDepartments.length : null
 
   return (
     <Page>
       {header}
       <StateSummary title="Metric boundary" description="Observed attrition share is a recorded outcome share, not a period turnover rate unless a defined time window and at-risk denominator are available." tone="info" />
+      {!departments.length && <StateSummary title="No department evidence is available" description="The active dataset returned no department aggregates. PeopleOS cannot infer a measured zero population from an empty result." tone="info" />}
+      {(correlationError || riskError) && <StateSummary title="Some supporting evidence is unavailable" description={`${correlationError ? 'Observed associations could not be loaded. ' : ''}${riskError ? 'Priority aggregate thresholds could not be loaded.' : ''}`.trim()} tone="warning" />}
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Active people represented" value={totalHeadcount.toLocaleString()} detail="Current active department aggregates" icon={Users} />
-        <MetricCard label="Departments" value={departments.length.toLocaleString()} detail="Current analytical coverage" icon={Target} />
-        <MetricCard label="Avg department attrition share" value={`${(avgAttritionShare * 100).toFixed(1)}%`} detail="Unweighted descriptive average across departments" icon={HeartPulse} tone={avgAttritionShare > .2 ? 'danger' : avgAttritionShare > .15 ? 'warning' : 'neutral'} />
-        <MetricCard label="Priority aggregates" value={highRisk.length.toLocaleString()} detail={`Above configured ${((riskData?.threshold ?? 0) * 100).toFixed(0)}% threshold`} icon={AlertTriangle} tone={highRisk.length ? 'warning' : 'neutral'} />
+        <MetricCard label="Active people represented" value={departments.length ? totalHeadcount.toLocaleString() : 'Unavailable'} detail="Current active department aggregates" icon={Users} />
+        <MetricCard label="Departments" value={departments.length ? departments.length.toLocaleString() : 'Unavailable'} detail="Current analytical coverage" icon={Target} />
+        <MetricCard label="Avg department attrition share" value={avgAttritionShare == null ? 'Unavailable' : `${(avgAttritionShare * 100).toFixed(1)}%`} detail="Unweighted average across departments with known outcomes" icon={HeartPulse} tone={avgAttritionShare == null ? 'neutral' : avgAttritionShare > .2 ? 'danger' : avgAttritionShare > .15 ? 'warning' : 'neutral'} />
+        <MetricCard label="Priority aggregates" value={riskData ? highRisk.length.toLocaleString() : 'Unavailable'} detail={riskData ? `Above configured ${(riskData.threshold * 100).toFixed(0)}% threshold` : 'Aggregate threshold evidence is unavailable'} icon={AlertTriangle} tone={highRisk.length ? 'warning' : 'neutral'} />
       </section>
 
       {highRisk.length > 0 ? <div className="text-xs leading-5 text-text-muted">{highRisk.length} department{highRisk.length === 1 ? '' : 's'} exceed the configured descriptive threshold. Use this only to prioritise aggregate investigation and validate local context before action.</div> : null}

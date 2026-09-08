@@ -1,0 +1,2027 @@
+{
+  "workforce-a": {
+    "path": "/api/upload",
+    "status": 200,
+    "snapshot": null,
+    "dataset": null,
+    "body": {
+      "success": true,
+      "message": "Successfully activated 120 employees as dataset v1",
+      "rows_loaded": 120,
+      "columns": [
+        "EmployeeID",
+        "Dept",
+        "Salary",
+        "Tenure",
+        "LastRating",
+        "Age",
+        "Gender",
+        "JobTitle",
+        "JobLevel",
+        "Location",
+        "HireDate",
+        "ManagerID",
+        "Attrition",
+        "HireSource",
+        "SnapshotDate"
+      ],
+      "features_enabled": {
+        "predictive": true,
+        "nlp": false,
+        "llm": false
+      },
+      "workspace_id": "local",
+      "dataset_id": "ds_72cf619ca4774ad4816da167f8855986",
+      "dataset_version": 1,
+      "deferred": {
+        "predictive_training": true,
+        "vector_indexing": false
+      }
+    }
+  },
+  "summary-a": {
+    "path": "/api/analytics/summary",
+    "status": 200,
+    "snapshot": "2d2520993db0412c8aa21d946e1769ae",
+    "dataset": "ds_72cf619ca4774ad4816da167f8855986",
+    "body": {
+      "headcount": 80,
+      "record_count": 120,
+      "observed_attrition_share": 0.2,
+      "turnover_rate": 0.2,
+      "turnover_rate_semantics": "observed_attrition_share_not_period_turnover",
+      "department_count": 3,
+      "salary_mean": 75000.0,
+      "salary_median": 75000.0,
+      "tenure_mean": 2.0,
+      "tenure_median": 2.0,
+      "age_mean": 30.0,
+      "lastrating_mean": 4.0,
+      "attrition_count": 20,
+      "active_count": 80,
+      "takeaways": [
+        "Observed attrition share in the current outcome population is 20.0%; this is not a period turnover rate."
+      ],
+      "insights": {
+        "attrition_semantics": "Observed snapshot outcome share; period turnover requires a defined period and at-risk denominator."
+      }
+    }
+  },
+  "status-a": {
+    "path": "/api/status",
+    "status": 200,
+    "snapshot": null,
+    "dataset": null,
+    "body": {
+      "integrity": {
+        "status": "verified",
+        "issues": [],
+        "snapshot": {
+          "workspace_id": "local",
+          "dataset_id": "ds_72cf619ca4774ad4816da167f8855986",
+          "generation": "2d2520993db0412c8aa21d946e1769ae",
+          "current_fingerprint": "b80a1134396739b76b3e5cf5d6d2f97570c41bbf97965e6dd75f56a20bf75cd9",
+          "source_rows": 240,
+          "current_rows": 120,
+          "active_rows": 80,
+          "unknown_status_rows": 20,
+          "population_contract": "observed_status",
+          "dataset_version": 1,
+          "source_name": "workforce-a.csv"
+        },
+        "model_ready": false,
+        "scope": "dataset_and_runtime_integrity_not_statistical_validity"
+      },
+      "status": "running",
+      "data": {
+        "loaded": true,
+        "row_count": 120,
+        "active_dataset": true
+      },
+      "capabilities": {
+        "analytics": true,
+        "predictive_model": false,
+        "compensation": true,
+        "fairness": true,
+        "vector_search": false,
+        "llm": false,
+        "people_intelligence": true,
+        "workspace_control_plane": true
+      },
+      "workspace": {
+        "active_dataset": true,
+        "active_model": false,
+        "dataset_versions": 1,
+        "model_versions": 0,
+        "sessions": 0
+      }
+    }
+  },
+  "compensation-a": {
+    "path": "/api/compensation/analysis",
+    "status": 200,
+    "snapshot": "2d2520993db0412c8aa21d946e1769ae",
+    "dataset": "ds_72cf619ca4774ad4816da167f8855986",
+    "body": {
+      "summary": {
+        "total_payroll": 6000000.0,
+        "avg_salary": 75000.0,
+        "median_salary": 75000.0,
+        "min_salary": 60000.0,
+        "max_salary": 90000.0,
+        "salary_range": 30000.0,
+        "std_dev": 15094.638162798828,
+        "headcount": 80
+      },
+      "equity_scores": [
+        {
+          "dept": "001",
+          "avg_salary": 74444.44444444444,
+          "std_dev": 15275.252316519465,
+          "cv": 0.20518995649056,
+          "gini": 0.10060807075732447,
+          "equity_score": 0.8471009863760578,
+          "status": "Low dispersion",
+          "headcount": 27,
+          "metric_semantics": "salary_dispersion_consistency_not_adjusted_pay_equity"
+        },
+        {
+          "dept": "002",
+          "avg_salary": 75555.55555555556,
+          "std_dev": 15275.252316519465,
+          "cv": 0.20217245713040466,
+          "gini": 0.09912854030501106,
+          "equity_score": 0.8493495012822921,
+          "status": "Low dispersion",
+          "headcount": 27,
+          "metric_semantics": "salary_dispersion_consistency_not_adjusted_pay_equity"
+        }
+      ],
+      "outliers": [],
+      "warnings": [
+        "Department consistency scores describe salary dispersion; they are not adjusted pay-equity findings.",
+        "Individual salary-outlier and compa-ratio rankings are not exposed through the governed aggregate API."
+      ]
+    }
+  },
+  "departments-a": {
+    "path": "/api/analytics/departments",
+    "status": 200,
+    "snapshot": "2d2520993db0412c8aa21d946e1769ae",
+    "dataset": "ds_72cf619ca4774ad4816da167f8855986",
+    "body": {
+      "departments": [
+        {
+          "outcome_observations": 34,
+          "dept": "001",
+          "headcount": 27,
+          "total_records": 40,
+          "avg_salary": 74444.44444444444,
+          "median_salary": 60000.0,
+          "salary_std_dev": 15275.252316519465,
+          "avg_tenure": 2.0,
+          "avg_rating": 4.0,
+          "avg_age": 30.0,
+          "observed_attrition_share": 0.20588235294117646,
+          "turnover_rate": 0.20588235294117646
+        },
+        {
+          "outcome_observations": 33,
+          "dept": "002",
+          "headcount": 27,
+          "total_records": 40,
+          "avg_salary": 75555.55555555556,
+          "median_salary": 90000.0,
+          "salary_std_dev": 15275.252316519465,
+          "avg_tenure": 2.0,
+          "avg_rating": 4.0,
+          "avg_age": 30.0,
+          "observed_attrition_share": 0.18181818181818182,
+          "turnover_rate": 0.18181818181818182
+        },
+        {
+          "outcome_observations": 33,
+          "dept": "Unknown",
+          "headcount": 26,
+          "total_records": 40,
+          "avg_salary": 75000.0,
+          "median_salary": 75000.0,
+          "salary_std_dev": 15297.058540778355,
+          "avg_tenure": 2.0,
+          "avg_rating": 4.0,
+          "avg_age": 30.0,
+          "observed_attrition_share": 0.21212121212121213,
+          "turnover_rate": 0.21212121212121213
+        }
+      ],
+      "total_departments": 3
+    }
+  },
+  "team-a": {
+    "path": "/api/team/health",
+    "status": 200,
+    "snapshot": "2d2520993db0412c8aa21d946e1769ae",
+    "dataset": "ds_72cf619ca4774ad4816da167f8855986",
+    "body": [
+      {
+        "dept": "001",
+        "health_score": 0.8,
+        "avg_tenure": 2.0,
+        "avg_rating": 4.0,
+        "headcount": 27,
+        "attrition_rate": 20.6,
+        "status": "Thriving",
+        "metric_semantics": "configured_composite_not_validated_team_health; attrition_is_observed_share"
+      },
+      {
+        "dept": "Unknown",
+        "health_score": 0.8,
+        "avg_tenure": 2.0,
+        "avg_rating": 4.0,
+        "headcount": 26,
+        "attrition_rate": 21.2,
+        "status": "Thriving",
+        "metric_semantics": "configured_composite_not_validated_team_health; attrition_is_observed_share"
+      },
+      {
+        "dept": "002",
+        "health_score": 0.81,
+        "avg_tenure": 2.0,
+        "avg_rating": 4.0,
+        "headcount": 27,
+        "attrition_rate": 18.2,
+        "status": "Thriving",
+        "metric_semantics": "configured_composite_not_validated_team_health; attrition_is_observed_share"
+      }
+    ]
+  },
+  "survey-upload": {
+    "path": "/api/sentiment/upload/enps",
+    "status": 200,
+    "snapshot": "2d2520993db0412c8aa21d946e1769ae",
+    "dataset": "ds_72cf619ca4774ad4816da167f8855986",
+    "body": {
+      "survey_coverage": {
+        "enps": {
+          "input_rows": 63,
+          "matched_rows": 61,
+          "unmatched_rows": 1,
+          "missing_employee_id_rows": 1,
+          "invalid_score_rows": 1,
+          "valid_score_rows": 60
+        },
+        "onboarding": {
+          "input_rows": 0,
+          "matched_rows": 0,
+          "unmatched_rows": 0,
+          "missing_employee_id_rows": 0
+        }
+      },
+      "success": true,
+      "message": "Successfully loaded 63 eNPS survey responses",
+      "rows_loaded": 63,
+      "survey_type": "eNPS",
+      "columns_found": [
+        "EmployeeID",
+        "SurveyDate",
+        "eNPSScore"
+      ],
+      "warnings": [
+        "Some eNPSScore values are outside 0-10 range"
+      ]
+    }
+  },
+  "enps-a": {
+    "path": "/api/sentiment/enps",
+    "status": 200,
+    "snapshot": "2d2520993db0412c8aa21d946e1769ae",
+    "dataset": "ds_72cf619ca4774ad4816da167f8855986",
+    "body": {
+      "survey_coverage": {
+        "enps": {
+          "input_rows": 63,
+          "matched_rows": 61,
+          "unmatched_rows": 1,
+          "missing_employee_id_rows": 1,
+          "invalid_score_rows": 1,
+          "valid_score_rows": 60
+        },
+        "onboarding": {
+          "input_rows": 0,
+          "matched_rows": 0,
+          "unmatched_rows": 0,
+          "missing_employee_id_rows": 0
+        }
+      },
+      "available": true,
+      "reason": null,
+      "overall_enps": 16.7,
+      "total_responses": 60,
+      "promoters": 30,
+      "passives": 10,
+      "detractors": 20,
+      "promoter_pct": 50.0,
+      "passive_pct": 16.7,
+      "detractor_pct": 33.3,
+      "interpretation": "Neutral - Room for improvement",
+      "by_group": []
+    }
+  },
+  "sentiment-a": {
+    "path": "/api/sentiment/analysis",
+    "status": 200,
+    "snapshot": "2d2520993db0412c8aa21d946e1769ae",
+    "dataset": "ds_72cf619ca4774ad4816da167f8855986",
+    "body": {
+      "survey_coverage": {
+        "enps": {
+          "input_rows": 63,
+          "matched_rows": 61,
+          "unmatched_rows": 1,
+          "missing_employee_id_rows": 1,
+          "invalid_score_rows": 1,
+          "valid_score_rows": 60
+        },
+        "onboarding": {
+          "input_rows": 0,
+          "matched_rows": 0,
+          "unmatched_rows": 0,
+          "missing_employee_id_rows": 0
+        }
+      },
+      "enps": {
+        "available": true,
+        "survey_coverage": {
+          "enps": {
+            "input_rows": 63,
+            "matched_rows": 61,
+            "unmatched_rows": 1,
+            "missing_employee_id_rows": 1,
+            "invalid_score_rows": 1,
+            "valid_score_rows": 60
+          },
+          "onboarding": {
+            "input_rows": 0,
+            "matched_rows": 0,
+            "unmatched_rows": 0,
+            "missing_employee_id_rows": 0
+          }
+        },
+        "measurement_semantics": "valid_matched_survey_responses_not_unique_employee_prevalence",
+        "overall_enps": 16.7,
+        "total_responses": 60,
+        "promoters": 30,
+        "passives": 10,
+        "detractors": 20,
+        "promoter_pct": 50.0,
+        "passive_pct": 16.7,
+        "detractor_pct": 33.3,
+        "interpretation": "Neutral - Room for improvement"
+      },
+      "enps_trends": {
+        "available": true,
+        "period_type": "month",
+        "trends": [
+          {
+            "period": "2026-01",
+            "enps": 16.7,
+            "responses": 60,
+            "promoters": 30,
+            "detractors": 20
+          }
+        ],
+        "trend_direction": "insufficient_data",
+        "recent_change": null
+      },
+      "enps_drivers": {
+        "available": false,
+        "reason": "No sub-score columns available for driver analysis"
+      },
+      "onboarding": {
+        "available": false,
+        "reason": "No supported onboarding responses matched to the employee population",
+        "survey_coverage": {
+          "enps": {
+            "input_rows": 63,
+            "matched_rows": 61,
+            "unmatched_rows": 1,
+            "missing_employee_id_rows": 1,
+            "invalid_score_rows": 1,
+            "valid_score_rows": 60
+          },
+          "onboarding": {
+            "input_rows": 0,
+            "matched_rows": 0,
+            "unmatched_rows": 0,
+            "missing_employee_id_rows": 0
+          }
+        }
+      },
+      "onboarding_health": {
+        "available": false,
+        "reason": "No matched onboarding data available",
+        "survey_coverage": {
+          "enps": {
+            "input_rows": 63,
+            "matched_rows": 61,
+            "unmatched_rows": 1,
+            "missing_employee_id_rows": 1,
+            "invalid_score_rows": 1,
+            "valid_score_rows": 60
+          },
+          "onboarding": {
+            "input_rows": 0,
+            "matched_rows": 0,
+            "unmatched_rows": 0,
+            "missing_employee_id_rows": 0
+          }
+        }
+      },
+      "early_warnings": {
+        "available": true,
+        "warnings": [
+          {
+            "EmployeeID": "0040",
+            "Dept": "002",
+            "warning_type": "eNPS Detractor",
+            "severity": "High",
+            "details": "eNPS score: 0"
+          },
+          {
+            "EmployeeID": "0041",
+            "Dept": null,
+            "warning_type": "eNPS Detractor",
+            "severity": "High",
+            "details": "eNPS score: 0"
+          },
+          {
+            "EmployeeID": "0042",
+            "Dept": "001",
+            "warning_type": "eNPS Detractor",
+            "severity": "High",
+            "details": "eNPS score: 0"
+          },
+          {
+            "EmployeeID": "0043",
+            "Dept": "002",
+            "warning_type": "eNPS Detractor",
+            "severity": "High",
+            "details": "eNPS score: 0"
+          },
+          {
+            "EmployeeID": "0044",
+            "Dept": null,
+            "warning_type": "eNPS Detractor",
+            "severity": "High",
+            "details": "eNPS score: 0"
+          },
+          {
+            "EmployeeID": "0045",
+            "Dept": "001",
+            "warning_type": "eNPS Detractor",
+            "severity": "High",
+            "details": "eNPS score: 0"
+          },
+          {
+            "EmployeeID": "0046",
+            "Dept": "002",
+            "warning_type": "eNPS Detractor",
+            "severity": "High",
+            "details": "eNPS score: 0"
+          },
+          {
+            "EmployeeID": "0047",
+            "Dept": null,
+            "warning_type": "eNPS Detractor",
+            "severity": "High",
+            "details": "eNPS score: 0"
+          },
+          {
+            "EmployeeID": "0048",
+            "Dept": "001",
+            "warning_type": "eNPS Detractor",
+            "severity": "High",
+            "details": "eNPS score: 0"
+          },
+          {
+            "EmployeeID": "0049",
+            "Dept": "002",
+            "warning_type": "eNPS Detractor",
+            "severity": "High",
+            "details": "eNPS score: 0"
+          },
+          {
+            "EmployeeID": "0050",
+            "Dept": null,
+            "warning_type": "eNPS Detractor",
+            "severity": "High",
+            "details": "eNPS score: 0"
+          },
+          {
+            "EmployeeID": "0051",
+            "Dept": "001",
+            "warning_type": "eNPS Detractor",
+            "severity": "High",
+            "details": "eNPS score: 0"
+          },
+          {
+            "EmployeeID": "0052",
+            "Dept": "002",
+            "warning_type": "eNPS Detractor",
+            "severity": "High",
+            "details": "eNPS score: 0"
+          },
+          {
+            "EmployeeID": "0053",
+            "Dept": null,
+            "warning_type": "eNPS Detractor",
+            "severity": "High",
+            "details": "eNPS score: 0"
+          },
+          {
+            "EmployeeID": "0054",
+            "Dept": "001",
+            "warning_type": "eNPS Detractor",
+            "severity": "High",
+            "details": "eNPS score: 0"
+          },
+          {
+            "EmployeeID": "0055",
+            "Dept": "002",
+            "warning_type": "eNPS Detractor",
+            "severity": "High",
+            "details": "eNPS score: 0"
+          },
+          {
+            "EmployeeID": "0056",
+            "Dept": null,
+            "warning_type": "eNPS Detractor",
+            "severity": "High",
+            "details": "eNPS score: 0"
+          },
+          {
+            "EmployeeID": "0057",
+            "Dept": "001",
+            "warning_type": "eNPS Detractor",
+            "severity": "High",
+            "details": "eNPS score: 0"
+          },
+          {
+            "EmployeeID": "0058",
+            "Dept": "002",
+            "warning_type": "eNPS Detractor",
+            "severity": "High",
+            "details": "eNPS score: 0"
+          },
+          {
+            "EmployeeID": "0059",
+            "Dept": null,
+            "warning_type": "eNPS Detractor",
+            "severity": "High",
+            "details": "eNPS score: 0"
+          }
+        ],
+        "survey_coverage": {
+          "enps": {
+            "input_rows": 63,
+            "matched_rows": 61,
+            "unmatched_rows": 1,
+            "missing_employee_id_rows": 1,
+            "invalid_score_rows": 1,
+            "valid_score_rows": 60
+          },
+          "onboarding": {
+            "input_rows": 0,
+            "matched_rows": 0,
+            "unmatched_rows": 0,
+            "missing_employee_id_rows": 0
+          }
+        },
+        "metric_semantics": "observed_survey_flags_not_validated_departure_risk",
+        "summary": {
+          "total_at_risk": 20,
+          "high_severity": 20,
+          "medium_severity": 0,
+          "warning_types": [
+            "eNPS Detractor"
+          ]
+        },
+        "recommendations": [
+          "Schedule 1:1 conversations with high-severity employees",
+          "Review recent changes affecting at-risk departments",
+          "Consider stay interviews for employees showing warning signs"
+        ]
+      },
+      "summary": {
+        "enps_available": true,
+        "onboarding_available": false,
+        "overall_enps": 16.7,
+        "survey_flags_available": true,
+        "employees_at_risk": 20,
+        "total_warnings": 1,
+        "total_recommendations": 0
+      },
+      "recommendations": [],
+      "warnings": [
+        "20 employees flagged as high-severity risk"
+      ]
+    }
+  },
+  "scenario-a": {
+    "path": "/api/scenario/simulate/compensation",
+    "status": 200,
+    "snapshot": "2d2520993db0412c8aa21d946e1769ae",
+    "dataset": "ds_72cf619ca4774ad4816da167f8855986",
+    "body": {
+      "provenance": {
+        "workspace_id": "local",
+        "dataset_id": "ds_72cf619ca4774ad4816da167f8855986",
+        "generation": "2d2520993db0412c8aa21d946e1769ae",
+        "current_fingerprint": "b80a1134396739b76b3e5cf5d6d2f97570c41bbf97965e6dd75f56a20bf75cd9",
+        "source_rows": 240,
+        "current_rows": 120,
+        "active_rows": 80,
+        "unknown_status_rows": 20,
+        "population_contract": "observed_status",
+        "dataset_version": 1,
+        "source_name": "workforce-a.csv"
+      },
+      "available": true,
+      "scenario_id": "2e8dd5aa",
+      "scenario_name": "10.0% raise for None",
+      "scenario_type": "compensation",
+      "input_parameters": {
+        "adjustment_type": "percentage",
+        "target": {
+          "scope": "all",
+          "department": null,
+          "job_titles": null,
+          "tenure_min": null,
+          "tenure_max": null,
+          "performance_min": null,
+          "employee_ids": null
+        },
+        "adjustment_value": 10.0,
+        "time_horizon_months": 6
+      },
+      "affected_employees": 80,
+      "affected_departments": [
+        "001",
+        "002",
+        "Unknown"
+      ],
+      "baseline_turnover_rate": 15.0,
+      "projected_turnover_rate": 15.0,
+      "turnover_change": 0.0,
+      "turnover_change_pct": 0.0,
+      "simulation": {
+        "n_iterations": 1000,
+        "outcome_mean": 0.1495666267350608,
+        "outcome_std": 0.014830835330947619,
+        "outcome_median": 0.15009266807098753,
+        "percentiles": {
+          "p5": 0.1247153871138409,
+          "p25": 0.13955530628132856,
+          "p50": 0.15009266807098753,
+          "p75": 0.15884830117837562,
+          "p95": 0.17424364376240367
+        },
+        "histogram_bins": [
+          0.09527380762177824,
+          0.10039425750021498,
+          0.10551470737865172,
+          0.11063515725708846,
+          0.1157556071355252,
+          0.12087605701396194,
+          0.12599650689239866,
+          0.1311169567708354,
+          0.13623740664927214,
+          0.14135785652770888,
+          0.14647830640614562,
+          0.15159875628458236,
+          0.1567192061630191,
+          0.16183965604145584,
+          0.16696010591989258,
+          0.17208055579832932,
+          0.17720100567676605,
+          0.1823214555552028,
+          0.18744190543363953,
+          0.19256235531207627,
+          0.197682805190513
+        ],
+        "histogram_counts": [
+          1,
+          0,
+          3,
+          10,
+          14,
+          30,
+          48,
+          83,
+          92,
+          126,
+          136,
+          160,
+          101,
+          78,
+          51,
+          36,
+          21,
+          4,
+          3,
+          3
+        ],
+        "cost_impact_mean": -296099.6406155472,
+        "cost_impact_std": 133477.51797852857,
+        "cost_impact_percentiles": {
+          "p5": -518192.79386163293,
+          "p25": -379634.7106053805,
+          "p50": -300834.012638888,
+          "p75": -205997.75653195704,
+          "p95": -72438.48402456817
+        },
+        "roi_mean": -98.69988020518238,
+        "roi_std": 44.49250599284286,
+        "roi_positive_probability": 0.017,
+        "converged": true,
+        "convergence_iterations": 900
+      },
+      "cost_impact": {
+        "salary_change": 300000.0,
+        "replacement_costs_avoided": 0.0,
+        "replacement_costs_incurred": 0.0,
+        "training_costs": 0.0,
+        "productivity_impact": 0.0,
+        "total_cost": 300000.0,
+        "total_benefit": 0.0,
+        "net_impact": -300000.0
+      },
+      "roi_estimate": -100.0,
+      "payback_months": null,
+      "confidence_level": "Exploratory",
+      "confidence_score": 0.5,
+      "assumptions": [
+        "Assumed baseline rate for this scenario horizon: 15.0% (configured, not observed turnover)",
+        "Replacement cost: 1.5x annual salary",
+        "Assumed response elasticity: 0.0 proportional rate change per proportional pay change; reduction capped at 50% of baseline",
+        "Time horizon: 6 months",
+        "Using configured hypothetical pay-response assumption; no causal effect has been validated. No observed causal pay-response evidence is available.",
+        "Exploratory scenario only: modeled relationships are associative and assumption-based, not causal treatment-effect estimates.",
+        "Monte Carlo run shares reflect the configured input distribution; they are not empirical probabilities of future outcomes.",
+        "Replacement cost, productivity, intervention and pay-response parameters require local finance/People validation before use."
+      ],
+      "risks": [
+        "Actual turnover reduction may vary by department",
+        "Market conditions may affect retention",
+        "Budget constraints may limit implementation"
+      ],
+      "recommendation": "Compare this modeled scenario with alternatives and validate the causal and financial assumptions before making a workforce decision.",
+      "alternative_actions": [
+        "Combine with career development programs",
+        "Phase implementation over multiple quarters",
+        "Run a smaller pilot or prospective test before scaling"
+      ],
+      "computed_at": "2026-09-08T21:30:45.221753",
+      "engines_used": [
+        "Scenario assumption arithmetic"
+      ],
+      "data_sources": [
+        "Observed active workforce salary and headcount",
+        "Configured scenario assumptions"
+      ]
+    }
+  },
+  "quality-a": {
+    "path": "/api/quality-of-hire/analysis",
+    "status": 200,
+    "snapshot": "2d2520993db0412c8aa21d946e1769ae",
+    "dataset": "ds_72cf619ca4774ad4816da167f8855986",
+    "body": {
+      "source_effectiveness": [
+        {
+          "HireSource": "Agency",
+          "hire_count": 60,
+          "pct_of_total": 50.0,
+          "avg_performance": 4.0,
+          "performance_observations": 50,
+          "promotion_observations": null,
+          "outcome_observations": 50,
+          "quality_components": [
+            "performance",
+            "retention"
+          ],
+          "quality_weights": {
+            "performance": 0.5714285714285715,
+            "retention": 0.4285714285714286
+          },
+          "component_observations": {
+            "performance": 50,
+            "retention": 50,
+            "promotion": 0
+          },
+          "component_coverage": {
+            "performance": 0.8333333333333334,
+            "retention": 0.8333333333333334,
+            "promotion": 0.0
+          },
+          "minimum_component_observations": 10,
+          "quality_unavailable_reason": null,
+          "quality_semantics": "retrospective_heuristic_fixed_dataset_components_not_validated_hire_quality",
+          "high_performers": 50,
+          "high_performer_rate": 100.0,
+          "attrition_count": 10,
+          "retention_rate": 0.8,
+          "retention_rate_pct": 80.0,
+          "avg_promotions": null,
+          "promoted_count": null,
+          "promotion_rate": null,
+          "avg_tenure": 2.0,
+          "avg_interview_score": null,
+          "quality_score": 77.1,
+          "grade": "B",
+          "recommendation": "Compare with role mix, tenure exposure, cost and future cohorts before changing source allocation."
+        },
+        {
+          "HireSource": "Referral",
+          "hire_count": 60,
+          "pct_of_total": 50.0,
+          "avg_performance": 4.0,
+          "performance_observations": 50,
+          "promotion_observations": null,
+          "outcome_observations": 50,
+          "quality_components": [
+            "performance",
+            "retention"
+          ],
+          "quality_weights": {
+            "performance": 0.5714285714285715,
+            "retention": 0.4285714285714286
+          },
+          "component_observations": {
+            "performance": 50,
+            "retention": 50,
+            "promotion": 0
+          },
+          "component_coverage": {
+            "performance": 0.8333333333333334,
+            "retention": 0.8333333333333334,
+            "promotion": 0.0
+          },
+          "minimum_component_observations": 10,
+          "quality_unavailable_reason": null,
+          "quality_semantics": "retrospective_heuristic_fixed_dataset_components_not_validated_hire_quality",
+          "high_performers": 50,
+          "high_performer_rate": 100.0,
+          "attrition_count": 10,
+          "retention_rate": 0.8,
+          "retention_rate_pct": 80.0,
+          "avg_promotions": null,
+          "promoted_count": null,
+          "promotion_rate": null,
+          "avg_tenure": 2.0,
+          "avg_interview_score": null,
+          "quality_score": 77.1,
+          "grade": "B",
+          "recommendation": "Compare with role mix, tenure exposure, cost and future cohorts before changing source allocation."
+        }
+      ],
+      "correlations": {
+        "available": false,
+        "reason": "No pre-hire signal columns available",
+        "outcome_column": null,
+        "correlations": [],
+        "best_predictors": [],
+        "non_predictors": [],
+        "recommendations": []
+      },
+      "retention_correlations": {
+        "available": false,
+        "reason": "No pre-hire signal columns available",
+        "outcome_column": null,
+        "correlations": [],
+        "best_predictors": [],
+        "non_predictors": [],
+        "recommendations": []
+      },
+      "insights": {
+        "summary": {
+          "total_employees": 120,
+          "sources_analyzed": 2,
+          "prehire_signals_available": 0,
+          "avg_performance": 4.0,
+          "overall_retention": 0.8
+        },
+        "top_sources": [
+          {
+            "HireSource": "Agency",
+            "hire_count": 60,
+            "pct_of_total": 50.0,
+            "avg_performance": 4.0,
+            "performance_observations": 50,
+            "promotion_observations": null,
+            "outcome_observations": 50,
+            "quality_components": [
+              "performance",
+              "retention"
+            ],
+            "quality_weights": {
+              "performance": 0.5714285714285715,
+              "retention": 0.4285714285714286
+            },
+            "component_observations": {
+              "performance": 50,
+              "retention": 50,
+              "promotion": 0
+            },
+            "component_coverage": {
+              "performance": 0.8333333333333334,
+              "retention": 0.8333333333333334,
+              "promotion": 0.0
+            },
+            "minimum_component_observations": 10,
+            "quality_unavailable_reason": null,
+            "quality_semantics": "retrospective_heuristic_fixed_dataset_components_not_validated_hire_quality",
+            "high_performers": 50,
+            "high_performer_rate": 100.0,
+            "attrition_count": 10,
+            "retention_rate": 0.8,
+            "retention_rate_pct": 80.0,
+            "avg_promotions": null,
+            "promoted_count": null,
+            "promotion_rate": null,
+            "avg_tenure": 2.0,
+            "avg_interview_score": null,
+            "quality_score": 77.1,
+            "grade": "B",
+            "recommendation": "Compare with role mix, tenure exposure, cost and future cohorts before changing source allocation."
+          },
+          {
+            "HireSource": "Referral",
+            "hire_count": 60,
+            "pct_of_total": 50.0,
+            "avg_performance": 4.0,
+            "performance_observations": 50,
+            "promotion_observations": null,
+            "outcome_observations": 50,
+            "quality_components": [
+              "performance",
+              "retention"
+            ],
+            "quality_weights": {
+              "performance": 0.5714285714285715,
+              "retention": 0.4285714285714286
+            },
+            "component_observations": {
+              "performance": 50,
+              "retention": 50,
+              "promotion": 0
+            },
+            "component_coverage": {
+              "performance": 0.8333333333333334,
+              "retention": 0.8333333333333334,
+              "promotion": 0.0
+            },
+            "minimum_component_observations": 10,
+            "quality_unavailable_reason": null,
+            "quality_semantics": "retrospective_heuristic_fixed_dataset_components_not_validated_hire_quality",
+            "high_performers": 50,
+            "high_performer_rate": 100.0,
+            "attrition_count": 10,
+            "retention_rate": 0.8,
+            "retention_rate_pct": 80.0,
+            "avg_promotions": null,
+            "promoted_count": null,
+            "promotion_rate": null,
+            "avg_tenure": 2.0,
+            "avg_interview_score": null,
+            "quality_score": 77.1,
+            "grade": "B",
+            "recommendation": "Compare with role mix, tenure exposure, cost and future cohorts before changing source allocation."
+          }
+        ],
+        "top_predictors": [],
+        "red_flags": [],
+        "recommendations": [
+          "Observed source and pre-hire associations are exploratory. Do not infer causation or automatically change hiring criteria without prospective validation."
+        ],
+        "roi_analysis": {
+          "Agency": {
+            "source": "Agency",
+            "quality_vs_average": 0.0,
+            "roi_indicator": "Average",
+            "recommendation": "Compare measured coverage, role mix and exposure; validate prospectively before changing sourcing decisions"
+          },
+          "Referral": {
+            "source": "Referral",
+            "quality_vs_average": 0.0,
+            "roi_indicator": "Average",
+            "recommendation": "Compare measured coverage, role mix and exposure; validate prospectively before changing sourcing decisions"
+          }
+        }
+      },
+      "cohort_analysis": [
+        {
+          "performance_observations": 50,
+          "outcome_observations": 50,
+          "metric_semantics": "observed_cohort_outcomes_not_exposure_adjusted_retention",
+          "cohort_name": "Agency",
+          "count": 60,
+          "avg_performance": 4.0,
+          "performance_std": 0.0,
+          "high_performer_pct": 100.0,
+          "low_performer_pct": 0.0,
+          "retention_rate": 0.8,
+          "avg_tenure": 2.0
+        },
+        {
+          "performance_observations": 50,
+          "outcome_observations": 50,
+          "metric_semantics": "observed_cohort_outcomes_not_exposure_adjusted_retention",
+          "cohort_name": "Referral",
+          "count": 60,
+          "avg_performance": 4.0,
+          "performance_std": 0.0,
+          "high_performer_pct": 100.0,
+          "low_performer_pct": 0.0,
+          "retention_rate": 0.8,
+          "avg_tenure": 2.0
+        }
+      ],
+      "new_hire_risks": [],
+      "summary": {
+        "total_employees": 120,
+        "has_hire_source": true,
+        "has_interview_scores": false,
+        "has_assessment": false,
+        "prehire_signals_count": 0,
+        "sources_analyzed": 2,
+        "best_source": "Agency",
+        "top_predictor": null,
+        "new_hires_at_risk": 0
+      },
+      "recommendations": [
+        "Use Quality of Hire to generate hypotheses for prospective validation, not automatic selection or sourcing decisions."
+      ],
+      "warnings": [
+        "Quality scores are configurable composite heuristics; they are not validated measures of hire quality or causal source effectiveness.",
+        "Retention fields represent observed retained share in the available cohort unless a duration-qualified retention window is explicitly available."
+      ]
+    }
+  },
+  "experience-a": {
+    "path": "/api/experience/analysis",
+    "status": 200,
+    "snapshot": "2d2520993db0412c8aa21d946e1769ae",
+    "dataset": "ds_72cf619ca4774ad4816da167f8855986",
+    "body": {
+      "experience_index": {
+        "available": false,
+        "reason": "No measured experience survey signals are available. PeopleOS will not infer experience from HRIS proxy fields.",
+        "overall_exi": null,
+        "exi_std": null,
+        "exi_median": null,
+        "total_employees": 120,
+        "respondent_count": null,
+        "response_coverage": null,
+        "signals_available": 0,
+        "interpretation": null,
+        "benchmark": null,
+        "by_group": null
+      },
+      "segments": {
+        "available": false,
+        "reason": "Measured experience signals are unavailable.",
+        "segments": null,
+        "total_employees": null,
+        "health_indicator": null,
+        "thriving_percentage": null,
+        "at_risk_percentage": null,
+        "recommendations": null
+      },
+      "drivers": {
+        "available": false,
+        "reason": "Measured experience signals are unavailable.",
+        "drivers": null,
+        "top_positive_drivers": null,
+        "top_negative_drivers": null,
+        "recommendations": null
+      },
+      "at_risk": {
+        "available": false,
+        "reason": "Measured experience signals are unavailable.",
+        "total_at_risk": null,
+        "threshold_used": null,
+        "employees": null,
+        "by_department": null
+      },
+      "lifecycle": {
+        "available": false,
+        "reason": "Measured experience signals are unavailable.",
+        "stages": null,
+        "concerns": null,
+        "recommendations": null
+      },
+      "manager_impact": {
+        "available": false,
+        "reason": "Manager ranking is outside the governed aggregate experience boundary.",
+        "managers_analyzed": null,
+        "overall_avg_exi": null,
+        "managers_below_average": null,
+        "bottom_managers": null,
+        "top_managers": null,
+        "recommendations": null
+      },
+      "signals": {
+        "has_enps": false,
+        "has_onboarding": false,
+        "has_pulse": false,
+        "has_manager_satisfaction": false,
+        "has_engagement": false,
+        "has_work_life": false,
+        "has_career_growth": false,
+        "total_signals": 0,
+        "coverage_percentage": 0.0,
+        "recommendations": [
+          "Add eNPS_Score column to enable employee advocacy tracking",
+          "Add Pulse_Score column for regular engagement pulse checks",
+          "Add ManagerSatisfaction column to track manager effectiveness",
+          "Increase survey response rates - less than 50% have experience data"
+        ]
+      },
+      "summary": {
+        "overall_exi": null,
+        "health_indicator": "Unavailable",
+        "total_employees": 120,
+        "at_risk_count": 0,
+        "signals_available": 0,
+        "total_warnings": 1,
+        "total_recommendations": 1
+      },
+      "recommendations": [
+        "Add explicit experience survey signals before interpreting workforce experience."
+      ],
+      "warnings": [
+        "PeopleOS did not derive an experience score from tenure, performance, salary or promotion proxies."
+      ]
+    }
+  },
+  "fairness-a": {
+    "path": "/api/fairness/analysis",
+    "status": 200,
+    "snapshot": "2d2520993db0412c8aa21d946e1769ae",
+    "dataset": "ds_72cf619ca4774ad4816da167f8855986",
+    "body": {
+      "four_fifths": [
+        {
+          "attribute": "Gender",
+          "group": "Female",
+          "selection_rate": 0.8,
+          "reference_rate": 0.8,
+          "ratio": 1.0,
+          "passes_rule": true,
+          "status": "No screening signal",
+          "metric_semantics": "favorable_retained_share_screening_not_compliance_determination"
+        },
+        {
+          "attribute": "Gender",
+          "group": "Male",
+          "selection_rate": 0.8,
+          "reference_rate": 0.8,
+          "ratio": 1.0,
+          "passes_rule": true,
+          "status": "No screening signal",
+          "metric_semantics": "favorable_retained_share_screening_not_compliance_determination"
+        },
+        {
+          "attribute": "Age_Group",
+          "group": "30-39",
+          "selection_rate": 0.8,
+          "reference_rate": 0.8,
+          "ratio": 1.0,
+          "passes_rule": true,
+          "status": "No screening signal",
+          "metric_semantics": "favorable_retained_share_screening_not_compliance_determination"
+        },
+        {
+          "attribute": "Dept",
+          "group": "001",
+          "selection_rate": 0.7941176470588236,
+          "reference_rate": 0.8181818181818181,
+          "ratio": 0.9705882352941178,
+          "passes_rule": true,
+          "status": "No screening signal",
+          "metric_semantics": "favorable_retained_share_screening_not_compliance_determination"
+        },
+        {
+          "attribute": "Dept",
+          "group": "002",
+          "selection_rate": 0.8181818181818181,
+          "reference_rate": 0.8181818181818181,
+          "ratio": 1.0,
+          "passes_rule": true,
+          "status": "No screening signal",
+          "metric_semantics": "favorable_retained_share_screening_not_compliance_determination"
+        },
+        {
+          "attribute": "Location",
+          "group": "Madrid",
+          "selection_rate": 0.8,
+          "reference_rate": 0.8,
+          "ratio": 1.0,
+          "passes_rule": true,
+          "status": "No screening signal",
+          "metric_semantics": "favorable_retained_share_screening_not_compliance_determination"
+        }
+      ],
+      "overall_status": "No material disparity detected in eligible groups",
+      "recommendations": [],
+      "warnings": []
+    }
+  },
+  "survival-a": {
+    "path": "/api/survival/kaplan-meier",
+    "status": 200,
+    "snapshot": "2d2520993db0412c8aa21d946e1769ae",
+    "dataset": "ds_72cf619ca4774ad4816da167f8855986",
+    "body": {
+      "available": true,
+      "overall": {
+        "survival_function": [
+          {
+            "time_months": 0.0,
+            "time_years": 0.0,
+            "survival_probability": 1.0,
+            "at_risk": 100
+          },
+          {
+            "time_months": 24.0,
+            "time_years": 2.0,
+            "survival_probability": 0.8,
+            "at_risk": 100
+          }
+        ],
+        "median_survival_months": null,
+        "median_survival_years": null,
+        "mean_survival_months": 24.0,
+        "restricted_mean_horizon_months": 24.0,
+        "mean_semantics": "restricted_mean_through_last_observed_duration",
+        "confidence_intervals": {
+          "lower": [
+            1.0,
+            0.707378406419088
+          ],
+          "upper": [
+            1.0,
+            0.8660334487914656
+          ]
+        },
+        "semantics": "cohort_survival_from_employment_origin_not_individual_future_probability",
+        "survival_at_3mo": 1.0,
+        "survival_at_6mo": 1.0,
+        "survival_at_12mo": 1.0,
+        "survival_at_24mo": 0.8,
+        "survival_at_36mo": null,
+        "survival_at_60mo": null
+      },
+      "segments": {},
+      "interpretation": [
+        "Survival probabilities are cohort estimates measured from employment origin; they are not next-period individual forecasts."
+      ]
+    }
+  },
+  "structural-a": {
+    "path": "/api/structural/analysis",
+    "status": 200,
+    "snapshot": "2d2520993db0412c8aa21d946e1769ae",
+    "dataset": "ds_72cf619ca4774ad4816da167f8855986",
+    "body": {
+      "stagnation": {
+        "available": false,
+        "reason": "Missing YearsInCurrentRole or Tenure columns"
+      },
+      "span_of_control": {
+        "available": true,
+        "department_summary": [
+          {
+            "department": "001",
+            "total_managers": 1,
+            "at_risk_count": 1,
+            "avg_span": 79.0,
+            "max_span": 79
+          }
+        ],
+        "summary": {
+          "total_managers": 1,
+          "at_risk_count": 1,
+          "avg_span": 79.0,
+          "max_span": 79,
+          "optimal_count": 0,
+          "under_leveraged_count": 0
+        },
+        "recommendations": [
+          "URGENT: 1 manager(s) have more than 15 direct reports. Consider immediate restructuring after reviewing workload, responsibilities and local context."
+        ]
+      },
+      "promotion_equity": {
+        "available": false,
+        "reason": "YearsSinceLastPromotion column not found",
+        "recommendations": [
+          "Treat group differences as screening evidence and review methodology, sample size and context before policy changes."
+        ]
+      },
+      "promotion_bottlenecks": {
+        "available": false,
+        "reason": "YearsSinceLastPromotion column not found"
+      },
+      "governance": "Aggregate structural screening only; no employee or manager ranking is exposed."
+    }
+  },
+  "succession-a": {
+    "path": "/api/succession/summary",
+    "status": 200,
+    "snapshot": "2d2520993db0412c8aa21d946e1769ae",
+    "dataset": "ds_72cf619ca4774ad4816da167f8855986",
+    "body": {
+      "total_employees": 80,
+      "aggregate_ready_now_count": 0,
+      "critical_gap_count": 0,
+      "assessment_semantics": "Recorded SuccessionReadiness and separate PotentialRating assessments are required; missing assessments remain unknown.",
+      "nine_box_summary": [
+        {
+          "Category": "Unassessed",
+          "Count": 80,
+          "Percentage": 100.0
+        }
+      ],
+      "bench_strength": [
+        {
+          "Dept": "001",
+          "BenchStrength": null,
+          "ReadyNow": 0,
+          "ReadySoon": 0,
+          "Developing": 0,
+          "Total": 27,
+          "Status": "Unassessed",
+          "Assessed": 0,
+          "Unassessed": 27,
+          "AssessmentCoverage": 0.0
+        },
+        {
+          "Dept": "002",
+          "BenchStrength": null,
+          "ReadyNow": 0,
+          "ReadySoon": 0,
+          "Developing": 0,
+          "Total": 27,
+          "Status": "Unassessed",
+          "Assessed": 0,
+          "Unassessed": 27,
+          "AssessmentCoverage": 0.0
+        },
+        {
+          "Dept": "Unknown",
+          "BenchStrength": null,
+          "ReadyNow": 0,
+          "ReadySoon": 0,
+          "Developing": 0,
+          "Total": 26,
+          "Status": "Unassessed",
+          "Assessed": 0,
+          "Unassessed": 26,
+          "AssessmentCoverage": 0.0
+        }
+      ],
+      "governance": "Aggregate heuristic summaries only; no individual ranking or automated succession decisions."
+    }
+  },
+  "geo-a": {
+    "path": "/api/geo/summary",
+    "status": 200,
+    "snapshot": "2d2520993db0412c8aa21d946e1769ae",
+    "dataset": "ds_72cf619ca4774ad4816da167f8855986",
+    "body": {
+      "total_employees": 80,
+      "countries_represented": 0,
+      "remote_workers": 0,
+      "unknown_country_count": 80,
+      "remote_percentage": 0.0,
+      "semantics": "Country field labels only; Remote is not inferred from other location fields."
+    }
+  },
+  "network-a": {
+    "path": "/api/network/summary",
+    "status": 200,
+    "snapshot": "2d2520993db0412c8aa21d946e1769ae",
+    "dataset": "ds_72cf619ca4774ad4816da167f8855986",
+    "body": {
+      "success": false,
+      "available": false,
+      "reason": "Collaboration analytics require observed relationship data and validated use-case semantics. Shared department and reporting lines do not establish collaboration, influence, isolation, or departure impact."
+    }
+  },
+  "model-lab-a": {
+    "path": "/api/model-lab/validation",
+    "status": 200,
+    "snapshot": "2d2520993db0412c8aa21d946e1769ae",
+    "dataset": "ds_72cf619ca4774ad4816da167f8855986",
+    "body": {
+      "status": "warning",
+      "metrics": null,
+      "message": "Prospective backtesting is unavailable: timestamped predictions from a model trained before the prediction date, a fixed outcome horizon, and mature follow-up are required.",
+      "interpretation": "Scoring old snapshots with a model trained on current outcomes would leak future information; it is not a valid backtest."
+    }
+  },
+  "search-a": {
+    "path": "/api/search/status",
+    "status": 200,
+    "snapshot": "2d2520993db0412c8aa21d946e1769ae",
+    "dataset": "ds_72cf619ca4774ad4816da167f8855986",
+    "body": {
+      "available": false,
+      "reason": "Vector engine not initialized"
+    }
+  },
+  "forecast-a": {
+    "path": "/api/analytics/forecast",
+    "status": 200,
+    "snapshot": "2d2520993db0412c8aa21d946e1769ae",
+    "dataset": "ds_72cf619ca4774ad4816da167f8855986",
+    "body": {
+      "success": false,
+      "reason": "At least 12 observed monthly censuses are required"
+    }
+  },
+  "workforce-b": {
+    "path": "/api/upload",
+    "status": 200,
+    "snapshot": null,
+    "dataset": null,
+    "body": {
+      "success": true,
+      "message": "Successfully activated 120 employees as dataset v2",
+      "rows_loaded": 120,
+      "columns": [
+        "EmployeeID",
+        "Dept",
+        "Salary",
+        "Tenure",
+        "LastRating",
+        "Age",
+        "Gender",
+        "JobTitle",
+        "JobLevel",
+        "Location",
+        "HireDate",
+        "ManagerID",
+        "Attrition",
+        "HireSource",
+        "SnapshotDate"
+      ],
+      "features_enabled": {
+        "predictive": false,
+        "nlp": false,
+        "llm": false
+      },
+      "workspace_id": "local",
+      "dataset_id": "ds_f357b3d1e8f14f209dc80046189828eb",
+      "dataset_version": 2,
+      "deferred": {
+        "predictive_training": false,
+        "vector_indexing": false
+      }
+    }
+  },
+  "summary-b": {
+    "path": "/api/analytics/summary",
+    "status": 200,
+    "snapshot": "88b29a73801f4325be0ac50652c61f14",
+    "dataset": "ds_f357b3d1e8f14f209dc80046189828eb",
+    "body": {
+      "headcount": 0,
+      "record_count": 120,
+      "observed_attrition_share": null,
+      "turnover_rate": null,
+      "turnover_rate_semantics": "observed_attrition_share_not_period_turnover",
+      "department_count": 0,
+      "salary_mean": null,
+      "salary_median": null,
+      "tenure_mean": null,
+      "tenure_median": null,
+      "age_mean": null,
+      "lastrating_mean": null,
+      "attrition_count": 0,
+      "active_count": 0,
+      "takeaways": [],
+      "insights": {
+        "attrition_semantics": "Observed snapshot outcome share; period turnover requires a defined period and at-risk denominator."
+      }
+    }
+  },
+  "status-b": {
+    "path": "/api/status",
+    "status": 200,
+    "snapshot": null,
+    "dataset": null,
+    "body": {
+      "integrity": {
+        "status": "verified",
+        "issues": [],
+        "snapshot": {
+          "workspace_id": "local",
+          "dataset_id": "ds_f357b3d1e8f14f209dc80046189828eb",
+          "generation": "88b29a73801f4325be0ac50652c61f14",
+          "current_fingerprint": "57245e11c1933fd57eef97251da145b13a4f032d59b5f154b26c8242a8318194",
+          "source_rows": 120,
+          "current_rows": 120,
+          "active_rows": 0,
+          "unknown_status_rows": 120,
+          "population_contract": "observed_status",
+          "dataset_version": 2,
+          "source_name": "workforce-b.csv"
+        },
+        "model_ready": false,
+        "scope": "dataset_and_runtime_integrity_not_statistical_validity"
+      },
+      "status": "running",
+      "data": {
+        "loaded": true,
+        "row_count": 120,
+        "active_dataset": true
+      },
+      "capabilities": {
+        "analytics": true,
+        "predictive_model": false,
+        "compensation": false,
+        "fairness": true,
+        "vector_search": false,
+        "llm": false,
+        "people_intelligence": true,
+        "workspace_control_plane": true
+      },
+      "workspace": {
+        "active_dataset": true,
+        "active_model": false,
+        "dataset_versions": 2,
+        "model_versions": 0,
+        "sessions": 0
+      }
+    }
+  },
+  "departments-b": {
+    "path": "/api/analytics/departments",
+    "status": 200,
+    "snapshot": "88b29a73801f4325be0ac50652c61f14",
+    "dataset": "ds_f357b3d1e8f14f209dc80046189828eb",
+    "body": {
+      "departments": [
+        {
+          "outcome_observations": 0,
+          "dept": "001",
+          "headcount": 0,
+          "total_records": 40,
+          "avg_salary": null,
+          "median_salary": null,
+          "salary_std_dev": null,
+          "avg_tenure": null,
+          "avg_rating": null,
+          "avg_age": null,
+          "observed_attrition_share": null,
+          "turnover_rate": null
+        },
+        {
+          "outcome_observations": 0,
+          "dept": "002",
+          "headcount": 0,
+          "total_records": 40,
+          "avg_salary": null,
+          "median_salary": null,
+          "salary_std_dev": null,
+          "avg_tenure": null,
+          "avg_rating": null,
+          "avg_age": null,
+          "observed_attrition_share": null,
+          "turnover_rate": null
+        },
+        {
+          "outcome_observations": 0,
+          "dept": "Unknown",
+          "headcount": 0,
+          "total_records": 40,
+          "avg_salary": null,
+          "median_salary": null,
+          "salary_std_dev": null,
+          "avg_tenure": null,
+          "avg_rating": null,
+          "avg_age": null,
+          "observed_attrition_share": null,
+          "turnover_rate": null
+        }
+      ],
+      "total_departments": 3
+    }
+  },
+  "quality-b": {
+    "path": "/api/quality-of-hire/source-effectiveness",
+    "status": 200,
+    "snapshot": "88b29a73801f4325be0ac50652c61f14",
+    "dataset": "ds_f357b3d1e8f14f209dc80046189828eb",
+    "body": [
+      {
+        "HireSource": "Agency",
+        "hire_count": 60,
+        "pct_of_total": 50.0,
+        "avg_performance": 5.0,
+        "performance_observations": 1,
+        "promotion_observations": null,
+        "outcome_observations": 0,
+        "quality_components": [],
+        "quality_weights": {},
+        "component_observations": {
+          "performance": 1,
+          "retention": 0,
+          "promotion": 0
+        },
+        "component_coverage": {
+          "performance": 0.016666666666666666,
+          "retention": 0.0,
+          "promotion": 0.0
+        },
+        "minimum_component_observations": 10,
+        "quality_unavailable_reason": "No outcome component has sufficient measured support in this dataset",
+        "quality_semantics": "retrospective_heuristic_fixed_dataset_components_not_validated_hire_quality",
+        "high_performers": 1,
+        "high_performer_rate": 100.0,
+        "attrition_count": 0,
+        "retention_rate": null,
+        "retention_rate_pct": null,
+        "avg_promotions": null,
+        "promoted_count": null,
+        "promotion_rate": null,
+        "avg_tenure": 2.0,
+        "avg_interview_score": null,
+        "quality_score": null,
+        "grade": "Unavailable",
+        "recommendation": "Compare with role mix, tenure exposure, cost and future cohorts before changing source allocation."
+      },
+      {
+        "HireSource": "Referral",
+        "hire_count": 60,
+        "pct_of_total": 50.0,
+        "avg_performance": null,
+        "performance_observations": 0,
+        "promotion_observations": null,
+        "outcome_observations": 0,
+        "quality_components": [],
+        "quality_weights": {},
+        "component_observations": {
+          "performance": 0,
+          "retention": 0,
+          "promotion": 0
+        },
+        "component_coverage": {
+          "performance": 0.0,
+          "retention": 0.0,
+          "promotion": 0.0
+        },
+        "minimum_component_observations": 10,
+        "quality_unavailable_reason": "No outcome component has sufficient measured support in this dataset",
+        "quality_semantics": "retrospective_heuristic_fixed_dataset_components_not_validated_hire_quality",
+        "high_performers": 0,
+        "high_performer_rate": null,
+        "attrition_count": 0,
+        "retention_rate": null,
+        "retention_rate_pct": null,
+        "avg_promotions": null,
+        "promoted_count": null,
+        "promotion_rate": null,
+        "avg_tenure": 2.0,
+        "avg_interview_score": null,
+        "quality_score": null,
+        "grade": "Unavailable",
+        "recommendation": "Compare with role mix, tenure exposure, cost and future cohorts before changing source allocation."
+      }
+    ]
+  },
+  "stale-scenario": {
+    "path": "/api/scenario/2e8dd5aa",
+    "status": 404,
+    "snapshot": null,
+    "dataset": null,
+    "body": {
+      "detail": "Scenario is unavailable in the active dataset snapshot. Run it again."
+    }
+  },
+  "sentiment-b": {
+    "path": "/api/sentiment/analysis",
+    "status": 200,
+    "snapshot": "88b29a73801f4325be0ac50652c61f14",
+    "dataset": "ds_f357b3d1e8f14f209dc80046189828eb",
+    "body": {
+      "survey_coverage": {
+        "enps": {
+          "input_rows": 0,
+          "matched_rows": 0,
+          "unmatched_rows": 0,
+          "missing_employee_id_rows": 0
+        },
+        "onboarding": {
+          "input_rows": 0,
+          "matched_rows": 0,
+          "unmatched_rows": 0,
+          "missing_employee_id_rows": 0
+        }
+      },
+      "enps": {
+        "available": false,
+        "reason": "No valid eNPS responses matched to the employee population",
+        "survey_coverage": {
+          "enps": {
+            "input_rows": 0,
+            "matched_rows": 0,
+            "unmatched_rows": 0,
+            "missing_employee_id_rows": 0
+          },
+          "onboarding": {
+            "input_rows": 0,
+            "matched_rows": 0,
+            "unmatched_rows": 0,
+            "missing_employee_id_rows": 0
+          }
+        }
+      },
+      "enps_trends": {
+        "available": false,
+        "reason": "No eNPS survey data with dates available"
+      },
+      "enps_drivers": {
+        "available": false,
+        "reason": "No eNPS data available"
+      },
+      "onboarding": {
+        "available": false,
+        "reason": "No supported onboarding responses matched to the employee population",
+        "survey_coverage": {
+          "enps": {
+            "input_rows": 0,
+            "matched_rows": 0,
+            "unmatched_rows": 0,
+            "missing_employee_id_rows": 0
+          },
+          "onboarding": {
+            "input_rows": 0,
+            "matched_rows": 0,
+            "unmatched_rows": 0,
+            "missing_employee_id_rows": 0
+          }
+        }
+      },
+      "onboarding_health": {
+        "available": false,
+        "reason": "No matched onboarding data available",
+        "survey_coverage": {
+          "enps": {
+            "input_rows": 0,
+            "matched_rows": 0,
+            "unmatched_rows": 0,
+            "missing_employee_id_rows": 0
+          },
+          "onboarding": {
+            "input_rows": 0,
+            "matched_rows": 0,
+            "unmatched_rows": 0,
+            "missing_employee_id_rows": 0
+          }
+        }
+      },
+      "early_warnings": {
+        "available": false,
+        "reason": "No matched valid responses support latest-response survey flags",
+        "survey_coverage": {
+          "enps": {
+            "input_rows": 0,
+            "matched_rows": 0,
+            "unmatched_rows": 0,
+            "missing_employee_id_rows": 0
+          },
+          "onboarding": {
+            "input_rows": 0,
+            "matched_rows": 0,
+            "unmatched_rows": 0,
+            "missing_employee_id_rows": 0
+          }
+        },
+        "warnings": [],
+        "metric_semantics": "observed_survey_flags_not_validated_departure_risk"
+      },
+      "summary": {
+        "enps_available": false,
+        "onboarding_available": false,
+        "overall_enps": null,
+        "survey_flags_available": false,
+        "employees_at_risk": null,
+        "total_warnings": 0,
+        "total_recommendations": 0
+      },
+      "recommendations": [],
+      "warnings": []
+    }
+  },
+  "activate-a": {
+    "path": "/api/platform/workspaces/local/datasets/ds_72cf619ca4774ad4816da167f8855986/activate",
+    "status": 200,
+    "snapshot": null,
+    "dataset": null,
+    "body": {
+      "dataset_id": "ds_72cf619ca4774ad4816da167f8855986",
+      "workspace_id": "local",
+      "version": 1,
+      "source_name": "workforce-a.csv",
+      "content_hash": "0e46aba158bc25a8a58c1d733ab3d20a9e7b42b1338b328c59e2b728fff97f0b",
+      "row_count": 120,
+      "columns": [
+        "EmployeeID",
+        "Dept",
+        "Salary",
+        "Tenure",
+        "LastRating",
+        "Age",
+        "Gender",
+        "JobTitle",
+        "JobLevel",
+        "Location",
+        "HireDate",
+        "ManagerID",
+        "Attrition",
+        "HireSource",
+        "SnapshotDate"
+      ],
+      "state": "active",
+      "quality": {
+        "artifact_sha256": "3e2218085ee6031c9e0705c49971e168c8e65466c1a335b3b27cde4a4c98cf38",
+        "current_fingerprint": "b80a1134396739b76b3e5cf5d6d2f97570c41bbf97965e6dd75f56a20bf75cd9",
+        "duplicate_rows": 0,
+        "missing_cells": 80
+      },
+      "created_at": "2026-09-08T12:30:44.987419+00:00",
+      "activated_at": "2026-09-08T12:30:48.283400+00:00"
+    }
+  },
+  "summary-restored": {
+    "path": "/api/analytics/summary",
+    "status": 200,
+    "snapshot": "3ee62407f6c740c8805200af0e7ecfbc",
+    "dataset": "ds_72cf619ca4774ad4816da167f8855986",
+    "body": {
+      "headcount": 80,
+      "record_count": 120,
+      "observed_attrition_share": 0.2,
+      "turnover_rate": 0.2,
+      "turnover_rate_semantics": "observed_attrition_share_not_period_turnover",
+      "department_count": 3,
+      "salary_mean": 75000.0,
+      "salary_median": 75000.0,
+      "tenure_mean": 2.0,
+      "tenure_median": 2.0,
+      "age_mean": 30.0,
+      "lastrating_mean": 4.0,
+      "attrition_count": 20,
+      "active_count": 80,
+      "takeaways": [
+        "Observed attrition share in the current outcome population is 20.0%; this is not a period turnover rate."
+      ],
+      "insights": {
+        "attrition_semantics": "Observed snapshot outcome share; period turnover requires a defined period and at-risk denominator."
+      }
+    }
+  },
+  "invalid-duplicate": {
+    "path": "/api/upload",
+    "status": 400,
+    "snapshot": null,
+    "dataset": null,
+    "body": {
+      "detail": "Duplicate EmployeeID + SnapshotDate rows found: 1"
+    }
+  },
+  "summary-after-invalid": {
+    "path": "/api/analytics/summary",
+    "status": 200,
+    "snapshot": "3ee62407f6c740c8805200af0e7ecfbc",
+    "dataset": "ds_72cf619ca4774ad4816da167f8855986",
+    "body": {
+      "headcount": 80,
+      "record_count": 120,
+      "observed_attrition_share": 0.2,
+      "turnover_rate": 0.2,
+      "turnover_rate_semantics": "observed_attrition_share_not_period_turnover",
+      "department_count": 3,
+      "salary_mean": 75000.0,
+      "salary_median": 75000.0,
+      "tenure_mean": 2.0,
+      "tenure_median": 2.0,
+      "age_mean": 30.0,
+      "lastrating_mean": 4.0,
+      "attrition_count": 20,
+      "active_count": 80,
+      "takeaways": [
+        "Observed attrition share in the current outcome population is 20.0%; this is not a period turnover rate."
+      ],
+      "insights": {
+        "attrition_semantics": "Observed snapshot outcome share; period turnover requires a defined period and at-risk denominator."
+      }
+    }
+  },
+  "restart-load": {
+    "path": "/api/upload/status",
+    "status": 200,
+    "snapshot": null,
+    "dataset": null,
+    "body": {
+      "has_data": true,
+      "employee_count": 120,
+      "features_enabled": {
+        "predictive": true,
+        "nlp": false,
+        "llm": false
+      },
+      "workspace_id": "local",
+      "active_dataset_id": "ds_72cf619ca4774ad4816da167f8855986"
+    }
+  },
+  "summary-restart": {
+    "path": "/api/analytics/summary",
+    "status": 200,
+    "snapshot": "13ae3bbd3c1b494b9dbb49af066fcead",
+    "dataset": "ds_72cf619ca4774ad4816da167f8855986",
+    "body": {
+      "headcount": 80,
+      "record_count": 120,
+      "observed_attrition_share": 0.2,
+      "turnover_rate": 0.2,
+      "turnover_rate_semantics": "observed_attrition_share_not_period_turnover",
+      "department_count": 3,
+      "salary_mean": 75000.0,
+      "salary_median": 75000.0,
+      "tenure_mean": 2.0,
+      "tenure_median": 2.0,
+      "age_mean": 30.0,
+      "lastrating_mean": 4.0,
+      "attrition_count": 20,
+      "active_count": 80,
+      "takeaways": [
+        "Observed attrition share in the current outcome population is 20.0%; this is not a period turnover rate."
+      ],
+      "insights": {
+        "attrition_semantics": "Observed snapshot outcome share; period turnover requires a defined period and at-risk denominator."
+      }
+    }
+  },
+  "status-restart": {
+    "path": "/api/status",
+    "status": 200,
+    "snapshot": null,
+    "dataset": null,
+    "body": {
+      "integrity": {
+        "status": "verified",
+        "issues": [],
+        "snapshot": {
+          "workspace_id": "local",
+          "dataset_id": "ds_72cf619ca4774ad4816da167f8855986",
+          "generation": "13ae3bbd3c1b494b9dbb49af066fcead",
+          "current_fingerprint": "b80a1134396739b76b3e5cf5d6d2f97570c41bbf97965e6dd75f56a20bf75cd9",
+          "source_rows": 240,
+          "current_rows": 120,
+          "active_rows": 80,
+          "unknown_status_rows": 20,
+          "population_contract": "observed_status"
+        },
+        "model_ready": false,
+        "scope": "dataset_and_runtime_integrity_not_statistical_validity"
+      },
+      "status": "running",
+      "data": {
+        "loaded": true,
+        "row_count": 120,
+        "active_dataset": true
+      },
+      "capabilities": {
+        "analytics": true,
+        "predictive_model": false,
+        "compensation": true,
+        "fairness": true,
+        "vector_search": false,
+        "llm": false,
+        "people_intelligence": true,
+        "workspace_control_plane": true
+      },
+      "workspace": {
+        "active_dataset": true,
+        "active_model": false,
+        "dataset_versions": 2,
+        "model_versions": 0,
+        "sessions": 0
+      }
+    }
+  }
+}

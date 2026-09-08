@@ -7,42 +7,7 @@ from uuid import uuid4
 from pydantic import BaseModel, Field, field_validator
 
 
-def _json_safe(value: Any) -> Any:
-    """Normalize analytical scalar/container types into JSON-safe Python values.
-
-    Evidence adapters may receive NumPy/Pandas scalars from deterministic engines.
-    The public evidence contract must never leak those implementation types into
-    FastAPI/Pydantic serialization.
-    """
-    if value is None or isinstance(value, (str, int, float, bool)):
-        return value
-    if isinstance(value, dict):
-        return {str(key): _json_safe(item) for key, item in value.items()}
-    if isinstance(value, (list, tuple, set)):
-        return [_json_safe(item) for item in value]
-
-    # NumPy scalar types (np.bool_, np.int64, np.float64, etc.) and several
-    # Pandas scalar wrappers expose ``item`` to return the native Python scalar.
-    item_method = getattr(value, 'item', None)
-    if callable(item_method):
-        try:
-            native = item_method()
-            if native is not value:
-                return _json_safe(native)
-        except (TypeError, ValueError):
-            pass
-
-    # Pandas timestamps and similar date-like values commonly expose isoformat.
-    isoformat = getattr(value, 'isoformat', None)
-    if callable(isoformat):
-        try:
-            return isoformat()
-        except (TypeError, ValueError):
-            pass
-
-    # Preserve strings for unknown analytical labels rather than failing the
-    # entire investigation response at the serialization boundary.
-    return str(value)
+from src.serialization import json_safe as _json_safe
 
 
 class EvidenceKind(str, Enum):
@@ -120,7 +85,9 @@ class EvidenceBundle(BaseModel):
     provenance: Dict[str, Optional[str]] = Field(default_factory=dict)
 
     def evidence_items(self) -> List[EvidenceItem]:
-        return [item for result in self.tool_results for item in result.evidence]
+        return [item for result in self.tool_results
+                if result.status in {ToolResultStatus.SUCCESS, ToolResultStatus.PARTIAL}
+                for item in result.evidence if not (item.metric and item.value is None)]
 
     def has_failures(self) -> bool:
         return any(result.status in {ToolResultStatus.FAILED, ToolResultStatus.BLOCKED} for result in self.tool_results)

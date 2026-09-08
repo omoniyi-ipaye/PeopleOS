@@ -11,6 +11,7 @@ import pandas as pd
 from typing import Dict, Any, List, Optional
 
 from src.utils import load_config
+from src.population import resolve_current_population
 from src.logger import get_logger
 
 
@@ -38,9 +39,10 @@ class SentimentEngine:
             enps_df: Optional eNPS survey data
             onboarding_df: Optional onboarding survey data
         """
-        self.employee_df = employee_df.copy()
+        self.employee_df, _ = resolve_current_population(employee_df)
         self.enps_df = enps_df.copy() if enps_df is not None else None
         self.onboarding_df = onboarding_df.copy() if onboarding_df is not None else None
+        self.survey_coverage: Dict[str, Dict[str, int]] = {}
 
         self.config = load_config()
         self.sentiment_config = self.config.get('sentiment', {})
@@ -54,12 +56,18 @@ class SentimentEngine:
 
     def _prepare_data(self) -> None:
         """Prepare and validate survey data."""
+        self.enps_df = self._match_survey_population(self.enps_df, 'enps')
+        self.onboarding_df = self._match_survey_population(self.onboarding_df, 'onboarding')
+        if self.enps_df is not None and 'eNPSScore' not in self.enps_df:
+            self.survey_coverage['enps']['invalid_score_rows'] = len(self.enps_df)
+            self.survey_coverage['enps']['valid_score_rows'] = 0
+            self.enps_df = None
         if self.enps_df is not None:
             # Ensure date columns are datetime
             if 'SurveyDate' in self.enps_df.columns:
                 self.enps_df['SurveyDate'] = pd.to_datetime(
                     self.enps_df['SurveyDate'],
-                    errors='coerce'
+                    errors='coerce', utc=True, format='mixed'
                 )
 
             # Categorize eNPS responses
@@ -67,17 +75,69 @@ class SentimentEngine:
             detractor_threshold = self.enps_config.get('detractor_threshold', 6)
 
             if 'eNPSScore' in self.enps_df.columns:
+                values = pd.to_numeric(self.enps_df['eNPSScore'], errors='coerce')
+                self.survey_coverage['enps']['invalid_score_rows'] = int((~values.between(0, 10)).sum())
+                self.survey_coverage['enps']['valid_score_rows'] = int(values.between(0, 10).sum())
+                self.enps_df = self.enps_df.loc[values.between(0, 10)].copy()
+                self.enps_df['eNPSScore'] = values.loc[self.enps_df.index]
                 self.enps_df['eNPSCategory'] = self.enps_df['eNPSScore'].apply(
                     lambda x: 'Promoter' if x >= promoter_threshold
                     else ('Detractor' if x <= detractor_threshold else 'Passive')
                 )
 
         if self.onboarding_df is not None:
+            for col in ['OverallScore', 'ClarityOfRole', 'ManagerSupport', 'TeamIntegration', 'ToolsAccess', 'TrainingQuality']:
+                if col in self.onboarding_df:
+                    values = pd.to_numeric(self.onboarding_df[col], errors='coerce')
+                    self.onboarding_df[col] = values.where(values.between(1, 5))
             if 'SurveyDate' in self.onboarding_df.columns:
                 self.onboarding_df['SurveyDate'] = pd.to_datetime(
                     self.onboarding_df['SurveyDate'],
-                    errors='coerce'
+                    errors='coerce', utc=True, format='mixed'
                 )
+            # A snapshot measure uses one latest response per employee/type.
+            # With no dates, stable input order is the documented fallback.
+            frame = self.onboarding_df
+            if 'SurveyType' not in frame:
+                self.survey_coverage['onboarding']['unsupported_type_rows'] = len(frame)
+                frame = frame.iloc[:0].assign(SurveyType=pd.Series(dtype=str))
+            else:
+                supported = frame['SurveyType'].isin(['30-day', '60-day', '90-day'])
+                self.survey_coverage['onboarding']['unsupported_type_rows'] = int((~supported).sum())
+                frame = frame.loc[supported].copy()
+            before = len(frame)
+            if 'SurveyDate' in frame:
+                frame = frame.sort_values('SurveyDate', kind='stable', na_position='first')
+            self.onboarding_df = frame.drop_duplicates(['EmployeeID', 'SurveyType'], keep='last')
+            self.survey_coverage['onboarding']['superseded_rows'] = before - len(self.onboarding_df)
+            self.survey_coverage['onboarding']['latest_response_rows'] = len(self.onboarding_df)
+            self.survey_coverage['onboarding']['valid_overall_score_rows'] = (
+                int(self.onboarding_df['OverallScore'].count()) if 'OverallScore' in self.onboarding_df else 0
+            )
+
+    def _match_survey_population(self, frame: Optional[pd.DataFrame], name: str) -> Optional[pd.DataFrame]:
+        """Only identified members of the resolved employee population contribute.
+
+        IDs are compared exactly: guessing a numeric/string conversion here could
+        silently join different source identities. Ingestion owns normalization.
+        """
+        coverage = {'input_rows': 0, 'matched_rows': 0, 'unmatched_rows': 0,
+                    'missing_employee_id_rows': 0}
+        self.survey_coverage[name] = coverage
+        if frame is None:
+            return None
+        frame = frame.copy()
+        coverage['input_rows'] = len(frame)
+        if 'EmployeeID' not in frame:
+            coverage['missing_employee_id_rows'] = len(frame)
+            return frame.iloc[:0].assign(EmployeeID=pd.Series(dtype=object))
+        missing = frame['EmployeeID'].isna() | frame['EmployeeID'].astype(str).str.strip().eq('')
+        ids = self.employee_df['EmployeeID'].dropna() if 'EmployeeID' in self.employee_df else []
+        matched = ~missing & frame['EmployeeID'].isin(ids)
+        coverage['missing_employee_id_rows'] = int(missing.sum())
+        coverage['unmatched_rows'] = int((~missing & ~matched).sum())
+        coverage['matched_rows'] = int(matched.sum())
+        return frame.loc[matched].copy()
 
     # =========================================================================
     # eNPS ANALYSIS
@@ -105,16 +165,47 @@ class SentimentEngine:
         if self.enps_df is None or self.enps_df.empty:
             return {
                 'available': False,
-                'reason': 'No eNPS survey data available'
+                'reason': 'No valid eNPS responses matched to the employee population',
+                'survey_coverage': self.survey_coverage
             }
 
         df = self.enps_df.copy()
+        allowed_group_fields = {'Dept', 'Location', 'BusinessUnit', 'Country', 'Region'}
+        minimum_group_size = int(self.enps_config.get('min_group_size', 10))
+        if group_by and group_by not in allowed_group_fields:
+            return {
+                'available': False,
+                'reason': 'Unsupported eNPS grouping field',
+                'allowed_group_fields': sorted(allowed_group_fields),
+                'survey_coverage': self.survey_coverage,
+            }
+        if group_by and group_by not in self.employee_df.columns:
+            return {
+                'available': False,
+                'reason': f'{group_by} is unavailable in the governed employee population',
+                'survey_coverage': self.survey_coverage,
+            }
 
-        # Apply date filters
-        if date_from and 'SurveyDate' in df.columns:
-            df = df[df['SurveyDate'] >= pd.to_datetime(date_from)]
-        if date_to and 'SurveyDate' in df.columns:
-            df = df[df['SurveyDate'] <= pd.to_datetime(date_to)]
+        # Date-only endpoints include the entire UTC day. A missing date
+        # column cannot satisfy a requested date filter.
+        if (date_from or date_to) and 'SurveyDate' not in df:
+            return {'available': False, 'reason': 'SurveyDate is required for date filtering'}
+        try:
+            start = pd.to_datetime(date_from, utc=True) if date_from else None
+            end = pd.to_datetime(date_to, utc=True) if date_to else None
+            if (start is not None and pd.isna(start)) or (end is not None and pd.isna(end)):
+                raise ValueError('Invalid date')
+            if start is not None and end is not None and start > end:
+                raise ValueError('Reversed date range')
+        except (ValueError, TypeError):
+            return {'available': False, 'reason': 'Invalid date range'}
+        if start is not None:
+            df = df[df['SurveyDate'] >= start]
+        if end is not None:
+            if len(date_to.strip()) == 10:
+                df = df[df['SurveyDate'] < end + pd.Timedelta(days=1)]
+            else:
+                df = df[df['SurveyDate'] <= end]
 
         if df.empty:
             return {
@@ -123,11 +214,14 @@ class SentimentEngine:
             }
 
         # Merge with employee data for grouping
-        if group_by and group_by in self.employee_df.columns:
+        if group_by:
+            # Organization grouping is sourced from the governed employee
+            # population. A survey upload cannot redefine an employee's cohort.
+            df = df.drop(columns=[group_by], errors='ignore')
             df = df.merge(
                 self.employee_df[['EmployeeID', group_by]],
                 on='EmployeeID',
-                how='left'
+                how='left', validate='many_to_one'
             )
 
         def calc_enps_score(data):
@@ -143,6 +237,8 @@ class SentimentEngine:
 
         result = {
             'available': True,
+            'survey_coverage': self.survey_coverage,
+            'measurement_semantics': 'valid_matched_survey_responses_not_unique_employee_prevalence',
             'overall_enps': overall_enps,
             'total_responses': len(df),
             'promoters': int((df['eNPSCategory'] == 'Promoter').sum()),
@@ -156,8 +252,15 @@ class SentimentEngine:
         # Calculate by group if specified
         if group_by and group_by in df.columns:
             by_group = []
-            for group_name in df[group_by].dropna().unique():
-                group_data = df[df[group_by] == group_name]
+            group_labels = df[group_by].astype('string').str.strip().replace('', pd.NA).fillna('Unknown')
+            suppressed_groups = 0
+            suppressed_responses = 0
+            for group_name in group_labels.unique():
+                group_data = df[group_labels == group_name]
+                if len(group_data) < minimum_group_size:
+                    suppressed_groups += 1
+                    suppressed_responses += len(group_data)
+                    continue
                 enps = calc_enps_score(group_data)
                 by_group.append({
                     'group': group_name,
@@ -169,6 +272,9 @@ class SentimentEngine:
 
             by_group.sort(key=lambda x: x['enps'] if x['enps'] is not None else -100, reverse=True)
             result['by_group'] = by_group
+            result['minimum_group_size'] = minimum_group_size
+            result['suppressed_group_count'] = suppressed_groups
+            result['suppressed_response_count'] = suppressed_responses
 
         # Add benchmark interpretation
         if overall_enps is not None:
@@ -204,7 +310,13 @@ class SentimentEngine:
                 'reason': 'No eNPS survey data with dates available'
             }
 
-        df = self.enps_df.copy()
+        df = self.enps_df.dropna(subset=['SurveyDate']).copy()
+        if df.empty:
+            return {'available': False, 'reason': 'No valid dated eNPS responses'}
+        if period not in {'week', 'month', 'quarter'}:
+            return {'available': False, 'reason': 'Unsupported trend period'}
+        # All source timestamps were normalized to UTC before period grouping.
+        df['SurveyDate'] = df['SurveyDate'].dt.tz_localize(None)
 
         # Set period
         if period == 'week':
@@ -278,27 +390,21 @@ class SentimentEngine:
 
         drivers = []
         for score in available_scores:
-            if 'eNPSScore' in self.enps_df.columns:
-                corr = self.enps_df['eNPSScore'].corr(self.enps_df[score])
-                avg_score = self.enps_df[score].mean()
-                drivers.append({
-                    'dimension': score.replace('Score', ''),
-                    'correlation': round(corr, 3) if pd.notna(corr) else None,
-                    'avg_score': round(avg_score, 2) if pd.notna(avg_score) else None,
-                    'impact': 'High' if abs(corr) >= 0.5 else ('Medium' if abs(corr) >= 0.3 else 'Low')
-                })
-
-        # Sort by correlation
-        drivers.sort(key=lambda x: abs(x['correlation']) if x['correlation'] else 0, reverse=True)
-
-        # Identify lowest scores as improvement areas
-        improvement_areas = sorted(
-            [d for d in drivers if d['avg_score'] is not None],
-            key=lambda x: x['avg_score']
-        )[:3]
+            pairs = self.enps_df[['eNPSScore', score]].apply(pd.to_numeric, errors='coerce')
+            pairs = pairs.replace([float('inf'), -float('inf')], float('nan')).dropna()
+            if len(pairs) < 10 or (pairs.nunique() < 2).any():
+                continue
+            corr = pairs['eNPSScore'].corr(pairs[score])
+            drivers.append({'dimension': score.replace('Score', ''), 'correlation': round(corr, 3),
+                            'avg_score': round(pairs[score].mean(), 2), 'sample_size': len(pairs),
+                            'impact': 'High' if abs(corr) >= .5 else 'Medium' if abs(corr) >= .3 else 'Low',
+                            'metric_semantics': 'paired_observational_correlation_not_causal_driver'})
+        drivers.sort(key=lambda item: abs(item['correlation']), reverse=True)
+        # Different survey instruments can use different scales; no universal low-score threshold.
+        improvement_areas = []
 
         return {
-            'available': True,
+            'available': bool(drivers),
             'drivers': drivers,
             'top_driver': drivers[0]['dimension'] if drivers else None,
             'improvement_areas': [d['dimension'] for d in improvement_areas],
@@ -360,7 +466,8 @@ class SentimentEngine:
         if self.onboarding_df is None or self.onboarding_df.empty:
             return {
                 'available': False,
-                'reason': 'No onboarding survey data available'
+                'reason': 'No supported onboarding responses matched to the employee population',
+                'survey_coverage': self.survey_coverage
             }
 
         df = self.onboarding_df.copy()
@@ -386,7 +493,10 @@ class SentimentEngine:
 
             # Sort by survey type
             emp_data['SurveyOrder'] = emp_data['SurveyType'].map(survey_order)
-            emp_data = emp_data.sort_values('SurveyOrder')
+            emp_data = emp_data[emp_data['SurveyOrder'].notna()]
+            if 'SurveyDate' in emp_data:
+                emp_data = emp_data.sort_values('SurveyDate', kind='stable', na_position='first')
+            emp_data = emp_data.drop_duplicates('SurveyType', keep='last').sort_values('SurveyOrder')
 
             scores = {}
             for _, row in emp_data.iterrows():
@@ -433,6 +543,8 @@ class SentimentEngine:
         return {
             'available': True,
             'trajectories': trajectories,
+            'survey_coverage': self.survey_coverage,
+            'response_selection': 'latest_per_employee_and_survey_type; input_order_breaks_date_ties_or_missing_dates',
             'summary': {
                 'total_employees': len(trajectories),
                 'declining_count': len(declining),
@@ -452,8 +564,9 @@ class SentimentEngine:
         Returns:
             Dictionary with onboarding health assessment.
         """
-        if self.onboarding_df is None:
-            return {'available': False, 'reason': 'No onboarding data available'}
+        if self.onboarding_df is None or self.onboarding_df.empty:
+            return {'available': False, 'reason': 'No matched onboarding data available',
+                    'survey_coverage': self.survey_coverage}
 
         df = self.onboarding_df.copy()
         min_healthy = self.onboarding_config.get('min_score_healthy', 3.5)
@@ -464,6 +577,9 @@ class SentimentEngine:
             for survey_type in ['30-day', '60-day', '90-day']:
                 type_data = df[df['SurveyType'] == survey_type]
                 if not type_data.empty:
+                    type_data = type_data.dropna(subset=['OverallScore'])
+                    if type_data.empty:
+                        continue
                     avg_score = type_data['OverallScore'].mean()
                     healthy_pct = (type_data['OverallScore'] >= min_healthy).sum() / len(type_data) * 100
                     by_survey_type.append({
@@ -490,16 +606,19 @@ class SentimentEngine:
         dimension_scores.sort(key=lambda x: x['avg_score'] if x['avg_score'] else 0)
 
         # Identify weakest dimensions
-        weakest = dimension_scores[:2] if dimension_scores else []
+        measured_dimensions = [d for d in dimension_scores if d['avg_score'] is not None]
+        weakest = [dimension for dimension in measured_dimensions if dimension['avg_score'] < min_healthy][:2]
 
         return {
             'available': True,
             'by_survey_type': by_survey_type,
+            'survey_coverage': self.survey_coverage,
+            'response_selection': 'latest_per_employee_and_survey_type; input_order_breaks_date_ties_or_missing_dates',
             'dimension_scores': dimension_scores,
             'weakest_dimensions': weakest,
-            'overall_health': 'Healthy' if all(
-                d.get('avg_score', 0) >= min_healthy for d in dimension_scores
-            ) else 'Needs Attention',
+            'overall_health': ('Unavailable' if not measured_dimensions else
+                               'Healthy' if all(d['avg_score'] >= min_healthy for d in measured_dimensions) else 'Needs Attention'),
+            'measurement_semantics': 'observed_survey_scores_not_validated_employee_or_onboarding_health',
             'recommendations': self._generate_onboarding_recommendations(weakest)
         }
 
@@ -548,12 +667,29 @@ class SentimentEngine:
         Returns:
             Dictionary with at-risk employees and warning types.
         """
+        has_dated_enps = (self.enps_df is not None and 'SurveyDate' in self.enps_df
+                          and self.enps_df['SurveyDate'].notna().any())
+        has_onboarding_scores = (self.onboarding_df is not None and 'OverallScore' in self.onboarding_df
+                                 and self.onboarding_df['OverallScore'].notna().any())
+        if not has_dated_enps and not has_onboarding_scores:
+            return {
+                'available': False,
+                'reason': 'No matched valid responses support latest-response survey flags',
+                'survey_coverage': self.survey_coverage,
+                'warnings': [],
+                'metric_semantics': 'observed_survey_flags_not_validated_departure_risk',
+            }
         warnings = []
 
         # Check eNPS detractors
         if self.enps_df is not None and 'eNPSCategory' in self.enps_df.columns:
             # Get most recent survey per employee
-            recent_enps = self.enps_df.sort_values('SurveyDate').groupby('EmployeeID').last()
+            recent_enps = self.enps_df
+            if 'SurveyDate' not in recent_enps or 'EmployeeID' not in recent_enps:
+                recent_enps = recent_enps.iloc[:0].assign(EmployeeID=pd.Series(dtype=str))
+            else:
+                recent_enps = recent_enps.dropna(subset=['SurveyDate']).sort_values('SurveyDate', kind='stable').drop_duplicates('EmployeeID', keep='last')
+            recent_enps = recent_enps.set_index('EmployeeID')
             detractors = recent_enps[recent_enps['eNPSCategory'] == 'Detractor']
 
             for emp_id in detractors.index:
@@ -570,7 +706,9 @@ class SentimentEngine:
         if self.onboarding_df is not None:
             trajectory_analysis = self.analyze_onboarding_trajectory()
             if trajectory_analysis.get('available'):
-                for traj in trajectory_analysis.get('at_risk_employees', []):
+                for traj in trajectory_analysis.get('trajectories', []):
+                    if not traj.get('at_risk'):
+                        continue
                     # Avoid duplicates
                     if not any(w['EmployeeID'] == traj['EmployeeID'] for w in warnings):
                         warnings.append({
@@ -588,6 +726,8 @@ class SentimentEngine:
         return {
             'available': True,
             'warnings': warnings,
+            'survey_coverage': self.survey_coverage,
+            'metric_semantics': 'observed_survey_flags_not_validated_departure_risk',
             'summary': {
                 'total_at_risk': len(warnings),
                 'high_severity': len([w for w in warnings if w['severity'] == 'High']),
@@ -613,6 +753,7 @@ class SentimentEngine:
             Dictionary with all analysis results.
         """
         results = {
+            'survey_coverage': self.survey_coverage,
             'enps': {},
             'enps_trends': {},
             'enps_drivers': {},
@@ -688,7 +829,8 @@ class SentimentEngine:
             'enps_available': results['enps'].get('available', False),
             'onboarding_available': results['onboarding'].get('available', False),
             'overall_enps': results['enps'].get('overall_enps'),
-            'employees_at_risk': results['early_warnings'].get('summary', {}).get('total_at_risk', 0),
+            'employees_at_risk': results['early_warnings'].get('summary', {}).get('total_at_risk'),
+            'survey_flags_available': results['early_warnings'].get('available', False),
             'total_warnings': len(results['warnings']),
             'total_recommendations': len(results['recommendations'])
         }

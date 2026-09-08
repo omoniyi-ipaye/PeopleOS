@@ -9,6 +9,18 @@ import pytest
 from src.analytics_engine import AnalyticsEngine
 
 
+def test_missing_departments_reconcile_and_keep_measured_salary_dispersion():
+    frame=pd.DataFrame({'EmployeeID':['A','B','C','D'], 'Dept':['001',None,'','  '],
+        'Attrition':[0,0,0,0], 'Salary':[50000,60000,90000,75000]})
+    engine=AnalyticsEngine(frame)
+    groups=engine.get_department_aggregates().set_index('Dept')
+    assert engine.get_summary_statistics()['department_count']==2
+    assert groups.loc['Unknown','Headcount']==3
+    assert groups.loc['Unknown','Salary_StdDev']==15000
+    assert pd.isna(groups.loc['001','Salary_StdDev'])
+    assert pd.isna(frame.loc[1,'Dept'])  # The source is not rewritten.
+
+
 class TestAnalyticsEngine:
     """Test cases for AnalyticsEngine class."""
     
@@ -18,7 +30,7 @@ class TestAnalyticsEngine:
         
         headcount = engine.get_headcount()
         
-        assert headcount == len(sample_valid_data)
+        assert headcount == int((sample_valid_data['Attrition'] == 0).sum())
     
     def test_calculate_turnover_rate(self, sample_valid_data: pd.DataFrame):
         """Test that turnover rate is calculated correctly."""
@@ -61,7 +73,7 @@ class TestAnalyticsEngine:
         assert 'Headcount' in dept_stats.columns
         
         # Sum of headcounts should equal total
-        assert dept_stats['Headcount'].sum() == len(sample_valid_data)
+        assert dept_stats['Headcount'].sum() == int((sample_valid_data['Attrition'] == 0).sum())
     
     def test_handle_division_by_zero(self):
         """Test that division by zero is handled in rates."""
@@ -91,7 +103,7 @@ class TestAnalyticsEngine:
         assert 'headcount' in stats
         assert 'turnover_rate' in stats
         assert 'department_count' in stats
-        assert stats['headcount'] == len(sample_valid_data)
+        assert stats['headcount'] == int((sample_valid_data['Attrition'] == 0).sum())
     
     def test_get_correlations(self, sample_valid_data: pd.DataFrame):
         """Test correlation calculation."""

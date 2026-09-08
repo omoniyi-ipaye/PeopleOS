@@ -33,11 +33,32 @@ def _gini(values: np.ndarray) -> float:
     values = np.sort(values)
     if values.min() < 0:
         values = values - values.min()
+    scale = values.max()
+    if scale > 0:
+        values = values / scale
     n = len(values)
     total = values.sum()
     if total == 0:
         return 0.0
     return float((2 * np.sum((np.arange(1, n + 1)) * values) / (n * total)) - (n + 1) / n)
+
+
+def _stable_salary_stats(values: pd.Series) -> tuple[float, float, float]:
+    """Calculate location and sample spread without overflowing intermediate sums."""
+    array = values.to_numpy(dtype=float)
+    scale = float(np.max(np.abs(array)))
+    scaled = array / scale
+    mean = float(np.mean(scaled) * scale)
+    ordered = np.sort(scaled)
+    midpoint = len(ordered) // 2
+    median_scaled = float(ordered[midpoint]) if len(ordered) % 2 else float(
+        ordered[midpoint - 1] + (ordered[midpoint] - ordered[midpoint - 1]) / 2
+    )
+    median = float(median_scaled * scale)
+    deviation = float(np.std(scaled, ddof=1) * scale) if len(array) > 1 else 0.0
+    if not all(np.isfinite(value) for value in (mean, median, deviation)):
+        raise CompensationEngineError('Salary magnitude exceeds the finite reporting range')
+    return mean, median, deviation
 
 
 class CompensationEngine:
@@ -50,18 +71,24 @@ class CompensationEngine:
         self.df = self._valid_active_salary_population(current)
         if self.df.empty:
             raise CompensationEngineError('No active employees with a valid positive Salary are available')
+        mean, _, _ = _stable_salary_stats(self.df['Salary'])
+        if not np.isfinite(mean * len(self.df)):
+            raise CompensationEngineError('Total payroll exceeds the finite reporting range')
 
     def _valid_active_salary_population(self, df: pd.DataFrame) -> pd.DataFrame:
         active = active_population(df)
+        self.active_count = len(active)
         if 'Salary' not in active.columns:
             raise CompensationEngineError('Salary column is required')
         salary = pd.to_numeric(active['Salary'], errors='coerce')
-        valid = salary.notna() & (salary > 0)
+        valid = salary.notna() & np.isfinite(salary) & (salary > 0)
         excluded = int((~valid).sum())
         if excluded:
             self.warnings.append(f'Excluded {excluded} active row(s) with missing or non-positive salary from compensation metrics')
         frame = active.loc[valid].copy()
         frame['Salary'] = salary.loc[valid].astype(float)
+        if 'Dept' in frame.columns:
+            frame['Dept'] = frame['Dept'].astype('string').str.strip().replace('', pd.NA).fillna('Unknown')
         return frame
 
     def calculate_salary_percentiles(self) -> pd.DataFrame:
@@ -142,6 +169,7 @@ class CompensationEngine:
         frame = self.df.copy()
         if 'CompaRatio' in frame.columns:
             ratio = pd.to_numeric(frame['CompaRatio'], errors='coerce')
+            ratio = ratio.where(np.isfinite(ratio) & (ratio > 0))
             frame['CompaRatio'] = ratio
             frame['BandMidpoint'] = np.where(ratio > 0, frame['Salary'] / ratio, np.nan)
             semantics = 'supplied_compa_ratio'
@@ -153,7 +181,10 @@ class CompensationEngine:
             frame['CompaRatio'] = frame['Salary'] / midpoint.replace(0, np.nan)
             semantics = 'relative_to_department_median_not_formal_compa_ratio'
             self.warnings.append('No external salary-band midpoint was supplied; displayed compa-ratio compatibility values are relative to department median')
-        frame['CompaStatus'] = frame['CompaRatio'].apply(lambda r: 'Below reference' if pd.notna(r) and r < .8 else ('Above reference' if pd.notna(r) and r > 1.2 else 'Near reference'))
+        frame['CompaStatus'] = frame['CompaRatio'].apply(
+            lambda r: 'Unavailable' if pd.isna(r) or not np.isfinite(r) or r <= 0
+            else 'Below reference' if r < .8 else 'Above reference' if r > 1.2 else 'Near reference'
+        )
         frame['MetricSemantics'] = semantics
         cols = [c for c in ['EmployeeID', 'Dept', 'Salary', 'BandMidpoint', 'CompaRatio', 'CompaStatus', 'MetricSemantics'] if c in frame.columns]
         return frame[cols]
@@ -165,10 +196,12 @@ class CompensationEngine:
             return {'available': False, 'reason': 'Attrition unavailable'}
         salary = pd.to_numeric(frame['Salary'], errors='coerce')
         outcome = pd.to_numeric(frame['Attrition'], errors='coerce')
-        valid = salary.notna() & (salary > 0) & outcome.isin([0, 1])
+        valid = salary.notna() & np.isfinite(salary) & (salary > 0) & outcome.isin([0, 1])
         if valid.sum() < 20 or outcome.loc[valid].nunique() < 2:
             return {'available': False, 'reason': 'Insufficient valid salary/outcome pairs'}
         corr, p = stats.pointbiserialr(outcome.loc[valid].astype(int), salary.loc[valid].astype(float))
+        if not np.isfinite(corr) or not np.isfinite(p):
+            return {'available': False, 'reason': 'Salary has insufficient variation for correlation'}
         return {
             'available': True, 'correlation': float(corr), 'p_value': float(p), 'sample_size': int(valid.sum()),
             'interpretation': 'Observed salary–attrition association; this does not establish that salary causes attrition.'
@@ -204,7 +237,10 @@ class CompensationEngine:
         stratified = sum(s['gap_pct'] * s['weight'] for s in eligible) / weight if weight else None
         return {
             'available': True, 'raw_gap_pct': float(raw_gap), 'male_n': len(male_salary), 'female_n': len(female_salary),
-            'welch_t_stat': float(t_stat), 'p_value': float(p_value), 'is_significant': bool(p_value < .05),
+            'welch_t_stat': float(t_stat) if np.isfinite(t_stat) else None,
+            'p_value': float(p_value) if np.isfinite(t_stat) and np.isfinite(p_value) else None,
+            'is_significant': bool(np.isfinite(t_stat) and np.isfinite(p_value) and p_value < .05),
+            'inference_available': bool(np.isfinite(t_stat) and np.isfinite(p_value)),
             'job_title_stratified_gap_pct': float(stratified) if stratified is not None else None,
             'eligible_job_title_strata': len(eligible), 'job_title_strata': strata,
             'semantics': 'descriptive_and_job_title_stratified_gap_not_regression_adjusted_equity',
@@ -216,16 +252,22 @@ class CompensationEngine:
             return pd.DataFrame()
         frame = self.df.copy()
         tenure = pd.to_numeric(frame['Tenure'], errors='coerce')
-        frame['TenureBucket'] = pd.cut(tenure, bins=[0, 1, 2, 5, 10, float('inf')], labels=['<1 year', '1-2 years', '2-5 years', '5-10 years', '10+ years'], right=False)
+        tenure = tenure.where(np.isfinite(tenure) & (tenure >= 0))
+        frame['TenureBucket'] = pd.cut(tenure, bins=[0, 1, 2, 5, 10, float('inf')], labels=['<1 year', '1-2 years', '2-5 years', '5-10 years', '10+ years'], right=False).cat.add_categories('Unknown').fillna('Unknown')
         grouped = frame.groupby('TenureBucket', observed=False)['Salary'].agg(['mean', 'median', 'min', 'max', 'count']).reset_index()
         return grouped.rename(columns={'mean': 'Mean', 'median': 'Median', 'min': 'Min', 'max': 'Max', 'count': 'Count'})
 
     def get_compensation_summary(self) -> Dict[str, Any]:
         salary = self.df['Salary']
+        mean, median, deviation = _stable_salary_stats(salary)
         return {
-            'total_payroll': float(salary.sum()), 'avg_salary': float(salary.mean()), 'median_salary': float(salary.median()),
+            'total_payroll': float(mean * len(salary)), 'avg_salary': mean, 'median_salary': median,
             'min_salary': float(salary.min()), 'max_salary': float(salary.max()), 'salary_range': float(salary.max() - salary.min()),
-            'std_dev': float(salary.std(ddof=1)) if len(salary) > 1 else 0.0, 'headcount': int(len(salary)),
+            'std_dev': deviation, 'headcount': int(len(salary)),
+            'active_count': int(self.active_count),
+            'salary_observations': int(len(salary)),
+            'excluded_salary_count': int(self.active_count - len(salary)),
+            'salary_coverage': float(len(salary) / self.active_count) if self.active_count else None,
             'population': 'current_active_employees_with_valid_positive_salary',
         }
 

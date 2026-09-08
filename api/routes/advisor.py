@@ -2,10 +2,11 @@
 
 from typing import List, Dict, Any
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request, Query
 from pydantic import BaseModel
 
 from api.dependencies import get_app_state, AppState
+from api.routes.intelligence import InvestigationRequest, investigate, require_dataset
 from src.logger import get_logger
 
 logger = get_logger('advisor_route')
@@ -19,6 +20,9 @@ class StrategicSummary(BaseModel):
     key_insights: List[str]
     action_items: List[str]
     generated_by: str
+    status: str
+    evidence: Dict[str, Any]
+    warnings: List[str]
 
 
 class AdvisorStatus(BaseModel):
@@ -87,80 +91,36 @@ async def get_advisor_status(
 
 @router.get("/summary", response_model=StrategicSummary)
 async def get_strategic_summary(
-    state: AppState = Depends(require_llm)
+    request: Request,
+    state: AppState = Depends(require_dataset)
 ) -> StrategicSummary:
-    """Get AI-generated strategic summary of HR analytics."""
-    context = _build_analytics_context(state)
-
-    prompt = f"""
-    You are an HR analytics expert. Based on the following HR metrics, provide a strategic summary
-    with key insights and recommended actions.
-
-    {context}
-
-    Provide your response in the following format:
-    SUMMARY: [2-3 sentence executive summary]
-    KEY INSIGHTS:
-    - [insight 1]
-    - [insight 2]
-    - [insight 3]
-    ACTION ITEMS:
-    - [action 1]
-    - [action 2]
-    - [action 3]
-
-    Be specific, data-driven, and ensure each sentence is complete. Do not truncate your response.
-    """
-
-    try:
-        response = _generate_safe(state, prompt)
-        summary, insights, actions = _parse_llm_response(response)
-
-        return StrategicSummary(
-            summary=summary,
-            key_insights=insights,
-            action_items=actions,
-            generated_by=state.llm_client.model
-        )
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to generate summary: {str(e)}")
+    """Compatibility endpoint using the same governed investigation boundary."""
+    result = await investigate(
+        InvestigationRequest(question="Give an overall workforce health summary."),
+        request=request, state=state,
+    )
+    return StrategicSummary(
+        summary=result.answer,
+        key_insights=[],
+        action_items=[],
+        generated_by=result.model or "verified aggregate evidence",
+        status=result.status,
+        evidence=result.evidence.model_dump(mode="json"),
+        warnings=result.warnings,
+    )
 
 
 @router.post("/ask")
 async def ask_advisor(
-    question: str,
-    state: AppState = Depends(require_llm)
+    request: Request,
+    question: str = Query(min_length=3, max_length=2000),
+    state: AppState = Depends(require_dataset)
 ) -> Dict[str, Any]:
-    """Ask the AI advisor a specific question about the HR data."""
-    context = _build_analytics_context(state)
-
-    prompt = f"""
-    You are an HR analytics expert. Based on the following HR metrics, answer the user's question.
-
-    HR Metrics:
-    {context}
-
-    User Question: {question}
-
-    Provide a helpful, data-driven response.
-    """
-
-    try:
-        response = _generate_safe(state, prompt)
-
-        return {
-            'question': question,
-            'answer': response,
-            'model': state.llm_client.model
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to generate response: {str(e)}")
+    """Ask through governed authorization, provenance and evidence verification."""
+    result = await investigate(
+        InvestigationRequest(question=question), request=request, state=state,
+    )
+    return result.model_dump(mode="json")
 
 
 def _build_analytics_context(state: AppState) -> str:

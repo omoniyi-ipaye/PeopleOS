@@ -55,7 +55,7 @@ class FairnessOutcomeTool:
                     "rate": float(row.get("rate", 0.0)),
                     "count": int(row.get("count", 0)),
                     "disparity": float(row.get("disparity", 0.0)),
-                    "parity_ratio": float(row.get("parity_ratio", 1.0)),
+                    "parity_ratio": None if row.get("parity_ratio") is None else float(row["parity_ratio"]),
                 }
                 records.append(record)
                 if record["disparity"] >= 0.05:
@@ -132,9 +132,7 @@ class EmployeeExperienceTool:
 
             index = analysis.get("experience_index", {}) or {}
             if index.get("available", True):
-                overall = index.get("overall_score")
-                if overall is None:
-                    overall = index.get("score")
+                overall = index.get("overall_exi")
                 if overall is not None:
                     evidence.append(EvidenceItem(
                         kind=EvidenceKind.DERIVED,
@@ -154,6 +152,8 @@ class EmployeeExperienceTool:
 
             segments = analysis.get("segments", {}) or {}
             segment_counts = segments.get("segments") or segments.get("distribution") or {}
+            if isinstance(segment_counts, list):
+                segment_counts = {item['segment']: item for item in segment_counts if isinstance(item, dict) and 'segment' in item}
             if isinstance(segment_counts, dict):
                 metadata["segments"] = segment_counts
                 for segment, value in segment_counts.items():
@@ -183,8 +183,8 @@ class EmployeeExperienceTool:
 
             return ToolResult(
                 tool_id=self.tool_id,
-                status=ToolResultStatus.SUCCESS,
-                summary="Aggregate employee-experience evidence calculated.",
+                status=ToolResultStatus.SUCCESS if evidence else ToolResultStatus.PARTIAL,
+                summary="Aggregate employee-experience evidence calculated." if evidence else "Measured employee-experience evidence is unavailable.",
                 evidence=evidence,
                 warnings=warnings,
                 duration_ms=_elapsed_ms(started),

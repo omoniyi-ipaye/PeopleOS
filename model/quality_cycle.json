@@ -1,0 +1,292 @@
+{
+  "schema_version": 1,
+  "cycle_id": "PEOPLEOS-QUALITY-003",
+  "baseline_commit": "2ee3ff28d5312a07b34801dee138822fcd5cd99e",
+  "state": "local_integration_validation",
+  "goal": "Correct independently reproduced data-to-insight errors for a dependable local-first People-team product; integrate and merge only the candidate verified by all required gates.",
+  "current_pass_report": "docs/validation/LOCAL_LAUNCH_CORRECTIONS.md",
+  "merge_authorization": "User explicitly requested fixes, tests and merge in this pass; deployment remains outside scope.",
+  "readiness_claim": "Acceptance is specific to a commit, environment, dataset, actor and use case. No test outcome means perfect or 100 percent trustworthy.",
+  "tracks": [
+    {
+      "id": "analytics",
+      "owner": "analytics_acceptance",
+      "focus": "Population reconciliation, measurement coverage and honest fixed-threshold ML metrics"
+    },
+    {
+      "id": "agentic",
+      "owner": "agentic_quality",
+      "focus": "Question coverage, evidence selection, cited claims, warnings and safe tool failure"
+    },
+    {
+      "id": "design",
+      "owner": "design_usability",
+      "focus": "Clear investigation states, visible limitations and results bound to the active dataset"
+    },
+    {
+      "id": "security",
+      "owner": "enterprise_controls",
+      "focus": "Enforceable permissions, local browser origin and host boundaries, legacy file-route containment"
+    },
+    {
+      "id": "browser",
+      "owner": "browser_acceptance",
+      "focus": "Actual API and browser journeys on desktop and mobile-sized viewports"
+    },
+    {
+      "id": "independent",
+      "owner": "independent_reviewer",
+      "focus": "Reproduce counterexamples outside author tests and verify corrections"
+    }
+  ],
+  "workflow": [
+    {
+      "id": "QC-01",
+      "action": "Inspect repository head, prior cycle evidence, open findings and active CI",
+      "output": "Pinned baseline and scoped backlog",
+      "failure": "Recover access or finish pending verification before changing code"
+    },
+    {
+      "id": "QC-02",
+      "action": "Assign disjoint specialist ownership and reproduce prioritized failures",
+      "output": "Inputs, expected result, actual result, affected user and source location",
+      "failure": "Record an unverified hypothesis without labeling it a confirmed defect"
+    },
+    {
+      "id": "QC-03",
+      "action": "Implement bounded corrections and independent regression contracts",
+      "output": "Reviewable changes with source-bound test evidence",
+      "failure": "Preserve the reproduction and revise the correction; never weaken assertions to pass"
+    },
+    {
+      "id": "QC-04",
+      "action": "Run real application, browser, agentic, integrity and desktop acceptance gates",
+      "output": "Versioned results, traces and screenshots when available",
+      "failure": "Return to the responsible specialist with the exact failure"
+    },
+    {
+      "id": "QC-05",
+      "action": "Publish a reviewable candidate and assess use-case readiness",
+      "output": "PR, verified commit, fixed findings and remaining limitations",
+      "failure": "Keep candidate unmerged; report failed or blocked gates accurately"
+    },
+    {
+      "id": "QC-06",
+      "action": "Choose the next evidence-driven improvement only after prior work is verified",
+      "output": "Durable next-cycle backlog",
+      "failure": "If no justified change is found, record review coverage without creating cosmetic churn"
+    }
+  ],
+  "acceptance_requirements": [
+    {
+      "id": "AC-DATA",
+      "condition": "Known-answer populations and amounts reconcile, including unknown groups and measurement exclusions",
+      "evidence": [
+        "scripts/live_dummy_acceptance.py",
+        "tests/test_people_team_acceptance.py",
+        "model/analytics_launch_matrix.json",
+        "tests/test_analytics_launch_matrix.py",
+        "tests/test_ml_engine.py",
+        "scripts/synthetic_stress_validation.py",
+        "docs/validation/synthetic-stress-results.json"
+      ]
+    },
+    {
+      "id": "AC-AGENT",
+      "condition": "Agent claims cite compatible successful evidence and cannot invent numbers, causal effects, question coverage or unsupported actions",
+      "evidence": [
+        "tests/test_agentic_acceptance.py",
+        "tests/test_agent_orchestrator.py",
+        "model/agentic_launch_matrix.json",
+        "tests/test_agentic_launch_matrix.py"
+      ]
+    },
+    {
+      "id": "AC-ACCESS",
+      "condition": "Denied mutations do not execute; browser-origin and role boundaries preserve supported desktop use",
+      "evidence": [
+        "tests/test_enterprise_controls.py",
+        "docs/validation/enterprise-controls-cycle-002.json",
+        "tests/test_enterprise_controls_matrix.py"
+      ]
+    },
+    {
+      "id": "AC-UI",
+      "condition": "People-team journeys show correct current results, distinguish absent evidence and expose reasoning limits",
+      "evidence": [
+        "web/tests/design-usability.test.cjs",
+        "web/e2e",
+        "docs/validation/RENDERER_VALIDATION_MATRIX.md",
+        "web/tests/renderer-edge-cases.test.cjs",
+        "web/e2e/action-process-coverage.json"
+      ]
+    },
+    {
+      "id": "AC-RECOVERY",
+      "condition": "Dataset switch, failed import and restart preserve the declared runtime identity and source populations",
+      "evidence": [
+        "tests/test_snapshot_recovery.py",
+        "scripts/live_dummy_acceptance.py",
+        "tests/test_enterprise_recovery.py",
+        "tests/test_enterprise_recovery_api.py"
+      ]
+    },
+    {
+      "id": "AC-DESKTOP",
+      "condition": "Windows x64, macOS ARM64 and Linux x64 package, restart and smoke checks pass on the final candidate",
+      "evidence": [
+        ".github/workflows/local-desktop-build.yml"
+      ]
+    }
+  ],
+  "adaptation_envelope": {
+    "allowed": [
+      "Read source and CI evidence",
+      "Use isolated synthetic datasets",
+      "Delegate scoped specialist work",
+      "Implement reversible fixes",
+      "Add meaningful tests",
+      "Update draft PRs and evidence"
+    ],
+    "excluded": [
+      "Unverified merge or production deployment",
+      "Real employee-data ingestion without authorization",
+      "External messages or employment decisions",
+      "Weakening permissions or tests",
+      "Tuning on the final holdout",
+      "Claiming unexecuted browser or LLM validation"
+    ],
+    "concurrency": "One integrating cycle per candidate; complete active CI and reconcile branch changes before starting new mutations.",
+    "recurrence": "Paused. Recurring improvement can be enabled only after Cycle002 completes all candidate gates and the baseline is explicitly accepted.",
+    "stop_conditions": [
+      "Required access is unavailable",
+      "An action exceeds authorized scope",
+      "A release gate cannot pass safely",
+      "No concrete improvement is supported by evidence"
+    ]
+  },
+  "remaining_enterprise_gates": [
+    "Representative organization-specific temporal ML validation and intended-use threshold approval",
+    "Actual local LLM groundedness and prompt-injection evaluation with an installed model",
+    "Measured realistic workload, concurrency and recovery objectives",
+    "Organization-specific identity, role and retention requirements",
+    "Human review of browser screenshots and accessibility outcomes",
+    "Pilot outcome validation by real People-team users"
+  ],
+  "findings": [
+    {
+      "id": "QC002-01",
+      "area": "agentic",
+      "severity": "high",
+      "observed": "Negation, common paraphrases, unsupported group/statistic scopes and individualized risk/disclosure requests could route unrelated tools or evidence.",
+      "correction": "Intent/scoping rules require exact evidence; individual/ranking requests stop before tools; safe aggregate questions remain available.",
+      "verification": "model/agentic_launch_matrix.json; tests/test_agentic_launch_matrix.py",
+      "state": "independently_rechecked_local"
+    },
+    {
+      "id": "QC002-02",
+      "area": "controls",
+      "severity": "high",
+      "observed": "Concurrent store instances lost45of64writes; failed registration could leave ghost metadata/artifacts; early denials were cacheable.",
+      "correction": "Process-wide transaction lock, atomic unique writes and cleanup, actor-bound sessions, no-store denial responses.",
+      "verification": "docs/validation/enterprise-controls-cycle-002.json; tests/test_enterprise_controls_matrix.py",
+      "state": "independently_rechecked_local"
+    },
+    {
+      "id": "QC002-03",
+      "area": "privacy",
+      "severity": "high",
+      "observed": "Viewer and singleton grouped endpoints could expose employee-linked or effectively individual metrics.",
+      "correction": "All133API operations classified; workforce metrics require analyst; individual/deprecated routes blocked/retired; cells under10suppressed across governed grouped endpoints.",
+      "verification": "tests/test_enterprise_controls_matrix.py; tests/test_analytics_launch_matrix.py",
+      "state": "independently_rechecked_local"
+    },
+    {
+      "id": "QC002-04",
+      "area": "analytics",
+      "severity": "high",
+      "observed": "Extreme finite values produced nonfinite output; sentiment accepted inconsistent scores; eNPS allowed employee grouping.",
+      "correction": "Stable/fail-closed arithmetic, finite score contracts and governed group allowlist/minimum cell sizes.",
+      "verification": "model/analytics_launch_matrix.json; tests/test_analytics_launch_matrix.py",
+      "state": "independently_rechecked_local"
+    },
+    {
+      "id": "QC002-05",
+      "area": "consequential_outputs",
+      "severity": "high",
+      "observed": "QualityOfHire emitted individual heuristic risk/counts and NLP sent individual records to ungrounded LLM prose.",
+      "correction": "Both individual paths retired and return unavailable without LLM calls or risk counts.",
+      "verification": "tests/test_analytics_launch_matrix.py; tests/test_extended_integrity.py",
+      "state": "independently_rechecked_local"
+    },
+    {
+      "id": "QC002-06",
+      "area": "renderer",
+      "severity": "medium",
+      "observed": "Several loading/error/missing states rendered as zero or left actions enabled; scenarios lacked bounded and stale-result messaging.",
+      "correction": "Explicit unavailable/error states, verified-source controls, bounded scenario inputs, stale clearing and semantic tab relationships.",
+      "verification": "docs/validation/RENDERER_VALIDATION_MATRIX.md; web/tests/renderer-edge-cases.test.cjs",
+      "state": "author_verified_local"
+    }
+  ],
+  "verification": {
+    "cycle003_local": {"full_python_suite": 749, "renderer_tests": 40, "typescript": "passed", "live_api_restart_checks": 96, "public_benchmark_mechanics": 9, "synthetic_stress_checks": 34, "synthetic_employees": 20000, "live_llm": "not executed: runtime unavailable", "real_embeddings": "not executed: dependencies unavailable"},
+    "baseline_commit": "cc197912b107fdd4e67e81e163ab9e351cdaac27",
+    "inventory": {
+      "engines": 20,
+      "public_methods": 126,
+      "api_operations": 133,
+      "api_paths": 129,
+      "unsafe_operations": 25,
+      "product_routes": 13,
+      "browser_cases": 18
+    },
+    "specialist_local": {
+      "analytics_ml": 207,
+      "agentic": 164,
+      "controls_recovery": 100,
+      "independent_cross_matrix": 280,
+      "renderer_cases": 30
+    },
+    "local_gates": {
+      "analytics_validation_selection": 547,
+      "agent_foundation_selection": 115,
+      "live_dummy_checks": 96,
+      "public_benchmark_checks": 9,
+      "frontend_renderer_cases": 30,
+      "frontend_typecheck_design_build": "passed",
+      "synthetic_stress": "34/34 checks passed on 20000 fictional employee records, including real upload and 32 concurrent reads",
+      "repository_wide_legacy_collection": "666 passed, zero failures locally after resolving 29 legacy failures: governed upload fixtures, current safe-contract expectations, salary progression/database state semantics, and dependency-injected vector behavior"
+    },
+    "candidate": "Cycle003 corrections awaiting publication and exact-commit CI; prior baseline 2ee3ff28 passed all five workflows",
+    "live_llm": "not evaluated",
+    "recurrence": "paused"
+  },
+  "next_cycle": [
+    {
+      "priority": 1,
+      "task": "Run configured local LLM grounding, prompt-injection, latency and enforced timeout evaluation",
+      "status": "required_before_agentic_production"
+    },
+    {
+      "priority": 2,
+      "task": "Build or explicitly retire unrouted Compensation, Succession, NLP and chart/API product surfaces",
+      "status": "scope_decision_required"
+    },
+    {
+      "priority": 3,
+      "task": "Validate predictive outcomes prospectively on authorized organization-specific future data",
+      "status": "requires_data_and_intended_use"
+    },
+    {
+      "priority": 4,
+      "task": "Implement enterprise IdP, per-user audit, retention, KMS and multi-process transaction requirements",
+      "status": "requirements_needed"
+    },
+    {
+      "priority": 5,
+      "task": "Run measured accessibility, localization, native-shell UI and real People-team pilot",
+      "status": "requires_human_pilot"
+    }
+  ]
+}

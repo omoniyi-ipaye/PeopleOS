@@ -62,6 +62,20 @@ class WorkspaceRuntimeRegistry:
         with self._lock:
             self._states.pop(workspace_id, None)
 
+    def invalidate_loaded(self, replacement: WorkspaceRuntimeState) -> int:
+        """Retire in-memory evidence without deleting durable source artifacts.
+
+        Caller holds the runtime mutation lock and prepares the empty replacement
+        before repairing metadata, so configuration failures cannot strand an
+        already repaired registry with live orphaned evidence.
+        """
+        with self._lock:
+            count = len(self._states)
+            for state in self._states.values():
+                state.__dict__.clear()
+                state.__dict__.update(replacement.__dict__)
+            return count
+
     def list_loaded(self) -> list[str]:
         with self._lock:
             return sorted(self._states)

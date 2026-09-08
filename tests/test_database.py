@@ -36,7 +36,9 @@ def sample_df():
         'Salary': [85000, 65000, 72000],
         'LastRating': [4.2, 3.8, 4.5],
         'Age': [32, 28, 35],
-        'Attrition': [0, 1, 0],
+        # CRUD tests use a wholly active workforce. Attrition=1 is interpreted
+        # by the database as an inactive employment record.
+        'Attrition': [0, 0, 0],
         'PerformanceText': ['Great leader', 'Needs improvement', 'Excellent team player']
     })
 
@@ -135,15 +137,16 @@ class TestGetEmployees:
         assert 'Dept' in df.columns
         assert set(df['EmployeeID']) == {'EMP001', 'EMP002', 'EMP003'}
 
-    def test_get_employees_excludes_inactive(self, temp_db, sample_df):
-        """Test that inactive employees are excluded."""
+    def test_get_employees_retains_inactive_for_history(self, temp_db, sample_df):
+        """Historical retrieval retains inactive rows and marks their state."""
         temp_db.upsert_employees(sample_df, "test.csv")
         temp_db.soft_delete_employee('EMP002')
 
         df = temp_db.get_all_employees()
 
-        assert len(df) == 2
-        assert 'EMP002' not in df['EmployeeID'].values
+        assert len(df) == 3
+        inactive = df.loc[df['EmployeeID'] == 'EMP002', 'is_active']
+        assert inactive.tolist() == [0]
 
 
 class TestHistoricalSnapshots:

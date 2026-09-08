@@ -81,6 +81,7 @@ class MonteCarloResultResponse(BaseModel):
 
 class ScenarioResultResponse(BaseModel):
     """Complete scenario simulation result."""
+    provenance: Optional[Dict[str, Any]] = None
     available: bool = True
     scenario_id: str = Field(..., description="Unique scenario identifier")
     scenario_name: str = Field(..., description="Human-readable scenario name")

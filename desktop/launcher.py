@@ -13,6 +13,7 @@ import socket
 import sys
 import threading
 import time
+import traceback
 import urllib.request
 import webbrowser
 from pathlib import Path
@@ -73,6 +74,33 @@ def _wait_until_ready(url: str, timeout_seconds: float = 30.0) -> None:
     raise RuntimeError(f"PeopleOS did not become ready: {last_error}")
 
 
+def _record_smoke_failure() -> None:
+    """Persist frozen-startup diagnostics even for windowed executables.
+
+    Windows and macOS production packages intentionally have no console. During
+    CI that can otherwise turn an import/startup failure into an opaque exit
+    code. The smoke probe reads this file and prints it into the Actions log.
+    """
+
+    if os.getenv("PEOPLEOS_SMOKE_TEST") != "1":
+        return
+
+    details = traceback.format_exc()
+    try:
+        smoke_home = Path(os.getenv("PEOPLEOS_HOME") or Path.cwd())
+        smoke_home.mkdir(parents=True, exist_ok=True)
+        (smoke_home / "desktop-smoke-failure.log").write_text(details, encoding="utf-8")
+    except Exception:
+        # Diagnostics must never hide the original application failure.
+        pass
+
+    if sys.stderr is not None:
+        try:
+            print(details, file=sys.stderr, flush=True)
+        except Exception:
+            pass
+
+
 def main() -> int:
     port, ui_dir = _configure_environment()
     if not ui_dir.exists():
@@ -129,4 +157,10 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    try:
+        raise SystemExit(main())
+    except SystemExit:
+        raise
+    except BaseException:
+        _record_smoke_failure()
+        raise SystemExit(1)

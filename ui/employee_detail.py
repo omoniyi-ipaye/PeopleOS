@@ -198,89 +198,10 @@ def render_recommendations(recommendations: list[str]) -> None:
         """, unsafe_allow_html=True)
 
 
-def show_employee_detail_content(
-    employee_id: str,
-    df: pd.DataFrame,
-    ml_engine: Any
-) -> None:
-    """
-    Show detailed employee analysis content.
-
-    Args:
-        employee_id: The employee ID to analyze.
-        df: Full DataFrame with employee data.
-        ml_engine: Trained MLEngine instance.
-    """
-    # Find employee data
-    employee_mask = df['EmployeeID'] == employee_id
-    if not employee_mask.any():
-        st.error(f"Employee {employee_id} not found.")
-        return
-
-    employee_idx = df[employee_mask].index[0]
-    employee_data = df.loc[employee_idx]
-
-    # Get features for prediction
-    feature_cols = [c for c in df.columns if c not in ['EmployeeID', 'Attrition', 'PerformanceText']]
-    numeric_features = df[feature_cols].select_dtypes(include=['int64', 'float64', 'int32', 'float32'])
-
-    # Get risk score
-    try:
-        risk_scores = ml_engine.predict_risk(numeric_features)
-        risk_score = risk_scores[employee_idx] if employee_idx < len(risk_scores) else 0.5
-        risk_category = ml_engine.get_risk_category(risk_score)
-    except Exception:
-        risk_score = 0.5
-        risk_category = "Unknown"
-
-    # Render employee card
-    render_employee_risk_card(employee_data, risk_score, risk_category)
-
-    # Get and display risk drivers
-    st.markdown("---")
-    try:
-        # Find the position of this employee in the numeric features
-        numeric_idx = list(numeric_features.index).index(employee_idx)
-        drivers = ml_engine.get_risk_drivers(numeric_idx, numeric_features)
-    except Exception:
-        drivers = []
-
-    col1, col2 = st.columns([2, 1])
-
-    with col1:
-        render_shap_waterfall_chart(drivers)
-
-    with col2:
-        st.markdown("### Top Risk Factors")
-        render_driver_table(drivers[:5])
-
-    # Recommendations
-    st.markdown("---")
-    try:
-        recommendations = ml_engine.get_recommendations(employee_id, risk_score, drivers)
-    except Exception:
-        recommendations = []
-
-    render_recommendations(recommendations)
+def show_employee_detail_content(employee_id: str, df: pd.DataFrame, ml_engine: Any) -> None:
+    """Legacy individual predictive display is retired across every entry point."""
+    st.info('Individual predictive views are unavailable. Use aggregate Retention Signals in the current application.')
 
 
-def render_employee_detail_section(
-    high_risk_df: pd.DataFrame,
-    full_df: pd.DataFrame,
-    ml_engine: Any
-) -> None:
-    """
-    Render the employee detail section with selector and expandable details.
-
-    Args:
-        high_risk_df: DataFrame with high-risk employees.
-        full_df: Full DataFrame with all employees.
-        ml_engine: Trained MLEngine instance.
-    """
-    st.markdown("### 🔍 Individual Employee Analysis")
-
-    selected_employee = render_employee_selector(high_risk_df)
-
-    if selected_employee:
-        with st.expander(f"📊 Risk Analysis for {selected_employee}", expanded=True):
-            show_employee_detail_content(selected_employee, full_df, ml_engine)
+def render_employee_detail_section(high_risk_df: pd.DataFrame, full_df: pd.DataFrame, ml_engine: Any) -> None:
+    st.info('Individual predictive views are unavailable. Use aggregate Retention Signals in the current application.')
