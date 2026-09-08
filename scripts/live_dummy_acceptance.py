@@ -7,6 +7,7 @@ checks. No engine mocks, dependency overrides, production data or remote service
 import argparse
 import csv
 import hashlib
+import importlib.metadata
 import io
 import json
 import math
@@ -215,7 +216,9 @@ def main():
                 ['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),'checks':checks,
                 'source_sha256':{p:hashlib.sha256((ROOT/p).read_bytes()).hexdigest() for p in [
                     'src/analytics_engine.py','src/scenario_engine.py','src/succession_engine.py',
+                    'api/routes/sentiment.py',
                     'scripts/live_dummy_acceptance.py']},
+                'versions':{p:importlib.metadata.version(p) for p in ['pydantic','uvicorn','pandas','fastapi']},
                 'complete':complete,'passed':sum(x['passed'] for x in checks),'failed':sum(not x['passed'] for x in checks)},indent=2)+'\n')
     print(f"RESULT: {sum(x['passed'] for x in checks)} passed; {sum(not x['passed'] for x in checks)} failed")
     return int(any(not x['passed'] for x in checks))

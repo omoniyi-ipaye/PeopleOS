@@ -1,5 +1,5 @@
 {
-  "commit": "beb24ca6572275f321711c62c71e709090501e08",
+  "commit": "650c9f9f9d852333971a17daef15664e67a78525",
   "checks": [
     {
       "name": "workforce-a HTTP status",
@@ -69,8 +69,8 @@
     },
     {
       "name": "A response dataset",
-      "actual": "ds_1bc3eb98fb1443d3b8c7710480dde829",
-      "expected": "ds_1bc3eb98fb1443d3b8c7710480dde829",
+      "actual": "ds_72cf619ca4774ad4816da167f8855986",
+      "expected": "ds_72cf619ca4774ad4816da167f8855986",
       "passed": true
     },
     {
@@ -724,7 +724,14 @@
     "src/analytics_engine.py": "7b60433cb8700961b62941b817940578c5a9a2283b53f144a793ec872bff1119",
     "src/scenario_engine.py": "15b41a8c079f94168060c9e634f5b45f794b03473f26ea9302ee528ed5922a22",
     "src/succession_engine.py": "29d40ef495b036475540182f0f1e1b38195ede2cdf37dcae8e9c3b3e5bb6b83b",
-    "scripts/live_dummy_acceptance.py": "bd25b1a2a7ca53e846b1985550c8d3f8ddde09008b7edc3f9b8d82140d4e298f"
+    "api/routes/sentiment.py": "0e3bd773f6aaf569dd7200d0c2a1f6ad65cc220b3f8b5ec96d8159023a3e602d",
+    "scripts/live_dummy_acceptance.py": "b2b5e62b674aa833471c4dccf13239a3aff1ec7b5b87ea393aef06dd5f666323"
+  },
+  "versions": {
+    "pydantic": "2.5.3",
+    "uvicorn": "0.34.3",
+    "pandas": "2.2.3",
+    "fastapi": "0.109.0"
   },
   "complete": true,
   "passed": 96,

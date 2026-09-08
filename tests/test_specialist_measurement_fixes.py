@@ -44,6 +44,21 @@ def test_succession_unknown_department_preserves_unassessed_people():
     assert pd.isna(bench.loc['Unknown','BenchStrength'])
 
 
+def test_full_sentiment_response_has_no_nonfinite_values_before_serialization():
+    import asyncio
+    import json
+    from types import SimpleNamespace
+    from api.routes.sentiment import get_sentiment_analysis
+    frame=people().assign(Dept=[None]*10+['001']*10)
+    survey=pd.DataFrame({'EmployeeID':frame.EmployeeID,'SurveyDate':'2026-01-01',
+                         'eNPSScore':[10]*10+[0]*10})
+    state=SimpleNamespace(sentiment_engine=SentimentEngine(frame,enps_df=survey))
+    response=asyncio.run(get_sentiment_analysis(state))
+    payload=response.model_dump(mode='python')
+    json.dumps(payload,allow_nan=False)
+    assert payload['enps']['overall_enps']==0
+
+
 def test_survey_population_and_score_exclusions_are_counted_separately():
     survey = pd.DataFrame({
         'EmployeeID': ['E0', 'E1', 'E2', 'OTHER', None, ''],

@@ -701,7 +701,8 @@
       "review_status": "reviewed_with_limits",
       "findings": [
         "Driver correlations require finite variable pairs; perfect onboarding no longer triggers low-score recommendations. Latest warning uses an intact dated survey row.",
-        "Auxiliary surveys clear on activation; unmatched respondents excluded with coverage. Latest response populations are consistent, totals precede top-list truncation and unavailable warnings remain null."
+        "Auxiliary surveys clear on activation; unmatched respondents excluded with coverage. Latest response populations are consistent, totals precede top-list truncation and unavailable warnings remain null.",
+        "Live application CI on Pydantic 2.5.3 exposed nested nonfinite sentiment statistics. The full API response now uses shared json_safe conversion before schema serialization; the missing value remains null rather than HTTP 500."
       ],
       "verification": [
         "tests/test_engine_renderer_integrity.py",
@@ -709,7 +710,8 @@
         "tests/test_specialist_review_findings.py",
         "tests/test_specialist_measurement_fixes.py",
         "tests/test_runtime_integrity.py",
-        "tests/test_snapshot_recovery.py"
+        "tests/test_snapshot_recovery.py",
+        "scripts/live_dummy_acceptance.py"
       ],
       "renderers": [
         "web/app/advisor/page.tsx"
@@ -1014,7 +1016,7 @@
     "api/routes/quality_of_hire.py": "e9955cb0d0927af2c649a5eb9e17a729d986291750603dfc380ea985609433cf",
     "api/routes/scenario.py": "616e25ee9cde82f5fc6a0fbcf6f02c1b2661ade94b489216de33ab9c05d08282",
     "api/routes/search.py": "5d06370e27389837f04a144989f67c25565f07915cc5de30f51992c3c63b1d46",
-    "api/routes/sentiment.py": "9d101ace64d75dc91bc24f6e414033b40f7c15cc305edfb44ebbd20780d999c1",
+    "api/routes/sentiment.py": "0e3bd773f6aaf569dd7200d0c2a1f6ad65cc220b3f8b5ec96d8159023a3e602d",
     "api/routes/structural.py": "7ca94c3180844eddb0ddcdab3c82c6a20a01a2c6e06b7a632dcaabc9c8e68f39",
     "api/routes/succession.py": "33e44bcc914f236b79853612d8d9af64e1fbab42ff45bf3a42299ae1b3a3fe94",
     "api/routes/survival.py": "019990ca4abb506734bf580481a291502277892808eebbd5811e2eace44e8818",

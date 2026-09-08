@@ -31,7 +31,7 @@
         "llm": false
       },
       "workspace_id": "local",
-      "dataset_id": "ds_1bc3eb98fb1443d3b8c7710480dde829",
+      "dataset_id": "ds_72cf619ca4774ad4816da167f8855986",
       "dataset_version": 1,
       "deferred": {
         "predictive_training": true,
@@ -42,8 +42,8 @@
   "summary-a": {
     "path": "/api/analytics/summary",
     "status": 200,
-    "snapshot": "1d3be857edb14e3c8899656f6c545d08",
-    "dataset": "ds_1bc3eb98fb1443d3b8c7710480dde829",
+    "snapshot": "2d2520993db0412c8aa21d946e1769ae",
+    "dataset": "ds_72cf619ca4774ad4816da167f8855986",
     "body": {
       "headcount": 80,
       "record_count": 120,
@@ -78,8 +78,8 @@
         "issues": [],
         "snapshot": {
           "workspace_id": "local",
-          "dataset_id": "ds_1bc3eb98fb1443d3b8c7710480dde829",
-          "generation": "1d3be857edb14e3c8899656f6c545d08",
+          "dataset_id": "ds_72cf619ca4774ad4816da167f8855986",
+          "generation": "2d2520993db0412c8aa21d946e1769ae",
           "current_fingerprint": "b80a1134396739b76b3e5cf5d6d2f97570c41bbf97965e6dd75f56a20bf75cd9",
           "source_rows": 240,
           "current_rows": 120,
@@ -120,8 +120,8 @@
   "compensation-a": {
     "path": "/api/compensation/analysis",
     "status": 200,
-    "snapshot": "1d3be857edb14e3c8899656f6c545d08",
-    "dataset": "ds_1bc3eb98fb1443d3b8c7710480dde829",
+    "snapshot": "2d2520993db0412c8aa21d946e1769ae",
+    "dataset": "ds_72cf619ca4774ad4816da167f8855986",
     "body": {
       "summary": {
         "total_payroll": 6000000.0,
@@ -167,8 +167,8 @@
   "departments-a": {
     "path": "/api/analytics/departments",
     "status": 200,
-    "snapshot": "1d3be857edb14e3c8899656f6c545d08",
-    "dataset": "ds_1bc3eb98fb1443d3b8c7710480dde829",
+    "snapshot": "2d2520993db0412c8aa21d946e1769ae",
+    "dataset": "ds_72cf619ca4774ad4816da167f8855986",
     "body": {
       "departments": [
         {
@@ -220,8 +220,8 @@
   "team-a": {
     "path": "/api/team/health",
     "status": 200,
-    "snapshot": "1d3be857edb14e3c8899656f6c545d08",
-    "dataset": "ds_1bc3eb98fb1443d3b8c7710480dde829",
+    "snapshot": "2d2520993db0412c8aa21d946e1769ae",
+    "dataset": "ds_72cf619ca4774ad4816da167f8855986",
     "body": [
       {
         "dept": "001",
@@ -258,8 +258,8 @@
   "survey-upload": {
     "path": "/api/sentiment/upload/enps",
     "status": 200,
-    "snapshot": "1d3be857edb14e3c8899656f6c545d08",
-    "dataset": "ds_1bc3eb98fb1443d3b8c7710480dde829",
+    "snapshot": "2d2520993db0412c8aa21d946e1769ae",
+    "dataset": "ds_72cf619ca4774ad4816da167f8855986",
     "body": {
       "survey_coverage": {
         "enps": {
@@ -294,8 +294,8 @@
   "enps-a": {
     "path": "/api/sentiment/enps",
     "status": 200,
-    "snapshot": "1d3be857edb14e3c8899656f6c545d08",
-    "dataset": "ds_1bc3eb98fb1443d3b8c7710480dde829",
+    "snapshot": "2d2520993db0412c8aa21d946e1769ae",
+    "dataset": "ds_72cf619ca4774ad4816da167f8855986",
     "body": {
       "survey_coverage": {
         "enps": {
@@ -330,8 +330,8 @@
   "sentiment-a": {
     "path": "/api/sentiment/analysis",
     "status": 200,
-    "snapshot": "1d3be857edb14e3c8899656f6c545d08",
-    "dataset": "ds_1bc3eb98fb1443d3b8c7710480dde829",
+    "snapshot": "2d2520993db0412c8aa21d946e1769ae",
+    "dataset": "ds_72cf619ca4774ad4816da167f8855986",
     "body": {
       "survey_coverage": {
         "enps": {
@@ -630,13 +630,13 @@
   "scenario-a": {
     "path": "/api/scenario/simulate/compensation",
     "status": 200,
-    "snapshot": "1d3be857edb14e3c8899656f6c545d08",
-    "dataset": "ds_1bc3eb98fb1443d3b8c7710480dde829",
+    "snapshot": "2d2520993db0412c8aa21d946e1769ae",
+    "dataset": "ds_72cf619ca4774ad4816da167f8855986",
     "body": {
       "provenance": {
         "workspace_id": "local",
-        "dataset_id": "ds_1bc3eb98fb1443d3b8c7710480dde829",
-        "generation": "1d3be857edb14e3c8899656f6c545d08",
+        "dataset_id": "ds_72cf619ca4774ad4816da167f8855986",
+        "generation": "2d2520993db0412c8aa21d946e1769ae",
         "current_fingerprint": "b80a1134396739b76b3e5cf5d6d2f97570c41bbf97965e6dd75f56a20bf75cd9",
         "source_rows": 240,
         "current_rows": 120,
@@ -647,7 +647,7 @@
         "source_name": "workforce-a.csv"
       },
       "available": true,
-      "scenario_id": "7da078dd",
+      "scenario_id": "2e8dd5aa",
       "scenario_name": "10.0% raise for None",
       "scenario_type": "compensation",
       "input_parameters": {
@@ -781,7 +781,7 @@
         "Phase implementation over multiple quarters",
         "Run a smaller pilot or prospective test before scaling"
       ],
-      "computed_at": "2026-09-08T21:20:33.810986",
+      "computed_at": "2026-09-08T21:30:45.221753",
       "engines_used": [
         "Scenario assumption arithmetic"
       ],
@@ -794,8 +794,8 @@
   "quality-a": {
     "path": "/api/quality-of-hire/analysis",
     "status": 200,
-    "snapshot": "1d3be857edb14e3c8899656f6c545d08",
-    "dataset": "ds_1bc3eb98fb1443d3b8c7710480dde829",
+    "snapshot": "2d2520993db0412c8aa21d946e1769ae",
+    "dataset": "ds_72cf619ca4774ad4816da167f8855986",
     "body": {
       "source_effectiveness": [
         {
@@ -1071,8 +1071,8 @@
   "experience-a": {
     "path": "/api/experience/analysis",
     "status": 200,
-    "snapshot": "1d3be857edb14e3c8899656f6c545d08",
-    "dataset": "ds_1bc3eb98fb1443d3b8c7710480dde829",
+    "snapshot": "2d2520993db0412c8aa21d946e1769ae",
+    "dataset": "ds_72cf619ca4774ad4816da167f8855986",
     "body": {
       "experience_index": {
         "available": false,
@@ -1168,8 +1168,8 @@
   "fairness-a": {
     "path": "/api/fairness/analysis",
     "status": 200,
-    "snapshot": "1d3be857edb14e3c8899656f6c545d08",
-    "dataset": "ds_1bc3eb98fb1443d3b8c7710480dde829",
+    "snapshot": "2d2520993db0412c8aa21d946e1769ae",
+    "dataset": "ds_72cf619ca4774ad4816da167f8855986",
     "body": {
       "four_fifths": [
         {
@@ -1241,8 +1241,8 @@
   "survival-a": {
     "path": "/api/survival/kaplan-meier",
     "status": 200,
-    "snapshot": "1d3be857edb14e3c8899656f6c545d08",
-    "dataset": "ds_1bc3eb98fb1443d3b8c7710480dde829",
+    "snapshot": "2d2520993db0412c8aa21d946e1769ae",
+    "dataset": "ds_72cf619ca4774ad4816da167f8855986",
     "body": {
       "available": true,
       "overall": {
@@ -1292,8 +1292,8 @@
   "structural-a": {
     "path": "/api/structural/analysis",
     "status": 200,
-    "snapshot": "1d3be857edb14e3c8899656f6c545d08",
-    "dataset": "ds_1bc3eb98fb1443d3b8c7710480dde829",
+    "snapshot": "2d2520993db0412c8aa21d946e1769ae",
+    "dataset": "ds_72cf619ca4774ad4816da167f8855986",
     "body": {
       "stagnation": {
         "available": false,
@@ -1339,8 +1339,8 @@
   "succession-a": {
     "path": "/api/succession/summary",
     "status": 200,
-    "snapshot": "1d3be857edb14e3c8899656f6c545d08",
-    "dataset": "ds_1bc3eb98fb1443d3b8c7710480dde829",
+    "snapshot": "2d2520993db0412c8aa21d946e1769ae",
+    "dataset": "ds_72cf619ca4774ad4816da167f8855986",
     "body": {
       "total_employees": 80,
       "aggregate_ready_now_count": 0,
@@ -1397,8 +1397,8 @@
   "geo-a": {
     "path": "/api/geo/summary",
     "status": 200,
-    "snapshot": "1d3be857edb14e3c8899656f6c545d08",
-    "dataset": "ds_1bc3eb98fb1443d3b8c7710480dde829",
+    "snapshot": "2d2520993db0412c8aa21d946e1769ae",
+    "dataset": "ds_72cf619ca4774ad4816da167f8855986",
     "body": {
       "total_employees": 80,
       "countries_represented": 0,
@@ -1411,8 +1411,8 @@
   "network-a": {
     "path": "/api/network/summary",
     "status": 200,
-    "snapshot": "1d3be857edb14e3c8899656f6c545d08",
-    "dataset": "ds_1bc3eb98fb1443d3b8c7710480dde829",
+    "snapshot": "2d2520993db0412c8aa21d946e1769ae",
+    "dataset": "ds_72cf619ca4774ad4816da167f8855986",
     "body": {
       "success": false,
       "available": false,
@@ -1422,8 +1422,8 @@
   "model-lab-a": {
     "path": "/api/model-lab/validation",
     "status": 200,
-    "snapshot": "1d3be857edb14e3c8899656f6c545d08",
-    "dataset": "ds_1bc3eb98fb1443d3b8c7710480dde829",
+    "snapshot": "2d2520993db0412c8aa21d946e1769ae",
+    "dataset": "ds_72cf619ca4774ad4816da167f8855986",
     "body": {
       "status": "warning",
       "metrics": null,
@@ -1434,8 +1434,8 @@
   "search-a": {
     "path": "/api/search/status",
     "status": 200,
-    "snapshot": "1d3be857edb14e3c8899656f6c545d08",
-    "dataset": "ds_1bc3eb98fb1443d3b8c7710480dde829",
+    "snapshot": "2d2520993db0412c8aa21d946e1769ae",
+    "dataset": "ds_72cf619ca4774ad4816da167f8855986",
     "body": {
       "available": false,
       "reason": "Vector engine not initialized"
@@ -1444,8 +1444,8 @@
   "forecast-a": {
     "path": "/api/analytics/forecast",
     "status": 200,
-    "snapshot": "1d3be857edb14e3c8899656f6c545d08",
-    "dataset": "ds_1bc3eb98fb1443d3b8c7710480dde829",
+    "snapshot": "2d2520993db0412c8aa21d946e1769ae",
+    "dataset": "ds_72cf619ca4774ad4816da167f8855986",
     "body": {
       "success": false,
       "reason": "At least 12 observed monthly censuses are required"
@@ -1483,7 +1483,7 @@
         "llm": false
       },
       "workspace_id": "local",
-      "dataset_id": "ds_7468c4a5962f40fc96aa1326bf013afd",
+      "dataset_id": "ds_f357b3d1e8f14f209dc80046189828eb",
       "dataset_version": 2,
       "deferred": {
         "predictive_training": false,
@@ -1494,8 +1494,8 @@
   "summary-b": {
     "path": "/api/analytics/summary",
     "status": 200,
-    "snapshot": "16a562e73f804b458846ebf0be69db4b",
-    "dataset": "ds_7468c4a5962f40fc96aa1326bf013afd",
+    "snapshot": "88b29a73801f4325be0ac50652c61f14",
+    "dataset": "ds_f357b3d1e8f14f209dc80046189828eb",
     "body": {
       "headcount": 0,
       "record_count": 120,
@@ -1528,8 +1528,8 @@
         "issues": [],
         "snapshot": {
           "workspace_id": "local",
-          "dataset_id": "ds_7468c4a5962f40fc96aa1326bf013afd",
-          "generation": "16a562e73f804b458846ebf0be69db4b",
+          "dataset_id": "ds_f357b3d1e8f14f209dc80046189828eb",
+          "generation": "88b29a73801f4325be0ac50652c61f14",
           "current_fingerprint": "57245e11c1933fd57eef97251da145b13a4f032d59b5f154b26c8242a8318194",
           "source_rows": 120,
           "current_rows": 120,
@@ -1570,8 +1570,8 @@
   "departments-b": {
     "path": "/api/analytics/departments",
     "status": 200,
-    "snapshot": "16a562e73f804b458846ebf0be69db4b",
-    "dataset": "ds_7468c4a5962f40fc96aa1326bf013afd",
+    "snapshot": "88b29a73801f4325be0ac50652c61f14",
+    "dataset": "ds_f357b3d1e8f14f209dc80046189828eb",
     "body": {
       "departments": [
         {
@@ -1623,8 +1623,8 @@
   "quality-b": {
     "path": "/api/quality-of-hire/source-effectiveness",
     "status": 200,
-    "snapshot": "16a562e73f804b458846ebf0be69db4b",
-    "dataset": "ds_7468c4a5962f40fc96aa1326bf013afd",
+    "snapshot": "88b29a73801f4325be0ac50652c61f14",
+    "dataset": "ds_f357b3d1e8f14f209dc80046189828eb",
     "body": [
       {
         "HireSource": "Agency",
@@ -1703,7 +1703,7 @@
     ]
   },
   "stale-scenario": {
-    "path": "/api/scenario/7da078dd",
+    "path": "/api/scenario/2e8dd5aa",
     "status": 404,
     "snapshot": null,
     "dataset": null,
@@ -1714,8 +1714,8 @@
   "sentiment-b": {
     "path": "/api/sentiment/analysis",
     "status": 200,
-    "snapshot": "16a562e73f804b458846ebf0be69db4b",
-    "dataset": "ds_7468c4a5962f40fc96aa1326bf013afd",
+    "snapshot": "88b29a73801f4325be0ac50652c61f14",
+    "dataset": "ds_f357b3d1e8f14f209dc80046189828eb",
     "body": {
       "survey_coverage": {
         "enps": {
@@ -1827,12 +1827,12 @@
     }
   },
   "activate-a": {
-    "path": "/api/platform/workspaces/local/datasets/ds_1bc3eb98fb1443d3b8c7710480dde829/activate",
+    "path": "/api/platform/workspaces/local/datasets/ds_72cf619ca4774ad4816da167f8855986/activate",
     "status": 200,
     "snapshot": null,
     "dataset": null,
     "body": {
-      "dataset_id": "ds_1bc3eb98fb1443d3b8c7710480dde829",
+      "dataset_id": "ds_72cf619ca4774ad4816da167f8855986",
       "workspace_id": "local",
       "version": 1,
       "source_name": "workforce-a.csv",
@@ -1862,15 +1862,15 @@
         "duplicate_rows": 0,
         "missing_cells": 80
       },
-      "created_at": "2026-09-08T12:20:33.567714+00:00",
-      "activated_at": "2026-09-08T12:20:36.922875+00:00"
+      "created_at": "2026-09-08T12:30:44.987419+00:00",
+      "activated_at": "2026-09-08T12:30:48.283400+00:00"
     }
   },
   "summary-restored": {
     "path": "/api/analytics/summary",
     "status": 200,
-    "snapshot": "d280019e2c1a47ed9d2e800c312ecac3",
-    "dataset": "ds_1bc3eb98fb1443d3b8c7710480dde829",
+    "snapshot": "3ee62407f6c740c8805200af0e7ecfbc",
+    "dataset": "ds_72cf619ca4774ad4816da167f8855986",
     "body": {
       "headcount": 80,
       "record_count": 120,
@@ -1906,8 +1906,8 @@
   "summary-after-invalid": {
     "path": "/api/analytics/summary",
     "status": 200,
-    "snapshot": "d280019e2c1a47ed9d2e800c312ecac3",
-    "dataset": "ds_1bc3eb98fb1443d3b8c7710480dde829",
+    "snapshot": "3ee62407f6c740c8805200af0e7ecfbc",
+    "dataset": "ds_72cf619ca4774ad4816da167f8855986",
     "body": {
       "headcount": 80,
       "record_count": 120,
@@ -1945,14 +1945,14 @@
         "llm": false
       },
       "workspace_id": "local",
-      "active_dataset_id": "ds_1bc3eb98fb1443d3b8c7710480dde829"
+      "active_dataset_id": "ds_72cf619ca4774ad4816da167f8855986"
     }
   },
   "summary-restart": {
     "path": "/api/analytics/summary",
     "status": 200,
-    "snapshot": "0de6e97429954133adf198631fc96a5d",
-    "dataset": "ds_1bc3eb98fb1443d3b8c7710480dde829",
+    "snapshot": "13ae3bbd3c1b494b9dbb49af066fcead",
+    "dataset": "ds_72cf619ca4774ad4816da167f8855986",
     "body": {
       "headcount": 80,
       "record_count": 120,
@@ -1987,8 +1987,8 @@
         "issues": [],
         "snapshot": {
           "workspace_id": "local",
-          "dataset_id": "ds_1bc3eb98fb1443d3b8c7710480dde829",
-          "generation": "0de6e97429954133adf198631fc96a5d",
+          "dataset_id": "ds_72cf619ca4774ad4816da167f8855986",
+          "generation": "13ae3bbd3c1b494b9dbb49af066fcead",
           "current_fingerprint": "b80a1134396739b76b3e5cf5d6d2f97570c41bbf97965e6dd75f56a20bf75cd9",
           "source_rows": 240,
           "current_rows": 120,

@@ -9,6 +9,7 @@ from fastapi.responses import FileResponse
 from typing import Optional, List
 
 from src.platform.runtime_lock import RUNTIME_MUTATION_LOCK
+from src.serialization import json_safe
 from api.dependencies import get_app_state, AppState
 from api.schemas.sentiment import (
     ENPSResponse,
@@ -64,7 +65,7 @@ async def get_sentiment_analysis(
     - Onboarding trajectory analysis
     - Early warning detection
     """
-    results = state.sentiment_engine.analyze_all()
+    results = json_safe(state.sentiment_engine.analyze_all())
 
     return SentimentAnalysisResponse(
         survey_coverage=results.get('survey_coverage', {}),

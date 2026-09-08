@@ -4,7 +4,7 @@
 
 **96 live acceptance checks passed: 35 HTTP-response checks and 61 value/integrity checks across 25 distinct API routes.** The harness started the real FastAPI application with Uvicorn, uploaded CSV files over TCP, and used a separate temporary workspace. It did not mock engines, override dependencies, or use real employee data.
 
-Four real React component rendering cases passed using the captured API responses. The existing 13 renderer checks, 68 targeted Python regressions, three audit-inventory checks, and nine pinned public benchmark assertions also passed. Lint has zero errors and 19 existing warnings.
+Four real React component rendering cases passed using the captured API responses. The existing 13 renderer checks, 69 targeted Python regressions, three audit-inventory checks, and nine pinned public benchmark assertions also passed. Lint has zero errors and 19 existing warnings.
 
 ## Independently specified answers
 
@@ -43,8 +43,9 @@ The A → B → A sequence restores A's exact summary. Switching datasets clears
 2. Succession bench summaries lost 26 active employees with missing departments because null equality could not select their rows. Unknown now retains their population and unassessed status.
 3. Analytics summary group count excluded Unknown while the department table included it. Both now use normalized groups consistently, including blank/whitespace labels.
 4. Department salary dispersion was always unavailable because the aggregate never populated the field consumed by the API. The sample standard deviation now uses valid active salaries and stays unavailable with fewer than two observations.
+5. The first live CI run exposed nonfinite statistics in the combined sentiment response. Pydantic 2.5.3 preserved `NaN` in nested outputs, causing HTTP 500; the newer local serializer had hidden this defect. The route now explicitly converts undefined statistics to JSON null using the shared serializer. The failure was reproduced locally with Pydantic 2.5.3; all 96 checks pass after the correction.
 
-These changes operate on engine copies and preserve source identifiers and categories in canonical dataset artifacts. Three focused regression tests cover the corrections; the live acceptance script is now a required Analytics Validation CI step. Desktop launcher, packaging and smoke-test assertions are unchanged.
+These changes operate on engine copies and preserve source identifiers and categories in canonical dataset artifacts. Four focused regression tests cover the corrections; the live acceptance script is now a required Analytics Validation CI step. Desktop launcher, packaging and smoke-test assertions are unchanged.
 
 ## Actual ML benchmark results
 
@@ -83,7 +84,7 @@ The IBM file must match the existing pinned checksum. The optional `--ibm-data` 
 - [Unknown-outcome workforce](live-dummy-data/workforce-b.csv)
 - [Survey fixture](live-dummy-data/enps.csv)
 
-The evidence records the base commit and exact hashes of the corrected engine sources and acceptance script. Local execution used Python 3.12 and Uvicorn 0.34.3; CI uses its pinned validation environment, including Python 3.11 and Uvicorn 0.27.0.
+The evidence records the base commit, exact hashes of the corrected sources, and runtime dependency versions. Final local acceptance used Python 3.12, Pydantic 2.5.3 and Uvicorn 0.34.3; CI uses its pinned validation environment, including Python 3.11, Pydantic 2.5.3 and Uvicorn 0.27.0.
 
 ## Coverage limits
 
