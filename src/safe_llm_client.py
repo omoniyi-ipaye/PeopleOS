@@ -47,5 +47,10 @@ class SafeLLMClient(LLMClient):
             self.client = _GuardedOllamaClient(self.client, self.policy)
 
     def generate(self, prompt: str, **kwargs: Any) -> Any:
-        """Generate through the guarded transport and preserve legacy return shape."""
-        return super().generate(prompt, **kwargs)
+        """Generate through the guarded transport and normalize exact JSON fences."""
+        response = super().generate(prompt, **kwargs)
+        if isinstance(response, str):
+            structured = response.strip()
+            if structured.startswith("```json\n") and structured.endswith("\n```"):
+                return structured[len("```json\n"):-len("\n```")].strip()
+        return response
