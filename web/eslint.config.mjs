@@ -25,6 +25,7 @@ export default defineConfig([
     '.next/**',
     'out/**',
     'build/**',
+    'browser-artifacts/**',
     'next-env.d.ts',
   ]),
 ])

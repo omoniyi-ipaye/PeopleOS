@@ -39,7 +39,8 @@
       "findings": [
         "Invalid ages/ratings/durations no longer contaminate aggregates; unknown distribution buckets reconcile. Department mean excludes unknown outcome shares; correlations render r, not percentages.",
         "Specialist follow-up preserves sparse outcome columns and exact identity/category lexemes through import/restore. Homepage missing/loading states cannot become zero attrition or total rows as active. Legacy tenure uses the valid active summary.",
-        "Live dummy-data acceptance: missing/blank departments form one Unknown group in both summary counts and aggregates; measured department sample salary dispersion is retained."
+        "Live dummy-data acceptance: missing/blank departments form one Unknown group in both summary counts and aggregates; measured department sample salary dispersion is retained.",
+        "Quality cycle001: mean observation/exclusion counts survive API and advisor evidence; group comparisons use the same valid-measurement contract as summary statistics."
       ],
       "verification": [
         "tests/test_analytics_engine.py",
@@ -48,7 +49,9 @@
         "tests/test_specialist_measurement_fixes.py",
         "tests/test_runtime_integrity.py",
         "tests/test_snapshot_recovery.py",
-        "scripts/live_dummy_acceptance.py"
+        "scripts/live_dummy_acceptance.py",
+        "tests/test_people_team_acceptance.py",
+        "tests/test_agentic_acceptance.py"
       ],
       "renderers": [
         "web/app/page.tsx",
@@ -165,7 +168,8 @@
       "review_status": "reviewed_with_limits",
       "findings": [
         "Removed hardcoded 84 fairness score and false no-outlier conclusion. Null empty tenure buckets serialize. Display source units and salary dispersion rather than adjusted pay equity.",
-        "Missing compa ratio is Unavailable. Legacy dispersion cards no longer use obsolete Good/Fair coloring or imply adjusted equity."
+        "Missing compa ratio is Unavailable. Legacy dispersion cards no longer use obsolete Good/Fair coloring or imply adjusted equity.",
+        "Quality cycle001: unknown department and tenure groups reconcile salary populations; active versus measured salary coverage is explicit in API responses."
       ],
       "verification": [
         "tests/test_compensation_engine.py",
@@ -173,7 +177,8 @@
         "tests/test_specialist_review_findings.py",
         "tests/test_specialist_measurement_fixes.py",
         "tests/test_runtime_integrity.py",
-        "tests/test_snapshot_recovery.py"
+        "tests/test_snapshot_recovery.py",
+        "tests/test_people_team_acceptance.py"
       ],
       "renderers": [
         "web/components/diagnostics/compensation-tab.tsx",
@@ -283,7 +288,8 @@
       ],
       "renderers": [
         "web/app/platform/page.tsx",
-        "web/app/advisor/page.tsx"
+        "web/app/advisor/page.tsx",
+        "web/components/advisor/investigation-result.tsx"
       ],
       "remaining_validation": [
         "Intersectional support, uncertainty, selection bias and organization-specific assessment remain required; no fairness certification."
@@ -294,7 +300,8 @@
       ],
       "renderer_state": {
         "web/app/platform/page.tsx": "routed_or_shared",
-        "web/app/advisor/page.tsx": "routed_or_shared"
+        "web/app/advisor/page.tsx": "routed_or_shared",
+        "web/components/advisor/investigation-result.tsx": "routed via advisor page"
       }
     },
     {
@@ -702,7 +709,8 @@
       "findings": [
         "Driver correlations require finite variable pairs; perfect onboarding no longer triggers low-score recommendations. Latest warning uses an intact dated survey row.",
         "Auxiliary surveys clear on activation; unmatched respondents excluded with coverage. Latest response populations are consistent, totals precede top-list truncation and unavailable warnings remain null.",
-        "Live application CI on Pydantic 2.5.3 exposed nested nonfinite sentiment statistics. The full API response now uses shared json_safe conversion before schema serialization; the missing value remains null rather than HTTP 500."
+        "Live application CI on Pydantic 2.5.3 exposed nested nonfinite sentiment statistics. The full API response now uses shared json_safe conversion before schema serialization; the missing value remains null rather than HTTP 500.",
+        "Quality cycle001: survey routes validate original required columns and prepare replacement engines before committing; invalid uploads preserve previous outputs."
       ],
       "verification": [
         "tests/test_engine_renderer_integrity.py",
@@ -711,10 +719,12 @@
         "tests/test_specialist_measurement_fixes.py",
         "tests/test_runtime_integrity.py",
         "tests/test_snapshot_recovery.py",
-        "scripts/live_dummy_acceptance.py"
+        "scripts/live_dummy_acceptance.py",
+        "tests/test_people_team_acceptance.py"
       ],
       "renderers": [
-        "web/app/advisor/page.tsx"
+        "web/app/advisor/page.tsx",
+        "web/components/advisor/investigation-result.tsx"
       ],
       "remaining_validation": [
         "Survey response bias, repeated-response weighting and observed warning thresholds need validation. Warning labels do not establish future departure risk."
@@ -724,7 +734,8 @@
         "api/routes/sentiment.py"
       ],
       "renderer_state": {
-        "web/app/advisor/page.tsx": "routed_or_shared"
+        "web/app/advisor/page.tsx": "routed_or_shared",
+        "web/components/advisor/investigation-result.tsx": "routed via advisor page"
       }
     },
     {
@@ -756,7 +767,8 @@
         "tests/test_engine_renderer_integrity.py"
       ],
       "renderers": [
-        "web/app/advisor/page.tsx"
+        "web/app/advisor/page.tsx",
+        "web/components/advisor/investigation-result.tsx"
       ],
       "remaining_validation": [
         "Reporting span and role-duration rules do not validate burnout or promotion readiness. Organization graph quality and threshold suitability need review."
@@ -766,7 +778,8 @@
         "api/routes/structural.py"
       ],
       "renderer_state": {
-        "web/app/advisor/page.tsx": "routed_or_shared"
+        "web/app/advisor/page.tsx": "routed_or_shared",
+        "web/components/advisor/investigation-result.tsx": "routed via advisor page"
       }
     },
     {
@@ -912,7 +925,8 @@
       "renderers": [
         "ui/dashboard_layout.py",
         "ui/components.py",
-        "web/app/advisor/page.tsx"
+        "web/app/advisor/page.tsx",
+        "web/components/advisor/investigation-result.tsx"
       ],
       "remaining_validation": [
         "Team-health/diversity/collaboration labels are configured descriptive constructs, not validated team outcomes; missing observations and source bias remain material."
@@ -924,7 +938,8 @@
       "renderer_state": {
         "ui/dashboard_layout.py": "dormant_or_legacy",
         "ui/components.py": "dormant_or_legacy",
-        "web/app/advisor/page.tsx": "routed_or_shared"
+        "web/app/advisor/page.tsx": "routed_or_shared",
+        "web/components/advisor/investigation-result.tsx": "routed via advisor page"
       }
     },
     {
@@ -990,7 +1005,12 @@
     "src/platform/runtime_lock.py",
     "api/integrity.py",
     "src/platform/local_dataset_store.py",
-    "web/app/providers.tsx"
+    "web/app/providers.tsx",
+    "src/agent/orchestrator.py",
+    "src/agent/planner.py",
+    "web/components/advisor/investigation-result.tsx",
+    "web/components/header.tsx",
+    "web/components/sidebar.tsx"
   ],
   "scope_note": "Every engine module reviewed; targeted executable tests do not cover every branch or validate every statistical construct. Dormant components are inventoried, not assumed to be routed product pages.",
   "validation_layers": [
@@ -1003,9 +1023,9 @@
     "Separate packaged smoke CI on three operating systems"
   ],
   "reviewed_file_sha256": {
-    "api/routes/analytics.py": "5aa3def621bc86eac43dfa7cc6f9b85fde192671581773c58badb6a56c57d99a",
+    "api/routes/analytics.py": "0efbf4e6999d7377d560109e36a8addf4fa98ce981113f4a2d23e703dba5a608",
     "api/routes/causal.py": "52ed66289c36bf2d2f7beedb5e48b15e842fcd71c543193f9fc89592297eb873",
-    "api/routes/compensation.py": "e72e1fea70635662d77931254864a297f10515668f8c71b278a188e247b30162",
+    "api/routes/compensation.py": "13d238265b7217c2c0e630232106a29dda8b763285366015fc93df1aa8c5fbb9",
     "api/routes/experience.py": "00bef3e4dddea9acd9885c02e5696ac793a4c2bed4699a7d4c2b579414d238f8",
     "api/routes/fairness.py": "50160b029b35972142428ef4fd0faa183319b9b7aeaa9e25f679022999a2f6ab",
     "api/routes/geo.py": "b6ed33a0269f59bc5064ec2956ec98df53031c5a1e69104b46edfd6a48c69a8c",
@@ -1016,7 +1036,7 @@
     "api/routes/quality_of_hire.py": "e9955cb0d0927af2c649a5eb9e17a729d986291750603dfc380ea985609433cf",
     "api/routes/scenario.py": "616e25ee9cde82f5fc6a0fbcf6f02c1b2661ade94b489216de33ab9c05d08282",
     "api/routes/search.py": "5d06370e27389837f04a144989f67c25565f07915cc5de30f51992c3c63b1d46",
-    "api/routes/sentiment.py": "0e3bd773f6aaf569dd7200d0c2a1f6ad65cc220b3f8b5ec96d8159023a3e602d",
+    "api/routes/sentiment.py": "05ea280c3555d9ea7f21a9af14ebe02a16a9c0fed37ea3e463b4e015121a16f7",
     "api/routes/structural.py": "7ca94c3180844eddb0ddcdab3c82c6a20a01a2c6e06b7a632dcaabc9c8e68f39",
     "api/routes/succession.py": "33e44bcc914f236b79853612d8d9af64e1fbab42ff45bf3a42299ae1b3a3fe94",
     "api/routes/survival.py": "019990ca4abb506734bf580481a291502277892808eebbd5811e2eace44e8818",
@@ -1027,13 +1047,13 @@
     "api/schemas/scenario.py": "03060d2febebacd9247822c853c8eabb2d447937b82d8047106db81c87dcc666",
     "api/schemas/survival.py": "2498b9d918308dcf839ffb6b44336318b6a6a6b6c878863210fa17a9c8b34893",
     "main.py": "8c96848e7eec3c15e43b1d34c96a13334f37e815ebac752b8ac5b9500b860762",
-    "src/agent/adapters.py": "3b308faf06f134ca2ced70666edb4bf096e5be3b45f0e4fbffe13a9726a3ff10",
-    "src/agent/aggregator.py": "377fe30f34fe59486a1f021b4728f870730daac71be4087f3d7a0b8f5362f348",
+    "src/agent/adapters.py": "36c566eb5196929ab81582f3dfbc62bb533aa738a57bea0dcb29d49749ca8228",
+    "src/agent/aggregator.py": "ec25df1b791ddd8d1815b1081ca76ecc1f671cc1262596879594ae9699fc3107",
     "src/agent/people_tools.py": "0a019ce3b678a56aa08000b760e772fd2d428d5956ce93100e5923df745b3210",
-    "src/analytics_engine.py": "7b60433cb8700961b62941b817940578c5a9a2283b53f144a793ec872bff1119",
+    "src/analytics_engine.py": "a5a6a3544e9126f6de124fae2ff3563900d2bb19cd04cbbe0dbfb842112ce817",
     "src/causal_engine.py": "5d1539449101223f775951c238addf12dd4e6f2ff865847324a26ae553e87425",
     "src/clustering_engine.py": "e610883fc991a966a6dcb61ff0995089acc90dfdcdcf90c9bcdbb8ba9366715f",
-    "src/compensation_engine.py": "d6ed5c7ed84473cd08bb2465a23b5d789500b6567869e22a45e25bfad811159a",
+    "src/compensation_engine.py": "073e04ce753926fd8e26e180a6c3fd41ea56221276b1be8c8a4f902992071d93",
     "src/data_loader.py": "25c7414ea63c80a38d6d4f27f8b1aca4c1ca542a9355120e08f8189360fedc3a",
     "src/experience_engine.py": "76539e7c5142e894fa02a85fa8c1f1f5dd105eb88858260f5def9f02df71b54b",
     "src/export.py": "d5632c9a6ca9f0a5a1e904170bb8045a3304b5d653d784ffce5162564c138769",
@@ -1058,11 +1078,11 @@
     "ui/components.py": "747c014186101aa9150a88119a4b8a5909da375419c6b615ac42faffffededad",
     "ui/dashboard_layout.py": "e1107997ace5406c19c7fb38b7fdb879ea6fe716855b439304d806fd7b5dcc43",
     "ui/employee_detail.py": "44cd5709ea873d90a09b5db80d0d949dfa151397c377f6fc1ad6c277004fbf13",
-    "web/app/advisor/page.tsx": "c19d299f37e7a7105acca8db8b49b3afaddaa84496349d86e672f46e0d0c3e67",
+    "web/app/advisor/page.tsx": "e0968e9434972c02ccdd9c48804eba47aac08fc307fbef4235e1f178659ac2a1",
     "web/app/employee-experience/page.tsx": "d8dc41c488978aeda9482cba8f0134d4c41de87ddd031eeca3045319c3a75950",
     "web/app/flight-risk/page.tsx": "0a01c4b179555d5f82ea33f17a715ae40e102504fba5986d3462b9bcf5e8a719",
-    "web/app/page.tsx": "ec8bcfe1d1f3dede4e9820d0f5a11f7cd31298177bd2667490247670b6e1a208",
-    "web/app/platform/page.tsx": "f28556d648470d86f5ff55c9b76f5aaacfa5bccc63c0f742a4af04a9c57dbcba",
+    "web/app/page.tsx": "6a9e06c32ade80c7fe086944132946a13b15ae56d14612b8ee719c248f0e92bf",
+    "web/app/platform/page.tsx": "8e65465430234db4615862a01e57396bb822126aab58264c4859d3861610a030",
     "web/app/quality-of-hire/page.tsx": "b1b004850be9fd8aef330efc94f212deac555b96c8c2cb8169c74a3d4ef0c421",
     "web/app/retention-forecast/page.tsx": "125b206a3fd3797cb73ddad2789d5b74c468ea2132e67c279127d98263820771",
     "web/app/scenario-planner/page.tsx": "5385f532b29dffbb17c942df1620d4b75514d39e7a6852d29b6f92f9182295ed",
@@ -1092,12 +1112,18 @@
     "src/platform/runtime_lock.py": "d6a28590770b4d2f08b0fb3e242a005e67a5ffa99cf016ce7830d3eaddf9a4d1",
     "api/integrity.py": "46ef3e166ff7b6c9e55dce8a6452bd66cad1ba568c690a89f29cef30cd1bc7ab",
     "src/platform/local_dataset_store.py": "6dae43c5b58169a74bb0560eae513a56909f6564701ec5493013826b37393adb",
-    "web/app/providers.tsx": "a0f1fc701780b3b8b97416a1f0aea2af063bb65dfaed20c89df1a16f0913fad7"
+    "web/app/providers.tsx": "a0f1fc701780b3b8b97416a1f0aea2af063bb65dfaed20c89df1a16f0913fad7",
+    "src/agent/orchestrator.py": "df853bebc50c05cac8e203b2aafa0391f26e0ea78b96cdde535f4c0ac7e2dfe4",
+    "src/agent/planner.py": "d07f9ce43921f227145fac02291f01fa8d843978463d57366aa8b356b86a07a3",
+    "web/components/advisor/investigation-result.tsx": "839fa16d5bcf29f90925358d73762417a1af2b4fd490e6f857c0356d22cab6e2",
+    "web/components/header.tsx": "215d9cb19d62224508126aa69b5026da358f35640ba4c5e098c412889424656e",
+    "web/components/sidebar.tsx": "a94dbd7cd498f7129f44c60c7d7f1b3bc51e1f219b8d9151c378df3dca9a32ac"
   },
   "specialist_remediation": {
     "report": "docs/validation/SPECIALIST_REMEDIATION.md",
     "baseline_review": "docs/validation/PEOPLE_ANALYTICS_ML_SPECIALIST_REVIEW.md",
     "scope": "F01-F11 plus bounded local snapshot and recovery safeguards",
     "enterprise_validation": "not_established"
-  }
+  },
+  "quality_cycle": "model/quality_cycle.json"
 }

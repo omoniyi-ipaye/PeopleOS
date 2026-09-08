@@ -179,7 +179,7 @@
   "controls": [
     {
       "id": "ctl-local",
-      "mechanism": "loopback default plus token guard for non-local requests",
+      "mechanism": "Validated loopback Host/Origin plus server-token identity for remote requests; centralized mutation permissions; legacy file sessions retired",
       "enforced": true
     },
     {
@@ -226,6 +226,16 @@
       "id": "ctl-measured-support",
       "mechanism": "Component-specific source score sample thresholds, common weights, survey population reconciliation and coverage metadata",
       "enforced": true
+    },
+    {
+      "id": "ctl-evidence-selection",
+      "mechanism": "LLM selects verified evidence IDs; server renders factual claims; required metrics and unsupported scopes checked",
+      "enforced": true
+    },
+    {
+      "id": "ctl-registry-preservation",
+      "mechanism": "Invalid registry fails closed at startup; explicit runtime recovery verifies an exclusive quarantine before shell replacement and remains degraded pending dataset reconciliation",
+      "enforced": true
     }
   ],
   "risks": [
@@ -259,7 +269,9 @@
       "registry dataset and runtime identity agree",
       "model output covers exactly the current active IDs",
       "unknown status count reported",
-      "stale request rejected with HTTP409"
+      "stale request rejected with HTTP409",
+      "registry recovery requires dataset reconciliation",
+      "desktop and mobile browser journeys green for candidate commit"
     ],
     "loop": "Desired state -> Sense -> Detect -> Diagnose -> Authorize -> Respond -> Recover -> Verify -> Learn",
     "autonomy_level": "L2",
@@ -453,6 +465,106 @@
       "verification": "tests/test_runtime_integrity.py; tests/test_snapshot_recovery.py; web/tests/specialist-review-renderers.test.cjs",
       "completion_evidence": "Known-answer and fault-injection regression contracts pass",
       "validation": "Result fidelity and real-world measurement validity remain separate; prospective organizational validation required for stronger predictive claims"
+    },
+    {
+      "id": "STEP-017",
+      "name": "Enforce identity at every mutation",
+      "stage": "TRANSITION",
+      "evidence_state": "Observed+Proposed",
+      "owner": "security",
+      "executor": "api.security",
+      "trigger": "Incoming API request",
+      "inputs": [
+        "Transport, browser origin, server identity and requested operation"
+      ],
+      "action": "Validate local trust and explicit role permission before the handler executes",
+      "state_transition": "request -> authorized execution or denied without mutation",
+      "control": "New remote mutation routes denied until mapped; legacy file sessions return410",
+      "recovery": "Correct configuration; never infer owner from untrusted proxy headers",
+      "automation_boundary": "Authorized bounded local development; production changes require a separate release decision",
+      "verification": "tests/test_enterprise_controls.py",
+      "completion_evidence": "Candidate-specific local and CI evidence recorded in the quality cycle; pending gates remain explicit",
+      "validation": "Use-case-specific acceptance, not proof of enterprise validity or perfect trust"
+    },
+    {
+      "id": "STEP-018",
+      "name": "Select and render grounded agent evidence",
+      "stage": "TRANSITION",
+      "evidence_state": "Observed+Proposed",
+      "owner": "agent",
+      "executor": "Planner, adapters, aggregator and orchestrator",
+      "trigger": "Investigation submission",
+      "inputs": [
+        "Question and verified successful tool evidence"
+      ],
+      "action": "Retain requested metrics, measured denominators, warnings and supported scopes; allow LLM to select verified IDs only",
+      "state_transition": "question -> evidence -> complete, partial or insufficient answer",
+      "control": "No generated factual prose, invented question coverage or unsupported causal inference",
+      "recovery": "Deterministic cited fallback and visible limitations",
+      "automation_boundary": "Authorized bounded local development; production changes require a separate release decision",
+      "verification": "tests/test_agentic_acceptance.py; tests/test_agent_orchestrator.py",
+      "completion_evidence": "Candidate-specific local and CI evidence recorded in the quality cycle; pending gates remain explicit",
+      "validation": "Use-case-specific acceptance, not proof of enterprise validity or perfect trust"
+    },
+    {
+      "id": "STEP-019",
+      "name": "Preserve corrupt metadata before recovery",
+      "stage": "TRANSITION",
+      "evidence_state": "Observed+Proposed",
+      "owner": "operations",
+      "executor": "WorkspaceStore and SystemHealthMonitor",
+      "trigger": "Startup read or explicit runtime recovery",
+      "inputs": [
+        "Existing registry bytes and local runtime lock"
+      ],
+      "action": "Fail closed on malformed startup metadata; quarantine and verify before explicit shell reconstruction",
+      "state_transition": "corrupt metadata -> preserved quarantine -> degraded shell -> explicit dataset reconciliation",
+      "control": "Never silently discard existing bytes or advertise full historical recovery",
+      "recovery": "Restore a verified backup when startup is blocked; inspect quarantine and reconcile history",
+      "automation_boundary": "Authorized bounded local development; production changes require a separate release decision",
+      "verification": "tests/test_enterprise_recovery.py",
+      "completion_evidence": "Candidate-specific local and CI evidence recorded in the quality cycle; pending gates remain explicit",
+      "validation": "Use-case-specific acceptance, not proof of enterprise validity or perfect trust"
+    },
+    {
+      "id": "STEP-020",
+      "name": "Exercise the production interface with known answers",
+      "stage": "TRANSITION",
+      "evidence_state": "Observed+Proposed",
+      "owner": "quality",
+      "executor": "Repository Playwright CI",
+      "trigger": "Candidate pull request",
+      "inputs": [
+        "Isolated synthetic fixtures, actual API and built frontend"
+      ],
+      "action": "Run upload, dashboard, advisor, Trust Center and dataset-switch journeys at desktop and mobile sizes",
+      "state_transition": "candidate -> recorded browser pass or actionable failure",
+      "control": "No response mocks, retries hiding flakes or substitution of SSR for browser evidence",
+      "recovery": "Inspect logs/screenshots/traces; fix reproduction and rerun candidate gates",
+      "automation_boundary": "Authorized bounded local development; production changes require a separate release decision",
+      "verification": "web/e2e/people-team.spec.ts; .github/workflows/browser-acceptance.yml",
+      "completion_evidence": "Candidate-specific local and CI evidence recorded in the quality cycle; pending gates remain explicit",
+      "validation": "Use-case-specific acceptance, not proof of enterprise validity or perfect trust"
+    },
+    {
+      "id": "STEP-021",
+      "name": "Run bounded specialist improvement cycles",
+      "stage": "TRANSITION",
+      "evidence_state": "Observed+Proposed",
+      "owner": "engineering",
+      "executor": "Authorized review automation and specialist agents",
+      "trigger": "Recurring scheduled iteration",
+      "inputs": [
+        "Current repository head, active CI and durable quality backlog"
+      ],
+      "action": "Finish pending verification, reproduce prioritized gaps, delegate disjoint fixes and publish a reviewable candidate",
+      "state_transition": "baseline -> findings -> fixes -> independent gates -> next backlog",
+      "control": "One integrating cycle; no automatic merge, deployment, real HR ingestion or employment action",
+      "recovery": "Checkpoint incomplete work; report blocked gates without weakening them",
+      "automation_boundary": "Authorized bounded local development; production changes require a separate release decision",
+      "verification": "model/quality_cycle.json; docs/validation/ENTERPRISE_IMPROVEMENT_CYCLE.md",
+      "completion_evidence": "Candidate-specific local and CI evidence recorded in the quality cycle; pending gates remain explicit",
+      "validation": "Use-case-specific acceptance, not proof of enterprise validity or perfect trust"
     }
   ],
   "analytics_validation": {
@@ -470,5 +582,11 @@
     "specialist_remediation": "docs/validation/SPECIALIST_REMEDIATION.md",
     "runtime_scope": "Single local workforce runtime, single application process; no non-local data isolation or cross-process mutation guarantee"
   },
-  "build_readiness": "BUILD READY WITH ASSUMPTIONS"
+  "build_readiness": "BUILD READY WITH ASSUMPTIONS",
+  "quality_cycle": {
+    "model": "model/quality_cycle.json",
+    "report": "docs/validation/ENTERPRISE_IMPROVEMENT_CYCLE.md",
+    "mode": "bounded specialist review, fix, independent acceptance, reviewable candidate",
+    "enterprise_certification": false
+  }
 }

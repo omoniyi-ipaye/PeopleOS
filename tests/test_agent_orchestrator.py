@@ -62,7 +62,8 @@ def test_agent_runs_plan_tools_aggregates_and_falls_back_without_llm():
         "Why is attrition elevated?"
     )
 
-    assert answer.status == "complete"
+    assert answer.status == "partial"
+    assert "cannot establish causes" in " ".join(answer.warnings)
     assert answer.model is None
     assert answer.confidence > 0.7
     assert "workforce.summary" in answer.tools_used

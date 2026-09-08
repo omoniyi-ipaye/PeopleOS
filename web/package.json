@@ -13,7 +13,8 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "design:check": "node scripts/validate-design-system.mjs",
-    "test:analytics": "node --test tests/analytics-renderers.test.cjs tests/specialist-review-renderers.test.cjs"
+    "test:analytics": "node --test tests/analytics-renderers.test.cjs tests/specialist-review-renderers.test.cjs tests/design-usability.test.cjs",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@tanstack/react-query": "5.102.8",
@@ -30,6 +31,7 @@
     "zustand": "5.0.15"
   },
   "devDependencies": {
+    "@playwright/test": "1.63.0",
     "@types/node": "^20.17.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",

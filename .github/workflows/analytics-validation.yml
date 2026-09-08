@@ -38,6 +38,9 @@ jobs:
           tests/test_local_distribution.py
           tests/test_specialist_review_findings.py tests/test_specialist_measurement_fixes.py
           tests/test_runtime_integrity.py tests/test_snapshot_recovery.py
+          tests/test_people_team_acceptance.py tests/test_agentic_acceptance.py
+          tests/test_enterprise_controls.py tests/test_enterprise_recovery.py
+          tests/test_enterprise_recovery_api.py
       - name: Verify public benchmarks and random-label controls
         run: python scripts/benchmark_analytics.py --output benchmark-results.json
       - name: Verify live application with controlled dummy datasets

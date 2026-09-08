@@ -73,9 +73,13 @@ class EvidenceAggregator:
         items: List[EvidenceItem] = [item for result in results for item in result.evidence]
 
         for result in results:
+            # Caveats remain material even when a tool calculates successfully.
+            unknowns.extend(f"{result.tool_id}: {warning}" for warning in result.warnings if warning)
             if result.status in {ToolResultStatus.PARTIAL, ToolResultStatus.BLOCKED, ToolResultStatus.FAILED}:
                 reason = result.error or "; ".join(w for w in result.warnings if w) or result.summary
-                unknowns.append(f"{result.tool_id}: {reason}")
+                detail = f"{result.tool_id}: {reason}"
+                if detail not in unknowns:
+                    unknowns.append(detail)
             elif result.status == ToolResultStatus.SUCCESS:
                 notes.append(f"{result.tool_id} completed successfully")
                 if not result.evidence:
@@ -126,7 +130,7 @@ class EvidenceAggregator:
     def _coverage(self, results: List[ToolResult]) -> float:
         if not results:
             return 0.0
-        return sum(_STATUS_COVERAGE[result.status] for result in results) / len(results)
+        return sum(_STATUS_COVERAGE[result.status] if result.evidence else 0.0 for result in results) / len(results)
 
     def _quality(self, items: List[EvidenceItem], coverage: float) -> float:
         if not items:

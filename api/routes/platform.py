@@ -254,7 +254,15 @@ async def platform_health(request: Request, state: AppState = Depends(get_app_st
 @router.post('/health/recover')
 async def bounded_recovery(request: Request):
     require_permission(request, 'health.recover')
-    interrupted = _jobs.recover_interrupted()
-    result = SystemHealthMonitor(_store).recover()
-    result['failed_interrupted_jobs'] = interrupted
-    return result
+    from api.runtime_registry import runtime_registry, WorkspaceRuntimeState
+    with RUNTIME_MUTATION_LOCK:
+        # Prepare first: a configuration failure must not follow metadata repair.
+        replacement = WorkspaceRuntimeState('local')
+        interrupted = _jobs.recover_interrupted()
+        result = SystemHealthMonitor(_store).recover()
+        if result['status'] == 'metadata_reinitialized':
+            result['invalidated_runtimes'] = runtime_registry.invalidate_loaded(replacement)
+            ModelLifecycleService._runtime_artifacts.clear()
+            result['actions'].append('retired orphaned runtime evidence and in-memory model artifacts; source files retained')
+        result['failed_interrupted_jobs'] = interrupted
+        return result

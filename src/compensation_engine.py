@@ -53,6 +53,7 @@ class CompensationEngine:
 
     def _valid_active_salary_population(self, df: pd.DataFrame) -> pd.DataFrame:
         active = active_population(df)
+        self.active_count = len(active)
         if 'Salary' not in active.columns:
             raise CompensationEngineError('Salary column is required')
         salary = pd.to_numeric(active['Salary'], errors='coerce')
@@ -62,6 +63,8 @@ class CompensationEngine:
             self.warnings.append(f'Excluded {excluded} active row(s) with missing or non-positive salary from compensation metrics')
         frame = active.loc[valid].copy()
         frame['Salary'] = salary.loc[valid].astype(float)
+        if 'Dept' in frame.columns:
+            frame['Dept'] = frame['Dept'].astype('string').str.strip().replace('', pd.NA).fillna('Unknown')
         return frame
 
     def calculate_salary_percentiles(self) -> pd.DataFrame:
@@ -225,7 +228,8 @@ class CompensationEngine:
             return pd.DataFrame()
         frame = self.df.copy()
         tenure = pd.to_numeric(frame['Tenure'], errors='coerce')
-        frame['TenureBucket'] = pd.cut(tenure, bins=[0, 1, 2, 5, 10, float('inf')], labels=['<1 year', '1-2 years', '2-5 years', '5-10 years', '10+ years'], right=False)
+        tenure = tenure.where(np.isfinite(tenure) & (tenure >= 0))
+        frame['TenureBucket'] = pd.cut(tenure, bins=[0, 1, 2, 5, 10, float('inf')], labels=['<1 year', '1-2 years', '2-5 years', '5-10 years', '10+ years'], right=False).cat.add_categories('Unknown').fillna('Unknown')
         grouped = frame.groupby('TenureBucket', observed=False)['Salary'].agg(['mean', 'median', 'min', 'max', 'count']).reset_index()
         return grouped.rename(columns={'mean': 'Mean', 'median': 'Median', 'min': 'Min', 'max': 'Max', 'count': 'Count'})
 
@@ -235,6 +239,10 @@ class CompensationEngine:
             'total_payroll': float(salary.sum()), 'avg_salary': float(salary.mean()), 'median_salary': float(salary.median()),
             'min_salary': float(salary.min()), 'max_salary': float(salary.max()), 'salary_range': float(salary.max() - salary.min()),
             'std_dev': float(salary.std(ddof=1)) if len(salary) > 1 else 0.0, 'headcount': int(len(salary)),
+            'active_count': int(self.active_count),
+            'salary_observations': int(len(salary)),
+            'excluded_salary_count': int(self.active_count - len(salary)),
+            'salary_coverage': float(len(salary) / self.active_count) if self.active_count else None,
             'population': 'current_active_employees_with_valid_positive_salary',
         }
 

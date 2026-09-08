@@ -6,7 +6,7 @@ outlier and employee compa-ratio lists are outside the enterprise aggregate
 boundary and are disabled.
 """
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -27,6 +27,11 @@ class CompensationSummary(BaseModel):
     salary_range: float
     std_dev: float
     headcount: int
+    active_count: Optional[int] = None
+    salary_observations: Optional[int] = None
+    excluded_salary_count: Optional[int] = None
+    salary_coverage: Optional[float] = None
+    population: str = 'current_active_employees_with_valid_positive_salary'
 
 
 class SalaryDispersionScore(BaseModel):
@@ -68,6 +73,10 @@ def _summary(engine) -> CompensationSummary:
         salary_range=raw['salary_range'],
         std_dev=raw['std_dev'],
         headcount=raw['headcount'],
+        active_count=raw.get('active_count'),
+        salary_observations=raw.get('salary_observations'),
+        excluded_salary_count=raw.get('excluded_salary_count'),
+        salary_coverage=raw.get('salary_coverage'),
     )
 
 

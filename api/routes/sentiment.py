@@ -392,7 +392,6 @@ async def upload_enps_survey(
 
         try:
             df = pd.read_csv(tmp_path, dtype={'EmployeeID': 'string'}, keep_default_na=False, na_values=[''])
-            df['EmployeeID'] = df['EmployeeID'].str.strip().replace('', pd.NA) if 'EmployeeID' in df else pd.NA
 
             required_cols = ['EmployeeID', 'SurveyDate', 'eNPSScore']
             missing = [c for c in required_cols if c not in df.columns]
@@ -403,6 +402,7 @@ async def upload_enps_survey(
                     detail=f"Missing required columns: {missing}"
                 )
 
+            df['EmployeeID'] = df['EmployeeID'].str.strip().replace('', pd.NA)
             warnings = []
 
             df['eNPSScore'] = pd.to_numeric(df['eNPSScore'], errors='coerce')
@@ -410,19 +410,16 @@ async def upload_enps_survey(
             if (df['eNPSScore'] < 0).any() or (df['eNPSScore'] > 10).any():
                 warnings.append("Some eNPSScore values are outside 0-10 range")
 
-            # Store in state for sentiment engine
-            state.enps_df = df
-
-            # Reinitialize sentiment engine
+            # Prepare all derived state before replacing a previously valid survey.
             from src.sentiment_engine import SentimentEngine
-            state.sentiment_engine = SentimentEngine(
+            candidate_engine = SentimentEngine(
                 employee_df=state.raw_df,
-                enps_df=state.enps_df,
+                enps_df=df,
                 onboarding_df=getattr(state, 'onboarding_df', None)
             )
 
-            return SurveyUploadResponse(
-                survey_coverage=state.sentiment_engine.survey_coverage,
+            response = SurveyUploadResponse(
+                survey_coverage=candidate_engine.survey_coverage,
                 success=True,
                 message=f"Successfully loaded {len(df)} eNPS survey responses",
                 rows_loaded=len(df),
@@ -430,6 +427,9 @@ async def upload_enps_survey(
                 columns_found=list(df.columns),
                 warnings=warnings
             )
+            state.enps_df = df
+            state.sentiment_engine = candidate_engine
+            return response
 
         finally:
             os.unlink(tmp_path)
@@ -467,7 +467,6 @@ async def upload_onboarding_survey(
 
         try:
             df = pd.read_csv(tmp_path, dtype={'EmployeeID': 'string'}, keep_default_na=False, na_values=[''])
-            df['EmployeeID'] = df['EmployeeID'].str.strip().replace('', pd.NA) if 'EmployeeID' in df else pd.NA
 
             required_cols = ['EmployeeID', 'SurveyType', 'SurveyDate', 'OverallScore']
             missing = [c for c in required_cols if c not in df.columns]
@@ -478,6 +477,7 @@ async def upload_onboarding_survey(
                     detail=f"Missing required columns: {missing}"
                 )
 
+            df['EmployeeID'] = df['EmployeeID'].str.strip().replace('', pd.NA)
             warnings = []
 
             # Validate survey types
@@ -486,19 +486,16 @@ async def upload_onboarding_survey(
             if invalid_types:
                 warnings.append(f"Unknown survey types found: {invalid_types}")
 
-            # Store in state for sentiment engine
-            state.onboarding_df = df
-
-            # Reinitialize sentiment engine
+            # Prepare all derived state before replacing a previously valid survey.
             from src.sentiment_engine import SentimentEngine
-            state.sentiment_engine = SentimentEngine(
+            candidate_engine = SentimentEngine(
                 employee_df=state.raw_df,
                 enps_df=getattr(state, 'enps_df', None),
-                onboarding_df=state.onboarding_df
+                onboarding_df=df
             )
 
-            return SurveyUploadResponse(
-                survey_coverage=state.sentiment_engine.survey_coverage,
+            response = SurveyUploadResponse(
+                survey_coverage=candidate_engine.survey_coverage,
                 success=True,
                 message=f"Successfully loaded {len(df)} onboarding survey responses",
                 rows_loaded=len(df),
@@ -506,6 +503,9 @@ async def upload_onboarding_survey(
                 columns_found=list(df.columns),
                 warnings=warnings
             )
+            state.onboarding_df = df
+            state.sentiment_engine = candidate_engine
+            return response
 
         finally:
             os.unlink(tmp_path)

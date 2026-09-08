@@ -62,11 +62,22 @@ def _prepare_raw(df):
 
 def binary_metrics(y_true, probabilities, training_prevalence):
     """Holdout scores versus a constant training-prevalence baseline."""
-    y = np.asarray(y_true, dtype=int)
+    y = np.asarray(y_true)
     p = np.asarray(probabilities, dtype=float)
-    if len(y) != len(p) or not np.isfinite(p).all() or ((p < 0) | (p > 1)).any():
+    if y.ndim != 1 or p.ndim != 1 or not len(y) or len(y) != len(p):
+        raise MLEngineError('Outcomes and probabilities must be non-empty aligned vectors')
+    if not np.isin(y, [0, 1]).all():
+        raise MLEngineError('Evaluation requires observed binary outcomes without missing values')
+    if not np.isfinite(training_prevalence) or not 0 <= training_prevalence <= 1:
+        raise MLEngineError('Training prevalence must be finite and between zero and one')
+    if not np.isfinite(p).all() or ((p < 0) | (p > 1)).any():
         raise MLEngineError('Predicted probabilities must be finite, aligned, and between zero and one')
+    y = y.astype(int)
     predicted = (p >= .5).astype(int)
+    tp = int(((y == 1) & (predicted == 1)).sum())
+    fn = int(((y == 1) & (predicted == 0)).sum())
+    tn = int(((y == 0) & (predicted == 0)).sum())
+    fp = int(((y == 0) & (predicted == 1)).sum())
     brier = float(brier_score_loss(y, p))
     baseline = float(np.mean((y - training_prevalence) ** 2))
     # Equal-width ECE, weighted by the number of observations in each bin.
@@ -83,7 +94,7 @@ def binary_metrics(y_true, probabilities, training_prevalence):
         'precision': float(precision_score(y, predicted, zero_division=0)),
         'recall': float(recall_score(y, predicted, zero_division=0)),
         'f1': float(f1_score(y, predicted, zero_division=0)),
-        'roc_auc': float(roc_auc_score(y, p)),
+        'roc_auc': float(roc_auc_score(y, p)) if len(np.unique(y)) == 2 else None,
         'average_precision': float(average_precision_score(y, p)),
         'baseline_average_precision': float(y.mean()),
         'brier_score': brier, 'baseline_brier_score': baseline,
@@ -91,6 +102,14 @@ def binary_metrics(y_true, probabilities, training_prevalence):
         'calibration_error': float(ece), 'calibration_bins': calibration,
         'calibration_method': '10_equal_width_bins_weighted_by_sample_count',
         'test_class_counts': {str(c): int((y == c).sum()) for c in (0, 1)},
+        'classification_threshold': .5,
+        'threshold_selection': 'fixed_default_not_tuned_on_holdout',
+        'confusion_matrix': {'true_negative': tn, 'false_positive': fp, 'false_negative': fn, 'true_positive': tp},
+        'predicted_positive_count': tp + fp,
+        'observed_positive_count': tp + fn,
+        'recall_denominator': tp + fn,
+        'majority_class_baseline_accuracy': float(np.mean(y == int(training_prevalence >= .5))),
+        'majority_class_baseline_selection': 'majority_class_from_training_partition',
     }
 
 
@@ -144,6 +163,14 @@ def train_attrition_model(df: pd.DataFrame) -> TrainedModelArtifact:
     })
     warnings = engine._validate_sample_size(X_train, y_train)
     warnings.append('Retrospective classification only: future departure accuracy has not been validated.')
+    if metrics['recall_denominator'] and metrics['recall'] < .5:
+        counts = metrics['confusion_matrix']
+        warnings.append(
+            f"At the fixed 0.5 classification threshold the model detected {counts['true_positive']} "
+            f"of {metrics['recall_denominator']} observed departures and missed {counts['false_negative']}. "
+            'Overall accuracy does not establish adequate departure detection. '
+            'Any alternative threshold must be selected using training validation data and evaluated independently.'
+        )
     from src.platform.model_lifecycle import ModelEvaluationPolicy
     evaluation = ModelEvaluationPolicy().evaluate(metrics)
     metrics['reliability'] = 'Retrospective only' if evaluation['passed'] else 'Insufficient validation'

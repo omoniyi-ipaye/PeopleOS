@@ -13,6 +13,7 @@ web/.next/
 web/out/
 web/.vercel/
 web/tsconfig.tsbuildinfo
+web/browser-artifacts/
 web/.env.local
 
 # Application Data (Sensitive HR Data)

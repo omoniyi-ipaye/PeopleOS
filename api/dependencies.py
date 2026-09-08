@@ -108,7 +108,8 @@ class AppState:
             from src.platform.local_dataset_store import load_dataset_artifact
             from src.platform.workspace import WorkspaceStore
 
-            workspace = WorkspaceStore().get_workspace('local')
+            store = WorkspaceStore()
+            workspace = store.get_workspace('local')
             if workspace.active_dataset_id:
                 record = next(d for d in workspace.datasets if d.dataset_id == workspace.active_dataset_id)
                 persisted = load_dataset_artifact(record.dataset_id, expected_sha256=record.quality.get('artifact_sha256'))
@@ -122,6 +123,10 @@ class AppState:
                         raise ValueError('Selected dataset changed during restore; retry the request')
                     activate_dataframe(self, persisted, feature_flags=feature_flags, workspace_id='local', dataset_id=workspace.active_dataset_id)
                     return True
+                return False
+            if store._read().get('recovery_required'):
+                # A repaired registry must not silently revive unregistered
+                # legacy SQLite data; explicit dataset activation is required.
                 return False
         except Exception as exc:
             logger.warning('Canonical dataset restore failed: %s', exc)

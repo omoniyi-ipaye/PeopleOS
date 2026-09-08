@@ -21,6 +21,15 @@ class AnalyticsSummary(BaseModel):
     lastrating_mean: Optional[float] = None
     attrition_count: Optional[int] = None
     active_count: Optional[int] = None
+    attrition_known_count: Optional[int] = None
+    salary_observations: Optional[int] = None
+    salary_excluded_count: Optional[int] = None
+    tenure_observations: Optional[int] = None
+    tenure_excluded_count: Optional[int] = None
+    age_observations: Optional[int] = None
+    age_excluded_count: Optional[int] = None
+    lastrating_observations: Optional[int] = None
+    lastrating_excluded_count: Optional[int] = None
     takeaways: List[str] = []
     insights: Dict[str, str] = {}
 

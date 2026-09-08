@@ -133,6 +133,8 @@ class AnalyticsEngine:
                 result[f'{col.lower()}_mean'] = float(values.mean()) if not values.empty else None
                 result[f'{col.lower()}_median'] = float(values.median()) if not values.empty else None
                 result[f'{col.lower()}_std'] = float(values.std()) if len(values) > 1 else None
+                result[f'{col.lower()}_observations'] = int(len(values))
+                result[f'{col.lower()}_excluded_count'] = int(len(self.active_df) - len(values))
         if 'Attrition' in self.df.columns:
             result['attrition_count'] = int((self.df['Attrition'] == 1).sum())
             result['attrition_known_count'] = int(self.df['Attrition'].notna().sum())
@@ -203,9 +205,7 @@ class AnalyticsEngine:
         if group_col not in self.active_df.columns or metric_col not in self.active_df.columns:
             return {'success': False, 'reason': 'Columns not found'}
         frame = self.active_df.dropna(subset=[group_col, metric_col]).copy()
-        frame[metric_col] = pd.to_numeric(frame[metric_col], errors='coerce').replace([np.inf, -np.inf], np.nan)
-        if metric_col == 'Salary':
-            frame = frame[frame[metric_col] > 0]
+        frame[metric_col] = _valid_numeric(frame[metric_col], metric_col).reindex(frame.index)
         grouped = frame.dropna(subset=[metric_col]).groupby(group_col)[metric_col]
         eligible = [(name, group.values) for name, group in grouped if len(group) > 5]
         if len(eligible) < 2:
@@ -224,6 +224,9 @@ class AnalyticsEngine:
             return {
                 'success': True, 'test_name': test_name, 'statistic': float(stat), 'p_value': float(p_value),
                 'is_significant': bool(p_value < .05), 'groups_compared': names,
+                'group_observations': {str(name): int(len(vals)) for name, vals in eligible},
+                'sample_size': int(sum(len(vals) for vals in values)),
+                'population': 'current_active_employees_with_valid_metric_and_group_label',
                 'interpretation': f"Observed group difference for {metric_col}; {test_name} p={p_value:.4f}. Statistical significance does not establish causation or unfairness."
             }
         except Exception as exc:

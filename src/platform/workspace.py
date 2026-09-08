@@ -137,10 +137,18 @@ class WorkspaceStore:
             try:
                 with self.path.open("r", encoding="utf-8") as handle:
                     payload = json.load(handle)
-            except (FileNotFoundError, json.JSONDecodeError):
-                payload = {"schema_version": 1, "workspaces": []}
-            payload.setdefault("schema_version", 1)
-            payload.setdefault("workspaces", [])
+                if not isinstance(payload, dict) or payload.get("schema_version") != 1 or not isinstance(payload.get("workspaces"), list):
+                    raise ValueError("Invalid registry schema")
+                records = [WorkspaceRecord.model_validate(item) for item in payload["workspaces"]]
+                identifiers = [record.workspace_id for record in records]
+                if len(identifiers) != len(set(identifiers)):
+                    raise ValueError("Duplicate workspace identities")
+            except (FileNotFoundError, ValueError, UnicodeError) as exc:
+                raise RuntimeError(
+                    "Workspace registry is missing or invalid; original bytes were retained. "
+                    "Restore a verified backup before startup, or use explicit bounded recovery "
+                    "from an already-running instance."
+                ) from exc
             return payload
 
     def _write(self, payload: Dict[str, Any]) -> None:
