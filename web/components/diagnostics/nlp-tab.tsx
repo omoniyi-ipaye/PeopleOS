@@ -57,11 +57,11 @@ export function NLPTab() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <KPICard
                     title="Tone of Feedback"
-                    value={sentiment_summary.avg_sentiment?.toFixed(2) || '0.00'}
+                    value={sentiment_summary.avg_sentiment?.toFixed(2) ?? 'Unavailable'}
                     icon={Smile}
-                    subtitle="Overall sentiment (0-1)"
-                    variant={sentiment_summary.avg_sentiment > 0.6 ? 'success' : sentiment_summary.avg_sentiment < 0.4 ? 'danger' : 'warning'}
-                    insight="The average emotional tone of performance feedback, where higher means more positive."
+                    subtitle="Model-assigned sentiment (0-1)"
+                    variant={sentiment_summary.avg_sentiment == null ? 'warning' : sentiment_summary.avg_sentiment > 0.6 ? 'success' : sentiment_summary.avg_sentiment < 0.4 ? 'danger' : 'warning'}
+                    insight="Exploratory text-model output; accuracy on workforce feedback has not been validated."
                 />
                 <KPICard
                     title="Positive Feedback"

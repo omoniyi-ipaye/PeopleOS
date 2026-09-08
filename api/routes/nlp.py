@@ -12,7 +12,7 @@ router = APIRouter(prefix="/api/nlp", tags=["nlp"])
 
 class SentimentSummary(BaseModel):
     """Sentiment analysis summary statistics."""
-    avg_sentiment: float
+    avg_sentiment: Optional[float] = None
     positive_count: int
     neutral_count: int
     negative_count: int

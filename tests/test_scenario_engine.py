@@ -69,7 +69,7 @@ class TestScenarioEngineInitialization:
         engine = ScenarioEngine(sample_employee_data)
 
         assert engine is not None
-        assert len(engine.df) == 100
+        assert len(engine.df) == int((sample_employee_data['Attrition'] == 0).sum())
         assert engine.n_simulations == 1000  # Default
 
     def test_init_without_ml_engines(self, sample_employee_data):
@@ -105,7 +105,7 @@ class TestCompensationScenarios:
 
         assert result.scenario_id is not None
         assert result.scenario_type == 'compensation'
-        assert result.affected_employees == 100
+        assert result.affected_employees == int((sample_employee_data['Attrition'] == 0).sum())
         assert result.baseline_turnover_rate >= 0
         assert result.projected_turnover_rate >= 0
         assert result.projected_turnover_rate <= result.baseline_turnover_rate
@@ -373,8 +373,8 @@ class TestConfidenceLevels:
             adjustment_value=5.0
         )
 
-        assert result.confidence_level == 'High'
-        assert result.confidence_score >= 0.8
+        assert result.confidence_level == 'Exploratory'
+        assert result.confidence_score == 0.5
 
     def test_low_confidence_small_sample(self, sample_employee_data):
         """Test lower confidence with small sample."""
@@ -389,7 +389,7 @@ class TestConfidenceLevels:
         )
 
         # With only 5 affected, confidence should be lower
-        assert result.confidence_level in ['Low', 'Medium']
+        assert result.confidence_level == 'Exploratory'
 
 
 class TestCostCalculations:
@@ -468,14 +468,11 @@ class TestEdgeCases:
 
         engine = ScenarioEngine(df)
 
-        result = engine.simulate_compensation_change(
-            adjustment_type='percentage',
-            target={'scope': 'all'},
-            adjustment_value=5.0
-        )
+        with pytest.raises(ScenarioEngineError, match='annual Salary'):
+            engine.simulate_compensation_change(
+                adjustment_type='percentage', target={'scope': 'all'}, adjustment_value=5.0
+            )
 
-        # Should use default salary assumption
-        assert result.scenario_id is not None
 
 
 class TestResultSerialization:

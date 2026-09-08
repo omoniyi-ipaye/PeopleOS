@@ -70,6 +70,9 @@ class Preprocessor:
         frame = df.copy()
         frame = frame.drop(columns=[c for c in self.dropped_columns if c in frame.columns], errors='ignore')
         frame = self._engineer_temporal_features(frame, reference_date=self.reference_date)
+        for col in self.numeric_columns + self.categorical_columns:
+            if col not in frame:
+                frame[col] = float('nan')
         frame = self._impute_missing(frame, fit=False)
         frame = self._cap_outliers(frame, fit=False)
         frame = self._encode_categorical(frame, target_column, fit=False)
@@ -87,7 +90,7 @@ class Preprocessor:
     def _identify_column_types(self, df: pd.DataFrame, target_column: str) -> None:
         self.numeric_columns = []
         self.categorical_columns = []
-        metadata = {target_column.lower(), 'employeeid', 'employee_id', 'created_at', 'updated_at', 'is_active', 'snapshotdate'}
+        metadata = {target_column.lower(), 'employeeid', 'employee_id', 'created_at', 'updated_at', 'is_active', 'snapshotdate', 'terminationdate', 'exitdate', 'terminationreason', 'exitreason', 'employmentstatus', 'status', 'attrition', 'hiredate', 'promotiondate', 'ratinghistory', 'performancetext', 'managerid', 'employeenumber', 'name', 'email'}
         for col in df.columns:
             if col.lower() in metadata:
                 continue
@@ -153,7 +156,7 @@ class Preprocessor:
         for col in self.numeric_columns:
             if col not in frame.columns:
                 continue
-            numeric = pd.to_numeric(frame[col], errors='coerce')
+            numeric = pd.to_numeric(frame[col], errors='coerce').replace([float('inf'), float('-inf')], float('nan'))
             if fit:
                 median = numeric.median()
                 self.impute_values[col] = float(median) if pd.notna(median) else 0.0

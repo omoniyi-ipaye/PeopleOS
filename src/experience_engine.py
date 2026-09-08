@@ -19,6 +19,7 @@ import numpy as np
 from typing import Dict, Any, List, Optional
 
 from src.utils import load_config
+from src.population import resolve_current_population
 from src.logger import get_logger
 
 
@@ -69,7 +70,7 @@ class ExperienceEngine:
         Args:
             df: Employee DataFrame with optional experience columns
         """
-        self.df = df.copy()
+        self.df, self.population_resolution = resolve_current_population(df)
         self.config = load_config()
         self.exp_config = self.config.get('experience', {})
         self.logger = get_logger('experience_engine')
@@ -129,8 +130,7 @@ class ExperienceEngine:
 
         if self.available_survey_signals == 0:
             self.warnings.append(
-                "No experience survey columns found. EXI will be derived from "
-                "tenure, salary, and performance patterns only."
+                "No experience survey columns found. Measured experience is unavailable."
             )
             self.logger.warning("No survey-based experience signals detected")
 
@@ -149,143 +149,54 @@ class ExperienceEngine:
             )
 
     def _compute_experience_index(self) -> None:
-        """
-        Compute Experience Index (EXI) for each employee.
+        """Measured responses only, using a fixed scale per signal column.
 
-        EXI Formula (0-100 scale):
-        - Survey signals normalized to 0-100
-        - Derived signals (tenure stability, compensation) normalized to 0-100
-        - Weighted average based on available signals
+        Missing or out-of-range responses never become HRIS-derived scores.
+        EngagementScore requires an explicitly configured scale; its scale
+        cannot be inferred from the magnitude of each respondent's answer.
         """
-        # Get weights from config with defaults
-        weights_config = self.exp_config.get('index_weights', {})
-        base_weights = {
-            'enps': weights_config.get('enps', 0.25),
-            'onboarding': weights_config.get('onboarding', 0.15),
-            'pulse': weights_config.get('pulse', 0.15),
-            'manager': weights_config.get('manager_satisfaction', 0.15),
-            'engagement': weights_config.get('engagement', 0.10),
-            'work_life': weights_config.get('work_life', 0.10),
-            'career': weights_config.get('career_growth', 0.10),
+        weights = self.exp_config.get('index_weights', {})
+        definitions = {
+            'enps': (['enps_score'], [0, 10], 'enps', .25),
+            'onboarding': (['onboarding_30d', 'onboarding_60d', 'onboarding_90d'], [1, 5], 'onboarding', .15),
+            'pulse': (['pulse_score'], [1, 5], 'pulse', .15),
+            'manager': (['managersatisfaction'], [1, 5], 'manager_satisfaction', .15),
+            'engagement': (['engagementscore'], None, 'engagement', .10),
+            'work_life': (['worklifebalance'], [1, 5], 'work_life', .10),
+            'career': (['careergrowthsatisfaction'], [1, 5], 'career_growth', .10),
         }
-
-        # Initialize EXI column
-        self.df['_exi_score'] = 0.0
-        self.df['_exi_components'] = None
-
-        # Track weights used per employee
-        for idx in self.df.index:
-            components = {}
-            total_weight = 0.0
-            weighted_sum = 0.0
-
-            # eNPS (0-10 scale -> 0-100)
-            if self.has_enps:
-                col = self._get_column('enps_score')
-                val = self.df.at[idx, col]
-                if pd.notna(val):
-                    normalized = float(val) * 10  # 0-10 -> 0-100
-                    components['enps'] = normalized
-                    weighted_sum += normalized * base_weights['enps']
-                    total_weight += base_weights['enps']
-
-            # Onboarding average (1-5 scale -> 0-100)
-            if self.has_onboarding:
-                onb_scores = []
-                for suffix in ['30d', '60d', '90d']:
-                    col_name = f'onboarding_{suffix}'
-                    if col_name in self._column_map:
-                        col = self._get_column(col_name)
-                        val = self.df.at[idx, col]
-                        if pd.notna(val):
-                            onb_scores.append(float(val))
-                if onb_scores:
-                    avg_onb = sum(onb_scores) / len(onb_scores)
-                    normalized = (avg_onb - 1) * 25  # 1-5 -> 0-100
-                    components['onboarding'] = normalized
-                    weighted_sum += normalized * base_weights['onboarding']
-                    total_weight += base_weights['onboarding']
-
-            # Pulse score (1-5 scale -> 0-100)
-            if self.has_pulse:
-                col = self._get_column('pulse_score')
-                val = self.df.at[idx, col]
-                if pd.notna(val):
-                    normalized = (float(val) - 1) * 25  # 1-5 -> 0-100
-                    components['pulse'] = normalized
-                    weighted_sum += normalized * base_weights['pulse']
-                    total_weight += base_weights['pulse']
-
-            # Manager satisfaction (1-5 scale -> 0-100)
-            if self.has_manager_satisfaction:
-                col = self._get_column('managersatisfaction')
-                val = self.df.at[idx, col]
-                if pd.notna(val):
-                    normalized = (float(val) - 1) * 25
-                    components['manager'] = normalized
-                    weighted_sum += normalized * base_weights['manager']
-                    total_weight += base_weights['manager']
-
-            # Engagement score (handle various scales)
-            if self.has_engagement:
-                col = self._get_column('engagementscore')
-                val = self.df.at[idx, col]
-                if pd.notna(val):
-                    # Auto-detect scale (0-100 or 1-5 or 0-10)
-                    if float(val) <= 5:
-                        normalized = (float(val) - 1) * 25  # 1-5 -> 0-100
-                    elif float(val) <= 10:
-                        normalized = float(val) * 10  # 0-10 -> 0-100
-                    else:
-                        normalized = float(val)  # Already 0-100
-                    components['engagement'] = normalized
-                    weighted_sum += normalized * base_weights['engagement']
-                    total_weight += base_weights['engagement']
-
-            # Work-life balance (1-5 scale -> 0-100)
-            if self.has_work_life:
-                col = self._get_column('worklifebalance')
-                val = self.df.at[idx, col]
-                if pd.notna(val):
-                    normalized = (float(val) - 1) * 25
-                    components['work_life'] = normalized
-                    weighted_sum += normalized * base_weights['work_life']
-                    total_weight += base_weights['work_life']
-
-            # Career growth satisfaction (1-5 scale -> 0-100)
-            if self.has_career_growth:
-                col = self._get_column('careergrowthsatisfaction')
-                val = self.df.at[idx, col]
-                if pd.notna(val):
-                    normalized = (float(val) - 1) * 25
-                    components['career'] = normalized
-                    weighted_sum += normalized * base_weights['career']
-                    total_weight += base_weights['career']
-
-            # Calculate final EXI
-            if total_weight > 0:
-                exi = weighted_sum / total_weight
-            else:
-                # Fallback: derive from tenure/rating patterns
-                # PA-2 FIX: Mark this as estimated, not actual survey data
-                exi = self._derive_exi_from_patterns(idx)
-                components['derived'] = True
-                components['_warning'] = 'EXI estimated from tenure/rating patterns - no survey data available'
-
-            self.df.at[idx, '_exi_score'] = round(exi, 1)
-            self.df.at[idx, '_exi_components'] = str(components)
-
-        # PA-2: Log warning about derived EXI
-        derived_count = len(self.df[self.df['_exi_components'].str.contains('derived', na=False)])
-        if derived_count > 0:
-            self.logger.warning(
-                f"{derived_count}/{len(self.df)} employees have EXI derived from patterns, not survey data"
-            )
-
-        self.logger.info(
-            f"Computed EXI for {len(self.df)} employees. "
-            f"Mean EXI: {self.df['_exi_score'].mean():.1f}"
-        )
+        scales = self.exp_config.get('signal_scales', {})
+        weighted = pd.Series(0., index=self.df.index)
+        denominator = pd.Series(0., index=self.df.index)
+        components = pd.DataFrame(index=self.df.index)
+        for name, (columns, default_scale, weight_key, default_weight) in definitions.items():
+            normalized = []
+            weight = float(weights.get(weight_key, default_weight))
+            if not np.isfinite(weight) or weight < 0:
+                raise ExperienceEngineError('Experience weights must be finite and non-negative')
+            for column in columns:
+                actual = self._get_column(column)
+                if actual is None:
+                    continue
+                scale = scales.get(column, default_scale)
+                if scale is None:
+                    self.warnings.append(f'{actual} excluded: configure its signal_scales minimum and maximum.')
+                    continue
+                low, high = map(float, scale)
+                if not np.isfinite([low, high]).all() or low >= high:
+                    raise ExperienceEngineError(f'Invalid signal scale for {actual}')
+                values = pd.to_numeric(self.df[actual], errors='coerce')
+                valid = values.between(low, high) & np.isfinite(values)
+                normalized.append((values.where(valid) - low) / (high - low) * 100)
+            if normalized and weight > 0:
+                component = pd.concat(normalized, axis=1).mean(axis=1)
+                components[name] = component
+                weighted += component.fillna(0) * weight
+                denominator += component.notna() * weight
+        self.df['_exi_score'] = (weighted / denominator.replace(0, np.nan)).round(1)
+        self.df['_exi_components'] = [str(row.dropna().to_dict()) for _, row in components.iterrows()]
+        self.respondent_count = int(self.df['_exi_score'].notna().sum())
+        self.warnings.append('Composite scores are descriptive; signal coverage and configured scales must accompany comparisons.')
 
     def _derive_exi_from_patterns(self, idx: int) -> float:
         """
@@ -348,7 +259,7 @@ class ExperienceEngine:
         Returns:
             Dictionary with EXI metrics.
         """
-        if '_exi_score' not in self.df.columns:
+        if '_exi_score' not in self.df.columns or not self.df['_exi_score'].notna().any():
             return {
                 'available': False,
                 'reason': 'EXI not computed'
@@ -364,22 +275,20 @@ class ExperienceEngine:
             'exi_median': round(self.df['_exi_score'].median(), 1),
             'total_employees': len(self.df),
             'signals_available': self.available_survey_signals,
+            'respondent_count': self.respondent_count,
+            'response_coverage': self.respondent_count / len(self.df) if len(self.df) else 0.,
             'interpretation': self._interpret_exi(overall_exi),
         }
 
-        # Add benchmark context
-        if overall_exi >= 70:
-            result['benchmark'] = 'Above average'
-        elif overall_exi >= 50:
-            result['benchmark'] = 'Average'
-        else:
-            result['benchmark'] = 'Below average'
+        result['benchmark'] = None
 
         # Calculate by group if specified
         if group_by and group_by in self.df.columns:
             by_group = []
             for group_name in self.df[group_by].dropna().unique():
-                group_data = self.df[self.df[group_by] == group_name]
+                group_data = self.df[self.df[group_by] == group_name].dropna(subset=['_exi_score'])
+                if group_data.empty:
+                    continue
                 group_exi = group_data['_exi_score'].mean()
                 by_group.append({
                     'group': str(group_name),
@@ -429,7 +338,7 @@ class ExperienceEngine:
         # Determine segment
         segment = 'Unknown'
         for seg_name, (low, high) in self.SEGMENTS.items():
-            if low <= exi <= high:
+            if low <= exi < high + 1:
                 segment = seg_name
                 break
 
@@ -464,16 +373,16 @@ class ExperienceEngine:
         Returns:
             Dictionary with segment distribution.
         """
-        if '_exi_score' not in self.df.columns:
+        if '_exi_score' not in self.df.columns or not self.df['_exi_score'].notna().any():
             return {'available': False, 'reason': 'EXI not computed'}
 
         segments = []
-        total = len(self.df)
+        total = int(self.df['_exi_score'].notna().sum())
 
         for seg_name, (low, high) in self.SEGMENTS.items():
             seg_df = self.df[
                 (self.df['_exi_score'] >= low) &
-                (self.df['_exi_score'] <= high)
+                ((self.df['_exi_score'] < high + 1) if high < 100 else (self.df['_exi_score'] <= 100))
             ]
             count = len(seg_df)
             segments.append({
@@ -558,7 +467,7 @@ class ExperienceEngine:
         Returns:
             Dictionary with driver analysis.
         """
-        if '_exi_score' not in self.df.columns:
+        if '_exi_score' not in self.df.columns or not self.df['_exi_score'].notna().any():
             return {'available': False, 'reason': 'EXI not computed'}
 
         drivers = []
@@ -655,7 +564,7 @@ class ExperienceEngine:
         Returns:
             Dictionary with at-risk employees.
         """
-        if '_exi_score' not in self.df.columns:
+        if '_exi_score' not in self.df.columns or not self.df['_exi_score'].notna().any():
             return {'available': False, 'reason': 'EXI not computed'}
 
         threshold = threshold or self.exp_config.get('thresholds', {}).get('at_risk_exi', 40)
@@ -687,7 +596,7 @@ class ExperienceEngine:
     def _get_segment(self, exi: float) -> str:
         """Get segment name for EXI score."""
         for seg_name, (low, high) in self.SEGMENTS.items():
-            if low <= exi <= high:
+            if low <= exi < high + 1:
                 return seg_name
         return 'Unknown'
 
@@ -785,7 +694,7 @@ class ExperienceEngine:
         Returns:
             Dictionary with lifecycle analysis.
         """
-        if '_exi_score' not in self.df.columns:
+        if '_exi_score' not in self.df.columns or not self.df['_exi_score'].notna().any():
             return {'available': False, 'reason': 'EXI not computed'}
 
         if not self.has_tenure:
@@ -876,7 +785,9 @@ class ExperienceEngine:
         Returns:
             Dictionary with manager impact analysis.
         """
-        if '_exi_score' not in self.df.columns:
+        if self._get_column('managerid') is None:
+            return {'available': False, 'reason': 'ManagerID is required'}
+        if '_exi_score' not in self.df.columns or not self.df['_exi_score'].notna().any():
             return {'available': False, 'reason': 'EXI not computed'}
 
         if 'ManagerID' not in self.df.columns:
@@ -946,22 +857,10 @@ class ExperienceEngine:
             'total_signals': self.available_survey_signals,
         }
 
-        # Calculate coverage
-        employees_with_signal = 0
-        for _, row in self.df.iterrows():
-            has_any = False
-            if self.has_enps and pd.notna(row.get(self._get_column('enps_score'))):
-                has_any = True
-            if self.has_pulse and pd.notna(row.get(self._get_column('pulse_score'))):
-                has_any = True
-            if self.has_engagement and pd.notna(row.get(self._get_column('engagementscore'))):
-                has_any = True
-            if has_any:
-                employees_with_signal += 1
-
+        # Count usable measured responses, including every configured signal.
         signals['coverage_percentage'] = round(
-            employees_with_signal / len(self.df) * 100, 1
-        ) if len(self.df) > 0 else 0
+            self.respondent_count / len(self.df) * 100, 1
+        ) if len(self.df) else 0.
 
         # Generate recommendations for improving data
         recommendations = []

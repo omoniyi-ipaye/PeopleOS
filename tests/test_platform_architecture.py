@@ -58,6 +58,9 @@ def test_evaluation_policy_requires_discrimination_calibration_and_leakage_safet
     policy = ModelEvaluationPolicy(min_auc=0.60, max_brier=0.30)
 
     accepted = policy.evaluate({
+        "baseline_brier_score": 0.25, "average_precision": 0.7, "baseline_average_precision": 0.5,
+        "calibration_error": 0.05, "cv_preprocessing_fold_local": True,
+        "test_size": 100, "test_class_counts": {"0": 50, "1": 50},
         "roc_auc": 0.72,
         "brier_score": 0.20,
         "holdout_untouched_by_fit": True,

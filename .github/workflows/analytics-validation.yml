@@ -1,0 +1,45 @@
+name: Analytics Validation
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+    paths: ['src/**', 'api/**', 'tests/**', 'scripts/benchmark_analytics.py', 'requirements*.txt', 'config.yaml', '.github/workflows/analytics-validation.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  known_answers_and_benchmarks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: requirements-validation.txt
+      - name: Install validation dependencies
+        run: python -m pip install -r requirements-validation.txt
+      - name: Run arithmetic, model isolation, API integrity and regression checks
+        run: >-
+          pytest -q
+          tests/test_analytics_accuracy.py tests/test_model_validation.py
+          tests/test_analytics_engine.py tests/test_compensation_engine.py
+          tests/test_preprocessor.py tests/test_experience_engine.py
+          tests/test_scenario_engine.py tests/test_nlp_engine.py
+          tests/test_team_dynamics_engine.py tests/test_succession_engine.py
+          tests/test_output_integrity.py tests/test_platform_architecture.py
+          tests/test_local_distribution.py
+      - name: Verify public benchmarks and random-label controls
+        run: python scripts/benchmark_analytics.py --output benchmark-results.json
+      - name: Publish versioned benchmark evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: analytics-benchmark-evidence
+          path: benchmark-results.json
+          if-no-files-found: warn

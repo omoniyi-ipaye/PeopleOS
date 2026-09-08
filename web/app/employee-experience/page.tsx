@@ -12,7 +12,7 @@ interface Segment { segment: string; count: number; percentage: number; avg_exi:
 interface Driver { factor: string; correlation: number; impact: string; direction: string }
 interface Stage { stage: string; count: number; avg_exi: number; at_risk_count: number }
 interface ExperienceAnalysis {
-  experience_index: { available: boolean; reason?: string; overall_exi?: number; interpretation?: string }
+  experience_index: { available: boolean; reason?: string; overall_exi?: number; respondent_count?: number; response_coverage?: number; interpretation?: string }
   segments: { available: boolean; reason?: string; segments?: Segment[]; thriving_percentage?: number; at_risk_percentage?: number }
   drivers: { available: boolean; reason?: string; drivers?: Driver[] }
   lifecycle: { available: boolean; reason?: string; stages?: Stage[] }
@@ -60,7 +60,7 @@ export default function EmployeeExperiencePage() {
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Experience composite" value={score === undefined ? 'Not available' : Math.round(score)} detail={measured ? 'Configured weighted composite of measured signals' : 'No proxy-derived score is created'} icon={Activity} tone={toneForScore(score)} />
-        <MetricCard label="People represented" value={(data?.summary.total_employees ?? 0).toLocaleString()} detail="Current workforce sample" icon={Target} />
+        <MetricCard label="Measured respondents" value={(data?.experience_index.respondent_count ?? 0).toLocaleString()} detail={`${((data?.experience_index.response_coverage ?? 0) * 100).toFixed(1)}% of current employee records`} icon={Target} />
         <MetricCard label="Measured signals" value={(data?.signals.total_signals ?? 0).toLocaleString()} detail={`${data?.signals.has_enps ? 'eNPS · ' : ''}${data?.signals.has_pulse ? 'Pulse · ' : ''}${data?.signals.coverage_percentage == null ? 'coverage not reported' : `${data.signals.coverage_percentage.toFixed(0)}% employee coverage`}`} icon={Signal} />
         <MetricCard label="Low-score aggregate" value={measured ? (data?.summary.at_risk_count ?? 0).toLocaleString() : '—'} detail={measured ? 'Aggregate score-band count; no employee list exposed' : 'Unavailable without measured signals'} icon={Heart} tone={measured && (data?.summary.at_risk_count ?? 0) > 0 ? 'warning' : 'neutral'} />
       </section>

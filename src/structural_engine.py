@@ -8,6 +8,8 @@ Analyzes organizational structure including:
 """
 
 import pandas as pd
+import numpy as np
+from src.population import active_population
 from typing import Dict, Any, List, Optional
 from scipy import stats
 
@@ -22,7 +24,7 @@ class StructuralEngine:
     Provides:
     - Stagnation index calculation (YearsInCurrentRole / Tenure)
     - Span of control analysis (manager direct reports)
-    - Promotion velocity audits with controlled regression
+    - Unadjusted group comparisons of years since last promotion
     """
 
     def __init__(self, df: pd.DataFrame):
@@ -33,7 +35,7 @@ class StructuralEngine:
             df: DataFrame with employee data including Tenure, YearsInCurrentRole,
                 ManagerID, JobLevel, etc.
         """
-        self.df = df.copy()
+        self.df = active_population(df)
         self.config = load_config()
         self.structural_config = self.config.get('structural', {})
         self.logger = get_logger('structural_engine')
@@ -371,8 +373,8 @@ class StructuralEngine:
         """
         Audit promotion velocity for equity across protected groups.
 
-        Uses controlled regression to identify if certain groups wait
-        longer for promotion after controlling for tenure, rating, etc.
+        Compares observed years since last promotion. This does not estimate
+        time to promotion, adjust for confounding, or establish discrimination.
 
         Returns:
             Dictionary with equity audit results.
@@ -391,12 +393,8 @@ class StructuralEngine:
         # Prepare analysis data
         analysis_df = self.df[['EmployeeID', 'YearsSinceLastPromotion']].copy()
 
-        # Add control variables
+        # Retained for signature compatibility; no adjustment is performed.
         controls = ['Tenure', 'LastRating', 'JobLevel']
-        for ctrl in controls:
-            if ctrl in self.df.columns:
-                analysis_df[ctrl] = self.df[ctrl]
-
         # Add protected attributes
         available_attrs = []
         for attr in protected_attrs:
@@ -410,8 +408,9 @@ class StructuralEngine:
                 'reason': f'None of the protected attributes found: {protected_attrs}'
             }
 
-        # Drop rows with missing values
-        analysis_df = analysis_df.dropna()
+        analysis_df['YearsSinceLastPromotion'] = pd.to_numeric(analysis_df['YearsSinceLastPromotion'], errors='coerce')
+        analysis_df = analysis_df.replace([np.inf, -np.inf], np.nan).dropna()
+        analysis_df = analysis_df[analysis_df['YearsSinceLastPromotion'] >= 0]
 
         if len(analysis_df) < 30:
             return {
@@ -431,7 +430,7 @@ class StructuralEngine:
             if len(valid_groups) < 2:
                 continue
 
-            # Perform controlled comparison
+            # Perform unadjusted comparison
             attr_result = self._controlled_promotion_analysis(
                 analysis_df[analysis_df[attr].isin(valid_groups)],
                 attr,
@@ -454,8 +453,7 @@ class StructuralEngine:
                 )
         else:
             recommendations.append(
-                "No statistically significant promotion velocity gaps detected "
-                "across protected groups after controlling for performance factors."
+                "No significant unadjusted group difference detected; this does not establish equity."
             )
 
         return {
@@ -469,9 +467,9 @@ class StructuralEngine:
             },
             'recommendations': recommendations,
             'methodology': (
-                "Controlled analysis comparing YearsSinceLastPromotion across groups "
-                f"while accounting for {', '.join(controls)}. "
-                f"Statistical significance at p < {significance_level}."
+                "Unadjusted comparison of years since last promotion; no control variables "
+                "or multiple-testing correction. This is not time to next promotion. "
+                f"Exploratory significance threshold p < {significance_level}."
             )
         }
 
@@ -482,17 +480,8 @@ class StructuralEngine:
         controls: List[str],
         significance_level: float
     ) -> Optional[Dict[str, Any]]:
-        """
-        Perform controlled promotion velocity analysis for an attribute.
-
-        Uses residualization approach:
-        1. Regress YearsSinceLastPromotion on control variables
-        2. Compare residuals across attribute groups
-        """
+        """Unadjusted descriptive comparison; controls are not applied."""
         try:
-            # Simple approach: compare means with t-test for 2 groups
-            # or ANOVA for multiple groups, after residualizing controls
-
             groups = df[attribute].unique()
 
             # Calculate group statistics
@@ -527,7 +516,7 @@ class StructuralEngine:
                 g1, g2 = groups
                 stat, p_value = stats.ttest_ind(
                     df[df[attribute] == g1]['YearsSinceLastPromotion'],
-                    df[df[attribute] == g2]['YearsSinceLastPromotion']
+                    df[df[attribute] == g2]['YearsSinceLastPromotion'], equal_var=False
                 )
             else:
                 # ANOVA for multiple groups
@@ -536,7 +525,7 @@ class StructuralEngine:
                 stat, p_value = stats.f_oneway(*group_data)
 
             # Determine significance
-            is_significant = p_value < significance_level
+            is_significant = bool(np.isfinite(p_value) and p_value < significance_level)
 
             # Generate finding
             max_gap = max(gaps, key=lambda x: abs(x['gap_vs_reference'])) if gaps else None
@@ -545,19 +534,21 @@ class StructuralEngine:
             if max_gap and is_significant:
                 direction = "longer" if max_gap['gap_vs_reference'] > 0 else "shorter"
                 finding = (
-                    f"On average, {max_gap['group']} employees wait "
-                    f"{abs(max_gap['gap_vs_reference']):.1f} years {direction} for promotion "
+                    f"On average, {max_gap['group']} employees have "
+                    f"{abs(max_gap['gap_vs_reference']):.1f} years {direction} since last promotion "
                     f"compared to {reference_group} employees."
                 )
             elif not is_significant:
-                finding = f"No significant difference in promotion wait times across {attribute} groups."
+                finding = f"No significant unadjusted difference in years since last promotion across {attribute} groups."
 
             return {
                 'attribute': attribute,
                 'reference_group': reference_group,
                 'group_statistics': group_stats.to_dict('records'),
                 'gaps': gaps,
-                'p_value': round(p_value, 4),
+                'p_value': round(float(p_value), 4) if np.isfinite(p_value) else None,
+                'controls_applied': False,
+                'multiple_testing_adjusted': False,
                 'significant_gap': is_significant,
                 'finding': finding
             }

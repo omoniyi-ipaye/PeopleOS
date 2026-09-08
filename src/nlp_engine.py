@@ -117,6 +117,7 @@ class NLPEngine:
             return pd.DataFrame(columns=['EmployeeID', 'sentiment_score', 'sentiment_label'])
         
         # Use LLM for sentiment analysis
+        df = df[df['PerformanceText'].fillna('').astype(str).str.strip().ne('')].drop_duplicates('EmployeeID')
         texts = df['PerformanceText'].fillna('').tolist()
         employee_ids = df['EmployeeID'].tolist()
 
@@ -129,15 +130,10 @@ class NLPEngine:
                 results.extend(batch_results)
             except Exception as e:
                 logger.error(f"Failed to analyze sentiment for batch: {e}")
-                # Fallback to neutral for failed batch
-                for eid in batch_ids:
-                    results.append({
-                        'EmployeeID': eid,
-                        'sentiment_score': 0.5,
-                        'sentiment_label': 'Neutral'
-                    })
+                # Failed inference is missing evidence, never neutral sentiment.
+                continue
 
-        return pd.DataFrame(results)
+        return pd.DataFrame(results, columns=['EmployeeID', 'sentiment_score', 'sentiment_label'])
 
 
     def _analyze_sentiment_batch(self, texts: list, employee_ids: list) -> list:
@@ -158,7 +154,20 @@ class NLPEngine:
             parsed = self._parse_json_response(raw_response)
 
             if parsed and isinstance(parsed, list):
-                return parsed
+                allowed = {str(value) for value in employee_ids}
+                seen, valid = set(), []
+                for item in parsed:
+                    if not isinstance(item, dict):
+                        raise NLPEngineError('Sentiment rows must be objects')
+                    eid = str(item.get('EmployeeID'))
+                    score = item.get('sentiment_score')
+                    if eid not in allowed or eid in seen or not isinstance(score, (float, int)) or not 0 <= score <= 1:
+                        raise NLPEngineError('Sentiment response has invalid identity or score')
+                    if item.get('sentiment_label') not in {'Positive', 'Neutral', 'Negative'}:
+                        raise NLPEngineError('Sentiment label is invalid')
+                    seen.add(eid)
+                    valid.append(item)
+                return valid
             else:
                 raise NLPEngineError("Failed to parse LLM sentiment response")
 
@@ -207,6 +216,7 @@ Rules:
             return {'technical_skills': [], 'soft_skills': [], 'skill_counts': {}}
 
         # Sample texts for skill extraction
+        df = df[df['PerformanceText'].fillna('').astype(str).str.strip().ne('')].drop_duplicates('EmployeeID')
         texts = df['PerformanceText'].fillna('').tolist()
         sample_size = min(50, len(texts))
         sample_texts = texts[:sample_size]
@@ -294,6 +304,7 @@ Rules:
             logger.warning("Topic extraction skipped: LLM unavailable")
             return []
 
+        df = df[df['PerformanceText'].fillna('').astype(str).str.strip().ne('')].drop_duplicates('EmployeeID')
         texts = df['PerformanceText'].fillna('').tolist()
         sample_size = min(50, len(texts))
         sample_texts = texts[:sample_size]
@@ -314,7 +325,20 @@ Rules:
             parsed = self._parse_json_response(raw_response)
 
             if parsed and isinstance(parsed, list):
-                return parsed[:self.topics_count]
+                allowed = {str(value) for value in employee_ids}
+                seen, valid = set(), []
+                for item in parsed:
+                    if not isinstance(item, dict):
+                        raise NLPEngineError('Sentiment rows must be objects')
+                    eid = str(item.get('EmployeeID'))
+                    score = item.get('sentiment_score')
+                    if eid not in allowed or eid in seen or not isinstance(score, (float, int)) or not 0 <= score <= 1:
+                        raise NLPEngineError('Sentiment response has invalid identity or score')
+                    if item.get('sentiment_label') not in {'Positive', 'Neutral', 'Negative'}:
+                        raise NLPEngineError('Sentiment label is invalid')
+                    seen.add(eid)
+                    valid.append(item)
+                return valid[:self.topics_count]
             elif parsed and isinstance(parsed, dict) and 'topics' in parsed:
                 return parsed['topics'][:self.topics_count]
             else:
@@ -412,7 +436,7 @@ Rules:
         """
         if sentiment_df.empty:
             return {
-                'avg_sentiment': 0.5,
+                'avg_sentiment': None,
                 'positive_count': 0,
                 'neutral_count': 0,
                 'negative_count': 0,

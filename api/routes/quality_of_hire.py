@@ -8,6 +8,7 @@ causal proof or as a basis for automatic hiring decisions.
 from typing import List
 
 import pandas as pd
+from src.serialization import json_safe
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from api.dependencies import AppState, get_app_state
@@ -96,7 +97,7 @@ def _safe_correlation_response(raw: dict) -> CorrelationAnalysisResponse:
 
 def _safe_source(row: dict) -> SourceEffectiveness:
     """Remove unsupported automatic investment recommendations from source metrics."""
-    payload = dict(row)
+    payload = json_safe(dict(row))
     payload["recommendation"] = "Compare with role mix, tenure exposure, cost and future cohorts before changing source allocation."
     return SourceEffectiveness(**payload)
 

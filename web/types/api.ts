@@ -171,6 +171,12 @@ export interface ModelMetrics {
     recall: number
     roc_auc?: number | null
     brier_score?: number | null
+    baseline_brier_score?: number | null
+    average_precision?: number | null
+    baseline_average_precision?: number | null
+    evaluation_semantics?: string | null
+    future_departure_validated?: boolean
+    validation_checks?: Record<string, boolean>
     calibration_error?: number | null
     best_model: string
     reliability: string

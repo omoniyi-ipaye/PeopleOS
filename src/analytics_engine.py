@@ -25,6 +25,13 @@ from src.utils import load_config
 logger = get_logger('analytics_engine')
 
 
+def _valid_numeric(series: pd.Series, name: str) -> pd.Series:
+    values = pd.to_numeric(series, errors='coerce').replace([np.inf, -np.inf], np.nan).dropna()
+    if name == 'Salary':
+        values = values[values > 0]
+    return values
+
+
 class AnalyticsEngine:
     def __init__(self, df: pd.DataFrame):
         self.df, self.population_resolution = resolve_current_population(df)
@@ -72,12 +79,12 @@ class AnalyticsEngine:
                 'Turnover_Rate': attrition_share,
             }
             if 'Salary' in active.columns:
-                valid = pd.to_numeric(active['Salary'], errors='coerce').dropna()
+                valid = _valid_numeric(active['Salary'], 'Salary')
                 row['Avg_Salary'] = float(valid.mean()) if not valid.empty else None
                 row['Median_Salary'] = float(valid.median()) if not valid.empty else None
             for source, output in [('Tenure', 'Avg_Tenure'), ('LastRating', 'Avg_Rating'), ('Age', 'Avg_Age')]:
                 if source in active.columns:
-                    values = pd.to_numeric(active[source], errors='coerce').dropna()
+                    values = _valid_numeric(active[source], source)
                     row[output] = float(values.mean()) if not values.empty else None
             rows.append(row)
         return pd.DataFrame(rows)
@@ -110,7 +117,7 @@ class AnalyticsEngine:
         }
         for col in ('Salary', 'Tenure', 'LastRating', 'Age'):
             if col in self.active_df.columns:
-                values = pd.to_numeric(self.active_df[col], errors='coerce').dropna()
+                values = _valid_numeric(self.active_df[col], col)
                 result[f'{col.lower()}_mean'] = float(values.mean()) if not values.empty else None
                 result[f'{col.lower()}_median'] = float(values.median()) if not values.empty else None
                 result[f'{col.lower()}_std'] = float(values.std()) if len(values) > 1 else None
@@ -127,7 +134,7 @@ class AnalyticsEngine:
         result = {}
         for col, key in [('RatingVelocity', 'avg_velocity'), ('PromotionLag', 'avg_promo_lag'), ('SalaryGrowth', 'avg_salary_growth')]:
             if col in frame.columns:
-                values = pd.to_numeric(frame[col], errors='coerce').dropna()
+                values = _valid_numeric(frame[col], col)
                 if not values.empty:
                     result[key] = float(values.mean())
         return result
@@ -160,7 +167,7 @@ class AnalyticsEngine:
     def get_salary_bands(self) -> pd.DataFrame:
         if 'Salary' not in self.active_df.columns:
             return pd.DataFrame()
-        salary = pd.to_numeric(self.active_df['Salary'], errors='coerce').dropna()
+        salary = _valid_numeric(self.active_df['Salary'], 'Salary')
         if salary.empty:
             return pd.DataFrame()
         quantiles = salary.quantile([0, .25, .5, .75, 1]).values
@@ -184,7 +191,9 @@ class AnalyticsEngine:
         if group_col not in self.active_df.columns or metric_col not in self.active_df.columns:
             return {'success': False, 'reason': 'Columns not found'}
         frame = self.active_df.dropna(subset=[group_col, metric_col]).copy()
-        frame[metric_col] = pd.to_numeric(frame[metric_col], errors='coerce')
+        frame[metric_col] = pd.to_numeric(frame[metric_col], errors='coerce').replace([np.inf, -np.inf], np.nan)
+        if metric_col == 'Salary':
+            frame = frame[frame[metric_col] > 0]
         grouped = frame.dropna(subset=[metric_col]).groupby(group_col)[metric_col]
         eligible = [(name, group.values) for name, group in grouped if len(group) > 5]
         if len(eligible) < 2:
@@ -198,6 +207,8 @@ class AnalyticsEngine:
             else:
                 stat, p_value = stats.f_oneway(*values)
                 test_name = 'One-way ANOVA'
+            if not np.isfinite(stat) or not np.isfinite(p_value):
+                return {'success': False, 'reason': 'Group variation is insufficient for a finite statistical test.'}
             return {
                 'success': True, 'test_name': test_name, 'statistic': float(stat), 'p_value': float(p_value),
                 'is_significant': bool(p_value < .05), 'groups_compared': names,
@@ -210,7 +221,9 @@ class AnalyticsEngine:
     def get_confidence_interval(self, col: str, confidence: float = 0.95) -> Optional[tuple]:
         if col not in self.active_df.columns:
             return None
-        data = pd.to_numeric(self.active_df[col], errors='coerce').dropna()
+        if not 0 < confidence < 1:
+            raise ValueError('confidence must be between zero and one')
+        data = _valid_numeric(self.active_df[col], col)
         if len(data) < 2:
             return None
         mean = data.mean()

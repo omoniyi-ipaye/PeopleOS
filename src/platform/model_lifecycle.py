@@ -22,7 +22,19 @@ class ModelEvaluationPolicy:
         valid_brier = isinstance(brier, (int, float)) and 0 <= float(brier) <= 1
         auc_pass = bool(valid_auc and float(auc) >= self.min_auc)
         brier_pass = bool(valid_brier and float(brier) <= self.max_brier)
-        passed = bool(auc_pass and brier_pass and leakage_safe)
+        baseline = metrics.get('baseline_brier_score')
+        baseline_pass = bool(valid_brier and isinstance(baseline, (int, float)) and 0 < baseline <= 1 and brier < baseline)
+        ap, baseline_ap = metrics.get('average_precision'), metrics.get('baseline_average_precision')
+        ap_pass = bool(isinstance(ap, (int, float)) and isinstance(baseline_ap, (int, float)) and 0 <= baseline_ap < ap <= 1)
+        ece = metrics.get('calibration_error')
+        calibration_pass = bool(isinstance(ece, (int, float)) and 0 <= ece <= .15)
+        counts = metrics.get('test_class_counts')
+        counts = counts if isinstance(counts, dict) else {}
+        sample_pass = all(isinstance(counts.get(str(c)), int) and counts[str(c)] >= 10 for c in (0, 1))
+        test_size = metrics.get('test_size')
+        sample_pass = sample_pass and isinstance(test_size, int) and test_size >= 50
+        fold_local = metrics.get('cv_preprocessing_fold_local') is True
+        passed = bool(auc_pass and brier_pass and leakage_safe and baseline_pass and ap_pass and calibration_pass and sample_pass and fold_local)
         return {
             'passed': passed,
             'checks': {
@@ -31,8 +43,14 @@ class ModelEvaluationPolicy:
                 'brier_present_and_valid': valid_brier,
                 'brier_at_most_maximum': brier_pass,
                 'preprocessing_fit_on_training_only': leakage_safe,
+                'cv_preprocessing_fold_local': fold_local,
+                'brier_beats_training_prevalence_baseline': baseline_pass,
+                'average_precision_beats_prevalence': ap_pass,
+                'weighted_calibration_error_at_most_015': calibration_pass,
+                'holdout_at_least_50_and_10_per_class': sample_pass,
             },
-            'thresholds': {'min_auc': self.min_auc, 'max_brier': self.max_brier},
+            'thresholds': {'min_auc': self.min_auc, 'max_brier': self.max_brier, 'max_weighted_ece': .15, 'min_test_size': 50, 'min_test_per_class': 10},
+            'scope': 'minimum_retrospective_gate_not_enterprise_or_future_prediction_certification',
             'observed': {
                 'auc': float(auc) if valid_auc else None,
                 'brier_score': float(brier) if valid_brier else None,

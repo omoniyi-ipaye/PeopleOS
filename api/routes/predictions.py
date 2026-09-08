@@ -29,6 +29,11 @@ def _model_metrics(state: AppState) -> ModelMetrics:
         roc_auc=metrics.get('roc_auc'), brier_score=metrics.get('brier_score'), calibration_error=metrics.get('calibration_error'),
         best_model=metrics['best_model'], train_size=metrics['train_size'], test_size=metrics['test_size'],
         reliability=metrics.get('reliability', 'Unknown'), warnings=metrics.get('warnings'),
+        baseline_brier_score=metrics.get('baseline_brier_score'), brier_skill_score=metrics.get('brier_skill_score'),
+        average_precision=metrics.get('average_precision'), baseline_average_precision=metrics.get('baseline_average_precision'),
+        validation_checks=metrics.get('validation_checks'),
+        evaluation_semantics=metrics.get('evaluation_semantics', 'unvalidated'),
+        future_departure_validated=metrics.get('future_departure_validated', False),
     )
 
 

@@ -22,6 +22,8 @@ class SourceEffectiveness(BaseModel):
     hire_count: int
     pct_of_total: float
     avg_performance: Optional[float] = None
+    performance_observations: Optional[int] = None
+    promotion_observations: Optional[int] = None
     high_performers: Optional[int] = None
     high_performer_rate: Optional[float] = None
     attrition_count: Optional[int] = None
@@ -32,7 +34,7 @@ class SourceEffectiveness(BaseModel):
     promotion_rate: Optional[float] = None
     avg_tenure: Optional[float] = None
     avg_interview_score: Optional[float] = None
-    quality_score: float
+    quality_score: Optional[float] = None
     grade: str  # A, B, C, D
     recommendation: str
 

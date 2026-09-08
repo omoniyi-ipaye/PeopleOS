@@ -1,0 +1,10 @@
+# Reproducible validation overlay; does not change desktop installation choices.
+-r requirements-desktop.txt
+-r requirements-predictive.txt
+lifelines==0.30.3
+scipy==1.15.3
+statsmodels==0.15.0
+lightgbm==4.6.0
+pytest==8.3.5
+httpx==0.26.0
+networkx==3.4.2

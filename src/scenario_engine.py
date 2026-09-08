@@ -21,6 +21,7 @@ from dataclasses import dataclass, asdict
 from datetime import datetime
 import uuid
 
+from src.population import active_population, resolve_current_population
 from src.utils import load_config, safe_divide
 from src.logger import get_logger
 
@@ -139,7 +140,8 @@ class ScenarioEngine:
             survival_engine: Optional survival engine for time-based analysis
             compensation_engine: Optional compensation engine for pay analysis
         """
-        self.df = employee_df.copy()
+        self.current_df, self.population_resolution = resolve_current_population(employee_df)
+        self.df = active_population(self.current_df)
         self.ml_engine = ml_engine
         self.survival_engine = survival_engine
         self.compensation_engine = compensation_engine
@@ -208,30 +210,8 @@ class ScenarioEngine:
         self.ml_risk_scores = None
         self.survival_hazard_ratios = None
 
-        # 1. Calculate pay-turnover elasticity from actual data
-        if 'Attrition' in self.df.columns and 'Salary' in self.df.columns:
-            self._calculate_elasticity_from_data()
-            self.data_sources.append('Historical attrition data')
-
-        # 2. Get ML model risk predictions if available
-        if self.has_ml:
-            self._get_ml_predictions()
-            self.data_sources.append('ML model predictions')
-
-        # 3. Get survival hazard ratios if available
-        if self.has_survival:
-            self._get_survival_hazards()
-            self.data_sources.append('Survival analysis hazard ratios')
-
-        # 4. Get compensation analysis if available
-        if self.has_compensation:
-            self.data_sources.append('Compensation analysis')
-
-        if not self.data_sources:
-            self.data_sources.append('Industry estimates (no historical data)')
-            self.warnings.append(
-                "Using industry estimates. Upload data with Attrition column for data-driven predictions."
-            )
+        self.data_sources = ['Observed active workforce salary and headcount', 'Configured scenario assumptions']
+        self.warnings.append('Scenario response parameters are assumptions, not causal effects estimated from employee outcomes.')
 
     def _calculate_elasticity_from_data(self) -> None:
         """
@@ -359,17 +339,20 @@ class ScenarioEngine:
         If ML model available, uses predicted probabilities.
         Otherwise uses actual historical attrition rate.
         """
-        df = filtered_df if filtered_df is not None else self.df
+        # Observed exit share and classifier scores are not period turnover.
+        value = float(self.scenario_config.get('assumed_baseline_turnover', .15))
+        if not np.isfinite(value) or not 0 <= value <= 1:
+            raise ScenarioEngineError('Configured baseline scenario rate must be between 0 and 1')
+        return value
 
-        # If we have ML predictions, use those
-        if '_ml_risk_score' in df.columns:
-            return float(df['_ml_risk_score'].mean())
-
-        # Otherwise use actual attrition data
-        if 'Attrition' in df.columns:
-            return float(df['Attrition'].mean())
-
-        return 0.15  # Default assumption only if no data
+    @staticmethod
+    def _mean_salary(frame: pd.DataFrame) -> float:
+        if 'Salary' not in frame:
+            raise ScenarioEngineError('Financial scenarios require annual Salary measurements')
+        values = pd.to_numeric(frame['Salary'], errors='coerce')
+        if values.empty or not (np.isfinite(values) & (values > 0)).all():
+            raise ScenarioEngineError('Resolve missing, nonfinite or nonpositive annual salaries before financial simulation')
+        return float(values.mean())
 
     def _filter_employees(self, target: Dict[str, Any]) -> pd.DataFrame:
         """
@@ -425,77 +408,11 @@ class ScenarioEngine:
         Returns:
             Tuple of (reduction, uncertainty_std, method_used)
         """
-        method_used = "industry_estimate"
-        uncertainty = 0.3  # Default uncertainty
-
-        # Method 1: Use data-driven elasticity (BEST)
-        if self.data_driven_elasticity is not None:
-            elasticity = self.data_driven_elasticity
-            method_used = "data_driven_elasticity"
-            # Lower uncertainty because it's from actual data
-            uncertainty = 0.15
-
-            self.logger.info(
-                f"Using data-driven elasticity: {elasticity:.4f} "
-                f"(calculated from historical turnover patterns)"
-            )
-
-        # Method 2: Use ML model to simulate individual effects
-        elif self.has_ml and affected_df is not None and '_ml_risk_score' in affected_df.columns:
-            # Simulate how salary increase would change individual risk scores
-            # This uses the model's learned relationship
-            elasticity = self._estimate_elasticity_from_ml(affected_df, compensation_increase_pct)
-            method_used = "ml_model_simulation"
-            uncertainty = 0.2
-
-        # Method 3: Use survival hazard ratio for salary
-        elif hasattr(self, 'salary_hazard_ratio'):
-            # Convert hazard ratio to elasticity
-            # HR < 1 means higher salary = lower hazard (lower turnover)
-            hr = self.salary_hazard_ratio
-            if hr < 1 and hr > 0:
-                # Rough conversion: elasticity ≈ (1 - HR) / 10
-                elasticity = (1 - hr) / 10
-            else:
-                elasticity = 0.02
-            method_used = "survival_hazard_ratio"
-            uncertainty = 0.25
-
-        # Method 4: Use correlation as rough estimate
-        elif self.salary_attrition_correlation is not None:
-            # Negative correlation means higher salary = lower attrition
-            corr = self.salary_attrition_correlation
-            # Convert to rough elasticity
-            elasticity = abs(corr) * 0.05 if corr < 0 else 0.01
-            method_used = "salary_attrition_correlation"
-            uncertainty = 0.25
-
-        # Method 5: Fall back to industry estimate (WORST)
-        else:
-            elasticity = 0.02  # Conservative industry estimate
-            method_used = "industry_estimate"
-            uncertainty = 0.4  # High uncertainty
-
-            self.warnings.append(
-                "Using industry estimate (2% reduction per 1% raise). "
-                "Add Attrition column to your data for data-driven predictions."
-            )
-
-        # Calculate reduction
-        reduction = compensation_increase_pct * elasticity * current_turnover
-
-        # Cap at 50% maximum reduction (can't eliminate all turnover)
-        reduction = min(reduction, current_turnover * 0.5)
-
-        # Calculate uncertainty in terms of standard deviation
-        uncertainty_std = reduction * uncertainty
-
-        self.logger.info(
-            f"Turnover reduction estimate: {reduction:.4f} (±{uncertainty_std:.4f}) "
-            f"using method: {method_used}"
-        )
-
-        return reduction, uncertainty_std, method_used
+        elasticity = float(self.scenario_config.get('assumed_compensation_elasticity', 0.0))
+        if not np.isfinite(elasticity) or elasticity < 0:
+            raise ScenarioEngineError('Assumed compensation elasticity must be finite and non-negative')
+        reduction = min(compensation_increase_pct * elasticity * current_turnover, current_turnover * .5)
+        return reduction, abs(reduction) * .4, 'configured_assumption_not_causal_estimate'
 
     def _estimate_elasticity_from_ml(
         self,
@@ -547,7 +464,9 @@ class ScenarioEngine:
         outcome_std: float,
         cost_per_outcome: float,
         n_affected: int,
-        intervention_cost: float
+        intervention_cost: float,
+        baseline_outcome: Optional[float] = None,
+        fixed_benefit: Optional[float] = None
     ) -> MonteCarloResult:
         """
         Run Monte Carlo simulation.
@@ -562,10 +481,10 @@ class ScenarioEngine:
         Returns:
             MonteCarloResult with distribution data
         """
-        np.random.seed(self.random_seed)
+        rng = np.random.default_rng(self.random_seed)
 
         # Simulate outcomes
-        outcomes = np.random.normal(base_outcome, outcome_std, self.n_simulations)
+        outcomes = rng.normal(base_outcome, outcome_std, self.n_simulations)
         outcomes = np.clip(outcomes, 0, 1)  # Bound between 0-100%
 
         # Simulate costs
@@ -574,12 +493,11 @@ class ScenarioEngine:
 
         for outcome in outcomes:
             # Estimate employees retained (vs baseline)
-            baseline = self._get_baseline_turnover()
+            baseline = self._get_baseline_turnover() if baseline_outcome is None else baseline_outcome
             retained = (baseline - outcome) * n_affected
 
             # Calculate benefit (replacement costs avoided)
-            avg_salary = self.df['Salary'].mean() if 'Salary' in self.df.columns else 75000
-            benefit = retained * avg_salary * self.replacement_cost_mult
+            benefit = retained * cost_per_outcome if fixed_benefit is None else fixed_benefit
 
             # Net impact
             net = benefit - intervention_cost
@@ -635,17 +553,11 @@ class ScenarioEngine:
         )
 
     def _get_confidence_level(self, n_affected: int) -> Tuple[str, float]:
-        """Determine confidence level based on sample size."""
-        conf_config = self.scenario_config.get('confidence', {})
-        high_threshold = conf_config.get('min_sample_for_high', 100)
-        medium_threshold = conf_config.get('min_sample_for_medium', 30)
+        """Assumed intervention effects remain exploratory at every sample size.
 
-        if n_affected >= high_threshold:
-            return 'High', 0.9
-        elif n_affected >= medium_threshold:
-            return 'Medium', 0.7
-        else:
-            return 'Low', 0.5
+        The legacy score is a display cap, not a probability of correctness.
+        """
+        return 'Exploratory', 0.5
 
     # =========================================================================
     # COMPENSATION SCENARIOS
@@ -672,6 +584,8 @@ class ScenarioEngine:
         Returns:
             ScenarioResult with predictions based on your data
         """
+        if not 1 <= time_horizon_months <= 60 or not np.isfinite(adjustment_value) or adjustment_value < 0:
+            raise ScenarioEngineError('Require a 1–60 month horizon and finite nonnegative raise')
         scenario_id = str(uuid.uuid4())[:8]
         affected_df = self._filter_employees(target)
         n_affected = len(affected_df)
@@ -685,7 +599,7 @@ class ScenarioEngine:
         if adjustment_type == 'percentage':
             pct_increase = adjustment_value / 100
         elif adjustment_type == 'absolute':
-            avg_salary = affected_df['Salary'].mean() if 'Salary' in affected_df.columns else 75000
+            avg_salary = self._mean_salary(affected_df)
             pct_increase = adjustment_value / avg_salary
         else:  # market_adjustment
             pct_increase = adjustment_value / 100
@@ -702,7 +616,7 @@ class ScenarioEngine:
         projected_turnover = baseline_turnover - turnover_reduction
 
         # Calculate costs
-        avg_salary = affected_df['Salary'].mean() if 'Salary' in affected_df.columns else 75000
+        avg_salary = self._mean_salary(affected_df)
         total_salary_increase = avg_salary * pct_increase * n_affected
 
         # Expected employees retained
@@ -710,11 +624,11 @@ class ScenarioEngine:
         replacement_savings = expected_retained * avg_salary * self.replacement_cost_mult
 
         cost_impact = CostImpact(
-            salary_change=total_salary_increase * 12,  # Annualized
+            salary_change=total_salary_increase * time_horizon_months / 12,
             replacement_costs_avoided=replacement_savings,
-            total_cost=total_salary_increase * 12,
+            total_cost=total_salary_increase * time_horizon_months / 12,
             total_benefit=replacement_savings,
-            net_impact=replacement_savings - total_salary_increase * 12
+            net_impact=replacement_savings - total_salary_increase * time_horizon_months / 12
         )
 
         # Monte Carlo simulation - use data-driven uncertainty
@@ -723,13 +637,14 @@ class ScenarioEngine:
             outcome_std=max(reduction_uncertainty, baseline_turnover * 0.1),
             cost_per_outcome=avg_salary * self.replacement_cost_mult,
             n_affected=n_affected,
-            intervention_cost=total_salary_increase * 12
+            intervention_cost=total_salary_increase * time_horizon_months / 12,
+            baseline_outcome=baseline_turnover
         )
 
         # ROI and payback
         roi = safe_divide(cost_impact.net_impact, cost_impact.total_cost, 0) * 100
-        monthly_benefit = replacement_savings / 12
-        payback = int(safe_divide(total_salary_increase, monthly_benefit, 999))
+        monthly_benefit = replacement_savings / time_horizon_months
+        payback = int(safe_divide(cost_impact.total_cost, monthly_benefit, 999))
 
         # Confidence - adjust based on data quality
         conf_level, conf_score = self._get_confidence_level(n_affected)
@@ -754,7 +669,7 @@ class ScenarioEngine:
 
         # Build assumptions list based on method used
         assumptions = [
-            f"Baseline turnover rate: {baseline_turnover*100:.1f}% (from your data)",
+            f"Assumed baseline rate for this scenario horizon: {baseline_turnover*100:.1f}% (configured, not observed turnover)",
             f"Replacement cost: {self.replacement_cost_mult}x annual salary",
             f"Time horizon: {time_horizon_months} months"
         ]
@@ -770,8 +685,8 @@ class ScenarioEngine:
             assumptions.append("Turnover impact estimated from survival analysis hazard ratios")
         else:
             assumptions.append(
-                "Using industry estimate for pay-turnover relationship "
-                "(add Attrition column for data-driven predictions)"
+                "Using configured hypothetical pay-response assumption; no causal effect has been validated. "
+                "No observed causal pay-response evidence is available."
             )
 
         return ScenarioResult(
@@ -856,7 +771,7 @@ class ScenarioEngine:
         affected_depts = affected_df['Dept'].unique().tolist() if 'Dept' in affected_df.columns else []
 
         # Get average salary
-        avg_salary = affected_df['Salary'].mean() if 'Salary' in affected_df.columns else 75000
+        avg_salary = self._mean_salary(affected_df)
 
         if change_type == 'reduction':
             # Sort by selection criteria to identify who would be affected
@@ -906,7 +821,8 @@ class ScenarioEngine:
             outcome_std=0.05,
             cost_per_outcome=avg_salary,
             n_affected=n_change,
-            intervention_cost=abs(cost_impact.total_cost)
+            intervention_cost=abs(cost_impact.total_cost),
+            fixed_benefit=cost_impact.total_benefit
         )
 
         conf_level, conf_score = self._get_confidence_level(n_change)
@@ -941,6 +857,7 @@ class ScenarioEngine:
             assumptions=[
                 f"Average salary: ${avg_salary:,.0f}",
                 f"Selection criteria: {selection_criteria}",
+                "Financial results are fixed assumption arithmetic; financial uncertainty has not been estimated.",
                 "Severance: 3 months salary" if change_type == 'reduction' else "Ramp time: 6 months"
             ],
             risks=[
@@ -1123,7 +1040,7 @@ class ScenarioEngine:
             raise ScenarioEngineError("No employees match the target criteria")
 
         affected_depts = target_df['Dept'].unique().tolist() if 'Dept' in target_df.columns else []
-        avg_salary = target_df['Salary'].mean() if 'Salary' in target_df.columns else 75000
+        avg_salary = self._mean_salary(target_df)
 
         # DATA-DRIVEN: Get baseline risk from actual predictions
         if '_ml_risk_score' in target_df.columns:

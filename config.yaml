@@ -209,6 +209,10 @@ templates:
 
 experience:
   enabled: true
+  # Fixed per-column scales; override to match the source survey instrument.
+  # Never infer a response's scale from its value.
+  signal_scales:
+    engagementscore: [1, 5]
   # Weights for EXI calculation (must sum to 1.0 when all signals present)
   index_weights:
     enps: 0.25

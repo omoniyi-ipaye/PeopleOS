@@ -17,6 +17,8 @@ Strategic Value:
 """
 
 import pandas as pd
+import numpy as np
+from src.population import resolve_current_population
 from typing import Dict, List, Any
 from datetime import datetime, timedelta
 from scipy import stats
@@ -74,7 +76,7 @@ class QualityOfHireEngine:
                 - PromotionCount: Number of promotions
                 - Tenure: Years at company
         """
-        self.df = df.copy()
+        self.df, self.population_resolution = resolve_current_population(df)
         self.config = load_config()
         self.qoh_config = self.config.get('quality_of_hire', {})
 
@@ -96,6 +98,13 @@ class QualityOfHireEngine:
 
         # Check available columns
         self._identify_available_columns()
+        for col in ['LastRating', 'Tenure', 'PromotionCount', *self.prehire_columns]:
+            if col in self.df:
+                self.df[col] = pd.to_numeric(self.df[col], errors='coerce').replace([np.inf, -np.inf], np.nan)
+        if self.has_performance:
+            self.df['LastRating'] = self.df['LastRating'].where(self.df['LastRating'].between(1, 5))
+        if self.has_promotion:
+            self.df['PromotionCount'] = self.df['PromotionCount'].where(self.df['PromotionCount'] >= 0)
 
         self.warnings: List[str] = []
         self._validate_data()
@@ -218,24 +227,26 @@ class QualityOfHireEngine:
                 result['avg_performance'] = round(source_df['LastRating'].mean(), 2)
                 result['high_performers'] = int((source_df['LastRating'] >= 4.0).sum())
                 result['high_performer_rate'] = round(
-                    result['high_performers'] / n * 100, 1
-                )
+                    result['high_performers'] / source_df['LastRating'].count() * 100, 1
+                ) if source_df['LastRating'].count() else None
+                result['performance_observations'] = int(source_df['LastRating'].count())
 
             # Retention metrics
             if self.has_attrition:
                 result['attrition_count'] = int(source_df['Attrition'].sum())
                 result['retention_rate'] = round(
                     1 - source_df['Attrition'].mean(), 3
-                )
-                result['retention_rate_pct'] = round(result['retention_rate'] * 100, 1)
+                ) if source_df['Attrition'].count() else None
+                result['retention_rate_pct'] = round(result['retention_rate'] * 100, 1) if result['retention_rate'] is not None else None
 
             # Promotion metrics
             if self.has_promotion:
                 result['avg_promotions'] = round(source_df['PromotionCount'].mean(), 2)
                 result['promoted_count'] = int((source_df['PromotionCount'] > 0).sum())
                 result['promotion_rate'] = round(
-                    result['promoted_count'] / n * 100, 1
-                )
+                    result['promoted_count'] / source_df['PromotionCount'].count() * 100, 1
+                ) if source_df['PromotionCount'].count() else None
+                result['promotion_observations'] = int(source_df['PromotionCount'].count())
 
             # Tenure metrics
             if self.has_tenure:
@@ -251,8 +262,12 @@ class QualityOfHireEngine:
             quality_score = self._calculate_quality_score(source_df)
             result['quality_score'] = round(quality_score, 1)
 
-            # Determine grade
-            if quality_score >= 80:
+            # Missing outcome measurements do not earn a failing grade.
+            if not np.isfinite(quality_score):
+                result['quality_score'] = None
+                result['grade'] = 'Unavailable'
+                result['recommendation'] = 'Collect valid outcome measurements'
+            elif quality_score >= 80:
                 result['grade'] = 'A'
                 result['recommendation'] = 'Increase investment'
             elif quality_score >= 65:
@@ -283,38 +298,25 @@ class QualityOfHireEngine:
         - Promotion: 20%
         - Ramp time: 10%
         """
-        score = 0
-        weights = self.quality_weights
-        total_weight = 0
-
-        # Performance component (0-100)
-        if self.has_performance:
-            # Convert 1-5 rating to 0-100 scale
-            avg_rating = df['LastRating'].mean()
-            performance_score = ((avg_rating - 1) / 4) * 100  # 1=0, 5=100
-            score += performance_score * weights.get('performance', 0.4)
-            total_weight += weights.get('performance', 0.4)
-
-        # Retention component (0-100)
-        if self.has_attrition:
-            retention_rate = 1 - df['Attrition'].mean()
-            retention_score = retention_rate * 100
-            score += retention_score * weights.get('retention', 0.3)
-            total_weight += weights.get('retention', 0.3)
-
-        # Promotion component (0-100)
-        if self.has_promotion:
-            # Assume 0-3 promotions range, normalize to 0-100
-            avg_promotions = df['PromotionCount'].mean()
-            promotion_score = min(avg_promotions / 2, 1) * 100  # Cap at 2 promotions = 100
-            score += promotion_score * weights.get('promotion', 0.2)
-            total_weight += weights.get('promotion', 0.2)
-
-        # Normalize by actual weights used
-        if total_weight > 0:
-            score = score / total_weight
-
-        return score
+        components = {}
+        for key, column, low, high in [('performance', 'LastRating', 1, 5),
+                                      ('retention', 'Attrition', 0, 1),
+                                      ('promotion', 'PromotionCount', 0, float('inf'))]:
+            if column not in df:
+                continue
+            values = pd.to_numeric(df[column], errors='coerce')
+            values = values[values.between(low, high) & np.isfinite(values)]
+            if values.empty:
+                continue
+            mean = float(values.mean())
+            components[key] = ((mean - 1) / 4 * 100 if key == 'performance'
+                               else (1 - mean) * 100 if key == 'retention'
+                               else min(mean / 2, 1) * 100)
+        weights = {key: float(self.quality_weights.get(key, 0)) for key in components}
+        if any(not np.isfinite(w) or w < 0 for w in weights.values()):
+            raise QualityOfHireEngineError('Quality weights must be finite and non-negative')
+        total = sum(weights.values())
+        return sum(components[key] * weight for key, weight in weights.items()) / total if total else np.nan
 
     def correlate_prehire_posthire(
         self,
@@ -369,9 +371,9 @@ class QualityOfHireEngine:
 
         for predictor in self.prehire_columns:
             # Get valid pairs (non-null for both)
-            valid_df = df[[predictor, outcome_column]].dropna()
+            valid_df = df[[predictor, outcome_column]].apply(pd.to_numeric, errors='coerce').replace([np.inf, -np.inf], np.nan).dropna()
 
-            if len(valid_df) < MIN_SAMPLE_FOR_CORRELATION:
+            if len(valid_df) < MIN_SAMPLE_FOR_CORRELATION or (valid_df.nunique() < 2).any():
                 continue
 
             # Calculate Pearson correlation
@@ -417,19 +419,9 @@ class QualityOfHireEngine:
                 'interpretation': f"{strength} {direction} predictor" + (" (significant)" if is_significant else " (not significant)")
             }
 
-            # Generate insight
-            if is_significant and abs_corr >= 0.2:
-                pct_effect = round(abs_corr * 100, 0)
-                if correlation > 0:
-                    corr_result['insight'] = (
-                        f"Candidates scoring high on '{display_name}' tend to have "
-                        f"~{pct_effect}% higher {outcome_column}"
-                    )
-                else:
-                    corr_result['insight'] = (
-                        f"Candidates scoring high on '{display_name}' tend to have "
-                        f"~{pct_effect}% lower {outcome_column}"
-                    )
+            corr_result['insight'] = None
+            corr_result['interpretation'] = f"{strength} {direction} observed association; no causal or percentage uplift is estimated."
+            corr_result['multiple_testing_adjusted'] = False
 
             results['correlations'].append(corr_result)
 
@@ -452,16 +444,16 @@ class QualityOfHireEngine:
         if results['best_predictors']:
             top_predictor = results['best_predictors'][0]
             results['recommendations'].append(
-                f"PRIORITIZE: '{top_predictor['display_name']}' is the strongest predictor "
+                f"REVIEW: '{top_predictor['display_name']}' has the strongest observed association "
                 f"of {outcome_column} (r={top_predictor['correlation']:.2f}). "
-                "Increase its weight in hiring decisions."
+                "Validate it on future independent cohorts before changing selection weights."
             )
 
         if results['non_predictors']:
             weak_predictors = [c['display_name'] for c in results['non_predictors'][:3]]
             results['recommendations'].append(
                 f"REVIEW: These signals show weak/no correlation with performance: "
-                f"{', '.join(weak_predictors)}. Consider revising or removing from rubric."
+                f"{', '.join(weak_predictors)}. Absence of sample significance does not establish absence of usefulness."
             )
 
         return results

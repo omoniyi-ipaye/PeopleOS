@@ -113,38 +113,10 @@ class MLEngine:
         Returns:
             Dictionary with training metrics.
         """
-        logger.info(f"Starting ML training pipeline for {len(df)} employees")
-        
-        # 1. Preprocess
-        target_col = 'Attrition' if 'Attrition' in df.columns else 'attrition'
-        processed_df, metadata = self.preprocessor.fit_transform(df, target_column=target_col)
-        
-        # 2. Split into X and y
-        feature_cols = self.preprocessor.numeric_columns + self.preprocessor.categorical_columns
-        X = processed_df[feature_cols]
-        
-        # DIAGNOSTIC: Check for non-numeric columns
-        non_numeric = X.select_dtypes(exclude=[np.number]).columns.tolist()
-        if non_numeric:
-            logger.error(f"CRITICAL: Non-numeric columns in training set: {non_numeric}. Dropping them.")
-            X = X.drop(columns=non_numeric)
-        
-        if target_col in processed_df.columns:
-            y = processed_df[target_col]
-        else:
-            y = pd.Series([0] * len(processed_df))
-
-        # DIAGNOSTIC: Check y for non-numeric data
-        if not pd.api.types.is_numeric_dtype(y):
-            logger.error(f"CRITICAL: Target variable y is non-numeric (type: {y.dtype}). Dropping non-numeric rows.")
-            logger.error(f"Sample value for y: {y.iloc[0]}")
-            # Try to force numeric
-            y = pd.to_numeric(y, errors='coerce').fillna(0).astype(int)
-            
-        # 3. Train
-        metrics = self.train_model(X, y)
-        self.is_trained = True
-        return metrics
+        from src.model_training import train_attrition_model
+        artifact = train_attrition_model(df)
+        self.__dict__.update(artifact.engine.__dict__)
+        return artifact.metrics
 
     def predict(self, df: pd.DataFrame) -> list[dict]:
         """
@@ -282,13 +254,14 @@ class MLEngine:
                 metrics['feature_importances'] = dict(zip(self.feature_names, importances.tolist()))
 
             # Add sample size warnings to metrics
-            if sample_size_warnings:
-                metrics['warnings'] = sample_size_warnings
-                metrics['reliability'] = 'Low' if len(sample_size_warnings) > 1 else 'Medium'
-            else:
-                metrics['reliability'] = 'High'
+            metrics['reliability'] = 'Unvalidated legacy feature-matrix evaluation'
+            metrics['future_departure_validated'] = False
+            metrics['cv_preprocessing_fold_local'] = False
+            metrics['warnings'] = sample_size_warnings + [
+                'Use train(raw_df) for fold-local preprocessing and baseline evaluation. '
+                'This low-level feature-matrix method cannot verify upstream leakage.'
+            ]
 
-            self.is_trained = True
             logger.info(f"Model trained. Best: {best_model_type}, F1: {metrics['f1']:.3f}, Reliability: {metrics['reliability']}")
             
             # Initialize SHAP

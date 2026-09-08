@@ -67,6 +67,9 @@ class SentimentEngine:
             detractor_threshold = self.enps_config.get('detractor_threshold', 6)
 
             if 'eNPSScore' in self.enps_df.columns:
+                values = pd.to_numeric(self.enps_df['eNPSScore'], errors='coerce')
+                self.enps_df = self.enps_df.loc[values.between(0, 10)].copy()
+                self.enps_df['eNPSScore'] = values.loc[self.enps_df.index]
                 self.enps_df['eNPSCategory'] = self.enps_df['eNPSScore'].apply(
                     lambda x: 'Promoter' if x >= promoter_threshold
                     else ('Detractor' if x <= detractor_threshold else 'Passive')

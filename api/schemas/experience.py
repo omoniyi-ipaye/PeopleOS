@@ -35,6 +35,8 @@ class ExperienceIndexResponse(BaseModel):
     exi_std: Optional[float] = Field(None, description="Standard deviation of EXI")
     exi_median: Optional[float] = Field(None, description="Median EXI score")
     total_employees: Optional[int] = None
+    respondent_count: Optional[int] = None
+    response_coverage: Optional[float] = None
     signals_available: Optional[int] = Field(None, description="Number of experience signals")
     interpretation: Optional[str] = None
     benchmark: Optional[str] = Field(None, description="Above/Below average")

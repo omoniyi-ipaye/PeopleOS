@@ -111,5 +111,14 @@
       "rollback": "Revert this config-path change if the candidate regresses Windows; retain the previous diagnostics and packaging settings."
     }
   ],
+  "analytics_validation": {
+    "scope": "synthetic and public benchmark validation; enterprise acceptance remains conditional",
+    "evidence": "docs/validation/ANALYTICS_VALIDATION.md",
+    "benchmark": "docs/validation/public-benchmark-results.json",
+    "workflow": ".github/workflows/analytics-validation.yml",
+    "model_gate": "Fold-local raw-data CV; employee holdout; Brier and AP baselines; weighted calibration and class support",
+    "forecast_boundary": "Retrospective classification is not validated future-departure prediction",
+    "remaining": "Prospective temporal and subgroup validation on source-verified organization data"
+  },
   "build_readiness": "BUILD READY WITH ASSUMPTIONS"
 }

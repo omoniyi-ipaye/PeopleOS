@@ -18,7 +18,7 @@ class TestAnalyticsEngine:
         
         headcount = engine.get_headcount()
         
-        assert headcount == len(sample_valid_data)
+        assert headcount == int((sample_valid_data['Attrition'] == 0).sum())
     
     def test_calculate_turnover_rate(self, sample_valid_data: pd.DataFrame):
         """Test that turnover rate is calculated correctly."""
@@ -61,7 +61,7 @@ class TestAnalyticsEngine:
         assert 'Headcount' in dept_stats.columns
         
         # Sum of headcounts should equal total
-        assert dept_stats['Headcount'].sum() == len(sample_valid_data)
+        assert dept_stats['Headcount'].sum() == int((sample_valid_data['Attrition'] == 0).sum())
     
     def test_handle_division_by_zero(self):
         """Test that division by zero is handled in rates."""
@@ -91,7 +91,7 @@ class TestAnalyticsEngine:
         assert 'headcount' in stats
         assert 'turnover_rate' in stats
         assert 'department_count' in stats
-        assert stats['headcount'] == len(sample_valid_data)
+        assert stats['headcount'] == int((sample_valid_data['Attrition'] == 0).sum())
     
     def test_get_correlations(self, sample_valid_data: pd.DataFrame):
         """Test correlation calculation."""

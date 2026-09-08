@@ -56,7 +56,7 @@ class CompensationEngine:
         if 'Salary' not in active.columns:
             raise CompensationEngineError('Salary column is required')
         salary = pd.to_numeric(active['Salary'], errors='coerce')
-        valid = salary.notna() & (salary > 0)
+        valid = salary.notna() & np.isfinite(salary) & (salary > 0)
         excluded = int((~valid).sum())
         if excluded:
             self.warnings.append(f'Excluded {excluded} active row(s) with missing or non-positive salary from compensation metrics')
@@ -165,10 +165,12 @@ class CompensationEngine:
             return {'available': False, 'reason': 'Attrition unavailable'}
         salary = pd.to_numeric(frame['Salary'], errors='coerce')
         outcome = pd.to_numeric(frame['Attrition'], errors='coerce')
-        valid = salary.notna() & (salary > 0) & outcome.isin([0, 1])
+        valid = salary.notna() & np.isfinite(salary) & (salary > 0) & outcome.isin([0, 1])
         if valid.sum() < 20 or outcome.loc[valid].nunique() < 2:
             return {'available': False, 'reason': 'Insufficient valid salary/outcome pairs'}
         corr, p = stats.pointbiserialr(outcome.loc[valid].astype(int), salary.loc[valid].astype(float))
+        if not np.isfinite(corr) or not np.isfinite(p):
+            return {'available': False, 'reason': 'Salary has insufficient variation for correlation'}
         return {
             'available': True, 'correlation': float(corr), 'p_value': float(p), 'sample_size': int(valid.sum()),
             'interpretation': 'Observed salary–attrition association; this does not establish that salary causes attrition.'
@@ -204,7 +206,10 @@ class CompensationEngine:
         stratified = sum(s['gap_pct'] * s['weight'] for s in eligible) / weight if weight else None
         return {
             'available': True, 'raw_gap_pct': float(raw_gap), 'male_n': len(male_salary), 'female_n': len(female_salary),
-            'welch_t_stat': float(t_stat), 'p_value': float(p_value), 'is_significant': bool(p_value < .05),
+            'welch_t_stat': float(t_stat) if np.isfinite(t_stat) else None,
+            'p_value': float(p_value) if np.isfinite(t_stat) and np.isfinite(p_value) else None,
+            'is_significant': bool(np.isfinite(t_stat) and np.isfinite(p_value) and p_value < .05),
+            'inference_available': bool(np.isfinite(t_stat) and np.isfinite(p_value)),
             'job_title_stratified_gap_pct': float(stratified) if stratified is not None else None,
             'eligible_job_title_strata': len(eligible), 'job_title_strata': strata,
             'semantics': 'descriptive_and_job_title_stratified_gap_not_regression_adjusted_equity',

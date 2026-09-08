@@ -152,41 +152,10 @@ async def get_cluster_members(cluster_id: int, state: AppState = Depends(require
 async def get_forecast(metric: str = "headcount", periods: int = Query(default=12, ge=1, le=36), state: AppState = Depends(require_data)):
     """Forecast only from genuine repeated dated snapshots; never synthetic backfill."""
     history = getattr(state, 'historical_df', None)
-    if history is None or history.empty or 'SnapshotDate' not in history.columns:
-        return {'success': False, 'reason': 'Forecasting requires genuine repeated SnapshotDate observations. PeopleOS will not synthesize historical data from HireDate or tenure.'}
-    data = history.copy()
-    data['SnapshotDate'] = pd.to_datetime(data['SnapshotDate'], errors='coerce')
-    data = data.dropna(subset=['SnapshotDate'])
-    if data['SnapshotDate'].nunique() < 3:
-        return {'success': False, 'reason': 'At least three distinct observed snapshot dates are required for a forecast.'}
-
-    key = metric.lower()
-    if key == 'headcount':
-        series = data.groupby('SnapshotDate')['EmployeeID'].nunique().sort_index()
-    elif key == 'salary':
-        data['Salary'] = pd.to_numeric(data['Salary'], errors='coerce')
-        series = data.groupby('SnapshotDate')['Salary'].mean().dropna().sort_index()
-    else:
-        if metric not in data.columns:
-            return {'success': False, 'reason': f"Metric '{metric}' is not available in the observed snapshot history."}
-        numeric = pd.to_numeric(data[metric], errors='coerce')
-        data = data.assign(_metric=numeric)
-        series = data.groupby('SnapshotDate')['_metric'].mean().dropna().sort_index()
-
-    if len(series) < 3:
-        return {'success': False, 'reason': 'Insufficient observed snapshot points after cleaning.'}
-
-    from statsmodels.tsa.holtwinters import ExponentialSmoothing
-    daily = series.resample('D').mean().interpolate(method='time').ffill().bfill()
-    fit = ExponentialSmoothing(daily, trend='add' if len(daily) >= 30 else None, initialization_method='estimated').fit()
-    forecast = fit.forecast(periods * 30)
-    return {
-        'success': True,
-        'metric': key,
-        'history': [{'date': d.strftime('%Y-%m-%d'), 'value': float(v)} for d, v in series.items()][-24:],
-        'forecast': [{'date': d.strftime('%Y-%m-%d'), 'value': float(v)} for d, v in forecast.resample('ME').mean().items()][:periods],
-        'semantics': 'time_series_extrapolation_from_observed_snapshots_not_causal_forecast',
-    }
+    if history is None or history.empty:
+        return {'success': False, 'reason': 'Forecasting requires observed monthly workforce censuses'}
+    from src.forecasting_engine import ForecastingEngine
+    return ForecastingEngine(history).forecast_metric(metric, periods)
 
 
 @router.get("/compare-groups")

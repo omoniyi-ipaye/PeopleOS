@@ -43,7 +43,7 @@ class FairnessEngine:
 
     def _identify_available_attributes(self) -> None:
         if 'Age_Group' in self.protected_attributes and 'Age_Group' not in self.df.columns and 'Age' in self.df.columns:
-            self.df['Age_Group'] = pd.cut(pd.to_numeric(self.df['Age'], errors='coerce'), bins=[0, 30, 40, 50, 60, float('inf')], labels=['Under 30', '30-39', '40-49', '50-59', '60+'])
+            self.df['Age_Group'] = pd.cut(pd.to_numeric(self.df['Age'], errors='coerce'), bins=[0, 30, 40, 50, 60, float('inf')], labels=['Under 30', '30-39', '40-49', '50-59', '60+'], right=False)
         self.available_protected_attributes = [a for a in self.protected_attributes if a in self.df.columns]
         self.available_monitoring_dimensions = [a for a in self.monitoring_dimensions if a in self.df.columns and a not in self.available_protected_attributes]
 
@@ -112,6 +112,8 @@ class FairnessEngine:
         if self.predictions is None or self.predictions.empty:
             return {'available': False, 'reason': 'No predictions available', 'warnings': []}
         if 'EmployeeID' in self.df.columns and 'EmployeeID' in self.predictions.columns:
+            if self.predictions['EmployeeID'].duplicated().any():
+                return {'available': False, 'reason': 'Predictions must contain one row per employee', 'warnings': []}
             merged = self.df.merge(self.predictions, on='EmployeeID', how='inner')
         else:
             return {'available': False, 'reason': 'Predictions require EmployeeID alignment', 'warnings': []}
@@ -121,6 +123,7 @@ class FairnessEngine:
         warnings: list[str] = []
         rows = []
         risk = pd.to_numeric(merged[risk_col], errors='coerce')
+        risk = risk.where(risk.between(0, 1))
         overall = float(risk.mean()) if risk.notna().any() else np.nan
         for attr in self.available_attributes:
             if attr not in merged.columns:
@@ -143,9 +146,13 @@ class FairnessEngine:
     def calculate_equalized_odds(self, outcome_col: str, prediction_col: str = 'predicted') -> pd.DataFrame:
         if self.predictions is None or 'EmployeeID' not in self.predictions.columns or 'EmployeeID' not in self.df.columns:
             return pd.DataFrame()
+        if self.predictions['EmployeeID'].duplicated().any():
+            return pd.DataFrame()
         merged = self.df.merge(self.predictions, on='EmployeeID', how='inner')
         if outcome_col not in merged.columns or prediction_col not in merged.columns:
             return pd.DataFrame()
+        merged[prediction_col] = pd.to_numeric(merged[prediction_col], errors='coerce')
+        merged = merged[merged[outcome_col].isin([0, 1]) & merged[prediction_col].isin([0, 1])]
         rows = []
         for attr in self.available_attributes:
             if attr not in merged.columns:
@@ -178,7 +185,8 @@ class FairnessEngine:
                 violations = protected_four[protected_four['passes_4_5_rule'] == False] if not protected_four.empty else protected_four
                 for _, row in violations.iterrows():
                     summary['issues_found'].append(f"Four-fifths screening signal: {row['attribute']}='{row['group']}' favorable-outcome ratio {row['adverse_impact_ratio']:.2f}")
-                if not protected_four.empty:
+                valid_comparisons = protected_four.dropna(subset=['adverse_impact_ratio']) if not protected_four.empty else protected_four
+                if not valid_comparisons.empty and valid_comparisons.groupby('attribute').size().max() >= 2:
                     summary['overall_status'] = 'Disparity signal detected' if not violations.empty else 'No material disparity detected in eligible groups'
             if self.predictions is not None:
                 pred = self.analyze_prediction_fairness()
