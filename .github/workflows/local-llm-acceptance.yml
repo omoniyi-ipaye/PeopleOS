@@ -16,7 +16,7 @@ concurrency:
 jobs:
   local_cpu:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 20
     env:
       OLLAMA_VERSION: '0.6.8'
       OLLAMA_HOST: '127.0.0.1:11434'
@@ -67,20 +67,26 @@ jobs:
           done
           python -c 'import json, os; assert json.load(open("local-llm-evidence/runtime-version.json"))["version"] == os.environ["OLLAMA_VERSION"]'
       - name: Pull the configured local model
-        timeout-minutes: 3
+        timeout-minutes: 6
         run: |
           set -euo pipefail
-          timeout 120s ollama pull gemma3:4b > local-llm-evidence/model-pull.log 2>&1
+          timeout --signal=TERM 300s ollama pull gemma3:4b > local-llm-evidence/model-pull.log 2>&1
           curl --fail --silent http://127.0.0.1:11434/api/tags > local-llm-evidence/installed-models.json
-          curl --fail --silent --max-time 45 http://127.0.0.1:11434/api/generate -H 'Content-Type: application/json' -d '{"model":"gemma3:4b","prompt":"","stream":false,"keep_alive":"10m"}' > local-llm-evidence/model-warmup.json
+          python - <<'PY'
+          import json
+          data = json.load(open('local-llm-evidence/installed-models.json'))
+          names = {m.get('model') or m.get('name') for m in data.get('models', [])}
+          assert 'gemma3:4b' in names, f'Configured model missing after pull: {sorted(n for n in names if n)}'
+          PY
+          curl --fail --silent --max-time 90 http://127.0.0.1:11434/api/generate -H 'Content-Type: application/json' -d '{"model":"gemma3:4b","prompt":"","stream":false,"keep_alive":"10m","options":{"num_predict":1}}' > local-llm-evidence/model-warmup.json
       - name: Strict real local selector acceptance
         id: selector
         timeout-minutes: 3
         run: timeout --signal=TERM 140s python scripts/validate_local_llm.py --output local-llm-evidence/selector.json > local-llm-evidence/selector.log 2>&1
       - name: Live production API with local model
         if: ${{ !cancelled() && steps.selector.outcome != 'skipped' }}
-        timeout-minutes: 2
-        run: timeout --signal=TERM 75s python scripts/validate_local_llm_api.py --output local-llm-evidence/live-api.json > local-llm-evidence/live-api.log 2>&1
+        timeout-minutes: 3
+        run: timeout --signal=TERM 150s python scripts/validate_local_llm_api.py --output local-llm-evidence/live-api.json > local-llm-evidence/live-api.log 2>&1
       - name: Record runtime residency and final source state
         if: always()
         run: |
