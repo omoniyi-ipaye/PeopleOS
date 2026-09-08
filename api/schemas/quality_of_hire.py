@@ -102,6 +102,9 @@ class HiringInsights(BaseModel):
 
 
 class CohortPerformance(BaseModel):
+    performance_observations: Optional[int] = None
+    outcome_observations: Optional[int] = None
+    metric_semantics: str = 'observed_cohort_outcomes_not_exposure_adjusted_retention'
     """Performance metrics for a cohort."""
     cohort_name: str
     count: int

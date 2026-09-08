@@ -35,6 +35,10 @@ export function NineBoxGrid({ data }: NineBoxGridProps) {
 
   return (
     <div className="space-y-4">
+      <p className="text-sm text-text-secondary">
+        Unassessed: {dataMap.get('Unassessed')?.count ?? 0}. Percentages use all active employees,
+        including those with missing or invalid assessments.
+      </p>
       {/* Y-axis label */}
       <div className="flex items-center">
         <div className="w-8 -rotate-90 text-[10px] uppercase font-bold text-text-muted dark:text-text-dark-muted text-center whitespace-nowrap tracking-wider">

@@ -121,7 +121,7 @@ export interface UploadResponse {
 
 export interface TeamHealth {
     dept: string
-    health_score: number
+    health_score: number | null
     avg_tenure: number | null
     avg_rating: number | null
     headcount: number
@@ -135,7 +135,7 @@ export interface DiversityMetrics {
     tenure_diversity: number | null
     age_diversity: number | null
     salary_equity: number | null
-    overall_diversity: number
+    overall_diversity: number | null
 }
 
 export interface TeamAnalysis {
@@ -220,6 +220,8 @@ export interface SearchResult {
         dept: string
         text: string
         similarity_score: number
+        squared_l2_distance?: number | null
+        score_semantics?: string
     }[]
 }
 

@@ -6,21 +6,30 @@ from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel
 
 from api.dependencies import get_app_state, AppState
+from src.population import active_population, resolve_current_population
+from src.serialization import json_safe
+from src.team_dynamics_engine import clean_team_frame
 import pandas as pd
 import numpy as np
 
 router = APIRouter(prefix="/api/team", tags=["team"])
 
 
+def finite_float(value):
+    value = json_safe(value)
+    return float(value) if isinstance(value, (int, float)) else None
+
+
 class TeamHealth(BaseModel):
     """Team health score."""
     dept: str
-    health_score: float
+    health_score: float | None
     avg_tenure: float | None
     avg_rating: float | None
     headcount: int
     attrition_rate: float | None
     status: str
+    metric_semantics: str = 'configured_composite_not_validated_team_health; attrition_is_observed_share'
 
 
 class DiversityMetrics(BaseModel):
@@ -30,11 +39,14 @@ class DiversityMetrics(BaseModel):
     tenure_diversity: float | None
     age_diversity: float | None
     salary_equity: float | None
-    overall_diversity: float
+    metric_semantics: str = 'normalized_dispersion_not_validated_diversity_or_adjusted_pay_equity'
+    overall_diversity: float | None
 
 
 class GenderBreakdown(BaseModel):
     """Gender distribution."""
+    unknown: int = 0
+    unknown_pct: float = 0
     male: int
     female: int
     other: int
@@ -76,6 +88,10 @@ class TeamComposition(BaseModel):
 class ComprehensiveTeamMetrics(BaseModel):
     """Complete team dynamics metrics with filters applied."""
     total_employees: int
+    population: str = 'current_active_employees'
+    attrition_rate_semantics: str = 'observed_departed_share_of_filtered_current_records_not_period_turnover'
+    rating_observations: int = 0
+    measurement_coverage: Dict[str, int] = {}
     filters_applied: Dict[str, Any]
 
     # Demographics
@@ -148,11 +164,11 @@ async def get_team_health(
     for _, row in health_df.iterrows():
         teams.append(TeamHealth(
             dept=row['Dept'],
-            health_score=float(row['HealthScore']),
-            avg_tenure=float(row['AvgTenure']) if row.get('AvgTenure') is not None else None,
-            avg_rating=float(row['AvgRating']) if row.get('AvgRating') is not None else None,
+            health_score=finite_float(row['HealthScore']),
+            avg_tenure=finite_float(row['AvgTenure']) if row.get('AvgTenure') is not None else None,
+            avg_rating=finite_float(row['AvgRating']) if row.get('AvgRating') is not None else None,
             headcount=int(row['Headcount']),
-            attrition_rate=float(row['AttritionRate']) if row.get('AttritionRate') is not None else None,
+            attrition_rate=finite_float(row['AttritionRate']) if row.get('AttritionRate') is not None else None,
             status=row['Status']
         ))
 
@@ -173,10 +189,10 @@ async def get_diversity_metrics(
         metrics.append(DiversityMetrics(
             dept=row['Dept'],
             headcount=int(row['Headcount']),
-            tenure_diversity=float(row['TenureDiversity']) if 'TenureDiversity' in row else None,
-            age_diversity=float(row['AgeDiversity']) if 'AgeDiversity' in row else None,
-            salary_equity=float(row['SalaryEquity']) if 'SalaryEquity' in row else None,
-            overall_diversity=float(row['OverallDiversity'])
+            tenure_diversity=finite_float(row['TenureDiversity']) if 'TenureDiversity' in row else None,
+            age_diversity=finite_float(row['AgeDiversity']) if 'AgeDiversity' in row else None,
+            salary_equity=finite_float(row['SalaryEquity']) if 'SalaryEquity' in row else None,
+            overall_diversity=finite_float(row['OverallDiversity'])
         ))
 
     return metrics
@@ -203,11 +219,11 @@ async def get_team_analysis(
         for _, row in analysis['health'].iterrows():
             result['health'].append({
                 'dept': row['Dept'],
-                'health_score': float(row['HealthScore']),
-                'avg_tenure': float(row['AvgTenure']) if row.get('AvgTenure') is not None else None,
-                'avg_rating': float(row['AvgRating']) if row.get('AvgRating') is not None else None,
+                'health_score': finite_float(row['HealthScore']),
+                'avg_tenure': finite_float(row['AvgTenure']) if row.get('AvgTenure') is not None else None,
+                'avg_rating': finite_float(row['AvgRating']) if row.get('AvgRating') is not None else None,
                 'headcount': int(row['Headcount']),
-                'attrition_rate': float(row['AttritionRate']) if row.get('AttritionRate') is not None else None,
+                'attrition_rate': finite_float(row['AttritionRate']) if row.get('AttritionRate') is not None else None,
                 'status': row['Status']
             })
 
@@ -216,10 +232,10 @@ async def get_team_analysis(
             result['diversity'].append({
                 'dept': row['Dept'],
                 'headcount': int(row['Headcount']),
-                'tenure_diversity': float(row['TenureDiversity']) if 'TenureDiversity' in row else None,
-                'age_diversity': float(row['AgeDiversity']) if 'AgeDiversity' in row else None,
-                'salary_equity': float(row['SalaryEquity']) if 'SalaryEquity' in row else None,
-                'overall_diversity': float(row['OverallDiversity'])
+                'tenure_diversity': finite_float(row['TenureDiversity']) if 'TenureDiversity' in row else None,
+                'age_diversity': finite_float(row['AgeDiversity']) if 'AgeDiversity' in row else None,
+                'salary_equity': finite_float(row['SalaryEquity']) if 'SalaryEquity' in row else None,
+                'overall_diversity': finite_float(row['OverallDiversity'])
             })
 
     if 'at_risk' in analysis and not analysis['at_risk'].empty:
@@ -227,13 +243,13 @@ async def get_team_analysis(
             result['at_risk_teams'].append({
                 'dept': row['Dept'],
                 'headcount': int(row['Headcount']),
-                'health_score': float(row['HealthScore']),
+                'health_score': finite_float(row['HealthScore']),
                 'status': row['Status'],
                 'risk_factors': row.get('RiskFactors', ''),
                 'recommendations': row.get('Recommendations', '')
             })
 
-    return result
+    return json_safe(result)
 
 
 def require_data(state: AppState = Depends(get_app_state)) -> AppState:
@@ -252,13 +268,13 @@ def get_age_group(age: float) -> str:
     if pd.isna(age):
         return "Unknown"
     if age < 25:
-        return "Gen Z (< 25)"
+        return "Under 25"
     elif age < 40:
-        return "Millennial (25-39)"
+        return "25-39"
     elif age < 55:
-        return "Gen X (40-54)"
+        return "40-54"
     else:
-        return "Boomer (55+)"
+        return "55+"
 
 
 def get_tenure_group(tenure: float) -> str:
@@ -280,7 +296,7 @@ async def get_filter_options(
     state: AppState = Depends(require_data)
 ) -> FilterOptions:
     """Get available filter options based on current data."""
-    df = state.raw_df
+    df = clean_team_frame(active_population(state.raw_df))
 
     # Get unique values for each filterable field
     departments = sorted(df['Dept'].dropna().unique().tolist()) if 'Dept' in df.columns else []
@@ -290,7 +306,7 @@ async def get_filter_options(
 
     # Age groups
     if 'Age' in df.columns:
-        age_groups = ["Gen Z (< 25)", "Millennial (25-39)", "Gen X (40-54)", "Boomer (55+)"]
+        age_groups = ["Under 25", "25-39", "40-54", "55+"]
     else:
         age_groups = []
 
@@ -331,9 +347,18 @@ async def get_comprehensive_metrics(
     Get comprehensive team dynamics metrics with real-time filtering.
     All filters are applied server-side for fast response.
     """
-    df = state.raw_df.copy()
+    df, _ = resolve_current_population(state.raw_df)
+    df = clean_team_frame(df)
     filters_applied = {}
 
+    requested = {'Dept': departments, 'Location': locations, 'Country': countries,
+                 'Gender': genders, 'Age': age_groups, 'JobLevel': job_levels,
+                 'Tenure': tenure_ranges or min_tenure is not None or max_tenure is not None}
+    for column, supplied in requested.items():
+        if supplied and column not in df:
+            raise HTTPException(status_code=400, detail=f'Cannot filter on missing {column}')
+    if min_tenure is not None and max_tenure is not None and min_tenure > max_tenure:
+        raise HTTPException(status_code=400, detail='Minimum tenure exceeds maximum tenure')
     # Apply filters
     if departments:
         dept_list = [d.strip() for d in departments.split(",")]
@@ -362,7 +387,10 @@ async def get_comprehensive_metrics(
         filters_applied['age_groups'] = age_group_list
 
     if job_levels and 'JobLevel' in df.columns:
-        level_list = [int(l.strip()) for l in job_levels.split(",")]
+        try:
+            level_list = [int(l.strip()) for l in job_levels.split(',')]
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail='Job levels must be integers') from exc
         df = df[df['JobLevel'].isin(level_list)]
         filters_applied['job_levels'] = level_list
 
@@ -380,6 +408,9 @@ async def get_comprehensive_metrics(
         df = df[df['Tenure'] <= max_tenure]
         filters_applied['max_tenure'] = max_tenure
 
+    known_outcomes = df['Attrition'].dropna() if 'Attrition' in df else pd.Series(dtype=float)
+    observed_share = float(known_outcomes.mean()) if len(known_outcomes) else None
+    df = active_population(df)
     total = len(df)
     if total == 0:
         # Return empty metrics
@@ -406,29 +437,22 @@ async def get_comprehensive_metrics(
             by_department=[]
         )
 
-    # Gender breakdown
-    if 'Gender' in df.columns:
-        gender_counts = df['Gender'].value_counts()
-        male = int(gender_counts.get('Male', 0))
-        female = int(gender_counts.get('Female', 0))
-        other = total - male - female
-        gender_breakdown = GenderBreakdown(
-            male=male,
-            female=female,
-            other=max(0, other),
-            male_pct=round(male / total * 100, 1) if total > 0 else 0,
-            female_pct=round(female / total * 100, 1) if total > 0 else 0,
-            other_pct=round(other / total * 100, 1) if total > 0 and other > 0 else 0
-        )
-    else:
-        gender_breakdown = GenderBreakdown(male=0, female=0, other=total, male_pct=0, female_pct=0, other_pct=100)
+    gender = df.get('Gender', pd.Series(pd.NA, index=df.index)).astype('string').str.strip().str.lower()
+    missing_gender = gender.isna() | gender.isin(['', 'unknown', 'n/a'])
+    male = int(gender.isin(['male', 'm', 'man']).sum())
+    female = int(gender.isin(['female', 'f', 'woman']).sum())
+    unknown = int(missing_gender.sum())
+    other = total - male - female - unknown
+    gender_breakdown = GenderBreakdown(male=male, female=female, other=other, unknown=unknown,
+        male_pct=round(male / total * 100, 1), female_pct=round(female / total * 100, 1),
+        other_pct=round(other / total * 100, 1), unknown_pct=round(unknown / total * 100, 1))
 
     # Age distribution
     age_distribution = []
     if 'Age' in df.columns:
         df['_age_group_calc'] = df['Age'].apply(get_age_group)
         age_counts = df['_age_group_calc'].value_counts()
-        for group in ["Gen Z (< 25)", "Millennial (25-39)", "Gen X (40-54)", "Boomer (55+)"]:
+        for group in ["Under 25", "25-39", "40-54", "55+", "Unknown"]:
             count = int(age_counts.get(group, 0))
             age_distribution.append(AgeDistribution(
                 group=group,
@@ -439,7 +463,7 @@ async def get_comprehensive_metrics(
     # Location distribution
     location_distribution = []
     if 'Location' in df.columns:
-        loc_counts = df['Location'].value_counts().head(10)
+        loc_counts = df['Location'].fillna('Unknown').replace('', 'Unknown').value_counts()
         for loc, count in loc_counts.items():
             location_distribution.append({
                 'location': loc,
@@ -452,7 +476,7 @@ async def get_comprehensive_metrics(
     if 'Tenure' in df.columns:
         df['_tenure_group_calc'] = df['Tenure'].apply(get_tenure_group)
         tenure_counts = df['_tenure_group_calc'].value_counts()
-        for group in ["New (< 1 yr)", "Growing (1-3 yrs)", "Established (3-5 yrs)", "Veteran (5+ yrs)"]:
+        for group in ["New (< 1 yr)", "Growing (1-3 yrs)", "Established (3-5 yrs)", "Veteran (5+ yrs)", "Unknown"]:
             count = int(tenure_counts.get(group, 0))
             tenure_composition.append({
                 'group': group,
@@ -468,7 +492,7 @@ async def get_comprehensive_metrics(
         for level, count in level_counts.items():
             job_level_composition.append({
                 'level': int(level),
-                'name': level_names.get(int(level), f"Level {int(level)}"),
+                'name': f"Level {int(level)}",
                 'count': int(count),
                 'percentage': round(count / total * 100, 1) if total > 0 else 0
             })
@@ -486,6 +510,7 @@ async def get_comprehensive_metrics(
         avg_span_of_control=avg_span
     )
 
+    rating_observations = int(df['LastRating'].count()) if 'LastRating' in df else 0
     # Performance metrics
     avg_rating = None
     performance_distribution = []
@@ -506,12 +531,12 @@ async def get_comprehensive_metrics(
             performance_distribution.append(PerformanceDistribution(
                 rating_range=range_name,
                 count=count,
-                percentage=round(count / total * 100, 1) if total > 0 else 0
+                percentage=round(count / rating_observations * 100, 1) if rating_observations > 0 else 0
             ))
 
         top_performers_count = int((df['LastRating'] >= 4.0).sum())
 
-    top_performers_pct = round(top_performers_count / total * 100, 1) if total > 0 else 0
+    top_performers_pct = round(top_performers_count / rating_observations * 100, 1) if rating_observations > 0 else 0
 
     # Satisfaction metrics
     def safe_mean(col):
@@ -530,9 +555,7 @@ async def get_comprehensive_metrics(
     # Stability metrics
     avg_tenure = round(df['Tenure'].mean(), 2) if 'Tenure' in df.columns and not df['Tenure'].isna().all() else None
 
-    attrition_rate = None
-    if 'Attrition' in df.columns:
-        attrition_rate = round(df['Attrition'].mean() * 100, 1)
+    attrition_rate = round(observed_share * 100, 1) if observed_share is not None else None
 
     avg_manager_changes = safe_mean('ManagerChangeCount')
 
@@ -581,6 +604,8 @@ async def get_comprehensive_metrics(
 
     return ComprehensiveTeamMetrics(
         total_employees=total,
+        rating_observations=rating_observations,
+        measurement_coverage={c: int(df[c].count()) for c in ['Age','Tenure','LastRating','eNPS_Score','Pulse_Score'] if c in df},
         filters_applied=filters_applied,
         gender_breakdown=gender_breakdown,
         age_distribution=age_distribution,

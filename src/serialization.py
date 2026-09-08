@@ -9,11 +9,14 @@ are represented as ``None`` so the UI can present an explicit unavailable state.
 from __future__ import annotations
 
 import math
+import pandas as pd
 from typing import Any
 
 
 def json_safe(value: Any) -> Any:
     """Recursively convert analytical values into valid JSON-native values."""
+    if value is pd.NA or value is pd.NaT:
+        return None
     if value is None or isinstance(value, (str, bool, int)):
         return value
 

@@ -10,8 +10,30 @@ from typing import Optional
 
 from src.logger import get_logger
 from src.utils import load_config
+from src.population import active_population, resolve_current_population
 
 logger = get_logger('team_dynamics_engine')
+
+
+def clean_team_frame(frame):
+    """Keep invalid measurements missing; do not impute descriptive statistics."""
+    frame = frame.copy()
+    bounds = {'Age': (0, 120), 'Tenure': (0, None), 'Salary': (0, None),
+              'LastRating': (1, 5), 'eNPS_Score': (0, 10), 'Pulse_Score': (1, 5),
+              'ManagerSatisfaction': (1, 5), 'WorkLifeBalance': (1, 5),
+              'CareerGrowthSatisfaction': (1, 5), 'ManagerChangeCount': (0, None), 'JobLevel': (0, None)}
+    for col, (low, high) in bounds.items():
+        if col in frame:
+            values = pd.to_numeric(frame[col], errors='coerce').replace([np.inf, -np.inf], np.nan)
+            valid = values >= low
+            if high is not None:
+                valid &= values <= high
+            if col in {'Age', 'Salary'}:
+                valid &= values > 0
+            if col == 'JobLevel':
+                valid &= values.mod(1).eq(0)
+            frame[col] = values.where(valid)
+    return frame
 
 
 class TeamDynamicsEngineError(Exception):
@@ -32,7 +54,8 @@ class TeamDynamicsEngine:
             df: DataFrame with employee data.
             nlp_data: Optional NLP analysis results for sentiment integration.
         """
-        self.df = df.copy()
+        self.current_df, _ = resolve_current_population(df)
+        self.df = clean_team_frame(active_population(df))
         self.nlp_data = nlp_data
         self.config = load_config()
         self.team_config = self.config.get('team_dynamics', {})
@@ -70,7 +93,7 @@ class TeamDynamicsEngine:
             health_components = {}
 
             # Performance health (based on ratings)
-            if 'LastRating' in dept_df.columns:
+            if 'LastRating' in dept_df.columns and dept_df['LastRating'].notna().sum() >= self.min_team_size:
                 avg_rating = dept_df['LastRating'].mean()
                 rating_variance = dept_df['LastRating'].std()
                 # Handle NaN from std() when only 1-2 samples
@@ -80,12 +103,14 @@ class TeamDynamicsEngine:
                 health_components['performance'] = min(avg_rating / 5, 1) * 0.7 + max(0, 1 - rating_variance / 2) * 0.3
 
             # Retention health (based on attrition if available)
-            if 'Attrition' in dept_df.columns:
-                attrition_rate = dept_df['Attrition'].mean()
-                health_components['retention'] = 1 - attrition_rate
+            observed = self.current_df[self.current_df['Dept'] == dept]
+            known = observed['Attrition'].dropna() if 'Attrition' in observed else pd.Series(dtype=float)
+            attrition_share = float(known.mean()) if len(known) else None
+            if len(known) >= self.min_team_size:
+                health_components['retention'] = 1 - attrition_share
 
             # Tenure health (mix of experience)
-            if 'Tenure' in dept_df.columns:
+            if 'Tenure' in dept_df.columns and dept_df['Tenure'].notna().sum() >= self.min_team_size:
                 avg_tenure = dept_df['Tenure'].mean()
                 tenure_variance = dept_df['Tenure'].std()
                 # Good tenure (2-7 years avg) with some variance
@@ -99,17 +124,23 @@ class TeamDynamicsEngine:
                     dept_sentiment = sentiment_df[
                         sentiment_df['EmployeeID'].isin(dept_df['EmployeeID'])
                     ]
-                    if not dept_sentiment.empty:
-                        health_components['sentiment'] = dept_sentiment['sentiment_score'].mean()
+                    if not dept_sentiment['EmployeeID'].duplicated().any():
+                        scores = pd.to_numeric(dept_sentiment['sentiment_score'], errors='coerce')
+                        scores = scores[scores.between(0, 1)]
+                        if len(scores) >= self.min_team_size:
+                            health_components['sentiment'] = float(scores.mean())
 
             # Calculate overall health score
+            health_components = {k: v for k, v in health_components.items() if np.isfinite(v)}
             if health_components:
                 health_score = np.mean(list(health_components.values()))
             else:
-                health_score = 0.5
+                health_score = np.nan
 
             # Determine status
-            if health_score >= 0.75:
+            if not np.isfinite(health_score):
+                status = 'Unavailable'
+            elif health_score >= 0.75:
                 status = 'Thriving'
             elif health_score >= 0.6:
                 status = 'Healthy'
@@ -125,10 +156,12 @@ class TeamDynamicsEngine:
                 'Status': status,
                 'AvgRating': round(dept_df['LastRating'].mean(), 2) if 'LastRating' in dept_df.columns else None,
                 'AvgTenure': round(dept_df['Tenure'].mean(), 1) if 'Tenure' in dept_df.columns else None,
-                'AttritionRate': round(dept_df['Attrition'].mean() * 100, 1) if 'Attrition' in dept_df.columns else None
+                'AttritionRate': round(attrition_share * 100, 1) if attrition_share is not None else None,
+                'MetricSemantics': 'configured_composite_not_validated_team_health; attrition_is_observed_share',
+                'ComponentCount': len(health_components)
             })
 
-        return pd.DataFrame(results).sort_values('HealthScore', ascending=True)
+        return pd.DataFrame(results, columns=['Dept', 'Headcount', 'HealthScore', 'Status', 'AvgRating', 'AvgTenure', 'AttritionRate', 'MetricSemantics', 'ComponentCount']).sort_values('HealthScore', ascending=True)
 
     def analyze_team_diversity(self) -> pd.DataFrame:
         """
@@ -149,17 +182,17 @@ class TeamDynamicsEngine:
             diversity_scores = {}
 
             # Age diversity (using coefficient of variation)
-            if 'Age' in dept_df.columns and 'age' in self.diversity_metrics:
+            if 'Age' in dept_df.columns and 'age' in self.diversity_metrics and dept_df['Age'].count() >= 2:
                 age_cv = dept_df['Age'].std() / dept_df['Age'].mean() if dept_df['Age'].mean() > 0 else 0
                 diversity_scores['AgeDiversity'] = min(age_cv / 0.3, 1)  # Normalize to 0-1
 
             # Tenure diversity
-            if 'Tenure' in dept_df.columns and 'tenure' in self.diversity_metrics:
+            if 'Tenure' in dept_df.columns and 'tenure' in self.diversity_metrics and dept_df['Tenure'].count() >= 2:
                 tenure_cv = dept_df['Tenure'].std() / dept_df['Tenure'].mean() if dept_df['Tenure'].mean() > 0 else 0
                 diversity_scores['TenureDiversity'] = min(tenure_cv / 0.5, 1)
 
             # Salary diversity (equity perspective - lower is better for equity)
-            if 'Salary' in dept_df.columns and 'salary' in self.diversity_metrics:
+            if 'Salary' in dept_df.columns and 'salary' in self.diversity_metrics and dept_df['Salary'].count() >= 2:
                 salary_cv = dept_df['Salary'].std() / dept_df['Salary'].mean() if dept_df['Salary'].mean() > 0 else 0
                 diversity_scores['SalaryEquity'] = max(0, 1 - salary_cv / 0.4)
 
@@ -167,7 +200,7 @@ class TeamDynamicsEngine:
             if diversity_scores:
                 overall = np.mean(list(diversity_scores.values()))
             else:
-                overall = 0.5
+                overall = np.nan
 
             result_row = {
                 'Dept': dept,
@@ -178,7 +211,7 @@ class TeamDynamicsEngine:
 
             results.append(result_row)
 
-        return pd.DataFrame(results).sort_values('OverallDiversity', ascending=False)
+        return pd.DataFrame(results, columns=['Dept','Headcount','OverallDiversity','AgeDiversity','TenureDiversity','SalaryEquity']).sort_values('OverallDiversity', ascending=False)
 
     def identify_performance_variance(self) -> pd.DataFrame:
         """
@@ -200,7 +233,9 @@ class TeamDynamicsEngine:
             if len(dept_df) < self.min_team_size:
                 continue
 
-            ratings = dept_df['LastRating']
+            ratings = dept_df['LastRating'].dropna()
+            if len(ratings) < self.min_team_size:
+                continue
 
             high_performers = len(dept_df[dept_df['LastRating'] >= 4.0])
             low_performers = len(dept_df[dept_df['LastRating'] < 3.0])
@@ -214,16 +249,17 @@ class TeamDynamicsEngine:
             results.append({
                 'Dept': dept,
                 'Headcount': headcount,
+                'RatingObservations': len(ratings),
                 'AvgRating': round(ratings.mean(), 2),
                 'RatingStdDev': round(rating_std, 2),
                 'HighPerformers': high_performers,
                 'LowPerformers': low_performers,
                 'PerformanceSpread': round(ratings.max() - ratings.min(), 1),
-                'PercentHigh': round(high_performers / headcount * 100, 1) if headcount > 0 else 0,
-                'PercentLow': round(low_performers / headcount * 100, 1) if headcount > 0 else 0
+                'PercentHigh': round(high_performers / len(ratings) * 100, 1) if headcount > 0 else 0,
+                'PercentLow': round(low_performers / len(ratings) * 100, 1) if headcount > 0 else 0
             })
 
-        result_df = pd.DataFrame(results)
+        result_df = pd.DataFrame(results, columns=['Dept','Headcount','RatingObservations','AvgRating','RatingStdDev','HighPerformers','LowPerformers','PerformanceSpread','PercentHigh','PercentLow'])
         result_df['Consistency'] = result_df['RatingStdDev'].apply(
             lambda x: 'High' if x < 0.5 else ('Medium' if x < 1.0 else 'Low')
         )
@@ -239,7 +275,7 @@ class TeamDynamicsEngine:
         """
         df = self.df.copy()
 
-        indicators = {}
+        indicators = {'metric_semantics': 'workforce_composition_not_measured_collaboration'}
 
         # Cross-department ratios
         dept_counts = df['Dept'].value_counts()
@@ -253,7 +289,7 @@ class TeamDynamicsEngine:
             imbalance = sum(abs(count - ideal_size) for count in dept_counts) / len(df)
             indicators['team_balance_score'] = round(1 - imbalance / 2, 2)
         else:
-            indicators['team_balance_score'] = 1.0
+            indicators['team_balance_score'] = 1.0 if len(dept_counts) else None
 
         # Experience distribution
         if 'Tenure' in df.columns:
@@ -263,7 +299,7 @@ class TeamDynamicsEngine:
         # Performance distribution
         if 'LastRating' in df.columns:
             indicators['org_avg_rating'] = round(df['LastRating'].mean(), 2)
-            indicators['high_performer_ratio'] = round(len(df[df['LastRating'] >= 4.0]) / len(df) * 100, 1)
+            indicators['high_performer_ratio'] = round(len(df[df['LastRating'] >= 4.0]) / df['LastRating'].count() * 100, 1) if df['LastRating'].count() else None
 
         return indicators
 
@@ -335,6 +371,7 @@ class TeamDynamicsEngine:
                 composition['New (<1yr)'] = len(dept_df[dept_df['Tenure'] < 1])
                 composition['Developing (1-3yr)'] = len(dept_df[(dept_df['Tenure'] >= 1) & (dept_df['Tenure'] < 3)])
                 composition['Experienced (3-5yr)'] = len(dept_df[(dept_df['Tenure'] >= 3) & (dept_df['Tenure'] < 5)])
+                composition['UnknownTenure'] = int(dept_df['Tenure'].isna().sum())
                 composition['Senior (5+yr)'] = len(dept_df[dept_df['Tenure'] >= 5])
 
             # Age composition
@@ -342,6 +379,7 @@ class TeamDynamicsEngine:
                 composition['Under30'] = len(dept_df[dept_df['Age'] < 30])
                 composition['30-40'] = len(dept_df[(dept_df['Age'] >= 30) & (dept_df['Age'] < 40)])
                 composition['40-50'] = len(dept_df[(dept_df['Age'] >= 40) & (dept_df['Age'] < 50)])
+                composition['UnknownAge'] = int(dept_df['Age'].isna().sum())
                 composition['Over50'] = len(dept_df[dept_df['Age'] >= 50])
 
             results.append(composition)
@@ -362,7 +400,7 @@ class TeamDynamicsEngine:
                 'total_teams': 0,
                 'thriving_teams': 0,
                 'at_risk_teams': 0,
-                'avg_health_score': 0
+                'avg_health_score': None
             }
 
         return {

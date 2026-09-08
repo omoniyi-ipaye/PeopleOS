@@ -12,13 +12,18 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from api.dependencies import AppState, get_app_state
+from src.serialization import json_safe
 
 router = APIRouter(prefix="/api/succession", tags=["succession"])
 
 
 class BenchStrength(BaseModel):
     dept: str
-    bench_strength: float
+    bench_strength: float | None
+    assessed: int = 0
+    unassessed: int = 0
+    assessment_coverage: float = 0
+    metric_semantics: str = 'weighted_recorded_assessment_summary_not_validated_future_readiness'
     ready_now: int
     ready_soon: int
     developing: int
@@ -69,7 +74,9 @@ async def get_bench_strength(state: AppState = Depends(require_succession)) -> L
     return [
         BenchStrength(
             dept=row['Dept'],
-            bench_strength=float(row['BenchStrength']),
+            bench_strength=json_safe(row['BenchStrength']),
+            assessed=int(row['Assessed']), unassessed=int(row['Unassessed']),
+            assessment_coverage=float(row['AssessmentCoverage']),
             ready_now=int(row['ReadyNow']),
             ready_soon=int(row['ReadySoon']),
             developing=int(row['Developing']),
@@ -122,12 +129,12 @@ async def get_succession_summary(state: AppState = Depends(require_succession)) 
 
     def safe_serialize(obj):
         if isinstance(obj, pd.DataFrame):
-            return obj.to_dict('records')
+            return json_safe(obj.to_dict('records'))
         if isinstance(obj, (list, dict, int, float, str, bool, type(None))):
             return obj
         return str(obj)
 
-    readiness = analysis.get('readiness_scores')
+    readiness = analysis.get('readiness')
     ready_now_count = 0
     if isinstance(readiness, pd.DataFrame):
         ready_now_count = int((readiness['ReadinessLevel'] == 'Ready Now').sum()) if 'ReadinessLevel' in readiness.columns else 0
@@ -135,7 +142,8 @@ async def get_succession_summary(state: AppState = Depends(require_succession)) 
     return {
         'total_employees': int(len(state.succession_engine.df)),
         'aggregate_ready_now_count': ready_now_count,
-        'critical_gap_count': len(analysis.get('critical_gaps', [])),
+        'critical_gap_count': len(analysis.get('gaps', [])),
+        'assessment_semantics': 'Recorded SuccessionReadiness and separate PotentialRating assessments are required; missing assessments remain unknown.',
         'nine_box_summary': safe_serialize(analysis.get('nine_box_summary')),
         'bench_strength': safe_serialize(analysis.get('bench_strength')),
         'governance': 'Aggregate heuristic summaries only; no individual ranking or automated succession decisions.',

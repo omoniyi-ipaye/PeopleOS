@@ -25,67 +25,282 @@
     ]
   },
   "actors": [
-    {"id": "actor-people-user", "name": "People/HR user", "type": "human"},
-    {"id": "actor-admin", "name": "PeopleOS administrator", "type": "human"}
+    {
+      "id": "actor-people-user",
+      "name": "People/HR user",
+      "type": "human"
+    },
+    {
+      "id": "actor-admin",
+      "name": "PeopleOS administrator",
+      "type": "human"
+    }
   ],
   "components": [
-    {"id": "cmp-web", "name": "Next.js UI", "stage": "TARGET"},
-    {"id": "cmp-api", "name": "FastAPI API", "stage": "TARGET"},
-    {"id": "cmp-workspace", "name": "Workspace Store", "stage": "TRANSITION"},
-    {"id": "cmp-data", "name": "Dataset Lifecycle", "stage": "TRANSITION"},
-    {"id": "cmp-model", "name": "Model Lifecycle", "stage": "TRANSITION"},
-    {"id": "cmp-agent", "name": "People Intelligence Agent", "stage": "TARGET"},
-    {"id": "cmp-tools", "name": "Governed Tool Registry", "stage": "TARGET"},
-    {"id": "cmp-evidence", "name": "Evidence Bundle", "stage": "TARGET"},
-    {"id": "cmp-policy", "name": "Policy/Privacy Boundary", "stage": "TARGET"},
-    {"id": "cmp-health", "name": "Health and Recovery Monitor", "stage": "TRANSITION"},
-    {"id": "cmp-legacy", "name": "Legacy AppState compatibility", "stage": "AS-IS"}
+    {
+      "id": "cmp-web",
+      "name": "Next.js UI",
+      "stage": "TARGET"
+    },
+    {
+      "id": "cmp-api",
+      "name": "FastAPI API",
+      "stage": "TARGET"
+    },
+    {
+      "id": "cmp-workspace",
+      "name": "Workspace Store",
+      "stage": "TRANSITION"
+    },
+    {
+      "id": "cmp-data",
+      "name": "Dataset Lifecycle",
+      "stage": "TRANSITION"
+    },
+    {
+      "id": "cmp-model",
+      "name": "Model Lifecycle",
+      "stage": "TRANSITION"
+    },
+    {
+      "id": "cmp-agent",
+      "name": "People Intelligence Agent",
+      "stage": "TARGET"
+    },
+    {
+      "id": "cmp-tools",
+      "name": "Governed Tool Registry",
+      "stage": "TARGET"
+    },
+    {
+      "id": "cmp-evidence",
+      "name": "Evidence Bundle",
+      "stage": "TARGET"
+    },
+    {
+      "id": "cmp-policy",
+      "name": "Policy/Privacy Boundary",
+      "stage": "TARGET"
+    },
+    {
+      "id": "cmp-health",
+      "name": "Health and Recovery Monitor",
+      "stage": "TRANSITION"
+    },
+    {
+      "id": "cmp-legacy",
+      "name": "Legacy AppState compatibility",
+      "stage": "AS-IS"
+    }
   ],
   "flows": [
-    {"id": "flow-investigate", "type": "work", "from": "actor-people-user", "to": "cmp-agent", "label": "workforce question"},
-    {"id": "flow-plan", "type": "authority", "from": "cmp-agent", "to": "cmp-tools", "label": "allowlisted deterministic plan"},
-    {"id": "flow-evidence", "type": "information", "from": "cmp-tools", "to": "cmp-evidence", "label": "aggregate evidence with provenance"},
-    {"id": "flow-policy", "type": "authority", "from": "cmp-evidence", "to": "cmp-policy", "label": "synthesis/output enforcement"},
-    {"id": "flow-workspace", "type": "state", "from": "cmp-api", "to": "cmp-workspace", "label": "workspace/session identity"},
-    {"id": "flow-dataset", "type": "state", "from": "cmp-workspace", "to": "cmp-data", "label": "versioned dataset activation"},
-    {"id": "flow-model", "type": "state", "from": "cmp-data", "to": "cmp-model", "label": "explicit train/evaluate/activate lifecycle"},
-    {"id": "flow-health", "type": "feedback", "from": "cmp-health", "to": "cmp-workspace", "label": "bounded metadata recovery"}
+    {
+      "id": "flow-investigate",
+      "type": "work",
+      "from": "actor-people-user",
+      "to": "cmp-agent",
+      "label": "workforce question"
+    },
+    {
+      "id": "flow-plan",
+      "type": "authority",
+      "from": "cmp-agent",
+      "to": "cmp-tools",
+      "label": "allowlisted deterministic plan"
+    },
+    {
+      "id": "flow-evidence",
+      "type": "information",
+      "from": "cmp-tools",
+      "to": "cmp-evidence",
+      "label": "aggregate evidence with provenance"
+    },
+    {
+      "id": "flow-policy",
+      "type": "authority",
+      "from": "cmp-evidence",
+      "to": "cmp-policy",
+      "label": "synthesis/output enforcement"
+    },
+    {
+      "id": "flow-workspace",
+      "type": "state",
+      "from": "cmp-api",
+      "to": "cmp-workspace",
+      "label": "workspace/session identity"
+    },
+    {
+      "id": "flow-dataset",
+      "type": "state",
+      "from": "cmp-workspace",
+      "to": "cmp-data",
+      "label": "versioned dataset activation"
+    },
+    {
+      "id": "flow-model",
+      "type": "state",
+      "from": "cmp-data",
+      "to": "cmp-model",
+      "label": "explicit train/evaluate/activate lifecycle"
+    },
+    {
+      "id": "flow-health",
+      "type": "feedback",
+      "from": "cmp-health",
+      "to": "cmp-workspace",
+      "label": "bounded metadata recovery"
+    }
   ],
   "states": {
-    "dataset": ["registered", "validated", "active", "superseded", "rejected"],
-    "model": ["created", "training", "evaluating", "candidate", "active", "rejected", "retired", "failed"],
-    "session": ["open", "complete", "failed", "archived"]
+    "dataset": [
+      "registered",
+      "validated",
+      "active",
+      "superseded",
+      "rejected"
+    ],
+    "model": [
+      "created",
+      "training",
+      "evaluating",
+      "candidate",
+      "active",
+      "rejected",
+      "retired",
+      "failed"
+    ],
+    "session": [
+      "open",
+      "complete",
+      "failed",
+      "archived"
+    ]
   },
   "controls": [
-    {"id": "ctl-local", "mechanism": "loopback default plus token guard for non-local requests", "enforced": true},
-    {"id": "ctl-agent-tools", "mechanism": "allowlisted read-only aggregate tools", "enforced": true},
-    {"id": "ctl-small-groups", "mechanism": "small-group suppression for fairness evidence", "enforced": true},
-    {"id": "ctl-llm", "mechanism": "transport-level LLM policy boundary", "enforced": true},
-    {"id": "ctl-model-activation", "mechanism": "candidate-only model activation after deterministic evaluation", "enforced": true},
-    {"id": "ctl-autonomy", "mechanism": "L2 recovery envelope excludes HR data/actions and model activation", "enforced": true}
+    {
+      "id": "ctl-local",
+      "mechanism": "loopback default plus token guard for non-local requests",
+      "enforced": true
+    },
+    {
+      "id": "ctl-agent-tools",
+      "mechanism": "allowlisted read-only aggregate tools",
+      "enforced": true
+    },
+    {
+      "id": "ctl-small-groups",
+      "mechanism": "small-group suppression for fairness evidence",
+      "enforced": true
+    },
+    {
+      "id": "ctl-llm",
+      "mechanism": "transport-level LLM policy boundary",
+      "enforced": true
+    },
+    {
+      "id": "ctl-model-activation",
+      "mechanism": "candidate-only model activation after deterministic evaluation",
+      "enforced": true
+    },
+    {
+      "id": "ctl-autonomy",
+      "mechanism": "L2 recovery envelope excludes HR data/actions and model activation",
+      "enforced": true
+    }
   ],
   "risks": [
-    {"id": "risk-global-state", "description": "legacy routes still depend on process-global AppState", "status": "transitioning", "control": "cmp-workspace"},
-    {"id": "risk-model-coupling", "description": "legacy upload path can still eagerly initialize ML", "status": "transitioning", "control": "cmp-model"},
-    {"id": "risk-frontend", "description": "frontend migration must pass Next.js 16 build", "status": "open", "control": "CI frontend modernization gate"}
+    {
+      "id": "risk-global-state",
+      "description": "legacy routes still depend on process-global AppState",
+      "status": "transitioning",
+      "control": "cmp-workspace"
+    },
+    {
+      "id": "risk-model-coupling",
+      "description": "legacy upload path can still eagerly initialize ML",
+      "status": "transitioning",
+      "control": "cmp-model"
+    },
+    {
+      "id": "risk-frontend",
+      "description": "frontend migration must pass Next.js 16 build",
+      "status": "open",
+      "control": "CI frontend modernization gate"
+    }
   ],
   "health": {
-    "signals": ["workspace registry readable", "active dataset reference consistent", "active model reference consistent", "agent CI green", "frontend CI green"],
+    "signals": [
+      "workspace registry readable",
+      "active dataset reference consistent",
+      "active model reference consistent",
+      "agent CI green",
+      "frontend CI green"
+    ],
     "loop": "Desired state -> Sense -> Detect -> Diagnose -> Authorize -> Respond -> Recover -> Verify -> Learn",
     "autonomy_level": "L2",
     "maximum_blast_radius": "control-plane metadata only"
   },
   "build_steps": [
-    {"id": "STEP-001", "name": "Create workspace identity", "owner": "platform", "completion_evidence": "workspace record exists"},
-    {"id": "STEP-002", "name": "Register and validate dataset version", "owner": "data", "completion_evidence": "dataset hash, schema, quality and state recorded"},
-    {"id": "STEP-003", "name": "Activate dataset version", "owner": "data", "completion_evidence": "one active dataset per workspace"},
-    {"id": "STEP-004", "name": "Train model explicitly", "owner": "ml", "completion_evidence": "versioned model metrics recorded"},
-    {"id": "STEP-005", "name": "Evaluate candidate model", "owner": "ml", "completion_evidence": "deterministic evaluation pass/fail"},
-    {"id": "STEP-006", "name": "Activate passing candidate", "owner": "governance", "completion_evidence": "active model reference and retired prior model"},
-    {"id": "STEP-007", "name": "Open investigation session", "owner": "agent", "completion_evidence": "session bound to workspace/dataset/model"},
-    {"id": "STEP-008", "name": "Execute governed investigation", "owner": "agent", "completion_evidence": "evidence bundle, policy result and audit event"},
-    {"id": "STEP-009", "name": "Run health and bounded recovery", "owner": "operations", "completion_evidence": "fitness checks healthy or degraded with bounded actions"},
-    {"id": "STEP-010", "name": "Pass release gates", "owner": "engineering", "completion_evidence": "agent, platform and frontend CI green"},
+    {
+      "id": "STEP-001",
+      "name": "Create workspace identity",
+      "owner": "platform",
+      "completion_evidence": "workspace record exists"
+    },
+    {
+      "id": "STEP-002",
+      "name": "Register and validate dataset version",
+      "owner": "data",
+      "completion_evidence": "dataset hash, schema, quality and state recorded"
+    },
+    {
+      "id": "STEP-003",
+      "name": "Activate dataset version",
+      "owner": "data",
+      "completion_evidence": "one active dataset per workspace"
+    },
+    {
+      "id": "STEP-004",
+      "name": "Train model explicitly",
+      "owner": "ml",
+      "completion_evidence": "versioned model metrics recorded"
+    },
+    {
+      "id": "STEP-005",
+      "name": "Evaluate candidate model",
+      "owner": "ml",
+      "completion_evidence": "deterministic evaluation pass/fail"
+    },
+    {
+      "id": "STEP-006",
+      "name": "Activate passing candidate",
+      "owner": "governance",
+      "completion_evidence": "active model reference and retired prior model"
+    },
+    {
+      "id": "STEP-007",
+      "name": "Open investigation session",
+      "owner": "agent",
+      "completion_evidence": "session bound to workspace/dataset/model"
+    },
+    {
+      "id": "STEP-008",
+      "name": "Execute governed investigation",
+      "owner": "agent",
+      "completion_evidence": "evidence bundle, policy result and audit event"
+    },
+    {
+      "id": "STEP-009",
+      "name": "Run health and bounded recovery",
+      "owner": "operations",
+      "completion_evidence": "fitness checks healthy or degraded with bounded actions"
+    },
+    {
+      "id": "STEP-010",
+      "name": "Pass release gates",
+      "owner": "engineering",
+      "completion_evidence": "agent, platform and frontend CI green"
+    },
     {
       "id": "STEP-011",
       "name": "Resolve immutable desktop configuration",
@@ -93,7 +308,11 @@
       "owner": "engineering",
       "executor": "src.utils.load_config",
       "trigger": "desktop workspace initialization and API health check",
-      "inputs": ["module __file__", "bundled config.yaml", "optional PEOPLEOS_HOME"],
+      "inputs": [
+        "module __file__",
+        "bundled config.yaml",
+        "optional PEOPLEOS_HOME"
+      ],
       "action": "Normalize the module-relative config path before opening it; preserve the PEOPLEOS_HOME database override.",
       "state_transition": "bundled config unread -> configuration loaded -> workspace can initialize",
       "control": "Read immutable config from the bundle, independent of cwd; never create missing package directories or rewrite bundled config.",
@@ -118,7 +337,8 @@
     "workflow": ".github/workflows/analytics-validation.yml",
     "model_gate": "Fold-local raw-data CV; employee holdout; Brier and AP baselines; weighted calibration and class support",
     "forecast_boundary": "Retrospective classification is not validated future-departure prediction",
-    "remaining": "Prospective temporal and subgroup validation on source-verified organization data"
+    "remaining": "Prospective temporal and subgroup validation on source-verified organization data",
+    "extended_integrity": "tests/test_extended_integrity.py: active team denominators, recorded succession assessment coverage, survey joins/dates, hiring exposure, vector replacement/alignment and fail-closed agent evidence"
   },
   "build_readiness": "BUILD READY WITH ASSUMPTIONS"
 }

@@ -47,10 +47,30 @@ class EvidenceAggregator:
         dataset_version: Optional[str] = None,
         model_version: Optional[str] = None,
     ) -> EvidenceBundle:
-        results = list(results)
-        items: List[EvidenceItem] = [item for result in results for item in result.evidence]
         unknowns: List[str] = []
         notes: List[str] = []
+        clean_results = []
+        seen_results, seen_evidence = set(), set()
+        for result in results:
+            if result.result_id in seen_results:
+                continue
+            seen_results.add(result.result_id)
+            evidence = []
+            for item in result.evidence:
+                usable = (result.status in {ToolResultStatus.SUCCESS, ToolResultStatus.PARTIAL}
+                          and item.source_tool == result.tool_id
+                          and not (item.metric and item.value is None)
+                          and not (dataset_version and item.dataset_version and item.dataset_version != dataset_version)
+                          and not (model_version and item.model_version and item.model_version != model_version))
+                if not usable:
+                    unknowns.append(f'{result.tool_id}: discarded unavailable or out-of-scope evidence')
+                    continue
+                if item.evidence_id not in seen_evidence:
+                    evidence.append(item)
+                    seen_evidence.add(item.evidence_id)
+            clean_results.append(result.model_copy(update={'evidence': evidence}))
+        results = clean_results
+        items: List[EvidenceItem] = [item for result in results for item in result.evidence]
 
         for result in results:
             if result.status in {ToolResultStatus.PARTIAL, ToolResultStatus.BLOCKED, ToolResultStatus.FAILED}:
@@ -132,6 +152,8 @@ class EvidenceAggregator:
             "cohort",
             "time_window",
             "outcome",
+            "unit",
+            "currency",
         )
         scope = tuple((key, str(metadata[key])) for key in keys if key in metadata)
         return (item.dataset_version, scope)

@@ -579,6 +579,8 @@ class QualityOfHireEngine:
         if cohort_column not in self.df.columns:
             return pd.DataFrame()
 
+        if not self.has_tenure:
+            return pd.DataFrame()  # Cannot attest the requested exposure threshold.
         df = self.df.copy()
 
         # Filter by minimum tenure
@@ -607,15 +609,18 @@ class QualityOfHireEngine:
                 result['avg_performance'] = round(cohort_df['LastRating'].mean(), 2)
                 result['performance_std'] = round(cohort_df['LastRating'].std(), 2)
                 result['high_performer_pct'] = round(
-                    (cohort_df['LastRating'] >= 4.0).mean() * 100, 1
+                    (cohort_df['LastRating'].dropna() >= 4.0).mean() * 100, 1
                 )
                 result['low_performer_pct'] = round(
-                    (cohort_df['LastRating'] <= 2.5).mean() * 100, 1
+                    (cohort_df['LastRating'].dropna() <= 2.5).mean() * 100, 1
                 )
 
-            # Retention
+                result['performance_observations'] = int(cohort_df['LastRating'].count())
+            # Observed retained share; not a survival-adjusted retention rate.
             if self.has_attrition:
-                result['retention_rate'] = round(1 - cohort_df['Attrition'].mean(), 3)
+                known = cohort_df['Attrition'].dropna()
+                result['retention_rate'] = round(1 - float(known.mean()), 3) if len(known) else None
+                result['outcome_observations'] = len(known)
 
             # Tenure
             if self.has_tenure:

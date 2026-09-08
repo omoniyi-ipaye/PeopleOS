@@ -139,7 +139,7 @@ async def get_quality_of_hire_analysis(state: AppState = Depends(require_quality
         )
 
     _normalize_correlation_inputs(state)
-    results = state.quality_of_hire_engine.analyze_all()
+    results = json_safe(state.quality_of_hire_engine.analyze_all())
     source_rows = [_safe_source(item) for item in results.get("source_effectiveness", [])]
     correlations = _safe_correlation_response(results.get("correlations", {})) if results.get("correlations") else None
     retention = _safe_correlation_response(results.get("retention_correlations", {})) if results.get("retention_correlations") else None
@@ -204,7 +204,7 @@ async def get_cohort_analysis(
         return []
     output = []
     for _, row in frame.iterrows():
-        data = row.to_dict()
+        data = json_safe(row.to_dict())
         cohort_name = str(data.pop(cohort_by, "Unknown"))
         output.append(CohortPerformance(cohort_name=cohort_name, **data))
     return output
