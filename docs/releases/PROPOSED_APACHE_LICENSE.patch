@@ -1,0 +1,14 @@
+--- a/LICENSE
++++ b/LICENSE
+@@ -175,11 +175,4 @@
+ 
+    END OF TERMS AND CONDITIONS
+ 
+-   APPENDIX: COMMONS CLAUSE - COMMERCIAL USE RESTRICTION
+-
+-   The following additional clause is appended to the Apache License 2.0 regarding the use of "PeopleOS":
+-
+-   "COMMERCIAL USE RESTRICTION:
+-   Notwithstanding the terms of the Apache License 2.0, any use of the software for commercial purposes is strictly prohibited without the express written permission of Omoniyi Ipaye. Commercial purpose includes, but is not limited to, using the software to provide services to third parties, selling the software, or integrating the software into a commercial product."
+-
+    Copyright 2024-2026 Omoniyi Ipaye

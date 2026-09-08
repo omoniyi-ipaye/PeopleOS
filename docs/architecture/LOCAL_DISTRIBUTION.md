@@ -127,7 +127,7 @@ The packaged runtime binds to `127.0.0.1` only and uses an ephemeral free port. 
 ## Current transition gaps
 
 1. The first packaging iteration opens the system browser. A thin native shell may replace this later without changing runtime/storage architecture.
-2. Predictive packages are still heavier than desired in the current core dependency bundle. A subsequent packaging pass should split predictive training dependencies from the everyday desktop runtime.
+2. The everyday desktop runtime uses `requirements-desktop.txt`, which excludes the heavier predictive training packages. `requirements-predictive.txt` provides the optional predictive tier; the source core dependency bundle still includes that heavier stack.
 3. Model artifact persistence must use the `models/` directory before predictive activation is considered restart-durable.
 4. Signed/notarized installers and automatic updates are a release-packaging layer after cross-platform executable builds are stable.
 5. Backup/export UX still needs to be connected to the `backups/` and `exports/` directories.

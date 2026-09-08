@@ -4,6 +4,15 @@ PeopleOS is a **local-first, privacy-preserving People Intelligence platform** f
 
 Sensitive workforce data is processed inside the PeopleOS environment. The default API binding is loopback-only, local AI synthesis can run through Ollama, and remote API access must be explicitly enabled and authenticated.
 
+## Try the public beta
+
+Start with the [Public Beta Guide](docs/PUBLIC_BETA_GUIDE.md) for a local source install, fictional sample data, salary declarations, recovery limits and troubleshooting. The beta scope is local evaluation; published installers and production readiness are not implied by the source build instructions.
+
+- [First run and sample walkthrough](docs/PUBLIC_BETA_GUIDE.md#first-run-with-fictional-data)
+- [Import and salary requirements](docs/PUBLIC_BETA_GUIDE.md#import-your-own-test-data)
+- [Security and safe reporting](SECURITY.md)
+- [Bug report](.github/ISSUE_TEMPLATE/bug_report.md) and [feature request](.github/ISSUE_TEMPLATE/feature_request.md) templates
+
 ---
 
 ## What PeopleOS Does
@@ -80,7 +89,7 @@ PeopleOS currently operates at **L2 bounded auto-heal** for control-plane metada
 - execute employment actions.
 
 ### Git safety
-Runtime control-plane state is stored under `.peopleos/`, which is excluded from Git along with database, session and log data.
+Runtime files span the OS-native PeopleOS data directory and, for source runs, repository-relative paths such as `.peopleos/`, `data/`, `sessions/` and `logs/`. See the [storage and recovery notes](docs/PUBLIC_BETA_GUIDE.md#storage-backup-and-recovery). Git exclusions do not encrypt data or make files safe to share.
 
 ---
 
@@ -112,10 +121,10 @@ PeopleOS intentionally keeps the deterministic analytics engines responsible for
 The default installation intentionally excludes the transformer/GPU/vector-search stack. It includes the API, deterministic analytics, predictive/statistical engines, governed agent runtime, local Ollama client and the transitional legacy Streamlit dependency required by the current ML module.
 
 ```bash
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 
 cd web
-npm install
+npm ci
 cd ..
 ```
 
@@ -146,13 +155,13 @@ ollama pull gemma3
 uvicorn api.main:app --host 127.0.0.1 --port 8000
 ```
 
-Or simply run the Python entry point, which also defaults to loopback.
+Alternatively, run `python -m api.main` from the repository root; it also defaults to loopback.
 
 **Frontend:**
 
 ```bash
 cd web
-npm run dev
+npm run dev -- --hostname 127.0.0.1
 ```
 
 Open `http://localhost:3000`.

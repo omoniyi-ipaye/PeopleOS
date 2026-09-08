@@ -1,11 +1,16 @@
 {
   "schema_version": 1,
-  "cycle_id": "PEOPLEOS-QUALITY-005",
-  "baseline_commit": "2338a8467139c7e8e486cdce725968435f7d706b",
-  "successor": {"previous_pr": 4, "previous_branch": "fix/local-model-acceptance", "branch": "test/ollama-cloud-acceptance", "reason": "PR4 merged; user authorized actual cloud-model testing with fictional data"},
-  "state": "local_integration_validation",
+  "cycle_id": "PEOPLEOS-QUALITY-006",
+  "baseline_commit": "ae986ef5be780790a798871d5a20fb6d2e95f343",
+  "successor": {
+    "previous_pr": 5,
+    "previous_branch": "test/ollama-cloud-acceptance",
+    "branch": "release/public-beta-preparation",
+    "reason": "PR5 merged and verified; user authorized public beta release preparation"
+  },
+  "state": "release_preparation",
   "goal": "Correct independently reproduced data-to-insight errors for a dependable local-first People-team product; integrate and merge only the candidate verified by all required gates.",
-  "current_pass_report": "docs/validation/CLOUD_MODEL_ACCEPTANCE.md",
+  "current_pass_report": "docs/releases/PUBLIC_BETA_CHECKLIST.md",
   "merge_authorization": "User explicitly requested fixes, tests and merge in this pass; deployment remains outside scope.",
   "readiness_claim": "Acceptance is specific to a commit, environment, dataset, actor and use case. No test outcome means perfect or 100 percent trustworthy.",
   "tracks": [
@@ -231,9 +236,36 @@
     }
   ],
   "verification": {
-    "cycle005_checkpoint": {"full_python_passes": 816, "renderer_passes": 42, "actual_cloud_gemma4": "10 real selections, five pre-model gates and one induced recovery passed", "actual_cloud_gpt_oss_120b": "10 real selections, five pre-model gates and one induced recovery passed", "kimi_k3": "blocked: HTTP402 requires subscription or extra usage for supplied test key", "local_native_llm": "not executed", "reports": "docs/validation/cloud", "candidate_ci": "pending publication; six workflows required; final immutable verification in successor PR"},
-    "cycle004_checkpoint": {"full_python_passes": 805, "initial_failure": "review hash freshness; reconciled after review", "live_api_restart_checks": 96, "real_embeddings_before": "10/13", "real_embeddings_after": "13/13 actual inference repeated offline; pinned revision", "live_llm": "blocked: runtime absent, official download approval cancelled", "candidate_ci": "pending publication; all six workflows required, including core-only E2E and three desktop platforms"},
-    "cycle003_local": {"full_python_suite": 749, "renderer_tests": 40, "typescript": "passed", "live_api_restart_checks": 96, "public_benchmark_mechanics": 9, "synthetic_stress_checks": 34, "synthetic_employees": 20000, "live_llm": "not executed: runtime unavailable", "real_embeddings": "not executed: dependencies unavailable"},
+    "cycle005_checkpoint": {
+      "full_python_passes": 816,
+      "renderer_passes": 42,
+      "actual_cloud_gemma4": "10 real selections, five pre-model gates and one induced recovery passed",
+      "actual_cloud_gpt_oss_120b": "10 real selections, five pre-model gates and one induced recovery passed",
+      "kimi_k3": "blocked: HTTP402 requires subscription or extra usage for supplied test key",
+      "local_native_llm": "not executed",
+      "reports": "docs/validation/cloud",
+      "candidate_ci": "pending publication; six workflows required; final immutable verification in successor PR"
+    },
+    "cycle004_checkpoint": {
+      "full_python_passes": 805,
+      "initial_failure": "review hash freshness; reconciled after review",
+      "live_api_restart_checks": 96,
+      "real_embeddings_before": "10/13",
+      "real_embeddings_after": "13/13 actual inference repeated offline; pinned revision",
+      "live_llm": "blocked: runtime absent, official download approval cancelled",
+      "candidate_ci": "pending publication; all six workflows required, including core-only E2E and three desktop platforms"
+    },
+    "cycle003_local": {
+      "full_python_suite": 749,
+      "renderer_tests": 40,
+      "typescript": "passed",
+      "live_api_restart_checks": 96,
+      "public_benchmark_mechanics": 9,
+      "synthetic_stress_checks": 34,
+      "synthetic_employees": 20000,
+      "live_llm": "not executed: runtime unavailable",
+      "real_embeddings": "not executed: dependencies unavailable"
+    },
     "baseline_commit": "cc197912b107fdd4e67e81e163ab9e351cdaac27",
     "inventory": {
       "engines": 20,
@@ -261,9 +293,29 @@
       "synthetic_stress": "34/34 checks passed on 20000 fictional employee records, including real upload and 32 concurrent reads",
       "repository_wide_legacy_collection": "666 passed, zero failures locally after resolving 29 legacy failures: governed upload fixtures, current safe-contract expectations, salary progression/database state semantics, and dependency-injected vector behavior"
     },
-    "candidate": "Cycle005 integration checkpoint. PR4 merged at2338a846 with all six candidate workflows passed. Cloud replay exposed JSON formatting and source-label display issues, plus a harness scope error; corrected and replayed. Final candidate and six workflow outcomes recorded in successor PR.",
-    "live_llm": "not evaluated",
-    "recurrence": "paused"
+    "candidate": "Cycle006 release preparation; exact candidate and final CI evidence recorded in successor PR.",
+    "live_llm": "Actual cloud selections passed in cycle005; native local inference requires cycle006 evidence",
+    "recurrence": "paused",
+    "cycle005_final": {
+      "candidate": "4016706702fe867c01a5a8611bb4bfe0e0017e9b",
+      "merge": "ae986ef5be780790a798871d5a20fb6d2e95f343",
+      "tree": "ca177199f4c7d2c22e62a12c3d97c308d01454bb",
+      "required_workflows": "6/6 passed",
+      "browser": "24 passed, no skipped/flaky; desktop/mobile source-label screenshots inspected",
+      "packaged_smoke_restart": "Windows x64, macOS ARM64 and Linux x64 passed",
+      "independent_review": "No blocker; source/report hashes verified",
+      "evidence": "https://github.com/omoniyi-ipaye/PeopleOS/pull/5"
+    },
+    "cycle006_checkpoint": {
+      "baseline_local_probe": "not executed: Python Ollama package/runtime absent",
+      "release_publication": "not authorized in this preparation; no tag/release created",
+      "licence": "commercial restriction retained; concrete Apache-2.0 proposal awaiting owner decision",
+      "candidate_ci": "pending publication; all original six plus applicable new local-model and release-security gates required",
+      "npm_audit": "six development/build advisories fixed; all-dependency audit now zero; 42 renderer tests and TypeScript passed",
+      "python_remediation": "18 initial desktop advisories across5packages; coordinated patched API/parser/sklearn pins, Pydantic/imbalanced-learn compatibility updates; unused TextBlob removed; local installation completed despite an ambiguous tool status; exact-version local tests and candidate CI pending",
+      "packaging": "four bundle tests pass; native candidate checks pending",
+      "native_llm": "new exact-head CPU Ollama selector/liveAPI workflow; not yet executed"
+    }
   },
   "next_cycle": [
     {
