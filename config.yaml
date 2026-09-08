@@ -9,7 +9,7 @@ app:
 ollama:
   host: "http://localhost:11434"
   model: "gemma3:4b"  # Model-agnostic: can be changed
-  timeout: 30
+  timeout: 60
   max_retries: 3
   response_max_tokens: 1500
 
