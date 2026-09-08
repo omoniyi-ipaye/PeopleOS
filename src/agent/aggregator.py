@@ -76,7 +76,11 @@ class EvidenceAggregator:
             # Caveats remain material even when a tool calculates successfully.
             unknowns.extend(f"{result.tool_id}: {warning}" for warning in result.warnings if warning)
             if result.status in {ToolResultStatus.PARTIAL, ToolResultStatus.BLOCKED, ToolResultStatus.FAILED}:
-                reason = result.error or "; ".join(w for w in result.warnings if w) or result.summary
+                # Exception text is diagnostic data and can contain filesystem,
+                # connector or credential details. Surface the governed summary
+                # and explicit safe warnings; keep raw errors inside the typed
+                # result for local diagnosis and out of the rendered answer.
+                reason = "; ".join(w for w in result.warnings if w) or result.summary
                 detail = f"{result.tool_id}: {reason}"
                 if detail not in unknowns:
                     unknowns.append(detail)

@@ -187,6 +187,7 @@ sentiment:
   enps:
     promoter_threshold: 9    # Score >= 9 = Promoter
     detractor_threshold: 6   # Score <= 6 = Detractor
+    min_group_size: 10       # Suppress small segmented survey groups
   early_warning:
     declining_trajectory: true  # Flag declining 30->60->90 scores
     low_score_threshold: 3.0    # Flag scores below this

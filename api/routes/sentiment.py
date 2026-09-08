@@ -134,7 +134,10 @@ async def get_enps(
         passive_pct=results.get('passive_pct'),
         detractor_pct=results.get('detractor_pct'),
         interpretation=results.get('interpretation'),
-        by_group=by_group
+        by_group=by_group,
+        minimum_group_size=results.get('minimum_group_size'),
+        suppressed_group_count=results.get('suppressed_group_count', 0),
+        suppressed_response_count=results.get('suppressed_response_count', 0),
     )
 
 

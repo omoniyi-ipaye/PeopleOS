@@ -38,6 +38,37 @@ def _valid_numeric(series: pd.Series, name: str) -> pd.Series:
     return values
 
 
+def _stable_location(values: pd.Series) -> tuple[Optional[float], Optional[float], Optional[float]]:
+    """Return finite mean, median and sample deviation without float-sum overflow."""
+    array = values.to_numpy(dtype=float)
+    if not len(array):
+        return None, None, None
+    ordinary = (
+        float(values.mean()),
+        float(values.median()),
+        float(values.std(ddof=1)) if len(values) > 1 else None,
+    )
+    if all(value is None or np.isfinite(value) for value in ordinary):
+        return ordinary
+    scale = float(np.max(np.abs(array)))
+    if scale == 0:
+        return 0.0, 0.0, 0.0 if len(array) > 1 else None
+    scaled = array / scale
+    mean = float(np.mean(scaled) * scale)
+    ordered = np.sort(scaled)
+    midpoint = len(ordered) // 2
+    median_scaled = float(ordered[midpoint]) if len(ordered) % 2 else float(
+        ordered[midpoint - 1] + (ordered[midpoint] - ordered[midpoint - 1]) / 2
+    )
+    median = float(median_scaled * scale)
+    deviation = float(np.std(scaled, ddof=1) * scale) if len(array) > 1 else None
+    return (
+        mean if np.isfinite(mean) else None,
+        median if np.isfinite(median) else None,
+        deviation if deviation is None or np.isfinite(deviation) else None,
+    )
+
+
 class AnalyticsEngine:
     def __init__(self, df: pd.DataFrame):
         self.df, self.population_resolution = resolve_current_population(df)
@@ -89,9 +120,7 @@ class AnalyticsEngine:
             }
             if 'Salary' in active.columns:
                 valid = _valid_numeric(active['Salary'], 'Salary')
-                row['Avg_Salary'] = float(valid.mean()) if not valid.empty else None
-                row['Median_Salary'] = float(valid.median()) if not valid.empty else None
-                row['Salary_StdDev'] = float(valid.std(ddof=1)) if len(valid) > 1 else None
+                row['Avg_Salary'], row['Median_Salary'], row['Salary_StdDev'] = _stable_location(valid)
             for source, output in [('Tenure', 'Avg_Tenure'), ('LastRating', 'Avg_Rating'), ('Age', 'Avg_Age')]:
                 if source in active.columns:
                     values = _valid_numeric(active[source], source)
@@ -130,9 +159,10 @@ class AnalyticsEngine:
         for col in ('Salary', 'Tenure', 'LastRating', 'Age'):
             if col in self.active_df.columns:
                 values = _valid_numeric(self.active_df[col], col)
-                result[f'{col.lower()}_mean'] = float(values.mean()) if not values.empty else None
-                result[f'{col.lower()}_median'] = float(values.median()) if not values.empty else None
-                result[f'{col.lower()}_std'] = float(values.std()) if len(values) > 1 else None
+                mean, median, deviation = _stable_location(values)
+                result[f'{col.lower()}_mean'] = mean
+                result[f'{col.lower()}_median'] = median
+                result[f'{col.lower()}_std'] = deviation
                 result[f'{col.lower()}_observations'] = int(len(values))
                 result[f'{col.lower()}_excluded_count'] = int(len(self.active_df) - len(values))
         if 'Attrition' in self.df.columns:
@@ -207,9 +237,9 @@ class AnalyticsEngine:
         frame = self.active_df.dropna(subset=[group_col, metric_col]).copy()
         frame[metric_col] = _valid_numeric(frame[metric_col], metric_col).reindex(frame.index)
         grouped = frame.dropna(subset=[metric_col]).groupby(group_col)[metric_col]
-        eligible = [(name, group.values) for name, group in grouped if len(group) > 5]
+        eligible = [(name, group.values) for name, group in grouped if len(group) >= 10]
         if len(eligible) < 2:
-            return {'success': False, 'reason': 'Not enough groups with data (>5 samples)'}
+            return {'success': False, 'reason': 'Not enough groups with data (at least 10 samples)'}
         names = [name for name, _ in eligible]
         values = [vals for _, vals in eligible]
         try:

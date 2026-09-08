@@ -68,7 +68,9 @@ def test_enps_grouping_cannot_multiply_survey_rows_by_employee_history():
     survey = pd.DataFrame({'EmployeeID': ['E0', 'E1'], 'eNPSScore': [10, 0], 'Dept': ['Survey A', 'Survey A']})
     result = SentimentEngine(employees, enps_df=survey).calculate_enps(group_by='Dept')
     assert result['total_responses'] == 2
-    assert sum(row['responses'] for row in result['by_group']) == 2
+    assert result['by_group'] == []
+    assert result['suppressed_group_count'] == 1
+    assert result['suppressed_response_count'] == 2
 
 
 def test_missing_onboarding_dimensions_are_not_healthy():

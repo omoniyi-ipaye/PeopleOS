@@ -52,6 +52,8 @@ class DepartmentStats(BaseModel):
 class DepartmentList(BaseModel):
     departments: List[DepartmentStats]
     total_departments: int
+    minimum_group_size: int = 10
+    suppressed_department_count: int = 0
 
 
 class TenureDistribution(BaseModel):
@@ -106,4 +108,6 @@ class CorrelationsResponse(BaseModel):
 class HighRiskDepartmentsResponse(BaseModel):
     departments: List[HighRiskDepartment]
     threshold: float
+    minimum_group_size: int = 10
+    suppressed_department_count: int = 0
     threshold_semantics: str = "observed_attrition_share_screening_threshold"

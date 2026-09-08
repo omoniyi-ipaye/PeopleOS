@@ -54,6 +54,21 @@ async function noHorizontalOverflow(page: Page) {
   expect(dimensions.scroll).toBeLessThanOrEqual(dimensions.width + 1)
 }
 
+async function navigate(page: Page, name: string, path: string) {
+  const menu = page.getByRole('button', { name: 'Open navigation', exact: true })
+  if (await menu.isVisible()) await menu.click()
+  await page.getByRole('link', { name, exact: true }).click()
+  await expect(page).toHaveURL(new RegExp(`${path.replace('/', '\\/')}$`))
+  await noHorizontalOverflow(page)
+}
+
+async function uploadRaw(page: Page, name: string, content: string) {
+  await page.goto('/upload')
+  const response = page.waitForResponse(r => r.url().endsWith('/api/upload') && r.request().method() === 'POST')
+  await page.locator('input[type=file]').setInputFiles({ name, mimeType: 'text/csv', buffer: Buffer.from(content) })
+  return response
+}
+
 test.beforeEach(async ({ request }) => {
   const reset = await request.post('/api/upload/reset')
   expect(reset.ok()).toBeTruthy()
@@ -141,4 +156,124 @@ test('an open agent answer is hidden after another tab activates a different dat
   expect(evidence).toEqual(expect.arrayContaining([expect.objectContaining({ metric: 'headcount', value: 30 })]))
   await screenshot(page, 'refreshed-agent-dataset')
   await secondTab.close()
+})
+
+test('every supported product area renders from one verified dataset', async ({ page }) => {
+  const browserErrors: string[] = []
+  page.on('pageerror', error => browserErrors.push(error.message))
+  await upload(page)
+
+  const destinations = [
+    ['Workforce Health', '/workforce-health', 'Where is organisational pressure visible in the current workforce?'],
+    ['Employee Experience', '/employee-experience', 'What do measured experience signals tell us?'],
+    ['Retention Signals', '/flight-risk', 'Predictive retention signals are not active'],
+    ['Quality of Hire', '/quality-of-hire', 'Which hiring inputs are associated with post-hire outcomes?'],
+    ['People Intelligence', '/advisor', 'Ask a workforce question and inspect the evidence'],
+    ['Research', '/search', 'Search is not available for this dataset'],
+    ['Scenario Planner', '/scenario-planner', 'Explore assumptions before making workforce decisions'],
+    ['Retention Forecast', '/retention-forecast', 'How does observed workforce survival vary across tenure and cohorts?'],
+    ['Trust Center', '/platform', 'Can I trust this analysis?'],
+    ['Settings', '/settings', 'System configuration and capability state'],
+    ['Data & Sources', '/upload', 'Know exactly what data PeopleOS is using'],
+    ['Decision Cockpit', '/', 'What deserves your attention?'],
+  ] as const
+
+  for (const [name, path, heading] of destinations) {
+    await navigate(page, name, path)
+    await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible()
+  }
+  await page.goto('/sessions')
+  await expect(page.getByRole('heading', { name: 'Saved Investigations', exact: true })).toBeVisible()
+  await expect(page.getByText(/Current evidence context: dataset active/)).toBeVisible()
+  await noHorizontalOverflow(page)
+  expect(browserErrors).toEqual([])
+  await screenshot(page, 'complete-navigation-cockpit')
+})
+
+test('data lifecycle rejects malformed input, provides a template, resets, and loads sample data', async ({ page }) => {
+  await page.goto('/upload')
+  const template = page.waitForResponse(r => r.url().endsWith('/api/upload/template'))
+  await page.getByRole('button', { name: 'Download', exact: true }).click()
+  expect((await template).ok()).toBeTruthy()
+
+  const invalid = await uploadRaw(page, 'invalid.csv', 'EmployeeID,Dept\n1,Finance\n1,Finance\n')
+  expect(invalid.ok()).toBeFalsy()
+  await expect(page.getByText(/duplicate|at least 50|missing/i).first()).toBeVisible()
+  await expect(page.getByText('No active dataset', { exact: true })).toBeVisible()
+
+  await page.getByRole('button', { name: 'Load sample', exact: true }).click()
+  await expect(page.getByText('Dataset activated', { exact: true })).toBeVisible()
+  await expect(page.getByText('Dataset active', { exact: true })).toBeVisible()
+  const reset = page.waitForResponse(r => r.url().endsWith('/api/upload/reset') && r.request().method() === 'POST')
+  await page.getByRole('button', { name: 'Reset', exact: true }).click()
+  expect((await reset).ok()).toBeTruthy()
+  await expect(page.getByText('No active dataset', { exact: true })).toBeVisible()
+  await expect(page.getByText('PeopleOS needs a source of truth', { exact: true })).toBeVisible()
+  await screenshot(page, 'data-lifecycle-reset')
+})
+
+test('planning controls calculate both aggregate scenario classes and invalidate stale output', async ({ page }) => {
+  await upload(page)
+  await navigate(page, 'Scenario Planner', '/scenario-planner')
+
+  const pay = page.waitForResponse(r => r.url().endsWith('/api/scenario/simulate/compensation') && r.request().method() === 'POST')
+  await page.getByLabel('Compensation adjustment (%)').fill('10')
+  await page.getByRole('button', { name: 'Run exploratory scenario', exact: true }).click()
+  expect((await pay).ok()).toBeTruthy()
+  await expect(page.getByText('Scenario interpretation', { exact: true })).toBeVisible()
+  await expect(page.getByText('People in scope', { exact: true })).toBeVisible()
+
+  await page.getByRole('button', { name: 'Expansion', exact: true }).click()
+  await expect(page.getByText('Scenario interpretation', { exact: true })).toHaveCount(0)
+  await page.getByLabel('Additional positions').fill('12')
+  await page.getByLabel('Scope').selectOption('department')
+  await page.getByLabel('Department').selectOption({ index: 1 })
+  const headcount = page.waitForResponse(r => r.url().endsWith('/api/scenario/simulate/headcount') && r.request().method() === 'POST')
+  await page.getByRole('button', { name: 'Run exploratory scenario', exact: true }).click()
+  expect((await headcount).ok()).toBeTruthy()
+  await expect(page.getByText('Scenario interpretation', { exact: true })).toBeVisible()
+  await screenshot(page, 'scenario-headcount-department')
+})
+
+test('analytical tabs preserve interpretation boundaries for sparse optional evidence', async ({ page }) => {
+  await upload(page, 'A', true)
+
+  await navigate(page, 'Employee Experience', '/employee-experience')
+  await expect(page.getByText('Measured experience data is not available', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Associations & lifecycle', exact: true }).click()
+  await expect(page.getByText('No association analysis available', { exact: true })).toBeVisible()
+
+  await navigate(page, 'Quality of Hire', '/quality-of-hire')
+  await page.getByRole('button', { name: 'Source cohorts', exact: true }).click()
+  await expect(page.getByText('No source cohort data available', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Observed associations', exact: true }).click()
+  await expect(page.getByText('No association analysis available', { exact: true })).toBeVisible()
+
+  await navigate(page, 'Retention Forecast', '/retention-forecast')
+  await page.getByRole('button', { name: 'Cohorts', exact: true }).click()
+  await expect(page.getByText('Use boundary', { exact: true })).toBeVisible()
+  await screenshot(page, 'sparse-evidence-boundaries')
+})
+
+test('governance, model and research gates expose unavailable capability without false results', async ({ page }) => {
+  await upload(page)
+  await navigate(page, 'Retention Signals', '/flight-risk')
+  await expect(page.getByText('Deterministic analysis remains available', { exact: true })).toBeVisible()
+  await expect(page.getByText(/High signal/)).toHaveCount(0)
+
+  await navigate(page, 'Research', '/search')
+  await expect(page.getByText('Structured evidence is still available', { exact: true })).toBeVisible()
+  await expect(page.getByLabel('Research query')).toHaveCount(0)
+
+  await navigate(page, 'Trust Center', '/platform')
+  await page.getByRole('button', { name: /Advanced governance & recovery/ }).click()
+  await expect(page.getByText('May recover automatically', { exact: true })).toBeVisible()
+  await expect(page.getByText('Requires governed action', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Refresh', exact: true }).click()
+  await expect(page.getByText('Snapshot verified', { exact: true })).toBeVisible()
+
+  await navigate(page, 'Settings', '/settings')
+  await expect(page.getByText('Capability registry', { exact: true })).toBeVisible()
+  await expect(page.getByText('Fallback mode', { exact: true })).toBeVisible()
+  await screenshot(page, 'capability-gates')
 })

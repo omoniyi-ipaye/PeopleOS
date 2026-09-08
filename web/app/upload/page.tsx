@@ -13,29 +13,31 @@ export default function DataSourcesPage() {
   const queryClient = useQueryClient()
   const [result, setResult] = useState<UploadResponse | null>(null)
 
-  const { data: status } = useQuery<UploadStatus>({ queryKey: ['upload', 'status'], queryFn: () => api.upload.getStatus() as Promise<UploadStatus> })
+  const { data: status, isLoading: statusLoading, isError: statusError, refetch: retryStatus } = useQuery<UploadStatus>({ queryKey: ['upload', 'status'], queryFn: () => api.upload.getStatus() as Promise<UploadStatus> })
   const uploadMutation = useMutation<UploadResponse, Error, File>({ mutationFn: (file) => api.upload.uploadFile(file) as Promise<UploadResponse>, onSuccess: (data) => { setResult(data); void queryClient.resetQueries() } })
   const sampleMutation = useMutation<UploadResponse, Error, void>({ mutationFn: () => api.upload.loadSample() as Promise<UploadResponse>, onSuccess: (data) => { setResult(data); void queryClient.resetQueries() } })
   const resetMutation = useMutation({ mutationFn: () => api.upload.reset(), onSuccess: () => { setResult(null); void queryClient.resetQueries() } })
 
-  const onDrop = useCallback((files: File[]) => { if (files[0]) uploadMutation.mutate(files[0]) }, [uploadMutation])
-  const dropzone = useDropzone({ onDrop, accept: { 'text/csv': ['.csv'], 'application/json': ['.json'] }, maxFiles: 1 })
   const hasData = Boolean(status?.has_data)
-  const busy = uploadMutation.isPending || sampleMutation.isPending
+  const busy = uploadMutation.isPending || sampleMutation.isPending || resetMutation.isPending
+  const onDrop = useCallback((files: File[]) => { if (files[0]) uploadMutation.mutate(files[0]) }, [uploadMutation])
+  const dropzone = useDropzone({ onDrop, accept: { 'text/csv': ['.csv'], 'application/json': ['.json'] }, maxFiles: 1, disabled: statusLoading || statusError || busy })
+  const mutationError = uploadMutation.error || sampleMutation.error || resetMutation.error
 
   return <Page>
     <PageHeader eyebrow="Govern · Data & Sources" title="Know exactly what data PeopleOS is using" description="Validate and activate workforce data without silently training a model. Dataset state, predictive readiness and optional text capability remain separate." />
 
-    {hasData ? <StateSummary title="Dataset active" description={`${status?.employee_count?.toLocaleString() ?? 0} people are available for deterministic workforce analysis.`} tone="success" /> : <StateSummary title="No active dataset" description="Add a workforce dataset or use the sample to start the PeopleOS journey." tone="neutral" />}
+    {statusLoading ? <StateSummary title="Checking data source" description="Reading the active dataset lifecycle before enabling data actions." tone="info" /> : statusError ? <EmptyState title="Data source state is unavailable" description="PeopleOS could not verify which dataset is active. Retry before uploading, loading a sample or resetting data." action={<Button onClick={() => void retryStatus()}>Retry status check</Button>} /> : hasData ? <StateSummary title="Dataset active" description={`${Number.isFinite(status?.employee_count) ? status!.employee_count.toLocaleString() : 'An unavailable number of'} people are available for deterministic workforce analysis.`} tone="success" /> : <StateSummary title="No active dataset" description="Add a workforce dataset or use the sample to start the PeopleOS journey." tone="neutral" />}
+    {mutationError && <div role="alert"><StateSummary title="Data action failed" description={mutationError instanceof Error ? mutationError.message : 'The requested data action could not be completed.'} tone="warning" /></div>}
 
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
       <Surface padding="none" className="overflow-hidden">
-        <div {...dropzone.getRootProps()} className={`flex min-h-[360px] cursor-pointer flex-col items-center justify-center p-8 text-center transition ${dropzone.isDragActive ? 'bg-accent/5' : 'hover:bg-background-secondary'}`}>
+        <div {...dropzone.getRootProps()} aria-disabled={statusLoading || statusError || busy} className={`flex min-h-[360px] cursor-pointer flex-col items-center justify-center p-8 text-center transition ${dropzone.isDragActive ? 'bg-accent/5' : 'hover:bg-background-secondary'}`}>
           <input {...dropzone.getInputProps()} />
           <div className="grid h-14 w-14 place-items-center rounded-2xl bg-accent/10 text-accent">{uploadMutation.isPending ? <Loader2 className="h-6 w-6 animate-spin" /> : <FileUp className="h-6 w-6" />}</div>
           <h2 className="mt-5 text-xl font-semibold">{dropzone.isDragActive ? 'Drop the dataset here' : 'Add workforce data'}</h2>
           <p className="mt-2 max-w-md text-sm leading-6 text-text-secondary">CSV or JSON. PeopleOS validates and activates the source without making model training an upload side effect.</p>
-          <Button type="button" className="mt-6">Browse files</Button>
+          <Button type="button" className="mt-6" disabled={statusLoading || statusError || busy}>Browse files</Button>
         </div>
       </Surface>
 
@@ -52,8 +54,8 @@ export default function DataSourcesPage() {
 
     <section className="grid gap-4 md:grid-cols-3">
       <Surface padding="md" className="flex items-center justify-between gap-4"><div><div className="font-semibold">Schema template</div><div className="text-xs text-text-muted">Review required and optional fields</div></div><Button variant="secondary" size="sm" onClick={() => api.upload.downloadTemplate()}><Download className="h-4 w-4" />Download</Button></Surface>
-      <Surface padding="md" className="flex items-center justify-between gap-4"><div><div className="font-semibold">Sample dataset</div><div className="text-xs text-text-muted">Explore the product safely</div></div><Button variant="secondary" size="sm" disabled={hasData || busy} isLoading={sampleMutation.isPending} onClick={() => sampleMutation.mutate()}><Sparkles className="h-4 w-4" />Load sample</Button></Surface>
-      <Surface padding="md" className="flex items-center justify-between gap-4"><div><div className="font-semibold">Runtime data</div><div className="text-xs text-text-muted">Lifecycle history remains auditable</div></div><Button variant="danger" size="sm" disabled={!hasData || resetMutation.isPending} isLoading={resetMutation.isPending} onClick={() => resetMutation.mutate()}><Trash2 className="h-4 w-4" />Reset</Button></Surface>
+      <Surface padding="md" className="flex items-center justify-between gap-4"><div><div className="font-semibold">Sample dataset</div><div className="text-xs text-text-muted">Explore the product safely</div></div><Button variant="secondary" size="sm" disabled={statusLoading || statusError || hasData || busy} isLoading={sampleMutation.isPending} onClick={() => sampleMutation.mutate()}><Sparkles className="h-4 w-4" />Load sample</Button></Surface>
+      <Surface padding="md" className="flex items-center justify-between gap-4"><div><div className="font-semibold">Runtime data</div><div className="text-xs text-text-muted">Lifecycle history remains auditable</div></div><Button variant="danger" size="sm" disabled={statusLoading || statusError || !hasData || busy} isLoading={resetMutation.isPending} onClick={() => resetMutation.mutate()}><Trash2 className="h-4 w-4" />Reset</Button></Surface>
     </section>
 
     {result && <Surface padding="lg">

@@ -28,14 +28,14 @@ _PERMISSIONS: Dict[str, FrozenSet[str]] = {
         "dataset.read", "dataset.write", "dataset.activate",
         "model.read", "model.train", "model.activate",
         "session.read", "session.write", "investigate",
-        "health.read", "health.recover",
+        "health.read", "health.recover", "sensitive.read",
     }),
     "analyst": frozenset({
         "workspace.read", "dataset.read", "model.read",
-        "session.read", "session.write", "investigate", "health.read",
+        "session.read", "session.write", "investigate", "health.read", "sensitive.read",
     }),
     "viewer": frozenset({
-        "workspace.read", "dataset.read", "model.read", "session.read", "health.read",
+        "health.read",
     }),
 }
 

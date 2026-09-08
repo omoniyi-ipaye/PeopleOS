@@ -23,7 +23,7 @@ interface ExperienceAnalysis {
 }
 
 function toneForScore(value?: number) {
-  if (value === undefined) return 'neutral' as const
+  if (value === undefined || !Number.isFinite(value)) return 'neutral' as const
   if (value >= 80) return 'success' as const
   if (value >= 60) return 'info' as const
   if (value >= 40) return 'warning' as const
@@ -42,7 +42,10 @@ export default function EmployeeExperiencePage() {
   if (isError) return <Page>{header}<EmptyState title="Employee Experience is unavailable" description={error instanceof Error ? error.message : 'The experience analysis could not be loaded.'} action={<Button onClick={() => refetch()}><RefreshCw className="h-4 w-4" />Retry</Button>} /></Page>
 
   const measured = Boolean(data?.experience_index.available)
-  const score = measured ? (data?.summary.overall_exi ?? data?.experience_index.overall_exi) : undefined
+  const rawScore = measured ? (data?.summary.overall_exi ?? data?.experience_index.overall_exi) : undefined
+  const score = typeof rawScore === 'number' && Number.isFinite(rawScore) ? rawScore : undefined
+  const respondents = measured && Number.isFinite(data?.experience_index.respondent_count) ? data?.experience_index.respondent_count : undefined
+  const responseCoverage = measured && Number.isFinite(data?.experience_index.response_coverage) ? data?.experience_index.response_coverage : undefined
   const segments = measured ? (data?.segments.segments ?? []) : []
   const drivers = measured ? (data?.drivers.drivers ?? []) : []
   const stages = measured ? (data?.lifecycle.stages ?? []) : []
@@ -53,20 +56,20 @@ export default function EmployeeExperiencePage() {
       {!measured && <StateSummary title="Measured experience data is not available" description={data?.experience_index.reason ?? 'Add explicit experience survey signals before interpreting workforce experience.'} tone="info" />}
       {data?.warnings?.length ? <StateSummary title="Interpretation notes" description={data.warnings.slice(0, 3).join(' · ')} tone="info" /> : null}
 
-      <div className="flex flex-wrap gap-2">
-        <Button variant={tab === 'overview' ? 'primary' : 'secondary'} size="sm" onClick={() => setTab('overview')}><Heart className="h-4 w-4" />Measured overview</Button>
-        <Button variant={tab === 'associations' ? 'primary' : 'secondary'} size="sm" onClick={() => setTab('associations')}><Layers className="h-4 w-4" />Associations & lifecycle</Button>
+      <div className="flex flex-wrap gap-2" role="tablist" aria-label="Employee experience views">
+        <Button role="tab" aria-selected={tab === 'overview'} aria-controls="experience-overview" variant={tab === 'overview' ? 'primary' : 'secondary'} size="sm" onClick={() => setTab('overview')}><Heart className="h-4 w-4" />Measured overview</Button>
+        <Button role="tab" aria-selected={tab === 'associations'} aria-controls="experience-associations" variant={tab === 'associations' ? 'primary' : 'secondary'} size="sm" onClick={() => setTab('associations')}><Layers className="h-4 w-4" />Associations & lifecycle</Button>
       </div>
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Experience composite" value={score === undefined ? 'Not available' : Math.round(score)} detail={measured ? 'Configured weighted composite of measured signals' : 'No proxy-derived score is created'} icon={Activity} tone={toneForScore(score)} />
-        <MetricCard label="Measured respondents" value={(data?.experience_index.respondent_count ?? 0).toLocaleString()} detail={`${((data?.experience_index.response_coverage ?? 0) * 100).toFixed(1)}% of current employee records`} icon={Target} />
+        <MetricCard label="Measured respondents" value={respondents == null ? 'Unavailable' : respondents.toLocaleString()} detail={responseCoverage == null ? 'Response coverage was not reported' : `${(responseCoverage * 100).toFixed(1)}% of current employee records`} icon={Target} />
         <MetricCard label="Available signal columns" value={(data?.signals.total_signals ?? 0).toLocaleString()} detail={`${data?.signals.has_enps ? 'eNPS · ' : ''}${data?.signals.has_pulse ? 'Pulse · ' : ''}${data?.signals.coverage_percentage == null ? 'coverage not reported' : `${data.signals.coverage_percentage.toFixed(0)}% employee coverage`}`} icon={Signal} />
         <MetricCard label="Low-score aggregate" value={measured ? (data?.summary.at_risk_count ?? 0).toLocaleString() : '—'} detail={measured ? 'Aggregate score-band count; no employee list exposed' : 'Unavailable without measured signals'} icon={Heart} tone={measured && (data?.summary.at_risk_count ?? 0) > 0 ? 'warning' : 'neutral'} />
       </section>
 
       {tab === 'overview' ? (
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(340px,0.85fr)]">
+        <div id="experience-overview" role="tabpanel" className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(340px,0.85fr)]">
           <Surface padding="lg">
             <SectionHeader title="Measured score distribution" description="Configured score bands for aggregate monitoring, not diagnoses of individual engagement." />
             <div className="mt-5 space-y-4">
@@ -89,7 +92,7 @@ export default function EmployeeExperiencePage() {
           </Surface>
         </div>
       ) : (
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div id="experience-associations" role="tabpanel" className="grid gap-6 lg:grid-cols-2">
           <Surface padding="lg">
             <SectionHeader title="Observed associations" description="Correlations with the measured composite are not causal drivers." />
             <div className="mt-5 space-y-3">

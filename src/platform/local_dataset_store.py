@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 import hashlib
+import tempfile
 from io import BytesIO
 from pathlib import Path
 
@@ -30,9 +31,17 @@ def save_dataset_artifact(dataset_id: str, frame: pd.DataFrame) -> Path:
     """Atomically persist the full validated dataset version as CSV."""
     target = dataset_artifact_path(dataset_id)
     target.parent.mkdir(parents=True, exist_ok=True)
-    tmp = target.with_suffix('.csv.tmp')
-    frame.to_csv(tmp, index=False)
-    os.replace(tmp, target)
+    descriptor, tmp_name = tempfile.mkstemp(prefix=f'.{target.name}.', suffix='.tmp', dir=target.parent)
+    os.close(descriptor)
+    tmp = Path(tmp_name)
+    try:
+        frame.to_csv(tmp, index=False)
+        with tmp.open('rb') as handle:
+            os.fsync(handle.fileno())
+        os.replace(tmp, target)
+    finally:
+        if tmp.exists():
+            tmp.unlink()
     return target
 
 

@@ -32,6 +32,7 @@ interface ScenarioResult {
 }
 
 function money(value: number) {
+  if (!Number.isFinite(value)) return 'Unavailable'
   const abs = Math.abs(value)
   if (abs >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`
   if (abs >= 1_000) return `${(value / 1_000).toFixed(0)}K`
@@ -71,8 +72,12 @@ export default function ScenarioPlannerPage() {
 
   const {data: status} = useQuery({queryKey: ['platform', 'status'], queryFn: () => api.getStatus() as Promise<{integrity?: {snapshot?: {generation?: string}}}>})
   const result = storedResult?.provenance?.generation === status?.integrity?.snapshot?.generation ? storedResult : null
+  const staleResult = Boolean(storedResult && storedResult.provenance?.generation !== status?.integrity?.snapshot?.generation)
   const loading = compensation.isPending || headcount.isPending
   const failure = compensation.error || headcount.error
+  const inputValid = type === 'compensation'
+    ? Number.isFinite(adjustmentValue) && adjustmentValue >= -100 && adjustmentValue <= 100
+    : Number.isInteger(changeCount) && changeCount >= 1 && changeCount <= 100000
   const run = () => {
     compensation.reset()
     headcount.reset()
@@ -87,6 +92,7 @@ export default function ScenarioPlannerPage() {
       <StateSummary title="Assumption sensitivity, not prediction certainty" description="Simulation frequencies describe the configured model, not the empirical probability that an outcome will happen." tone="info" />
 
       {failure && <StateSummary title="Scenario unavailable" description={failure instanceof Error ? failure.message : 'The scenario could not be calculated.'} tone="warning" />}
+      {staleResult && <StateSummary title="The data source has changed" description="The previous scenario is hidden because it belongs to another dataset snapshot. Run it again against the active source." tone="warning" />}
       <p className="text-sm text-text-muted">Financial values use source salary units; annual salary is required.</p>
       <div className="grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
         <Surface padding="lg">
@@ -98,19 +104,19 @@ export default function ScenarioPlannerPage() {
           </div>
 
           <div className="mt-6 space-y-5">
-            {type === 'compensation' && <Input label="Compensation adjustment (%)" type="number" value={adjustmentValue} onChange={(event) => {setResult(null); setAdjustmentValue(Number(event.target.value))}} helperText="Explores a pay-change assumption; it does not estimate a causal retention effect." />}
-            {type === 'headcount' && <Input label="Additional positions" type="number" value={changeCount} onChange={(event) => {setResult(null); setChangeCount(Number(event.target.value))}} helperText="Aggregate expansion only. PeopleOS does not rank employees for reduction decisions." />}
+            {type === 'compensation' && <Input label="Compensation adjustment (%)" type="number" min={-100} max={100} step="0.1" value={adjustmentValue} onChange={(event) => {setResult(null); setAdjustmentValue(Number(event.target.value))}} error={Number.isFinite(adjustmentValue) && adjustmentValue >= -100 && adjustmentValue <= 100 ? undefined : 'Enter a finite adjustment from -100% to 100%.'} helperText="Explores a pay-change assumption; it does not estimate a causal retention effect." />}
+            {type === 'headcount' && <Input label="Additional positions" type="number" min={1} max={100000} step="1" value={changeCount} onChange={(event) => {setResult(null); setChangeCount(Number(event.target.value))}} error={Number.isInteger(changeCount) && changeCount >= 1 && changeCount <= 100000 ? undefined : 'Enter a whole number from 1 to 100,000.'} helperText="Aggregate expansion only. PeopleOS does not rank employees for reduction decisions." />}
 
-            <div><label className="mb-2 block text-sm font-medium">Scope</label><select value={targetScope} onChange={(event) => {setResult(null); setTargetScope(event.target.value as 'all' | 'department')}} className="h-10 w-full rounded-xl border border-border bg-surface px-3 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30"><option value="all">Whole workforce</option><option value="department">One department</option></select></div>
-            {targetScope === 'department' && <div><label className="mb-2 block text-sm font-medium">Department</label><select value={targetDept} onChange={(event) => {setResult(null); setTargetDept(event.target.value)}} className="h-10 w-full rounded-xl border border-border bg-surface px-3 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30"><option value="">Select department</option>{departments.map((department) => <option key={department} value={department}>{department}</option>)}</select></div>}
+            <div><label htmlFor="scenario-scope" className="mb-2 block text-sm font-medium">Scope</label><select id="scenario-scope" value={targetScope} onChange={(event) => {setResult(null); setTargetScope(event.target.value as 'all' | 'department')}} className="h-10 w-full rounded-xl border border-border bg-surface px-3 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30"><option value="all">Whole workforce</option><option value="department">One department</option></select></div>
+            {targetScope === 'department' && <div><label htmlFor="scenario-department" className="mb-2 block text-sm font-medium">Department</label><select id="scenario-department" value={targetDept} onChange={(event) => {setResult(null); setTargetDept(event.target.value)}} className="h-10 w-full rounded-xl border border-border bg-surface px-3 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30"><option value="">Select department</option>{departments.map((department) => <option key={department} value={department}>{department}</option>)}</select></div>}
 
-            <Button onClick={run} isLoading={loading} disabled={targetScope === 'department' && !targetDept} className="w-full"><Play className="h-4 w-4" />Run exploratory scenario</Button>
+            <Button onClick={run} isLoading={loading} disabled={!inputValid || (targetScope === 'department' && !targetDept)} className="w-full"><Play className="h-4 w-4" />Run exploratory scenario</Button>
           </div>
           </fieldset>
         </Surface>
 
         <div className="space-y-6">
-          {!result ? <Surface padding="lg" className="min-h-[360px] grid place-items-center"><div className="max-w-lg text-center"><div className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-accent/10 text-accent"><GitBranch className="h-6 w-6" /></div><h2 className="mt-5 text-xl font-semibold">Configure a scenario to inspect sensitivity</h2><p className="mt-2 text-sm leading-6 text-text-secondary">Model outcomes and costs while keeping the assumptions available for review.</p></div></Surface> : <>
+          {!result || !result.available ? <Surface padding="lg" className="min-h-[360px] grid place-items-center"><div className="max-w-lg text-center"><div className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-accent/10 text-accent"><GitBranch className="h-6 w-6" /></div><h2 className="mt-5 text-xl font-semibold">{storedResult && !storedResult.available ? 'Scenario evidence is unavailable' : 'Configure a scenario to inspect sensitivity'}</h2><p className="mt-2 text-sm leading-6 text-text-secondary">{storedResult && !storedResult.available ? 'The engine did not return a usable scenario. Review the reported assumptions or data requirements before trying again.' : 'Model outcomes and costs while keeping the assumptions available for review.'}</p></div></Surface> : <>
             <p className="text-sm text-text-secondary">Source: {result.provenance?.source_name ?? 'Active dataset'}{result.provenance?.dataset_version ? ` · Dataset v${result.provenance.dataset_version}` : ''}</p>
             <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <MetricCard label="People in scope" value={result.affected_employees.toLocaleString()} detail={result.affected_departments.length ? result.affected_departments.join(', ') : 'Configured scope'} icon={Users} />

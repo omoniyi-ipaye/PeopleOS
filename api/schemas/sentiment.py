@@ -30,6 +30,9 @@ class ENPSResponse(BaseModel):
     detractor_pct: Optional[float] = None
     interpretation: Optional[str] = None
     by_group: List[ENPSGroupResult] = []
+    minimum_group_size: Optional[int] = None
+    suppressed_group_count: int = 0
+    suppressed_response_count: int = 0
 
 
 class ENPSTrendPoint(BaseModel):

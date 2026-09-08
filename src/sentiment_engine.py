@@ -170,6 +170,21 @@ class SentimentEngine:
             }
 
         df = self.enps_df.copy()
+        allowed_group_fields = {'Dept', 'Location', 'BusinessUnit', 'Country', 'Region'}
+        minimum_group_size = int(self.enps_config.get('min_group_size', 10))
+        if group_by and group_by not in allowed_group_fields:
+            return {
+                'available': False,
+                'reason': 'Unsupported eNPS grouping field',
+                'allowed_group_fields': sorted(allowed_group_fields),
+                'survey_coverage': self.survey_coverage,
+            }
+        if group_by and group_by not in self.employee_df.columns:
+            return {
+                'available': False,
+                'reason': f'{group_by} is unavailable in the governed employee population',
+                'survey_coverage': self.survey_coverage,
+            }
 
         # Date-only endpoints include the entire UTC day. A missing date
         # column cannot satisfy a requested date filter.
@@ -199,7 +214,10 @@ class SentimentEngine:
             }
 
         # Merge with employee data for grouping
-        if group_by and group_by not in df.columns and group_by in self.employee_df.columns:
+        if group_by:
+            # Organization grouping is sourced from the governed employee
+            # population. A survey upload cannot redefine an employee's cohort.
+            df = df.drop(columns=[group_by], errors='ignore')
             df = df.merge(
                 self.employee_df[['EmployeeID', group_by]],
                 on='EmployeeID',
@@ -234,8 +252,15 @@ class SentimentEngine:
         # Calculate by group if specified
         if group_by and group_by in df.columns:
             by_group = []
-            for group_name in df[group_by].dropna().unique():
-                group_data = df[df[group_by] == group_name]
+            group_labels = df[group_by].astype('string').str.strip().replace('', pd.NA).fillna('Unknown')
+            suppressed_groups = 0
+            suppressed_responses = 0
+            for group_name in group_labels.unique():
+                group_data = df[group_labels == group_name]
+                if len(group_data) < minimum_group_size:
+                    suppressed_groups += 1
+                    suppressed_responses += len(group_data)
+                    continue
                 enps = calc_enps_score(group_data)
                 by_group.append({
                     'group': group_name,
@@ -247,6 +272,9 @@ class SentimentEngine:
 
             by_group.sort(key=lambda x: x['enps'] if x['enps'] is not None else -100, reverse=True)
             result['by_group'] = by_group
+            result['minimum_group_size'] = minimum_group_size
+            result['suppressed_group_count'] = suppressed_groups
+            result['suppressed_response_count'] = suppressed_responses
 
         # Add benchmark interpretation
         if overall_enps is not None:

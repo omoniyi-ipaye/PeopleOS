@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "cycle_id": "PEOPLEOS-QUALITY-001",
-  "baseline_commit": "bd98b6af2687046c90148b5267896531d0326417",
-  "state": "candidate_validation",
-  "goal": "Improve the reliability and usability of governed aggregate people analytics through reproducible end-user journeys and specialist review.",
+  "cycle_id": "PEOPLEOS-QUALITY-002",
+  "baseline_commit": "cc197912b107fdd4e67e81e163ab9e351cdaac27",
+  "state": "local_integration_validation",
+  "goal": "Establish an executable launch baseline for every audited engine method, API operation, routed renderer and supported end-user process using edge-case synthetic evidence.",
   "readiness_claim": "Acceptance is specific to a commit, environment, dataset, actor and use case. No test outcome means perfect or 100 percent trustworthy.",
   "tracks": [
     {
@@ -81,7 +81,10 @@
       "condition": "Known-answer populations and amounts reconcile, including unknown groups and measurement exclusions",
       "evidence": [
         "scripts/live_dummy_acceptance.py",
-        "tests/test_people_team_acceptance.py"
+        "tests/test_people_team_acceptance.py",
+        "model/analytics_launch_matrix.json",
+        "tests/test_analytics_launch_matrix.py",
+        "tests/test_ml_engine.py"
       ]
     },
     {
@@ -89,14 +92,18 @@
       "condition": "Agent claims cite compatible successful evidence and cannot invent numbers, causal effects, question coverage or unsupported actions",
       "evidence": [
         "tests/test_agentic_acceptance.py",
-        "tests/test_agent_orchestrator.py"
+        "tests/test_agent_orchestrator.py",
+        "model/agentic_launch_matrix.json",
+        "tests/test_agentic_launch_matrix.py"
       ]
     },
     {
       "id": "AC-ACCESS",
       "condition": "Denied mutations do not execute; browser-origin and role boundaries preserve supported desktop use",
       "evidence": [
-        "tests/test_enterprise_controls.py"
+        "tests/test_enterprise_controls.py",
+        "docs/validation/enterprise-controls-cycle-002.json",
+        "tests/test_enterprise_controls_matrix.py"
       ]
     },
     {
@@ -104,7 +111,10 @@
       "condition": "People-team journeys show correct current results, distinguish absent evidence and expose reasoning limits",
       "evidence": [
         "web/tests/design-usability.test.cjs",
-        "web/e2e"
+        "web/e2e",
+        "docs/validation/RENDERER_VALIDATION_MATRIX.md",
+        "web/tests/renderer-edge-cases.test.cjs",
+        "web/e2e/action-process-coverage.json"
       ]
     },
     {
@@ -143,7 +153,7 @@
       "Claiming unexecuted browser or LLM validation"
     ],
     "concurrency": "One integrating cycle per candidate; complete active CI and reconcile branch changes before starting new mutations.",
-    "recurrence": "Hourly scheduled bounded iterations, enabled; approximately45minutes per coherent candidate with checkpoints and no overlapping integration.",
+    "recurrence": "Paused. Recurring improvement can be enabled only after Cycle002 completes all candidate gates and the baseline is explicitly accepted.",
     "stop_conditions": [
       "Required access is unavailable",
       "An action exceeds authorized scope",
@@ -161,164 +171,116 @@
   ],
   "findings": [
     {
-      "id": "QC001-01",
+      "id": "QC002-01",
+      "area": "agentic",
       "severity": "high",
-      "area": "security",
-      "observed": "Remote roles and foreign-origin local requests could execute legacy mutations; legacy sessions accepted filesystem paths",
-      "correction": "Central permission/origin/Host guard and410 retirement of legacy sessions",
-      "verification": "tests/test_enterprise_controls.py",
-      "state": "independently_reviewed_pending_candidate_ci"
+      "observed": "Negation, common paraphrases, unsupported group/statistic scopes and individualized risk/disclosure requests could route unrelated tools or evidence.",
+      "correction": "Intent/scoping rules require exact evidence; individual/ranking requests stop before tools; safe aggregate questions remain available.",
+      "verification": "model/agentic_launch_matrix.json; tests/test_agentic_launch_matrix.py",
+      "state": "independently_rechecked_local"
     },
     {
-      "id": "QC001-02",
+      "id": "QC002-02",
+      "area": "controls",
       "severity": "high",
-      "area": "recovery",
-      "observed": "Corrupt registry could be overwritten during constructor initialization or recovery without preserved bytes",
-      "correction": "Startup fails closed; explicit runtime repair quarantines bytes and remains degraded until dataset reconciliation; orphaned runtime/model evidence invalidated and unregistered SQLite fallback blocked",
-      "verification": "tests/test_enterprise_recovery.py; tests/test_enterprise_recovery_api.py",
-      "state": "independently_reviewed_pending_candidate_ci"
+      "observed": "Concurrent store instances lost45of64writes; failed registration could leave ghost metadata/artifacts; early denials were cacheable.",
+      "correction": "Process-wide transaction lock, atomic unique writes and cleanup, actor-bound sessions, no-store denial responses.",
+      "verification": "docs/validation/enterprise-controls-cycle-002.json; tests/test_enterprise_controls_matrix.py",
+      "state": "independently_rechecked_local"
     },
     {
-      "id": "QC001-03",
+      "id": "QC002-03",
+      "area": "privacy",
       "severity": "high",
+      "observed": "Viewer and singleton grouped endpoints could expose employee-linked or effectively individual metrics.",
+      "correction": "All133API operations classified; workforce metrics require analyst; individual/deprecated routes blocked/retired; cells under10suppressed across governed grouped endpoints.",
+      "verification": "tests/test_enterprise_controls_matrix.py; tests/test_analytics_launch_matrix.py",
+      "state": "independently_rechecked_local"
+    },
+    {
+      "id": "QC002-04",
       "area": "analytics",
-      "observed": "Department/tenure salary groups omitted unknown values and API dropped measurement coverage",
-      "correction": "Unknown groups reconcile; valid and excluded sample counts preserved; fixed-threshold model recall is explicit",
-      "verification": "tests/test_people_team_acceptance.py",
-      "state": "independently_reviewed_pending_candidate_ci"
-    },
-    {
-      "id": "QC001-04",
       "severity": "high",
-      "area": "agentic",
-      "observed": "Unsupported questions, missing requested metrics and sparse measurements could be presented as complete",
-      "correction": "Required-metric selection, bounded scope, successful evidence and population support checks with server-rendered facts",
-      "verification": "tests/test_agentic_acceptance.py",
-      "state": "independently_reviewed_pending_candidate_ci"
+      "observed": "Extreme finite values produced nonfinite output; sentiment accepted inconsistent scores; eNPS allowed employee grouping.",
+      "correction": "Stable/fail-closed arithmetic, finite score contracts and governed group allowlist/minimum cell sizes.",
+      "verification": "model/analytics_launch_matrix.json; tests/test_analytics_launch_matrix.py",
+      "state": "independently_rechecked_local"
     },
     {
-      "id": "QC001-05",
-      "severity": "medium",
-      "area": "design",
-      "observed": "Advisor retained stale answers, fabricated coverage fallbacks and hid gaps; mobile navigation crowded results",
-      "correction": "Snapshot-bound results, real outcomes/denominators, distinct unavailable states and responsive navigation",
-      "verification": "web/tests/design-usability.test.cjs; web/e2e/people-team.spec.ts",
-      "state": "independently_reviewed_pending_candidate_ci"
-    },
-    {
-      "id": "QC001-06",
+      "id": "QC002-05",
+      "area": "consequential_outputs",
       "severity": "high",
-      "area": "survey",
-      "observed": "Missing EmployeeID could be fabricated before required-column validation, replacing prior valid survey",
-      "correction": "Validate original required columns and preserve existing survey on invalid upload",
-      "verification": "tests/test_people_team_acceptance.py",
-      "state": "independently_reviewed_pending_candidate_ci"
+      "observed": "QualityOfHire emitted individual heuristic risk/counts and NLP sent individual records to ungrounded LLM prose.",
+      "correction": "Both individual paths retired and return unavailable without LLM calls or risk counts.",
+      "verification": "tests/test_analytics_launch_matrix.py; tests/test_extended_integrity.py",
+      "state": "independently_rechecked_local"
     },
     {
-      "id": "QC001-07",
+      "id": "QC002-06",
+      "area": "renderer",
       "severity": "medium",
-      "area": "agentic",
-      "observed": "Tightened scope matcher rejected equivalent supported active-employee-count wording",
-      "correction": "Shared current-headcount intent recognition and explicit combined-question metric requirements",
-      "verification": "11 additional parameterized real-engine regressions in tests/test_agentic_acceptance.py",
-      "state": "locally_verified_pending_corrected_candidate_ci"
+      "observed": "Several loading/error/missing states rendered as zero or left actions enabled; scenarios lacked bounded and stale-result messaging.",
+      "correction": "Explicit unavailable/error states, verified-source controls, bounded scenario inputs, stale clearing and semantic tab relationships.",
+      "verification": "docs/validation/RENDERER_VALIDATION_MATRIX.md; web/tests/renderer-edge-cases.test.cjs",
+      "state": "author_verified_local"
     }
   ],
   "verification": {
-    "baseline": "bd98b6a passed existing CI including all three packaged desktop smoke jobs",
-    "current_candidate": "Corrected headcount wording and second browser fixture; finalCI pending",
-    "actual_llm": "not tested; controlled selector fixtures only",
-    "live_http": {
-      "passed": 96,
-      "failed": 0,
-      "method": "Actual isolated Uvicorn with synthetic A/B/history/restart fixtures"
+    "baseline_commit": "cc197912b107fdd4e67e81e163ab9e351cdaac27",
+    "inventory": {
+      "engines": 20,
+      "public_methods": 126,
+      "api_operations": 133,
+      "api_paths": 129,
+      "unsafe_operations": 25,
+      "product_routes": 13,
+      "browser_cases": 18
     },
-    "public_benchmarks": {
-      "passed": 9,
-      "failed": 0,
-      "method": "Pinned IBM synthetic holdout and shuffled-label controls; Waltons survival"
+    "specialist_local": {
+      "analytics_ml": 207,
+      "agentic": 164,
+      "controls_recovery": 100,
+      "independent_cross_matrix": 280,
+      "renderer_cases": 30
     },
-    "react_renderer": {
-      "passed": 22,
-      "failed": 0,
-      "live_response_cases": 4
+    "local_gates": {
+      "analytics_validation_selection": 547,
+      "agent_foundation_selection": 115,
+      "live_dummy_checks": 96,
+      "public_benchmark_checks": 9,
+      "frontend_renderer_cases": 30,
+      "frontend_typecheck_design_build": "passed",
+      "repository_wide_legacy_collection": "635 passed, 29 baseline-identical failures: 10 stale upload fixtures, 9 retired-contract expectations, 6 database debts, 4 optional FAISS dependency checks; zero Cycle002 regressions"
     },
-    "frontend": "Design governance, lint (0 errors,19 warnings) and production build passed locally",
-    "independent_review": "All demonstrated counterexamples rechecked and resolved; no universal or live LLM validity claim",
-    "browser": "Eight real desktop/mobile journeys implemented; candidate CI pending",
-    "desktop": "Existing Windows/macOS/Linux settings unchanged; candidate CI pending",
-    "python": {
-      "passed": 458,
-      "failed": 0,
-      "warnings": 13,
-      "method": "Union of Analytics and Agent Foundation selected suites; Pydantic2.5.3 CI serializer compatibility"
-    },
-    "candidate_1625ec4": {
-      "commit": "1625ec47796236c38cd9b051e48c3844afe3f7b7",
-      "analytics": {
-        "run": 34230090015,
-        "passed": 441,
-        "benchmarks": 9,
-        "live_http": 96
-      },
-      "foundation": 34230090009,
-      "frontend": 34230089874,
-      "desktop": {
-        "run": 34230089943,
-        "Windows_x64": "passed",
-        "macOS_ARM64": "passed",
-        "Linux_x64": "passed"
-      },
-      "browser": {
-        "run": 34230090029,
-        "passed": 4,
-        "failed": 4,
-        "artifact": 10057479293,
-        "cause": "Second fixture had30source rows, below existing50rowminimum; corrected to60records retaining30active expectations"
-      }
-    },
-    "visual_review": {
-      "method": "Direct inspection of12 actual CI screenshots: desktop/mobile cockpit, evidence ledger, Trust Center, unknown outcomes, no-data and unsupported-question states",
-      "result": "No severe layout defect observed; active-count unknown-status clarification identified for correction",
-      "remaining": "No measured contrast, screen-reader or all-browser accessibility conformance"
-    },
-    "correction_checks": {
-      "python": 67,
-      "method": "Actual agentic/orchestrator and source-inventory regression checks",
-      "react_renderer": 23,
-      "notes": "Unknown-status population explanation added; browser fixture preserves production minimum; random citation UUID cannot trip fabricated-number assertion"
-    }
+    "candidate": "pending publication and complete CI",
+    "live_llm": "not evaluated",
+    "recurrence": "paused"
   },
   "next_cycle": [
     {
       "priority": 1,
-      "task": "Evaluate an installed local LLM against groundedness, valid evidence selection, injection and latency fixtures; retain deterministic fallback",
-      "status": "not_yet_run"
+      "task": "Run configured local LLM grounding, prompt-injection, latency and enforced timeout evaluation",
+      "status": "required_before_agentic_production"
     },
     {
       "priority": 2,
-      "task": "Measure concurrent investigations, dataset switching and recovery under representative load; define SLOs from observed results",
-      "status": "not_yet_run"
+      "task": "Build or explicitly retire unrouted Compensation, Succession, NLP and chart/API product surfaces",
+      "status": "scope_decision_required"
     },
     {
       "priority": 3,
-      "task": "Confirm individual enterprise identity/audit/retention requirements and implement only a scoped validated design",
-      "status": "requirements_needed"
+      "task": "Validate predictive outcomes prospectively on authorized organization-specific future data",
+      "status": "requires_data_and_intended_use"
     },
     {
       "priority": 4,
-      "task": "Validate predictive outcomes on organization-specific future data and intended-use thresholds without holdout tuning",
-      "status": "requires_authorized_representative_data"
+      "task": "Implement enterprise IdP, per-user audit, retention, KMS and multi-process transaction requirements",
+      "status": "requirements_needed"
     },
     {
       "priority": 5,
-      "task": "Run real People-team pilot and accessibility/visual review beyond synthetic browser assertions",
-      "status": "requires_pilot_users"
-    },
-    {
-      "priority": 5,
-      "task": "Reduce mobile evidence ID prominence, improve header population truncation and measure secondary-text contrast",
-      "status": "observed_visual_refinements"
+      "task": "Run measured accessibility, localization, native-shell UI and real People-team pilot",
+      "status": "requires_human_pilot"
     }
   ]
 }

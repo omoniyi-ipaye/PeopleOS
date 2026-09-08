@@ -670,78 +670,11 @@ class QualityOfHireEngine:
         return result_df
 
     def get_new_hire_risk_assessment(self, months_since_hire: int = 6) -> pd.DataFrame:
-        """
-        Assess risk for recent hires based on pre-hire signals.
-
-        Identifies new hires who may need additional support based on
-        historically weak pre-hire signals.
-
-        Args:
-            months_since_hire: Look at hires within this timeframe
-
-        Returns:
-            DataFrame with new hire risk assessment.
-        """
-        if not self.has_hire_date or not self.prehire_columns:
-            return pd.DataFrame()
-
-        df = self.df.copy()
-
-        # Parse hire dates
-        df['HireDate_parsed'] = pd.to_datetime(df['HireDate'], errors='coerce')
-        cutoff_date = datetime.now() - timedelta(days=months_since_hire * 30)
-
-        # Filter to recent hires
-        recent_hires = df[df['HireDate_parsed'] >= cutoff_date].copy()
-
-        if len(recent_hires) == 0:
-            return pd.DataFrame()
-
-        # Calculate risk score based on pre-hire signals
-        results = []
-
-        # Get baseline (company average) for each signal
-        baselines = {}
-        for col in self.prehire_columns:
-            baselines[col] = df[col].mean()
-
-        for _, row in recent_hires.iterrows():
-            risk_factors = []
-            risk_score = 0
-
-            for col in self.prehire_columns:
-                if pd.notna(row[col]) and baselines[col] > 0:
-                    # Calculate how far below average
-                    deviation = (row[col] - baselines[col]) / baselines[col]
-                    if deviation < -0.2:  # More than 20% below average
-                        display_name = col.replace('InterviewScore_', '').replace('_', ' ')
-                        impact = 'High' if deviation < -0.4 else 'Medium'
-                        
-                        risk_factors.append({
-                            'factor': display_name,
-                            'impact': impact,
-                            'direction': 'Increase Risk',
-                            'score': round(abs(deviation) * 10, 1),
-                            'description': f"{display_name} score ({row[col]}) is {abs(deviation)*100:.0f}% below the company average ({baselines[col]:.1f})."
-                        })
-                        risk_score += abs(deviation) * 10
-
-            risk_category = 'High' if risk_score > 30 else ('Medium' if risk_score > 15 else 'Low')
-
-            results.append({
-                'EmployeeID': row['EmployeeID'],
-                'HireDate': row['HireDate'],
-                'HireSource': row.get('HireSource', ''),
-                'Dept': row.get('Dept', ''),
-                'risk_score': round(risk_score, 1),
-                'risk_category': risk_category,
-                'risk_factors': risk_factors,
-                'risk_factors_text': '; '.join([f"{f['factor']} ({f['impact']})" for f in risk_factors]) if risk_factors else 'None identified',
-                'recommendation': 'Additional onboarding support' if risk_category == 'High' else ''
-            })
-
-        result_df = pd.DataFrame(results)
-        return result_df.sort_values('risk_score', ascending=False)
+        """Retired: pre-hire heuristics are not validated individual risk models."""
+        self._add_warning(
+            'Individual new-hire risk assessment is unavailable; pre-hire signals may only be used for aggregate observational analysis.'
+        )
+        return pd.DataFrame()
 
     def analyze_all(self) -> Dict[str, Any]:
         """

@@ -51,20 +51,14 @@ def test_compensation_department_counts_reconcile_to_salary_population(client):
     # 6 known active employees, but only 4 measured positive salaries.
     assert summary['headcount'] == 4
     assert summary['total_payroll'] == 280000
-    assert sum(row['headcount'] for row in departments) == 4
-    assert {row['dept']: row['headcount'] for row in departments} == {'People': 2, 'Unknown': 2}
-    assert sum(row['avg_salary'] * row['headcount'] for row in departments) == 280000
+    assert departments == []  # Cells below ten measured salaries are suppressed.
 
 
 def test_compensation_tenure_counts_preserve_unmeasured_employees(client):
     response = client.get('/api/compensation/by-tenure')
     assert response.status_code == 200
     rows = response.json()
-    assert sum(row['count'] for row in rows) == 4
-    unknown = next(row for row in rows if row['tenure_bucket'] == 'Unknown')
-    assert unknown['count'] == 2
-    assert unknown['mean'] == 70000
-    assert next(row for row in rows if row['tenure_bucket'] == '<1 year')['count'] == 1
+    assert rows == []  # Tenure salary cells below ten observations are suppressed.
 
 
 def test_compensation_engine_reports_excluded_salary_denominator():
@@ -127,14 +121,14 @@ def test_invalid_rating_cannot_manufacture_an_eligible_group_comparison():
 
 def test_valid_group_comparison_exposes_actual_measured_support():
     frame = pd.DataFrame({
-        'EmployeeID': [str(i) for i in range(14)], 'Attrition': 0,
-        'Dept': ['A'] * 7 + ['B'] * 7,
-        'LastRating': [1, 2, 3, 4, 5, 2, 99] + [2, 3, 4, 5, 4, 3, -99],
+        'EmployeeID': [str(i) for i in range(22)], 'Attrition': 0,
+        'Dept': ['A'] * 11 + ['B'] * 11,
+        'LastRating': ([1, 2, 3, 4, 5] * 2 + [99]) + ([2, 3, 4, 5, 4] * 2 + [-99]),
     })
     result = AnalyticsEngine(frame).compare_groups('Dept', 'LastRating')
     assert result['success'] is True
-    assert result['sample_size'] == 12
-    assert result['group_observations'] == {'A': 6, 'B': 6}
+    assert result['sample_size'] == 20
+    assert result['group_observations'] == {'A': 10, 'B': 10}
 
 
 def test_accuracy_cannot_hide_low_departure_recall():

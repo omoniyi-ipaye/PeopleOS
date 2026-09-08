@@ -79,6 +79,10 @@ async def get_analytics_summary(state: AppState = Depends(require_data)) -> Anal
 @router.get("/departments", response_model=DepartmentList)
 async def get_department_stats(state: AppState = Depends(require_data)) -> DepartmentList:
     frame = state.analytics_engine.get_department_aggregates()
+    minimum_group_size = 10
+    eligible = frame['Total_Records'].fillna(0) >= minimum_group_size if 'Total_Records' in frame else pd.Series(False, index=frame.index)
+    suppressed = int((~eligible).sum())
+    frame = frame.loc[eligible]
     departments = []
     for _, row in frame.iterrows():
         row = json_safe(row.to_dict())
@@ -97,7 +101,9 @@ async def get_department_stats(state: AppState = Depends(require_data)) -> Depar
             observed_attrition_share=share,
             turnover_rate=share,
         ))
-    return DepartmentList(departments=departments, total_departments=len(departments))
+    return DepartmentList(departments=departments, total_departments=len(departments),
+                          minimum_group_size=minimum_group_size,
+                          suppressed_department_count=suppressed)
 
 
 @router.get("/distributions", response_model=DistributionsResponse)
@@ -138,6 +144,10 @@ async def get_high_risk_departments(
     state: AppState = Depends(require_data),
 ) -> HighRiskDepartmentsResponse:
     frame = state.analytics_engine.get_high_risk_departments(threshold=threshold)
+    minimum_group_size = 10
+    eligible = frame['Total_Records'].fillna(0) >= minimum_group_size if 'Total_Records' in frame else pd.Series(False, index=frame.index)
+    suppressed = int((~eligible).sum())
+    frame = frame.loc[eligible]
     used = state.analytics_engine.high_risk_threshold if threshold is None else threshold
     departments = []
     for _, row in frame.iterrows():
@@ -147,7 +157,9 @@ async def get_high_risk_departments(
             headcount=int(row.get('Headcount', 0)), avg_salary=row.get('Avg_Salary'), avg_rating=row.get('Avg_Rating'),
             reason='Observed attrition share exceeds the configured aggregate screening threshold; local causes are not inferred.',
         ))
-    return HighRiskDepartmentsResponse(departments=departments, threshold=used)
+    return HighRiskDepartmentsResponse(departments=departments, threshold=used,
+                                       minimum_group_size=minimum_group_size,
+                                       suppressed_department_count=suppressed)
 
 
 @router.get("/clusters")

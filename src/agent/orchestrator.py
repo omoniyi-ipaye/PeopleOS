@@ -99,7 +99,7 @@ class PeopleIntelligenceAgent:
         missing_metrics = [metric for metric in plan.required_metrics if metric not in measured_metrics]
         bundle.unknowns.extend(f"Requested metric '{metric}' is unavailable from the registered evidence tools; other aggregates do not answer it." for metric in missing_metrics)
         bundle.unknowns.extend(plan.limitations)
-        if not plan.supported or missing_metrics:
+        if not plan.supported or plan.must_abstain or missing_metrics:
             bundle.sufficiency = EvidenceSufficiency.INSUFFICIENT
         elif plan.limitations and bundle.sufficiency == EvidenceSufficiency.SUFFICIENT:
             bundle.sufficiency = EvidenceSufficiency.LIMITED
@@ -126,6 +126,10 @@ class PeopleIntelligenceAgent:
             answer = self.policy.enforce_text(answer)
         except PolicyViolation:
             policy_blocked = True
+            safe_items = [
+                item for item in self._representative_evidence(bundle)
+                if self.policy.evaluate_text(self._format_evidence(item)).allowed
+            ]
             answer = self._deterministic_answer(
                 question,
                 bundle,
@@ -133,6 +137,7 @@ class PeopleIntelligenceAgent:
                     "The generated recommendation crossed PeopleOS's employment-action policy boundary, "
                     "so it was blocked. Here is the underlying aggregate evidence instead."
                 ),
+                selected_items=safe_items,
             )
             model = None
             warnings.append("Generated synthesis was blocked by HR advice policy.")

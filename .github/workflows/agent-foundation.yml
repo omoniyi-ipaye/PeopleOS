@@ -70,6 +70,8 @@ jobs:
           tests/test_agent_orchestrator.py
           tests/test_safe_llm_client.py
           tests/test_agent_controls.py
+          tests/test_agentic_launch_matrix.py
+          tests/test_enterprise_controls_matrix.py
           tests/test_platform_architecture.py
           tests/test_platform_operations.py
           tests/test_output_integrity.py

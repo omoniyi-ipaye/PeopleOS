@@ -24,7 +24,7 @@ def boundary(monkeypatch, tmp_path):
     app.include_router(upload.router)
     app.include_router(sessions.router)
 
-    @app.get('/api/whoami')
+    @app.get('/api/analytics/whoami')
     async def whoami(request: Request):
         return {'role': request.state.peopleos_role}
 
@@ -143,11 +143,11 @@ def test_public_liveness_does_not_disclose_workspace_data(boundary):
 
 def test_remote_read_evidence_is_authorized_and_not_cacheable(boundary, monkeypatch):
     app, _ = boundary
-    monkeypatch.setenv('PEOPLEOS_API_ROLE', 'viewer')
+    monkeypatch.setenv('PEOPLEOS_API_ROLE', 'analyst')
     with client_for(app) as client:
-        assert client.get('/api/whoami').status_code == 401
-        response = client.get('/api/whoami', headers={'Authorization': 'Bearer test-secret'})
-    assert response.json() == {'role': 'viewer'}
+        assert client.get('/api/analytics/whoami').status_code == 401
+        response = client.get('/api/analytics/whoami', headers={'Authorization': 'Bearer test-secret'})
+    assert response.json() == {'role': 'analyst'}
     assert response.headers['cache-control'] == 'no-store'
 
 
@@ -160,7 +160,7 @@ def test_remote_read_evidence_is_authorized_and_not_cacheable(boundary, monkeypa
     ('analyst', '/api/platform/workspaces/local/datasets/d1/activate', 403),
     ('analyst', '/api/platform/health/recover', 403),
     ('analyst', '/api/intelligence/investigate', 200),
-    ('viewer', '/api/search', 200),
+    ('viewer', '/api/search', 403),
     ('admin', '/api/sentiment/upload/enps', 200),
 ])
 def test_permission_boundary_covers_legacy_and_control_plane_writes(boundary, monkeypatch, role, path, expected):

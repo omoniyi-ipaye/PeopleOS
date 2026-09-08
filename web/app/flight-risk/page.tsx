@@ -41,7 +41,12 @@ export default function RetentionSignalsPage() {
     return <Page><StateSummary title="Checking predictive retention capability" description="Reading the governed model lifecycle before requesting predictive outputs." tone="info" /></Page>
   }
 
-  if (!hasActiveModel || platform.isError || metrics.isError || !metrics.data) {
+  if (platform.isError || !platform.data) return <Page>
+    <PageHeader eyebrow="Understand · Retention Signals" title="Predictive capability state is unavailable" description="PeopleOS could not verify the governed model lifecycle. Retry the connection before interpreting predictive outputs." />
+    <EmptyState title="Model state could not be verified" description="No predictive conclusion is shown while the platform status is unavailable." />
+  </Page>
+
+  if (!hasActiveModel || metrics.isError || !metrics.data) {
     return <Page>
       <PageHeader eyebrow="Understand · Retention Signals" title="Predictive retention signals are not active" description="PeopleOS keeps predictive risk separate from deterministic analytics. Predictive views appear only after a model has been trained, evaluated and explicitly activated." />
       <StateSummary title="Deterministic analysis remains available" description="No predictive call is made without an active governed model. You can continue with observed workforce evidence now." tone="info" />

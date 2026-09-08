@@ -82,6 +82,8 @@ def _summary(engine) -> CompensationSummary:
 
 def _dispersion(engine) -> List[SalaryDispersionScore]:
     frame = engine.calculate_pay_equity_score()
+    if not frame.empty and 'Headcount' in frame:
+        frame = frame[frame['Headcount'] >= 10]
     output = []
     for _, row in frame.iterrows():
         output.append(SalaryDispersionScore(
@@ -129,6 +131,8 @@ async def get_gender_pay_gap(state: AppState = Depends(require_compensation)) ->
 @router.get("/by-tenure")
 async def get_salary_by_tenure(state: AppState = Depends(require_compensation)) -> List[Dict[str, Any]]:
     frame = state.compensation_engine.get_salary_by_tenure()
+    if not frame.empty and 'Count' in frame:
+        frame = frame[frame['Count'] >= 10]
     return [
         {
             'tenure_bucket': str(row['TenureBucket']),

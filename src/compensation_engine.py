@@ -33,11 +33,32 @@ def _gini(values: np.ndarray) -> float:
     values = np.sort(values)
     if values.min() < 0:
         values = values - values.min()
+    scale = values.max()
+    if scale > 0:
+        values = values / scale
     n = len(values)
     total = values.sum()
     if total == 0:
         return 0.0
     return float((2 * np.sum((np.arange(1, n + 1)) * values) / (n * total)) - (n + 1) / n)
+
+
+def _stable_salary_stats(values: pd.Series) -> tuple[float, float, float]:
+    """Calculate location and sample spread without overflowing intermediate sums."""
+    array = values.to_numpy(dtype=float)
+    scale = float(np.max(np.abs(array)))
+    scaled = array / scale
+    mean = float(np.mean(scaled) * scale)
+    ordered = np.sort(scaled)
+    midpoint = len(ordered) // 2
+    median_scaled = float(ordered[midpoint]) if len(ordered) % 2 else float(
+        ordered[midpoint - 1] + (ordered[midpoint] - ordered[midpoint - 1]) / 2
+    )
+    median = float(median_scaled * scale)
+    deviation = float(np.std(scaled, ddof=1) * scale) if len(array) > 1 else 0.0
+    if not all(np.isfinite(value) for value in (mean, median, deviation)):
+        raise CompensationEngineError('Salary magnitude exceeds the finite reporting range')
+    return mean, median, deviation
 
 
 class CompensationEngine:
@@ -50,6 +71,9 @@ class CompensationEngine:
         self.df = self._valid_active_salary_population(current)
         if self.df.empty:
             raise CompensationEngineError('No active employees with a valid positive Salary are available')
+        mean, _, _ = _stable_salary_stats(self.df['Salary'])
+        if not np.isfinite(mean * len(self.df)):
+            raise CompensationEngineError('Total payroll exceeds the finite reporting range')
 
     def _valid_active_salary_population(self, df: pd.DataFrame) -> pd.DataFrame:
         active = active_population(df)
@@ -235,10 +259,11 @@ class CompensationEngine:
 
     def get_compensation_summary(self) -> Dict[str, Any]:
         salary = self.df['Salary']
+        mean, median, deviation = _stable_salary_stats(salary)
         return {
-            'total_payroll': float(salary.sum()), 'avg_salary': float(salary.mean()), 'median_salary': float(salary.median()),
+            'total_payroll': float(mean * len(salary)), 'avg_salary': mean, 'median_salary': median,
             'min_salary': float(salary.min()), 'max_salary': float(salary.max()), 'salary_range': float(salary.max() - salary.min()),
-            'std_dev': float(salary.std(ddof=1)) if len(salary) > 1 else 0.0, 'headcount': int(len(salary)),
+            'std_dev': deviation, 'headcount': int(len(salary)),
             'active_count': int(self.active_count),
             'salary_observations': int(len(salary)),
             'excluded_salary_count': int(self.active_count - len(salary)),

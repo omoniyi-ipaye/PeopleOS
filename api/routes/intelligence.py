@@ -69,6 +69,8 @@ async def investigate(
         session = next((item for item in workspace.sessions if item.session_id == payload.session_id), None)
         if session is None:
             raise HTTPException(status_code=404, detail="Unknown investigation session")
+        if session.actor_id and session.actor_id != actor.actor_id:
+            raise HTTPException(status_code=403, detail="This investigation session belongs to a different actor.")
         if payload.dataset_version and payload.dataset_version != session.dataset_id:
             raise HTTPException(status_code=409, detail="An investigation session cannot change datasets. Start a new investigation.")
     else:
@@ -76,6 +78,7 @@ async def investigate(
             workspace_id=payload.workspace_id,
             dataset_id=payload.dataset_version or workspace.active_dataset_id,
             model_id=workspace.active_model_id,
+            actor_id=actor.actor_id,
         )
 
     dataset_id = payload.dataset_version or session.dataset_id or workspace.active_dataset_id

@@ -1,0 +1,667 @@
+{
+  "schema_version": 1,
+  "cycle_id": "PEOPLEOS-LAUNCH-MATRIX-002",
+  "baseline_commit": "cc197912b107fdd4e67e81e163ab9e351cdaac27",
+  "scope": {
+    "engine_count": 20,
+    "public_method_count": 126,
+    "test_reference_reconciliation": "126_of_126"
+  },
+  "edge_cases": [
+    "empty_and_minimum_populations",
+    "missing_invalid_and_nonfinite_values",
+    "duplicates_and_snapshot_resolution",
+    "unknown_groups_and_small_cell_suppression",
+    "boundary_ages_tenure_ratings_and_probabilities",
+    "constant_and_sparse_groups",
+    "date_ranges_and_latest_response_semantics",
+    "exact_identifier_lexemes",
+    "extreme_compensation_values",
+    "class_imbalance_without_holdout_tuning"
+  ],
+  "engines": [
+    {
+      "engine": "analytics",
+      "source": "src/analytics_engine.py",
+      "methods": [
+        {
+          "method": "compare_groups",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "get_age_distribution",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "get_confidence_interval",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "get_correlations",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "get_department_aggregates",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "get_headcount",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "get_high_risk_departments",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "get_observed_attrition_share",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "get_record_count",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "get_salary_bands",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "get_summary_statistics",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "get_temporal_stats",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "get_tenure_distribution",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "get_turnover_rate",
+          "status": "executed_by_known_answer_or_edge_test"
+        }
+      ]
+    },
+    {
+      "engine": "causal",
+      "source": "src/causal_engine.py",
+      "methods": [
+        {
+          "method": "estimate_intervention_effect",
+          "status": "executed_explicitly_unavailable_or_retired"
+        },
+        {
+          "method": "get_intervention_recommendations",
+          "status": "executed_explicitly_unavailable_or_retired"
+        }
+      ]
+    },
+    {
+      "engine": "clustering",
+      "source": "src/clustering_engine.py",
+      "methods": [
+        {
+          "method": "get_employee_clusters",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "train",
+          "status": "executed_by_known_answer_or_edge_test"
+        }
+      ]
+    },
+    {
+      "engine": "compensation",
+      "source": "src/compensation_engine.py",
+      "methods": [
+        {
+          "method": "analyze_all",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "calculate_compa_ratio",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "calculate_gender_pay_gap",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "calculate_pay_equity_score",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "calculate_salary_percentiles",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "correlate_salary_with_attrition",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "get_compensation_summary",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "get_salary_bands",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "get_salary_by_tenure",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "identify_salary_outliers",
+          "status": "executed_by_known_answer_or_edge_test"
+        }
+      ]
+    },
+    {
+      "engine": "experience",
+      "source": "src/experience_engine.py",
+      "methods": [
+        {
+          "method": "analyze_all",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "analyze_manager_impact",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "calculate_experience_index",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "get_at_risk_employees",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "get_available_signals",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "get_employee_exi",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "get_engagement_segments",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "get_lifecycle_experience",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "identify_experience_drivers",
+          "status": "executed_by_known_answer_or_edge_test"
+        }
+      ]
+    },
+    {
+      "engine": "fairness",
+      "source": "src/fairness_engine.py",
+      "methods": [
+        {
+          "method": "analyze_all",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "analyze_prediction_fairness",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "calculate_demographic_parity",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "calculate_equalized_odds",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "calculate_four_fifths_rule",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "generate_fairness_report",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "get_fairness_summary",
+          "status": "executed_by_known_answer_or_edge_test"
+        }
+      ]
+    },
+    {
+      "engine": "forecasting",
+      "source": "src/forecasting_engine.py",
+      "methods": [
+        {
+          "method": "forecast_metric",
+          "status": "executed_by_known_answer_or_edge_test"
+        }
+      ]
+    },
+    {
+      "engine": "merge",
+      "source": "src/merge_engine.py",
+      "methods": [
+        {
+          "method": "execute_merge",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "get_significant_changes",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "get_summary_text",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "preview_merge",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "to_dict",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "to_summary_dict",
+          "status": "executed_by_known_answer_or_edge_test"
+        }
+      ]
+    },
+    {
+      "engine": "ml",
+      "source": "src/ml_engine.py",
+      "methods": [
+        {
+          "method": "get_feature_importance_summary",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "get_recommendations",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "get_risk_category",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "get_risk_drivers",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "predict",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "predict_risk",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "predict_risk_with_confidence",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "train",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "train_model",
+          "status": "executed_by_known_answer_or_edge_test"
+        }
+      ]
+    },
+    {
+      "engine": "model_lab",
+      "source": "src/model_lab_engine.py",
+      "methods": [
+        {
+          "method": "analyze_feature_sensitivity",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "backtest_flight_risk",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "generate_refinement_plan",
+          "status": "executed_by_known_answer_or_edge_test"
+        }
+      ]
+    },
+    {
+      "engine": "network",
+      "source": "src/network_engine.py",
+      "methods": [
+        {
+          "method": "get_isolated_employees",
+          "status": "executed_explicitly_unavailable_or_retired"
+        },
+        {
+          "method": "get_key_influencers",
+          "status": "executed_explicitly_unavailable_or_retired"
+        },
+        {
+          "method": "get_network_summary",
+          "status": "executed_explicitly_unavailable_or_retired"
+        }
+      ]
+    },
+    {
+      "engine": "nlp",
+      "source": "src/nlp_engine.py",
+      "methods": [
+        {
+          "method": "analyze_sentiment",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "extract_skills",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "extract_topics",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "generate_employee_summary",
+          "status": "executed_explicitly_unavailable_or_retired"
+        },
+        {
+          "method": "get_sentiment_by_department",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "get_sentiment_summary",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "process_all",
+          "status": "executed_by_known_answer_or_edge_test"
+        }
+      ]
+    },
+    {
+      "engine": "quality_of_hire",
+      "source": "src/quality_of_hire_engine.py",
+      "methods": [
+        {
+          "method": "analyze_all",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "analyze_cohort_performance",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "calculate_source_effectiveness",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "correlate_prehire_posthire",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "get_hiring_insights",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "get_new_hire_risk_assessment",
+          "status": "executed_explicitly_unavailable_or_retired"
+        }
+      ]
+    },
+    {
+      "engine": "scenario",
+      "source": "src/scenario_engine.py",
+      "methods": [
+        {
+          "method": "compare_scenarios",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "get_scenario_templates",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "simulate_attrition_intervention",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "simulate_compensation_change",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "simulate_headcount_change",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "to_dict",
+          "status": "executed_by_known_answer_or_edge_test"
+        }
+      ]
+    },
+    {
+      "engine": "sentiment",
+      "source": "src/sentiment_engine.py",
+      "methods": [
+        {
+          "method": "analyze_all",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "analyze_onboarding_trajectory",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "calculate_enps",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "detect_early_warnings",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "get_enps_drivers",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "get_enps_trends",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "get_onboarding_health",
+          "status": "executed_by_known_answer_or_edge_test"
+        }
+      ]
+    },
+    {
+      "engine": "structural",
+      "source": "src/structural_engine.py",
+      "methods": [
+        {
+          "method": "analyze_all",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "analyze_manager_burnout_risk",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "audit_promotion_velocity",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "calculate_span_of_control",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "calculate_stagnation_index",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "get_promotion_bottlenecks",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "identify_stagnation_hotspots",
+          "status": "executed_by_known_answer_or_edge_test"
+        }
+      ]
+    },
+    {
+      "engine": "succession",
+      "source": "src/succession_engine.py",
+      "methods": [
+        {
+          "method": "analyze_all",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "calculate_bench_strength",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "calculate_readiness_scores",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "get_9box_matrix",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "get_9box_summary",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "get_retention_recommendations",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "get_succession_pipeline",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "identify_critical_gaps",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "identify_high_potentials",
+          "status": "executed_by_known_answer_or_edge_test"
+        }
+      ]
+    },
+    {
+      "engine": "survival",
+      "source": "src/survival_engine.py",
+      "methods": [
+        {
+          "method": "analyze_all",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "fit_cox_proportional_hazards",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "fit_kaplan_meier",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "generate_cohort_insights",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "get_at_risk_employees",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "get_hazard_over_time",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "predict_survival_probability",
+          "status": "executed_by_known_answer_or_edge_test"
+        }
+      ]
+    },
+    {
+      "engine": "team_dynamics",
+      "source": "src/team_dynamics_engine.py",
+      "methods": [
+        {
+          "method": "analyze_all",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "analyze_team_diversity",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "calculate_team_health_scores",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "flag_at_risk_teams",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "get_collaboration_indicators",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "get_team_composition",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "get_team_summary",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "identify_performance_variance",
+          "status": "executed_by_known_answer_or_edge_test"
+        }
+      ]
+    },
+    {
+      "engine": "vector",
+      "source": "src/vector_engine.py",
+      "methods": [
+        {
+          "method": "build_index",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "is_initialized",
+          "status": "executed_by_known_answer_or_edge_test"
+        },
+        {
+          "method": "search",
+          "status": "executed_by_known_answer_or_edge_test"
+        }
+      ]
+    }
+  ],
+  "confirmed_corrections": [
+    "Stable descriptive salary arithmetic prevents finite inputs producing nonfinite output.",
+    "Unrepresentable total payroll fails closed before API rendering.",
+    "eNPS grouping uses governed organization fields and suppresses cells below ten responses.",
+    "NLP aggregate sentiment validates score range and label agreement and suppresses small departments.",
+    "Ungrounded individual LLM employee summaries are retired.",
+    "Heuristic individual new-hire risk assessment is retired."
+  ],
+  "verification": {
+    "new_matrix": "14 passed including segmented endpoint privacy coverage",
+    "combined_cross_engine_api": "207 passed including the complete legacy ML suite and segmented privacy cases",
+    "full_ml_suite": "green; obsolete assertions now enforce fail-closed SHAP behavior and lowercase API schema"
+  },
+  "limits": [
+    "Retrospective IBM synthetic holdout is not prospective organizational validation.",
+    "No configured real LLM was invoked by the deterministic matrix.",
+    "Causal and inferred collaboration engines remain explicitly unavailable.",
+    "Dormant methods without a product renderer were exercised at engine level or retired."
+  ]
+}

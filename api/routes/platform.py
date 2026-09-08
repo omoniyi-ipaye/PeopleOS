@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 from api.authorization import actor_from_request, permissions_for_role, require_permission
 from api.dependencies import AppState, get_app_state
 from src.platform.health import SystemHealthMonitor
-from src.platform.local_dataset_store import load_dataset_artifact, save_dataset_artifact, dataset_artifact_path
+from src.platform.local_dataset_store import load_dataset_artifact, save_dataset_artifact, remove_dataset_artifact, dataset_artifact_path
 from src.platform.runtime_loader import prepare_dataframe
 from src.platform.provenance import IntegrityError, require_dataset_identity, runtime_integrity, validated_risk_scores
 from types import SimpleNamespace
@@ -83,22 +83,28 @@ async def register_current_dataset(workspace_id: str, request: Request, state: A
         if not state.has_data():
             raise HTTPException(status_code=400, detail='No dataset is currently loaded')
         csv_bytes = state.raw_df.to_csv(index=False).encode('utf-8')
-        dataset = _store.register_dataset(
-            workspace_id=workspace_id,
-            source_name='current-loaded-dataset',
-            content_hash=_store.hash_bytes(csv_bytes),
-            row_count=len(state.raw_df),
-            columns=list(state.raw_df.columns),
-            quality={'missing_cells': int(state.raw_df.isna().sum().sum()), 'duplicate_rows': int(state.raw_df.duplicated().sum())},
-        )
         source = state.historical_df if state.historical_df is not None else state.raw_df
-        path = save_dataset_artifact(dataset.dataset_id, source)
-        workspace = _store.get_workspace(workspace_id)
-        record = next(d for d in workspace.datasets if d.dataset_id == dataset.dataset_id)
-        record.quality['artifact_sha256'] = _store.hash_bytes(path.read_bytes())
-        record.quality['current_fingerprint'] = state.runtime_provenance['current_fingerprint']
-        _store._replace_workspace(workspace)
-        return record.model_dump(mode='json')
+        dataset_id = f'ds_{uuid4().hex}'
+        path = save_dataset_artifact(dataset_id, source)
+        try:
+            record = _store.register_dataset(
+                workspace_id=workspace_id,
+                dataset_id=dataset_id,
+                source_name='current-loaded-dataset',
+                content_hash=_store.hash_bytes(csv_bytes),
+                row_count=len(state.raw_df),
+                columns=list(state.raw_df.columns),
+                quality={
+                    'missing_cells': int(state.raw_df.isna().sum().sum()),
+                    'duplicate_rows': int(state.raw_df.duplicated().sum()),
+                    'artifact_sha256': _store.hash_bytes(path.read_bytes()),
+                    'current_fingerprint': state.runtime_provenance['current_fingerprint'],
+                },
+            )
+            return record.model_dump(mode='json')
+        except Exception:
+            remove_dataset_artifact(dataset_id)
+            raise
 
 
 @router.post('/workspaces/{workspace_id}/datasets/{dataset_id}/activate')
@@ -224,9 +230,9 @@ async def activate_model(workspace_id: str, model_id: str, request: Request, sta
 
 @router.post('/sessions')
 async def open_session(payload: SessionRequest, request: Request):
-    require_permission(request, 'session.write')
+    actor = require_permission(request, 'session.write')
     try:
-        return _store.open_session(workspace_id=payload.workspace_id, dataset_id=payload.dataset_id, model_id=payload.model_id).model_dump(mode='json')
+        return _store.open_session(workspace_id=payload.workspace_id, dataset_id=payload.dataset_id, model_id=payload.model_id, actor_id=actor.actor_id).model_dump(mode='json')
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ValueError as exc:

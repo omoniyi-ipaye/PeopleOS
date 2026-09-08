@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "inventory_baseline_commit": "cc197912b107fdd4e67e81e163ab9e351cdaac27",
+  "executed_candidate_identity": "Recorded by the GitHub workflow run commit SHA and immutable test artifact metadata.",
+  "fixture_policy": "Synthetic workforce data only; expected values are independent of production calculation helpers.",
+  "browser_matrix": ["chromium-desktop", "chromium-mobile"],
+  "retry_policy": "zero retries",
+  "routes": {
+    "/": ["empty-state sample entry", "known-answer KPIs", "dataset switch invalidation"],
+    "/workforce-health": ["department aggregates", "missing department", "association boundary"],
+    "/employee-experience": ["unavailable measured data", "overview tab", "associations and lifecycle tab"],
+    "/flight-risk": ["inactive model gate", "no fabricated risk output"],
+    "/quality-of-hire": ["overview", "source cohorts", "observed associations", "sparse optional evidence"],
+    "/advisor": ["no-data gate", "supported evidence", "unsupported question", "cross-tab stale dataset", "deterministic fallback"],
+    "/sessions": ["governed investigation history", "active dataset provenance", "empty and recorded session states"],
+    "/search": ["unavailable index gate", "no fabricated results"],
+    "/scenario-planner": ["whole-workforce compensation", "department expansion", "input-change invalidation", "assumption boundary"],
+    "/retention-forecast": ["cohort curve", "cohorts tab", "interpretation boundary"],
+    "/upload": ["valid CSV", "malformed CSV", "duplicate IDs", "template download", "sample load", "reset"],
+    "/platform": ["snapshot integrity", "role", "fitness", "advanced recovery details", "refresh"],
+    "/settings": ["runtime state", "capability registry", "dataset features"]
+  },
+  "data_conditions": ["empty", "known outcomes", "all outcomes missing", "missing department", "invalid schema", "duplicate identifier", "dataset replacement", "page reload"],
+  "evidence": {
+    "results": "web/browser-artifacts/results.json",
+    "html_report": "web/browser-artifacts/report/",
+    "failure_diagnostics": "web/browser-artifacts/test-results/",
+    "server_logs": ["web/browser-artifacts/api.log", "web/browser-artifacts/frontend.log"],
+    "screenshots": "Attached to the HTML report at named decision checkpoints"
+  },
+  "separate_release_gates": {
+    "process_restart_and_recovery": ".github/workflows/local-desktop-build.yml packaged restart smoke on Windows x64, macOS ARM64, Linux x64",
+    "engine_and_api_edge_cases": ".github/workflows/analytics-validation.yml",
+    "agent_grounding": ".github/workflows/agent-foundation.yml"
+  },
+  "known_limits": [
+    "Predictive score rendering requires a separately trained and activated governed model fixture.",
+    "Semantic search result rendering requires the optional vector capability and indexed text fixture.",
+    "Real local-LLM synthesis requires a controlled model runtime and adversarial evaluation set.",
+    "Browser CI validates Chromium; native desktop shells are covered by packaged smoke checks rather than UI automation."
+  ]
+}

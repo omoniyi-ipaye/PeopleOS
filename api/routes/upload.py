@@ -12,8 +12,10 @@ from pydantic import BaseModel, Field
 
 from api.dependencies import get_app_state, AppState
 from src.platform.local_dataset_store import save_dataset_artifact
+from src.platform.local_dataset_store import remove_dataset_artifact
 from src.platform.runtime_loader import load_dataset
 from src.platform.workspace import DatasetState, ModelState, WorkspaceStore
+from uuid import uuid4
 
 router = APIRouter(prefix="/api/upload", tags=["upload"])
 _store = WorkspaceStore()
@@ -53,28 +55,30 @@ class DatabaseStatusResponse(BaseModel):
 
 @runtime_mutation
 def _register_loaded_dataset(state: AppState, source_name: str, content_hash: str, workspace_id: str = "local"):
-    dataset = _store.register_dataset(
-        workspace_id=workspace_id,
-        source_name=source_name,
-        content_hash=content_hash,
-        row_count=len(state.raw_df) if state.raw_df is not None else 0,
-        columns=list(state.raw_df.columns) if state.raw_df is not None else [],
-        quality={
-            "missing_cells": int(state.raw_df.isna().sum().sum()) if state.raw_df is not None else 0,
-            "duplicate_rows": int(state.raw_df.duplicated().sum()) if state.raw_df is not None else 0,
-        },
-    )
     source_frame = state.historical_df if state.historical_df is not None else state.raw_df
     if source_frame is None or source_frame.empty:
         raise ValueError("Loaded dataset has no rows to persist")
-    path = save_dataset_artifact(dataset.dataset_id, source_frame)
-    workspace = _store.get_workspace(workspace_id)
-    record = next(d for d in workspace.datasets if d.dataset_id == dataset.dataset_id)
-    record.quality['artifact_sha256'] = _store.hash_bytes(path.read_bytes())
-    record.quality['current_fingerprint'] = state.runtime_provenance['current_fingerprint']
-    _store._replace_workspace(workspace)
-    activated = _store.activate_dataset(workspace_id, dataset.dataset_id)
-    state.runtime_provenance = {**state.runtime_provenance, 'workspace_id': workspace_id, 'dataset_id': dataset.dataset_id, 'dataset_version': dataset.version, 'source_name': source_name}
+    dataset_id = f"ds_{uuid4().hex}"
+    path = save_dataset_artifact(dataset_id, source_frame)
+    try:
+        activated = _store.register_active_dataset(
+            workspace_id=workspace_id,
+            dataset_id=dataset_id,
+            source_name=source_name,
+            content_hash=content_hash,
+            row_count=len(state.raw_df),
+            columns=list(state.raw_df.columns),
+            quality={
+                "missing_cells": int(state.raw_df.isna().sum().sum()),
+                "duplicate_rows": int(state.raw_df.duplicated().sum()),
+                'artifact_sha256': _store.hash_bytes(path.read_bytes()),
+                'current_fingerprint': state.runtime_provenance['current_fingerprint'],
+            },
+        )
+    except Exception:
+        remove_dataset_artifact(dataset_id)
+        raise
+    state.runtime_provenance = {**state.runtime_provenance, 'workspace_id': workspace_id, 'dataset_id': dataset_id, 'dataset_version': activated.version, 'source_name': source_name}
     return activated
 
 

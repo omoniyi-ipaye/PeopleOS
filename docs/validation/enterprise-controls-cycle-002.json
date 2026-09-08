@@ -1,0 +1,82 @@
+{
+  "cycle": "PEOPLEOS-QUALITY-002",
+  "baseline_commit": "cc197912b107fdd4e67e81e163ab9e351cdaac27",
+  "track": "enterprise-controls-recovery",
+  "inventory": {
+    "declared_api_operations": 133,
+    "distinct_api_paths": 129,
+    "get_operations": 108,
+    "unsafe_method_operations": 25,
+    "unsafe_method_note": "POST /api/search returns employee-linked free text and requires sensitive.read; legacy /api/sessions and deprecated operations are retired with HTTP 410."
+  },
+  "confirmed_failures": [
+    {
+      "id": "CTRL-002-01",
+      "failure": "Concurrent WorkspaceStore instances could overwrite each other's read-modify-write updates.",
+      "reproduction": "Eight stores registered 64 datasets concurrently; only 19 remained before the fix.",
+      "correction": "A process-wide registry transaction lock now covers complete mutation operations."
+    },
+    {
+      "id": "CTRL-002-02",
+      "failure": "Dataset metadata was registered before its durable artifact, allowing a failed artifact write to leave a ghost dataset version.",
+      "correction": "Uploads persist an atomic artifact first, then register and activate metadata in one registry transition; failed registry commits remove the unregistered artifact."
+    },
+    {
+      "id": "CTRL-002-03",
+      "failure": "Early authentication, authorization, origin, and retired-route responses did not consistently carry Cache-Control: no-store.",
+      "correction": "Every security-boundary JSON denial for /api now carries no-store."
+    },
+    {
+      "id": "CTRL-002-04",
+      "failure": "Investigation session metadata did not retain the actor identity already established at the API boundary.",
+      "correction": "New sessions record actor_id and an established session cannot be reused by a different actor."
+    },
+    {
+      "id": "CTRL-002-05",
+      "failure": "An authenticated remote viewer could reach every GET endpoint, including individual employee routes, semantic search, and detailed control-plane records.",
+      "correction": "Every read path is now classified. Viewers receive minimized health, status and schema-template surfaces only; workforce evidence requires analyst dataset access, control-plane reads require analyst workspace access, employee-linked semantic search requires sensitive.read, individual routes are prohibited, and deprecated routes return 410."
+    },
+    {
+      "id": "CTRL-002-06",
+      "failure": "A response labelled aggregate could expose exact measures for a one-person department or other small cell.",
+      "correction": "Remote viewers cannot access workforce metric endpoints. Segmented analytics additionally suppress cells below 10 in the analytics contract as defense in depth."
+    }
+  ],
+  "verified": {
+    "focused_and_integration_checks": 200,
+    "result": "passed",
+    "coverage": [
+      "actual remote-viewer requests to every declared unsafe-method API operation",
+      "actual remote-viewer requests to every declared GET operation",
+      "viewer, analyst and owner read-scope separation for aggregate, control-plane and employee-linked text evidence",
+      "viewer denial before a synthetic singleton department response can be rendered",
+      "deny-before-body-validation for mutations and explicit POST read authorization",
+      "local desktop owner access on random ports plus supported development origins",
+      "host, origin, forwarded-header, bearer-token and server-role boundaries",
+      "64 concurrent registry transitions across eight store instances",
+      "artifact and registry write-failure cleanup",
+      "corrupt-registry exact-byte quarantine and recovery invalidation",
+      "dataset/model activation, restart provenance and snapshot-switch containment"
+    ],
+    "test_files": [
+      "tests/test_enterprise_controls_matrix.py",
+      "tests/test_enterprise_controls.py",
+      "tests/test_enterprise_recovery.py",
+      "tests/test_enterprise_recovery_api.py",
+      "tests/test_platform_architecture.py",
+      "tests/test_platform_operations.py",
+      "tests/test_runtime_integrity.py",
+      "tests/test_snapshot_recovery.py",
+      "tests/test_agentic_acceptance.py",
+      "tests/test_agent_orchestrator.py",
+      "tests/test_analytics_launch_matrix.py",
+      "tests/test_extended_integrity.py"
+    ]
+  },
+  "limits": [
+    "The registry lock coordinates threads and store instances in one desktop process; multi-process shared-registry operation is outside the supported boundary.",
+    "Configured bearer-token roles remain a local-first access boundary, not enterprise SSO or a multi-user identity provider.",
+    "Recovery rebuilds metadata only and remains degraded until a source dataset is explicitly reconciled and activated.",
+    "This track does not establish retention policy, key management, tenant isolation, or production load SLOs."
+  ]
+}

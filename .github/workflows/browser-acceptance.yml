@@ -45,11 +45,15 @@ jobs:
       - name: Run desktop and mobile end-user journeys
         working-directory: web
         run: npm run test:e2e
+      - name: Validate action and process coverage ledger
+        run: python -m json.tool web/e2e/action-process-coverage.json > /dev/null
       - name: Preserve browser evidence and server logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: people-team-browser-evidence
-          path: web/browser-artifacts/
+          path: |
+            web/browser-artifacts/
+            web/e2e/action-process-coverage.json
           if-no-files-found: warn
           retention-days: 14
