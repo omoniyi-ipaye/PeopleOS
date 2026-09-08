@@ -85,7 +85,31 @@
     {"id": "STEP-007", "name": "Open investigation session", "owner": "agent", "completion_evidence": "session bound to workspace/dataset/model"},
     {"id": "STEP-008", "name": "Execute governed investigation", "owner": "agent", "completion_evidence": "evidence bundle, policy result and audit event"},
     {"id": "STEP-009", "name": "Run health and bounded recovery", "owner": "operations", "completion_evidence": "fitness checks healthy or degraded with bounded actions"},
-    {"id": "STEP-010", "name": "Pass release gates", "owner": "engineering", "completion_evidence": "agent, platform and frontend CI green"}
+    {"id": "STEP-010", "name": "Pass release gates", "owner": "engineering", "completion_evidence": "agent, platform and frontend CI green"},
+    {
+      "id": "STEP-011",
+      "name": "Resolve immutable desktop configuration",
+      "stage": "TRANSITION",
+      "owner": "engineering",
+      "executor": "src.utils.load_config",
+      "trigger": "desktop workspace initialization and API health check",
+      "inputs": ["module __file__", "bundled config.yaml", "optional PEOPLEOS_HOME"],
+      "action": "Normalize the module-relative config path before opening it; preserve the PEOPLEOS_HOME database override.",
+      "state_transition": "bundled config unread -> configuration loaded -> workspace can initialize",
+      "control": "Read immutable config from the bundle, independent of cwd; never create missing package directories or rewrite bundled config.",
+      "exceptions": "A genuinely missing config must still raise FileNotFoundError and fail the packaged smoke gate.",
+      "recovery": "Correct the PR candidate and rebuild; do not bypass health checks or change user data.",
+      "verification": "tests/test_local_distribution.py covers absent/present src directories, spaces, unrelated cwd and PEOPLEOS_HOME.",
+      "completion_evidence": "Local Desktop Build passes API/UI smoke checks on Windows x64, macOS ARM64 and Linux x64 for the same candidate.",
+      "validation": "A packaged app can initialize its local workspace and serve its UI without an installed source tree.",
+      "baseline_evidence": {
+        "commit": "93d675f195249de801994bf6ad9c8930c5f1f618",
+        "run": "https://github.com/omoniyi-ipaye/PeopleOS/actions/runs/34124504592",
+        "observed": "Windows passes; macOS and Linux fail opening _MEI.../src/../config.yaml and return HTTP 500 during smoke."
+      },
+      "target": "All three packaged smoke jobs pass with existing launcher, packager and Windows settings preserved.",
+      "rollback": "Revert this config-path change if the candidate regresses Windows; retain the previous diagnostics and packaging settings."
+    }
   ],
   "build_readiness": "BUILD READY WITH ASSUMPTIONS"
 }
