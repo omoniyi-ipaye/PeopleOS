@@ -51,6 +51,52 @@ def test_request_failure_remains_explicit(monkeypatch):
         client.generate('test')
 
 
+def test_governed_selector_uses_json_mode_and_bounded_generation(monkeypatch):
+    from src.safe_llm_client import SafeLLMClient
+
+    transport = Mock()
+    transport.list.return_value = {'models': [{'name': 'gemma3:4b', 'digest': 'sha256:fixture'}]}
+    transport.generate.return_value = {'response': '{"evidence_ids":["ev_1"],"next_step":"validate_source"}'}
+    factory = Mock(return_value=transport)
+    monkeypatch.setitem(sys.modules, 'ollama', SimpleNamespace(Client=factory))
+    monkeypatch.setattr('src.llm_client.load_config', lambda: {'ollama': {
+        'model': 'gemma3:4b', 'host': 'http://localhost:11434', 'timeout': 60,
+        'response_max_tokens': 1500}})
+
+    client = SafeLLMClient()
+    prompt = 'Select relevant evidence for a governed PeopleOS investigation. REQUEST_DATA: {}'
+    result = client.generate(prompt, options={'temperature': 0.0, 'num_predict': 900})
+
+    assert result == '{"evidence_ids":["ev_1"],"next_step":"validate_source"}'
+    transport.generate.assert_called_once_with(
+        model='gemma3:4b',
+        prompt=prompt,
+        format='json',
+        options={'num_predict': 256, 'temperature': 0.0},
+    )
+
+
+def test_safe_client_non_selector_keeps_standard_generation_path(monkeypatch):
+    from src.safe_llm_client import SafeLLMClient
+
+    transport = Mock()
+    transport.list.return_value = {'models': [{'name': 'gemma3:4b', 'digest': 'sha256:fixture'}]}
+    transport.generate.return_value = {'response': 'ordinary response'}
+    factory = Mock(return_value=transport)
+    monkeypatch.setitem(sys.modules, 'ollama', SimpleNamespace(Client=factory))
+    monkeypatch.setattr('src.llm_client.load_config', lambda: {'ollama': {
+        'model': 'gemma3:4b', 'host': 'http://localhost:11434', 'timeout': 60,
+        'response_max_tokens': 1500}})
+
+    client = SafeLLMClient()
+    assert client.generate('ordinary prompt', options={'temperature': 0.5}) == 'ordinary response'
+    transport.generate.assert_called_once_with(
+        model='gemma3:4b',
+        prompt='ordinary prompt',
+        options={'num_predict': 1500, 'temperature': 0.5},
+    )
+
+
 def test_acceptance_oracle_rejects_changed_numbers_injected_labels_and_missing_sources():
     from scripts.validate_local_llm import answer_matches_known_values
     headcount = '- Current active employee count: 80 [ev_synthetic_headcount; workforce.summary]'
