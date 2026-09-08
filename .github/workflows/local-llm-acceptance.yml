@@ -16,7 +16,7 @@ concurrency:
 jobs:
   local_cpu:
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 25
     env:
       OLLAMA_VERSION: '0.6.8'
       OLLAMA_HOST: '127.0.0.1:11434'
@@ -67,10 +67,15 @@ jobs:
           done
           python -c 'import json, os; assert json.load(open("local-llm-evidence/runtime-version.json"))["version"] == os.environ["OLLAMA_VERSION"]'
       - name: Pull the configured local model
-        timeout-minutes: 6
+        timeout-minutes: 10
         run: |
           set -euo pipefail
-          timeout --signal=TERM 300s ollama pull gemma3:4b > local-llm-evidence/model-pull.log 2>&1
+          # Ollama resumes partial layers, so retry once if a hosted runner has a transient
+          # bandwidth collapse. This does not weaken the model/digest or inference gates.
+          if ! timeout --signal=TERM 420s ollama pull gemma3:4b > local-llm-evidence/model-pull.log 2>&1; then
+            echo 'Initial pull did not complete; retrying resumable pull.' >> local-llm-evidence/model-pull.log
+            timeout --signal=TERM 120s ollama pull gemma3:4b >> local-llm-evidence/model-pull.log 2>&1
+          fi
           curl --fail --silent http://127.0.0.1:11434/api/tags > local-llm-evidence/installed-models.json
           python - <<'PY'
           import json
