@@ -312,9 +312,24 @@
       "licence": "commercial restriction retained; concrete Apache-2.0 proposal awaiting owner decision",
       "candidate_ci": "pending publication; all original six plus applicable new local-model and release-security gates required",
       "npm_audit": "six development/build advisories fixed; all-dependency audit now zero; 42 renderer tests and TypeScript passed",
-      "python_remediation": "18 initial desktop advisories across5packages; coordinated patched API/parser/sklearn pins, Pydantic/imbalanced-learn compatibility updates; unused TextBlob removed; local installation completed despite an ambiguous tool status; exact-version local tests and candidate CI pending",
+      "python_remediation": "Follow-up candidate uses Ollama0.1.9 compatiblewithHTTPX0.27.2; upgrades core Streamlit/Pillow/protobuf/pytest; removes unused LangChain declaration. Core clean resolution passed. Optional embedding profile retains unresolved upstream advisories; no ignores or security pass claimed.",
       "packaging": "four bundle tests pass; native candidate checks pending",
       "native_llm": "new exact-head CPU Ollama selector/liveAPI workflow; not yet executed"
+    },
+    "cycle006_first_candidate": {
+      "sha": "4d3a15226dc63dea33accf33655d9a43bd3ea7ce",
+      "desktop": "all3 build/smoke/restart/archive passed; downloaded macOS payload hashes12/12 and checksum verified",
+      "passed_workflows": [
+        "Agent Foundation",
+        "Frontend Modernization",
+        "E2E User Journey"
+      ],
+      "failed": [
+        "Analytics and browser dependency resolution: ollama0.1.6 requires httpx<0.26, conflicts0.27.2",
+        "Local model workflow invalid job runner context; no inference executed",
+        "Security: core22 advisories/4packages, advanced45/9packages; desktop and npm zero"
+      ],
+      "local_suite": "820 passed with upgraded imports; cleanCI caught unresolvedrequirements combination"
     }
   },
   "next_cycle": [

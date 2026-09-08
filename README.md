@@ -130,7 +130,7 @@ cd ..
 
 ### Optional advanced embeddings and semantic search
 
-Install the advanced tier only when you want local sentence-transformer embeddings, FAISS semantic search, or the legacy LangChain integration:
+Install the advanced tier only when you want local sentence-transformer embeddings or FAISS semantic search:
 
 ```bash
 pip install -r requirements-advanced.txt

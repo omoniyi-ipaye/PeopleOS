@@ -1,7 +1,6 @@
 # Default PeopleOS runtime
 -r requirements-core.txt
 
-# Optional advanced capabilities (local embeddings/vector search and legacy
-# Streamlit/LangChain integrations) are intentionally not installed by default.
+# Optional local embeddings/vector search are not installed by default.
 # To enable them, install:
 #   pip install -r requirements-advanced.txt

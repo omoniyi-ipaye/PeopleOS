@@ -5,7 +5,10 @@
 # Transitional compatibility: the legacy ML engine still imports Streamlit at module
 # load. Keeping Streamlit here preserves the core runtime while the expensive
 # transformer/vector stack remains advanced-only.
-streamlit==1.31.0
+streamlit==1.54.0
+# Patched Streamlit transitive dependencies.
+pillow==12.3.0
+protobuf==5.29.6
 
 pandas==2.1.4
 numpy==1.26.3
@@ -27,7 +30,7 @@ openpyxl==3.1.2
 fpdf2==2.7.6
 
 # Local LLM integration (Ollama server itself remains optional)
-ollama==0.1.6
+ollama==0.1.9
 
 # Configuration / utilities
 pyyaml==6.0.1
@@ -42,6 +45,6 @@ python-multipart==0.0.31
 pydantic==2.9.2
 
 # Tests
-pytest==7.4.4
+pytest==9.0.3
 pytest-cov==4.1.0
 pytest-timeout==2.2.0

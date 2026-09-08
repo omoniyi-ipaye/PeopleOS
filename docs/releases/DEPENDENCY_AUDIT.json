@@ -658,5 +658,25 @@
       "textblob": "removed unused dependency; no application imports"
     },
     "verification": "Candidate dependency resolution, full tests and four-profile audits pending CI; local install subsequently confirmed complete despite ambiguous network tool status; no full-suite pass yet claimed"
+  },
+  "first_candidate_ci": {
+    "commit": "4d3a15226dc63dea33accf33655d9a43bd3ea7ce",
+    "workflow": "https://github.com/omoniyi-ipaye/PeopleOS/actions/runs/34266786351",
+    "desktop": "zero known advisories",
+    "frontend": "zero known advisories",
+    "core": {
+      "advisories": 22,
+      "packages": 4
+    },
+    "advanced": {
+      "advisories": 45,
+      "packages": 9
+    },
+    "validation": "dependency resolution conflict, no completed audit"
+  },
+  "followup_candidate": {
+    "fixes": "Ollama0.1.9; Streamlit1.54.0; Pillow12.3.0; protobuf5.29.6; pytest9.0.3; remove unused LangChain declaration",
+    "remaining": "Embedding profile sentence-transformers2.3.1 pulls vulnerable transformers/NLTK; no ignored advisories, blocked until compatible fixed stack and real embedding validation",
+    "verification": "Core clean resolution passed; full candidate CI pending"
   }
 }
