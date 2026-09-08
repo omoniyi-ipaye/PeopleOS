@@ -68,6 +68,7 @@ jobs:
           pytest -q
           tests/test_agent_evidence.py
           tests/test_agent_orchestrator.py
+          tests/test_source_label_display.py tests/test_cloud_acceptance_contract.py
           tests/test_safe_llm_client.py
           tests/test_agent_controls.py
           tests/test_agentic_launch_matrix.py

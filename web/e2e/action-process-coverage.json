@@ -11,7 +11,7 @@
     "/employee-experience": ["unavailable measured data", "overview tab", "associations and lifecycle tab"],
     "/flight-risk": ["inactive model gate", "no fabricated risk output"],
     "/quality-of-hire": ["overview", "source cohorts", "observed associations", "sparse optional evidence"],
-    "/advisor": ["no-data gate", "supported evidence", "unsupported question", "cross-tab stale dataset", "deterministic fallback"],
+    "/advisor": ["no-data gate", "supported evidence", "unsupported question", "cross-tab stale dataset", "deterministic fallback", "quoted source department labels beside verified salary and dispersion measurements"],
     "/sessions": ["governed investigation history", "active dataset provenance", "empty and recorded session states"],
     "/search": ["unavailable index gate", "no fabricated results"],
     "/scenario-planner": ["whole-workforce compensation", "department expansion", "input-change invalidation", "assumption boundary"],
@@ -20,7 +20,7 @@
     "/platform": ["snapshot integrity", "role", "fitness", "advanced recovery details", "refresh"],
     "/settings": ["runtime state", "capability registry", "dataset features"]
   },
-  "data_conditions": ["empty", "known outcomes", "all outcomes missing", "missing department", "invalid schema", "duplicate identifier", "dataset replacement", "page reload"],
+  "data_conditions": ["empty", "known outcomes", "all outcomes missing", "missing department", "invalid schema", "duplicate identifier", "dataset replacement", "page reload", "instruction-like department labels retained as quoted provenance"],
   "evidence": {
     "results": "web/browser-artifacts/results.json",
     "html_report": "web/browser-artifacts/report/",
