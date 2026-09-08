@@ -607,7 +607,8 @@
       ],
       "review_status": "reviewed_with_limits",
       "findings": [
-        "Validated horizon/count/scope inputs, provenance names actual calculation, financial horizon checks retained. Removed obsolete causal/risk fallbacks and direct individual intervention estimates; no automatic scenario recommendation."
+        "Validated horizon/count/scope inputs, provenance names actual calculation, financial horizon checks retained. Removed obsolete causal/risk fallbacks and direct individual intervention estimates; no automatic scenario recommendation.",
+        "Nonzero elasticity now multiplies proportional pay change (percent / 100); a 10% raise at elasticity .5 and baseline .20 changes the assumed rate by .01, not .10 or 1.0."
       ],
       "verification": [
         "tests/test_engine_renderer_integrity.py",
@@ -972,7 +973,7 @@
     "src/nlp_engine.py": "7e9c9df18337c0ed098ac8cad9b245045c367062cc2a0cdeb29b586353502784",
     "src/population.py": "eb6c3cefd02867ff8d0e24e42bec713c1facd6a510991a71e889992fb03ff486",
     "src/quality_of_hire_engine.py": "441c2bed6884472b6406aa56610dd7f7374921670044b7dfbc31deeac83c176b",
-    "src/scenario_engine.py": "669b9fd199c073523403cc52123c05b8f6d930605588278d75d0f399da509ee1",
+    "src/scenario_engine.py": "f18e8658b0869346c5a92ab7e9fb1c8d8ea7050f267a2bbb11c51a34499f48a6",
     "src/sentiment_engine.py": "64ffe453461b7356158a7d3257416d46a4abc0bb924d52560c5b2b6d58a22bf9",
     "src/serialization.py": "c32f37f9b2240cc0fe510544ac91f36ca269177cc1f9f0f6a6bfbf4cdfa29c0a",
     "src/structural_engine.py": "0a8361e645394da4bc5cc94332e10c6451631ffa7fcbe7bcdbdefac0399bce7e",

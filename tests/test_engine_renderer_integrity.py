@@ -287,3 +287,16 @@ def test_geo_keeps_unknown_and_remote_records_in_population_counts():
         result=client.get('/api/geo/distribution')
         assert result.status_code==200,result.text
         assert sum(row['count'] for row in result.json())==3
+
+
+def test_scenario_elasticity_uses_proportional_changes_not_percentage_points():
+    from src.scenario_engine import ScenarioEngine
+    engine=ScenarioEngine(workforce(100))
+    engine.scenario_config=dict(engine.scenario_config,assumed_baseline_turnover=.2,assumed_compensation_elasticity=.5)
+    result=engine.simulate_compensation_change('percentage',{'scope':'all'},10)
+    # .5 elasticity * .10 proportional raise * .20 assumed baseline = .01 rate change.
+    assert result.turnover_change==1.0
+    assert result.projected_turnover_rate==19.0
+    assert result.cost_impact.total_cost==1000
+    assert result.cost_impact.total_benefit==pytest.approx(150, abs=1e-9)
+    assert result.cost_impact.net_impact==-850

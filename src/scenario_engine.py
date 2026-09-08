@@ -303,7 +303,8 @@ class ScenarioEngine:
         elasticity = float(self.scenario_config.get('assumed_compensation_elasticity', 0.0))
         if not np.isfinite(elasticity) or elasticity < 0:
             raise ScenarioEngineError('Assumed compensation elasticity must be finite and non-negative')
-        reduction = min(compensation_increase_pct * elasticity * current_turnover, current_turnover * .5)
+        # Elasticity relates proportional changes; the public raise input is percent.
+        reduction = min((compensation_increase_pct / 100) * elasticity * current_turnover, current_turnover * .5)
         return reduction, abs(reduction) * .4, 'configured_assumption_not_causal_estimate'
 
 
@@ -522,6 +523,7 @@ class ScenarioEngine:
         assumptions = [
             f"Assumed baseline rate for this scenario horizon: {baseline_turnover*100:.1f}% (configured, not observed turnover)",
             f"Replacement cost: {self.replacement_cost_mult}x annual salary",
+            f"Assumed response elasticity: {self.scenario_config.get('assumed_compensation_elasticity', 0.0)} proportional rate change per proportional pay change; reduction capped at 50% of baseline",
             f"Time horizon: {time_horizon_months} months"
         ]
 
