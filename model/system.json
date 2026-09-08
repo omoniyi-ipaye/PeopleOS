@@ -1,7 +1,7 @@
 {
   "system_id": "peopleos",
   "name": "PeopleOS People Intelligence System",
-  "version": "3.0-transition",
+  "version": "3.0-integrity-hardening",
   "purpose": "Investigate workforce questions using governed deterministic analytics, traceable evidence, explicit data/model lifecycle, and bounded AI synthesis without automating consequential employment decisions.",
   "stage": "TRANSITION",
   "evidence_state": "Observed+Proposed",
@@ -206,20 +206,40 @@
       "id": "ctl-autonomy",
       "mechanism": "L2 recovery envelope excludes HR data/actions and model activation",
       "enforced": true
+    },
+    {
+      "id": "ctl-snapshot",
+      "mechanism": "Shared runtime lock; prepare-before-commit activation; dataset fingerprints and artifact checksums; incompatible requests rejected",
+      "enforced": true
+    },
+    {
+      "id": "ctl-measurement",
+      "mechanism": "Declared numeric measurement contract; exact categorical/ID lexemes; sparse status preservation; oversized imports rejected",
+      "enforced": true
+    },
+    {
+      "id": "ctl-consumer-evidence",
+      "mechanism": "Shared probability and population validation for API/agent; missing/zero distinction and dataset-switch cache reset in UI",
+      "enforced": true
+    },
+    {
+      "id": "ctl-measured-support",
+      "mechanism": "Component-specific source score sample thresholds, common weights, survey population reconciliation and coverage metadata",
+      "enforced": true
     }
   ],
   "risks": [
     {
       "id": "risk-global-state",
-      "description": "legacy routes still depend on process-global AppState",
-      "status": "transitioning",
-      "control": "cmp-workspace"
+      "description": "Only the local data runtime is supported; all evidence is bound to a dataset generation and shared mutation boundary",
+      "status": "mitigated_for_local_runtime",
+      "control": "ctl-snapshot"
     },
     {
       "id": "risk-model-coupling",
-      "description": "legacy upload path can still eagerly initialize ML",
-      "status": "transitioning",
-      "control": "cmp-model"
+      "description": "Upload initializes read-only analytics; explicit model activation validates snapshot and score population before committing",
+      "status": "mitigated",
+      "control": "ctl-model-activation"
     },
     {
       "id": "risk-frontend",
@@ -234,7 +254,12 @@
       "active dataset reference consistent",
       "active model reference consistent",
       "agent CI green",
-      "frontend CI green"
+      "frontend CI green",
+      "runtime dataset fingerprint matches loaded frame",
+      "registry dataset and runtime identity agree",
+      "model output covers exactly the current active IDs",
+      "unknown status count reported",
+      "stale request rejected with HTTP409"
     ],
     "loop": "Desired state -> Sense -> Detect -> Diagnose -> Authorize -> Respond -> Recover -> Verify -> Learn",
     "autonomy_level": "L2",
@@ -328,6 +353,106 @@
       },
       "target": "All three packaged smoke jobs pass with existing launcher, packager and Windows settings preserved.",
       "rollback": "Revert this config-path change if the candidate regresses Windows; retain the previous diagnostics and packaging settings."
+    },
+    {
+      "id": "STEP-012",
+      "name": "Preserve input identity and measurement populations",
+      "stage": "TRANSITION",
+      "evidence_state": "Observed",
+      "owner": "data",
+      "executor": "src.data_contract and DataLoader",
+      "trigger": "CSV/JSON upload",
+      "inputs": [
+        "Complete source file"
+      ],
+      "action": "Read exact lexemes; map declared fields; retain sparse outcomes; reject missing IDs and oversized inputs",
+      "state_transition": "source -> validated complete snapshot",
+      "control": "No implicit truncation or cross-dataset SQLite merge",
+      "recovery": "Reject with actionable validation error; previous snapshot stays active",
+      "automation_boundary": "deterministic local runtime",
+      "verification": "tests/test_specialist_review_findings.py; tests/test_snapshot_recovery.py",
+      "completion_evidence": "Known-answer and fault-injection regression contracts pass",
+      "validation": "Result fidelity and real-world measurement validity remain separate; prospective organizational validation required for stronger predictive claims"
+    },
+    {
+      "id": "STEP-013",
+      "name": "Commit a verified dataset snapshot",
+      "stage": "TRANSITION",
+      "evidence_state": "Observed",
+      "owner": "platform",
+      "executor": "runtime_loader + upload/platform routes",
+      "trigger": "Upload, activation or restore",
+      "inputs": [
+        "Validated artifact and registry identity"
+      ],
+      "action": "Prepare engines and preprocessing in isolation, verify artifact bytes, commit metadata/runtime under the shared local mutation lock, clear auxiliary caches",
+      "state_transition": "previous snapshot -> new generation",
+      "control": "Registry, runtime and auxiliary result scope stay aligned",
+      "recovery": "Retain previous snapshot on preparation/storage failure; reject conflicting requests",
+      "automation_boundary": "deterministic local runtime",
+      "verification": "tests/test_runtime_integrity.py; tests/test_snapshot_recovery.py",
+      "completion_evidence": "Known-answer and fault-injection regression contracts pass",
+      "validation": "Result fidelity and real-world measurement validity remain separate; prospective organizational validation required for stronger predictive claims"
+    },
+    {
+      "id": "STEP-014",
+      "name": "Validate and commit a model",
+      "stage": "TRANSITION",
+      "evidence_state": "Observed",
+      "owner": "ml",
+      "executor": "ModelLifecycleService + platform routes",
+      "trigger": "Explicit train/activate",
+      "inputs": [
+        "Active dataset identity, evaluated artifact, current active rows"
+      ],
+      "action": "Fit only bound data; validate transformed scores before activation; recover missing artifacts through a real retraining attempt",
+      "state_transition": "candidate -> scored candidate -> active",
+      "control": "No metadata activation before successful scoring; no retired/missing artifact reuse",
+      "recovery": "Keep previous active model/runtime on failure",
+      "automation_boundary": "deterministic local runtime",
+      "verification": "tests/test_runtime_integrity.py; tests/test_specialist_review_findings.py",
+      "completion_evidence": "Known-answer and fault-injection regression contracts pass",
+      "validation": "Result fidelity and real-world measurement validity remain separate; prospective organizational validation required for stronger predictive claims"
+    },
+    {
+      "id": "STEP-015",
+      "name": "Reconcile measured cohorts",
+      "stage": "TRANSITION",
+      "evidence_state": "Observed",
+      "owner": "analytics",
+      "executor": "SentimentEngine + QualityOfHireEngine + TeamDynamicsEngine",
+      "trigger": "Analysis request",
+      "inputs": [
+        "Matched survey rows and current employee population"
+      ],
+      "action": "Choose latest eligible survey responses, compute totals before truncation, compare source scores on common supported components",
+      "state_transition": "observed inputs -> measured aggregate evidence",
+      "control": "Unknown groups preserved; component n>=10; unmatched survey rows reported",
+      "recovery": "Return unavailable with coverage when support is insufficient",
+      "automation_boundary": "deterministic local runtime",
+      "verification": "tests/test_specialist_measurement_fixes.py",
+      "completion_evidence": "Known-answer and fault-injection regression contracts pass",
+      "validation": "Result fidelity and real-world measurement validity remain separate; prospective organizational validation required for stronger predictive claims"
+    },
+    {
+      "id": "STEP-016",
+      "name": "Render evidence from the correct snapshot",
+      "stage": "TRANSITION",
+      "evidence_state": "Observed",
+      "owner": "web/API",
+      "executor": "shared provenance validator + snapshot middleware + React consumers",
+      "trigger": "API/agent response and UI rendering",
+      "inputs": [
+        "Dataset-bound evidence including nulls, sample counts and assumptions"
+      ],
+      "action": "Validate population/probabilities; reject overlapping dataset/model changes; preserve missing vs zero; reset query results after switches",
+      "state_transition": "verified evidence -> display with source/coverage",
+      "control": "No fabricated zero, categorical rewrite, incompatible comparison or individual proxy ranking",
+      "recovery": "HTTP409/retry or explicit unavailable state; no old value fallback",
+      "automation_boundary": "deterministic local runtime",
+      "verification": "tests/test_runtime_integrity.py; tests/test_snapshot_recovery.py; web/tests/specialist-review-renderers.test.cjs",
+      "completion_evidence": "Known-answer and fault-injection regression contracts pass",
+      "validation": "Result fidelity and real-world measurement validity remain separate; prospective organizational validation required for stronger predictive claims"
     }
   ],
   "analytics_validation": {
@@ -340,7 +465,10 @@
     "remaining": "Prospective temporal and subgroup validation on source-verified organization data",
     "extended_integrity": "tests/test_extended_integrity.py: active team denominators, recorded succession assessment coverage, survey joins/dates, hiring exposure, vector replacement/alignment and fail-closed agent evidence",
     "engine_renderer_inventory": "model/engine_audit.json",
-    "engine_renderer_report": "docs/validation/ENGINE_RENDERER_AUDIT.md"
+    "engine_renderer_report": "docs/validation/ENGINE_RENDERER_AUDIT.md",
+    "specialist_review": "docs/validation/PEOPLE_ANALYTICS_ML_SPECIALIST_REVIEW.md",
+    "specialist_remediation": "docs/validation/SPECIALIST_REMEDIATION.md",
+    "runtime_scope": "Single local workforce runtime, single application process; no non-local data isolation or cross-process mutation guarantee"
   },
   "build_readiness": "BUILD READY WITH ASSUMPTIONS"
 }

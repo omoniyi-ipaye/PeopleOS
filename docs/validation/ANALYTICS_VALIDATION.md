@@ -100,3 +100,12 @@ This pass fixes favorable-outcome fairness rates, missing-response and distribut
 Verification: **256 selected Python regression checks**, **8 actual React server-render checks**, and **9 pinned public benchmark assertions** pass locally. The production frontend build passes for 16 static pages; lint reports **0 errors and 22 warnings**. Server-render checks validate numbers, units and evidence states, not browser interactions or pixel-level layout. The existing Windows packaging/launcher path is unchanged; release verification still requires the three packaged smoke jobs on the published PR head.
 
 This is a complete inventory and source/boundary review, not exhaustive branch coverage or enterprise certification. Every row documents remaining construct, prospective, source-quality or operational validation. No real-world LLM accuracy, embedding relevance, causal effects, future departure probability, burnout diagnosis or employee-selection accuracy is claimed from synthetic checks.
+
+
+## Specialist findings and local runtime safeguards
+
+The [specialist remediation record](SPECIALIST_REMEDIATION.md) maps F01–F11 to corrected contracts and acceptance evidence. The original defect demonstrations are now correctness tests. Additional checks cover HTTP dataset switching and rollback, model activation and retraining after lost artifacts, categorical/identifier persistence, threaded restore/reset races, nullable survey evidence, and retired proxy displays.
+
+Local verification: 319 analytics/integrity checks plus eight additional foundation checks, 13 React server-render checks, and nine pinned public benchmark assertions pass. The frontend production build passes for 16 static pages; lint has zero errors and 19 warnings. Desktop launcher/configuration/packaging behavior is preserved and must pass the existing Windows x64, macOS ARM64 and Linux x64 CI gates on the published candidate.
+
+New operating controls establish dataset and result integrity for the single local runtime, not enterprise predictive validity. Prospective source-verified organization outcomes, validated instruments, and representative NLP/retrieval labels remain necessary before stronger claims.

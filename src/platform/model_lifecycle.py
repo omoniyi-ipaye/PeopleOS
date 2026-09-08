@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
+from .provenance import frame_fingerprint
 from .workspace import ModelState, ModelVersion, WorkspaceStore
 
 
@@ -74,12 +75,20 @@ class ModelLifecycleService:
         self.policy = policy or ModelEvaluationPolicy()
 
     def train(self, workspace_id: str, dataset_id: str, raw_data) -> ModelVersion:
+        workspace = self.store.get_workspace(workspace_id)
+        dataset = next((d for d in workspace.datasets if d.dataset_id == dataset_id), None)
+        if dataset is None:
+            raise KeyError('Unknown dataset')
+        expected = dataset.quality.get('current_fingerprint')
+        if expected and frame_fingerprint(raw_data) != expected:
+            raise ValueError('Training input differs from the registered dataset snapshot')
         record = self.store.create_model(workspace_id=workspace_id, dataset_id=dataset_id)
         self.store.update_model(workspace_id, record.model_id, state=ModelState.TRAINING)
         try:
             from src.model_training import train_attrition_model
             artifact = train_attrition_model(raw_data)
             metrics = artifact.metrics
+            metrics['training_current_fingerprint'] = frame_fingerprint(raw_data)
             self._runtime_artifacts[record.model_id] = artifact
             self.store.update_model(workspace_id, record.model_id, state=ModelState.EVALUATING, metrics=metrics)
             evaluation = self.policy.evaluate(metrics)

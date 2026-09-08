@@ -292,7 +292,7 @@ Respond in concise executive language with:
             lines.append("Evidence: No sufficient aggregate evidence was available for this question.")
 
         confidence = float(bundle.overall_confidence or 0.0)
-        lines.append(f"Confidence: {confidence:.0%}; coverage: {bundle.coverage_score:.0%}; sufficiency: {bundle.sufficiency.value}.")
+        lines.append(f"Heuristic evidence quality: {confidence:.0%}; coverage: {bundle.coverage_score:.0%}; sufficiency: {bundle.sufficiency.value}.")
         if bundle.unknowns:
             lines.append("Limitations: " + " | ".join(bundle.unknowns[:4]))
         if bundle.contradictions:

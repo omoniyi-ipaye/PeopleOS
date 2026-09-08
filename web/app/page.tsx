@@ -12,7 +12,7 @@ interface PlatformStatus {
   workspace?: { active_dataset?: boolean; active_model?: boolean; dataset_versions?: number }
 }
 
-function percentage(value?: number) {
+function percentage(value?: number | null) {
   if (value === undefined || value === null) return '—'
   return `${(value * 100).toFixed(1)}%`
 }
@@ -21,30 +21,33 @@ export default function DecisionCockpitPage() {
   const queryClient = useQueryClient()
   const { data: status, isLoading: statusLoading } = useQuery<PlatformStatus>({ queryKey: ['platform', 'status'], queryFn: () => api.getStatus() as Promise<PlatformStatus> })
   const hasData = Boolean(status?.data?.loaded)
-  const { data: summary, isLoading: summaryLoading } = useQuery<AnalyticsSummary>({ queryKey: ['analytics', 'summary'], queryFn: () => api.analytics.getSummary() as Promise<AnalyticsSummary>, enabled: hasData })
+  const { data: summary, isLoading: summaryLoading, isError: summaryError } = useQuery<AnalyticsSummary>({ queryKey: ['analytics', 'summary'], queryFn: () => api.analytics.getSummary() as Promise<AnalyticsSummary>, enabled: hasData })
   const { data: departmentData } = useQuery<DepartmentList>({ queryKey: ['analytics', 'departments'], queryFn: () => api.analytics.getDepartments() as Promise<DepartmentList>, enabled: hasData })
   const sample = useMutation({
     mutationFn: () => api.upload.loadSample(),
-    onSuccess: async () => { await queryClient.invalidateQueries() },
+    onSuccess: async () => { await queryClient.resetQueries() },
   })
 
   if (statusLoading) return <div className="grid min-h-[65vh] place-items-center"><div className="text-center"><div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-2xl bg-violet-100 text-violet-600 dark:bg-violet-500/10 dark:text-violet-300"><Sparkles className="h-6 w-6 animate-pulse" /></div><div className="font-medium text-slate-700 dark:text-slate-200">Preparing PeopleOS…</div></div></div>
 
   if (!hasData) return <div className="mx-auto flex min-h-[72vh] max-w-5xl items-center justify-center p-4"><div className="w-full rounded-3xl border border-slate-200 bg-white p-8 shadow-xl shadow-slate-200/40 dark:border-white/10 dark:bg-slate-900 dark:shadow-none md:p-12"><div className="mb-6 grid h-14 w-14 place-items-center rounded-2xl bg-violet-600 text-white shadow-lg shadow-violet-600/20"><Database className="h-7 w-7" /></div><div className="max-w-2xl"><div className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-violet-600 dark:text-violet-300">Welcome to PeopleOS</div><h1 className="text-3xl font-semibold tracking-tight text-slate-950 dark:text-white md:text-4xl">Start with your workforce, or explore first.</h1><p className="mt-4 text-base leading-7 text-slate-600 dark:text-slate-300">PeopleOS turns workforce data into clear, evidence-backed analysis. Start with a safe sample, or add your own CSV or JSON when you are ready.</p></div><div className="mt-8 flex flex-wrap gap-3"><button type="button" disabled={sample.isPending} onClick={() => sample.mutate()} className="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-violet-600/20 transition hover:bg-violet-500 disabled:cursor-wait disabled:opacity-60"><Sparkles className={`h-4 w-4 ${sample.isPending ? 'animate-pulse' : ''}`} />{sample.isPending ? 'Preparing sample…' : 'Explore with sample data'}</button><Link href="/upload" className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5">Add my workforce data <ArrowRight className="h-4 w-4" /></Link></div>{sample.isError && <p className="mt-4 text-sm text-red-600 dark:text-red-300">The sample could not be prepared. You can still add your own workforce data.</p>}<div className="mt-8 flex items-center gap-2 border-t border-slate-100 pt-5 text-xs text-slate-400 dark:border-white/10"><ShieldCheck className="h-3.5 w-3.5" /><span>Your workforce data stays in this PeopleOS installation on your computer.</span></div></div></div>
 
+  if (summaryLoading) return <div role="status">Loading workforce evidence…</div>
+  if (summaryError || !summary) return <div role="alert">Workforce evidence is unavailable. Refresh or check the data source before interpreting results.</div>
+
   const departments = departmentData?.departments ?? []
   const largestDepartment = [...departments].sort((a, b) => b.headcount - a.headcount)[0]
-  const observedAttritionShare = summary?.observed_attrition_share ?? summary?.turnover_rate ?? 0
+  const observedAttritionShare = summary.observed_attrition_share ?? summary.turnover_rate ?? null
   const rating = summary?.lastrating_mean ?? 0
-  const tenure = summary?.tenure_mean ?? 0
-  const activeCount = summary?.active_count ?? summary?.headcount ?? status?.data?.row_count ?? 0
+  const tenure = summary.tenure_mean ?? null
+  const activeCount = summary.active_count ?? null
 
   const signals = [
     {
-      tone: observedAttritionShare >= 0.15 ? 'attention' : 'stable',
+      tone: observedAttritionShare == null ? 'context' : observedAttritionShare >= 0.15 ? 'attention' : 'stable',
       icon: TrendingDown,
-      title: observedAttritionShare >= 0.15 ? 'Recorded attrition share deserves investigation' : 'Recorded attrition share is below the current watch threshold',
-      detail: `${percentage(observedAttritionShare)} of current employee outcome records are marked departed. This is not a period turnover rate.`,
+      title: observedAttritionShare == null ? 'Recorded attrition evidence is unavailable' : observedAttritionShare >= 0.15 ? 'Recorded attrition share deserves investigation' : 'Recorded attrition share is below the current watch threshold',
+      detail: observedAttritionShare == null ? 'Observed employee outcomes are required before assessing attrition share.' : `${percentage(observedAttritionShare)} of current employee outcome records are marked departed. This is not a period turnover rate.`,
       href: '/workforce-health',
       action: 'Understand the pattern',
     },
@@ -69,7 +72,7 @@ export default function DecisionCockpitPage() {
   return <div className="mx-auto max-w-[1440px] space-y-6 pb-10">
     <section className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between"><div><div className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-violet-600 dark:text-violet-300">Decision cockpit</div><h1 className="text-3xl font-semibold tracking-tight text-slate-950 dark:text-white md:text-4xl">What deserves your attention?</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-400">Start with the workforce signals that matter. Evidence boundaries stay available without competing with the decision itself.</p></div><Link href="/advisor" className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-slate-800 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-100"><Brain className="h-4 w-4" /> Ask PeopleOS</Link></section>
 
-    <section className="grid gap-3 sm:grid-cols-3"><Metric label="Active workforce" value={activeCount.toLocaleString()} note="current employees in the resolved population" icon={Users} /><Metric label="Observed attrition share" value={percentage(observedAttritionShare)} note="recorded outcome share; not period turnover" icon={TrendingDown} /><Metric label="Average active tenure" value={tenure ? `${tenure.toFixed(1)}y` : '—'} note="current active workforce" icon={Activity} /></section>
+    <section className="grid gap-3 sm:grid-cols-3"><Metric label="Active workforce" value={activeCount == null ? 'Unavailable' : activeCount.toLocaleString()} note="current employees in the resolved population" icon={Users} /><Metric label="Observed attrition share" value={percentage(observedAttritionShare)} note="recorded outcome share; not period turnover" icon={TrendingDown} /><Metric label="Average active tenure" value={tenure == null ? '—' : `${tenure.toFixed(1)}y`} note="current active workforce" icon={Activity} /></section>
 
     <section className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.55fr)]"><div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-slate-900 md:p-7"><div className="mb-5"><div className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Priority briefing</div><h2 className="mt-1 text-xl font-semibold text-slate-950 dark:text-white">Signals worth reviewing now</h2></div><div className="space-y-3">{signals.map((signal) => <Link key={signal.title} href={signal.href} className="group flex items-start gap-4 rounded-2xl border border-slate-200/80 p-4 transition hover:border-violet-200 hover:bg-violet-50/40 dark:border-white/10 dark:hover:border-violet-500/20 dark:hover:bg-violet-500/[0.04]"><div className={`mt-0.5 grid h-10 w-10 shrink-0 place-items-center rounded-xl ${signal.tone === 'attention' ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300' : 'bg-slate-100 text-slate-600 dark:bg-white/5 dark:text-slate-300'}`}><signal.icon className="h-5 w-5" /></div><div className="min-w-0 flex-1"><div className="font-semibold text-slate-900 dark:text-white">{signal.title}</div><div className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-400">{signal.detail}</div><div className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-violet-600 group-hover:gap-2 dark:text-violet-300">{signal.action}<ArrowRight className="h-3.5 w-3.5" /></div></div></Link>)}</div></div>
 

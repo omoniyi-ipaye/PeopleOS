@@ -142,6 +142,7 @@ class CompensationEngine:
         frame = self.df.copy()
         if 'CompaRatio' in frame.columns:
             ratio = pd.to_numeric(frame['CompaRatio'], errors='coerce')
+            ratio = ratio.where(np.isfinite(ratio) & (ratio > 0))
             frame['CompaRatio'] = ratio
             frame['BandMidpoint'] = np.where(ratio > 0, frame['Salary'] / ratio, np.nan)
             semantics = 'supplied_compa_ratio'
@@ -153,7 +154,10 @@ class CompensationEngine:
             frame['CompaRatio'] = frame['Salary'] / midpoint.replace(0, np.nan)
             semantics = 'relative_to_department_median_not_formal_compa_ratio'
             self.warnings.append('No external salary-band midpoint was supplied; displayed compa-ratio compatibility values are relative to department median')
-        frame['CompaStatus'] = frame['CompaRatio'].apply(lambda r: 'Below reference' if pd.notna(r) and r < .8 else ('Above reference' if pd.notna(r) and r > 1.2 else 'Near reference'))
+        frame['CompaStatus'] = frame['CompaRatio'].apply(
+            lambda r: 'Unavailable' if pd.isna(r) or not np.isfinite(r) or r <= 0
+            else 'Below reference' if r < .8 else 'Above reference' if r > 1.2 else 'Near reference'
+        )
         frame['MetricSemantics'] = semantics
         cols = [c for c in ['EmployeeID', 'Dept', 'Salary', 'BandMidpoint', 'CompaRatio', 'CompaStatus', 'MetricSemantics'] if c in frame.columns]
         return frame[cols]

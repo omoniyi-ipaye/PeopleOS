@@ -44,7 +44,7 @@ def require_fairness(state: AppState = Depends(get_app_state)) -> AppState:
     if state.fairness_engine is None:
         raise HTTPException(
             status_code=400,
-            detail="Fairness analysis requires predictions. Upload data with Attrition column."
+            detail="Recorded outcome disparity analysis requires Attrition and protected-group data."
         )
 
     return state

@@ -14,9 +14,9 @@ export default function DataSourcesPage() {
   const [result, setResult] = useState<UploadResponse | null>(null)
 
   const { data: status } = useQuery<UploadStatus>({ queryKey: ['upload', 'status'], queryFn: () => api.upload.getStatus() as Promise<UploadStatus> })
-  const uploadMutation = useMutation<UploadResponse, Error, File>({ mutationFn: (file) => api.upload.uploadFile(file) as Promise<UploadResponse>, onSuccess: (data) => { setResult(data); queryClient.invalidateQueries() } })
-  const sampleMutation = useMutation<UploadResponse, Error, void>({ mutationFn: () => api.upload.loadSample() as Promise<UploadResponse>, onSuccess: (data) => { setResult(data); queryClient.invalidateQueries() } })
-  const resetMutation = useMutation({ mutationFn: () => api.upload.reset(), onSuccess: () => { setResult(null); queryClient.invalidateQueries() } })
+  const uploadMutation = useMutation<UploadResponse, Error, File>({ mutationFn: (file) => api.upload.uploadFile(file) as Promise<UploadResponse>, onSuccess: (data) => { setResult(data); void queryClient.resetQueries() } })
+  const sampleMutation = useMutation<UploadResponse, Error, void>({ mutationFn: () => api.upload.loadSample() as Promise<UploadResponse>, onSuccess: (data) => { setResult(data); void queryClient.resetQueries() } })
+  const resetMutation = useMutation({ mutationFn: () => api.upload.reset(), onSuccess: () => { setResult(null); void queryClient.resetQueries() } })
 
   const onDrop = useCallback((files: File[]) => { if (files[0]) uploadMutation.mutate(files[0]) }, [uploadMutation])
   const dropzone = useDropzone({ onDrop, accept: { 'text/csv': ['.csv'], 'application/json': ['.json'] }, maxFiles: 1 })

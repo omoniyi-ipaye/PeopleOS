@@ -17,6 +17,7 @@ import pandas as pd
 
 from src.logger import get_logger, sanitize_for_logging
 from src.population import normalize_attrition
+from src.data_contract import normalize_measurements
 from src.utils import get_error_message, get_file_extension, load_config
 
 logger = get_logger('data_loader')
@@ -83,7 +84,8 @@ class DataLoader:
             raise DataValidationError(get_error_message('file_load_failed'))
         try:
             if ext == 'csv':
-                df = pd.read_csv(file_path)
+                # Preserve lexemes before aliases are mapped; measurements convert below.
+                df = pd.read_csv(file_path, dtype=str, keep_default_na=False, na_values=[''])
             elif ext == 'json':
                 with open(file_path, 'r') as handle:
                     payload = json.load(handle)
@@ -101,8 +103,10 @@ class DataLoader:
         if len(df) < self.min_rows:
             raise DataValidationError(get_error_message('insufficient_data', count=len(df)))
         if len(df) > self.max_rows:
-            self.validation_warnings.append(f'Dataset truncated to {self.max_rows} rows')
-            df = df.head(self.max_rows)
+            raise DataValidationError(
+                f'Dataset contains {len(df)} rows; the supported maximum is {self.max_rows}. '
+                'Import was rejected to avoid analyzing an incomplete population.'
+            )
 
         df = self._map_columns(df)
         self._validate_required_columns(df)
@@ -183,6 +187,11 @@ class DataLoader:
 
     def _validate_data_quality(self, df: pd.DataFrame) -> pd.DataFrame:
         frame = df.copy()
+        for column in ('EmployeeID', 'ManagerID'):
+            if column in frame:
+                frame[column] = frame[column].astype('string').str.strip().replace('', pd.NA)
+        if 'EmployeeID' not in frame or frame['EmployeeID'].isna().any():
+            raise DataValidationError('Every workforce row requires a nonempty EmployeeID')
         if 'SnapshotDate' not in frame.columns:
             duplicates = int(frame['EmployeeID'].duplicated().sum())
             if duplicates:
@@ -199,13 +208,11 @@ class DataLoader:
 
         for col in list(frame.columns):
             null_ratio = frame[col].isna().mean()
-            if null_ratio > 0.9:
+            if null_ratio > 0.9 and col not in set(GOLDEN_SCHEMA['required'] + GOLDEN_SCHEMA['optional']):
                 self.validation_warnings.append(f"Column '{col}' excluded (>90% null)")
                 frame = frame.drop(columns=[col])
 
-        for col in ('Salary', 'Tenure', 'Age', 'LastRating', 'StartingSalary', 'InterviewScore', 'AssessmentScore', 'PriorExperienceYears'):
-            if col in frame.columns:
-                frame[col] = pd.to_numeric(frame[col], errors='coerce')
+        frame = normalize_measurements(frame)
 
         invalid_negative = pd.Series(False, index=frame.index)
         for col in ('Salary', 'Tenure', 'Age'):

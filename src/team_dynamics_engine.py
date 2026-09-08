@@ -56,6 +56,11 @@ class TeamDynamicsEngine:
         """
         self.current_df, _ = resolve_current_population(df)
         self.df = clean_team_frame(active_population(df))
+        # Keep the same explicit unknown group in active and outcome cohorts.
+        for frame in (self.current_df, self.df):
+            if 'Dept' in frame:
+                missing = frame['Dept'].isna() | frame['Dept'].astype(str).str.strip().eq('')
+                frame['Dept'] = frame['Dept'].astype(object).where(~missing, 'Unknown')
         self.nlp_data = nlp_data
         self.config = load_config()
         self.team_config = self.config.get('team_dynamics', {})

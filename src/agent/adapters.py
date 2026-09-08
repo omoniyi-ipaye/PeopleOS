@@ -6,6 +6,7 @@ pseudo-probability that the evidence is 'true'.
 """
 
 from time import perf_counter
+from src.platform.provenance import IntegrityError, validated_risk_scores
 from typing import Any, Dict, List
 
 import pandas as pd
@@ -76,9 +77,13 @@ class RetentionRiskTool:
     def __init__(self, state: Any): self.state = state
 
     def execute(self, context: ToolContext) -> ToolResult:
-        started = perf_counter(); scores = getattr(self.state, 'risk_scores', None)
-        if scores is None or len(scores) == 0:
-            return ToolResult(tool_id=self.tool_id, status=ToolResultStatus.PARTIAL, summary='Predictive retention risk is unavailable for the current dataset.', warnings=['A trained and activated predictive model is required.'], duration_ms=_elapsed_ms(started))
+        started = perf_counter()
+        try:
+            scores = validated_risk_scores(self.state)
+        except IntegrityError as exc:
+            return ToolResult(tool_id=self.tool_id, status=ToolResultStatus.PARTIAL,
+                summary='Predictive retention risk is unavailable for the current dataset.',
+                warnings=[str(exc)], duration_ms=_elapsed_ms(started))
         try:
             counts = scores['risk_category'].value_counts().to_dict(); total = int(len(scores))
             high, medium, low = (int(counts.get(k, 0)) for k in ('High', 'Medium', 'Low'))

@@ -208,6 +208,7 @@ class QualityOfHireEngine:
 
         df = self.df.copy()
         results = []
+        quality_weights = self._quality_comparison_weights()
 
         for source in df['HireSource'].unique():
             source_df = df[df['HireSource'] == source]
@@ -233,6 +234,7 @@ class QualityOfHireEngine:
 
             # Retention metrics
             if self.has_attrition:
+                result['outcome_observations'] = int(source_df['Attrition'].count())
                 result['attrition_count'] = int(source_df['Attrition'].sum())
                 result['retention_rate'] = round(
                     1 - source_df['Attrition'].mean(), 3
@@ -261,12 +263,25 @@ class QualityOfHireEngine:
             # Calculate composite quality score
             quality_score = self._calculate_quality_score(source_df)
             result['quality_score'] = round(quality_score, 1)
+            _, observations = self._quality_measurements(source_df)
+            result['quality_components'] = list(quality_weights)
+            result['quality_weights'] = quality_weights
+            result['component_observations'] = observations
+            result['component_coverage'] = {key: count / n for key, count in observations.items()}
+            result['minimum_component_observations'] = MIN_SAMPLE_FOR_SOURCE
+            result['quality_unavailable_reason'] = None
+            result['quality_semantics'] = 'retrospective_heuristic_fixed_dataset_components_not_validated_hire_quality'
 
             # Missing outcome measurements do not earn a failing grade.
             if not np.isfinite(quality_score):
                 result['quality_score'] = None
                 result['grade'] = 'Unavailable'
-                result['recommendation'] = 'Collect valid outcome measurements'
+                unsupported = [key for key in quality_weights if observations[key] < MIN_SAMPLE_FOR_SOURCE]
+                result['quality_unavailable_reason'] = (
+                    'Insufficient measured observations for: ' + ', '.join(unsupported)
+                    if quality_weights else 'No outcome component has sufficient measured support in this dataset'
+                )
+                result['recommendation'] = 'Collect valid outcome measurements before comparing source composites'
             elif quality_score >= 80:
                 result['grade'] = 'A'
                 result['recommendation'] = 'Increase investment'
@@ -279,6 +294,8 @@ class QualityOfHireEngine:
             else:
                 result['grade'] = 'D'
                 result['recommendation'] = 'Consider reducing or eliminating'
+            if np.isfinite(quality_score):
+                result['recommendation'] = 'Compare measured coverage, role mix and exposure; validate prospectively before changing sourcing decisions'
 
             results.append(result)
 
@@ -288,17 +305,11 @@ class QualityOfHireEngine:
 
         return result_df
 
-    def _calculate_quality_score(self, df: pd.DataFrame) -> float:
-        """
-        Calculate composite quality score for a cohort (0-100 scale).
-
-        Weights:
-        - Performance: 40%
-        - Retention: 30%
-        - Promotion: 20%
-        - Ramp time: 10%
-        """
+    @staticmethod
+    def _quality_measurements(df: pd.DataFrame):
+        """Return observed component scores and their actual measured counts."""
         components = {}
+        observations = {'performance': 0, 'retention': 0, 'promotion': 0}
         for key, column, low, high in [('performance', 'LastRating', 1, 5),
                                       ('retention', 'Attrition', 0, 1),
                                       ('promotion', 'PromotionCount', 0, float('inf'))]:
@@ -306,17 +317,38 @@ class QualityOfHireEngine:
                 continue
             values = pd.to_numeric(df[column], errors='coerce')
             values = values[values.between(low, high) & np.isfinite(values)]
+            observations[key] = int(len(values))
             if values.empty:
                 continue
             mean = float(values.mean())
             components[key] = ((mean - 1) / 4 * 100 if key == 'performance'
                                else (1 - mean) * 100 if key == 'retention'
                                else min(mean / 2, 1) * 100)
-        weights = {key: float(self.quality_weights.get(key, 0)) for key in components}
+        return components, observations
+
+    def _quality_comparison_weights(self) -> Dict[str, float]:
+        """Define one construct for this dataset, never reweight per source.
+
+        Entirely unsupported components are omitted once for the dataset. A
+        cohort missing support for a required component receives no composite.
+        The minimum is a reporting guard, not evidence of statistical validity.
+        """
+        _, observations = self._quality_measurements(self.df)
+        weights = {key: float(self.quality_weights.get(key, 0)) for key in observations}
         if any(not np.isfinite(w) or w < 0 for w in weights.values()):
             raise QualityOfHireEngineError('Quality weights must be finite and non-negative')
+        weights = {key: weight for key, weight in weights.items()
+                   if weight > 0 and observations[key] >= MIN_SAMPLE_FOR_SOURCE}
         total = sum(weights.values())
-        return sum(components[key] * weight for key, weight in weights.items()) / total if total else np.nan
+        return {key: weight / total for key, weight in weights.items()} if total else {}
+
+    def _calculate_quality_score(self, df: pd.DataFrame) -> float:
+        """Fixed dataset component weights; insufficient cohort evidence is missing."""
+        components, observations = self._quality_measurements(df)
+        weights = self._quality_comparison_weights()
+        if not weights or any(observations[key] < MIN_SAMPLE_FOR_SOURCE for key in weights):
+            return np.nan
+        return sum(components[key] * weight for key, weight in weights.items())
 
     def correlate_prehire_posthire(
         self,
@@ -497,7 +529,8 @@ class QualityOfHireEngine:
 
             # Red flags - sources with low quality or retention
             if 'retention_rate' in source_df.columns:
-                low_retention = source_df[source_df['retention_rate'] < 0.7]
+                low_retention = source_df[(source_df['retention_rate'] < 0.7)
+                                          & (source_df['outcome_observations'] >= MIN_SAMPLE_FOR_SOURCE)]
                 for _, row in low_retention.iterrows():
                     results['red_flags'].append({
                         'type': 'Low Retention Source',
@@ -530,7 +563,8 @@ class QualityOfHireEngine:
             overall_quality = df['LastRating'].mean() if self.has_performance else 3.0
 
             for _, row in source_df.iterrows():
-                if 'avg_performance' in row and pd.notna(row['avg_performance']) and pd.notna(overall_quality):
+                if (row.get('performance_observations', 0) >= MIN_SAMPLE_FOR_SOURCE
+                        and 'avg_performance' in row and pd.notna(row['avg_performance']) and pd.notna(overall_quality)):
                     quality_diff = row['avg_performance'] - overall_quality
                     roi_indicator = 'Above Average' if quality_diff > 0.2 else (
                         'Below Average' if quality_diff < -0.2 else 'Average'

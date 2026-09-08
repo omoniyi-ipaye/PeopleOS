@@ -706,13 +706,17 @@ class ScenarioEngine:
             simulation=mc_result,
             cost_impact=cost_impact,
             roi_estimate=round(safe_divide(cost_impact.net_impact, abs(cost_impact.total_cost), 0) * 100, 1),
-            payback_months=int(safe_divide(abs(cost_impact.total_cost), abs(cost_impact.net_impact) / 12, 999)),
+            payback_months=(int(np.ceil(cost_impact.total_cost / (cost_impact.total_benefit / 12)))
+                            if change_type == 'reduction' and cost_impact.total_benefit > 0 else None),
             confidence_level=conf_level,
             confidence_score=conf_score,
             assumptions=[
                 f"Average salary: ${avg_salary:,.0f}",
                 f"Selection criteria: {selection_criteria}",
                 "Financial results are fixed assumption arithmetic; financial uncertainty has not been estimated.",
+                ("Simple payback divides one-off severance by monthly salary savings; assumes immediate savings and excludes unmodeled effects."
+                 if change_type == 'reduction' else
+                 "Expansion payback is unavailable: this annual cost/benefit scenario does not model a multi-period cash-flow schedule."),
                 "Severance: 3 months salary" if change_type == 'reduction' else "Ramp time: 6 months"
             ],
             risks=[

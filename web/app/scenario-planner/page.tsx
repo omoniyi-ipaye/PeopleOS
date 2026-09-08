@@ -9,6 +9,7 @@ import { BarChart3, DollarSign, GitBranch, Play, Target, Users } from 'lucide-re
 type ScenarioType = 'compensation' | 'headcount'
 
 interface ScenarioResult {
+  provenance?: {generation: string; dataset_version?: number; source_name?: string}
   available: boolean
   scenario_name: string
   scenario_type: string
@@ -39,7 +40,7 @@ function money(value: number) {
 
 export default function ScenarioPlannerPage() {
   const [type, setType] = useState<ScenarioType>('compensation')
-  const [result, setResult] = useState<ScenarioResult | null>(null)
+  const [storedResult, setResult] = useState<ScenarioResult | null>(null)
   const [adjustmentValue, setAdjustmentValue] = useState(5)
   const [targetScope, setTargetScope] = useState<'all' | 'department'>('all')
   const [targetDept, setTargetDept] = useState('')
@@ -68,6 +69,8 @@ export default function ScenarioPlannerPage() {
     onSuccess: (data) => setResult(data as ScenarioResult),
   })
 
+  const {data: status} = useQuery({queryKey: ['platform', 'status'], queryFn: () => api.getStatus() as Promise<{integrity?: {snapshot?: {generation?: string}}}>})
+  const result = storedResult?.provenance?.generation === status?.integrity?.snapshot?.generation ? storedResult : null
   const loading = compensation.isPending || headcount.isPending
   const failure = compensation.error || headcount.error
   const run = () => {
@@ -87,25 +90,28 @@ export default function ScenarioPlannerPage() {
       <p className="text-sm text-text-muted">Financial values use source salary units; annual salary is required.</p>
       <div className="grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
         <Surface padding="lg">
+          <fieldset disabled={loading}>
           <SectionHeader title="Configure scenario" description="Choose a governed aggregate decision class." />
           <div className="mt-5 grid grid-cols-2 gap-2">
-            <Button size="sm" variant={type === 'compensation' ? 'primary' : 'secondary'} onClick={() => setType('compensation')}><DollarSign className="h-4 w-4" />Pay assumption</Button>
-            <Button size="sm" variant={type === 'headcount' ? 'primary' : 'secondary'} onClick={() => setType('headcount')}><Users className="h-4 w-4" />Expansion</Button>
+            <Button size="sm" variant={type === 'compensation' ? 'primary' : 'secondary'} onClick={() => {setResult(null); setType('compensation')}}><DollarSign className="h-4 w-4" />Pay assumption</Button>
+            <Button size="sm" variant={type === 'headcount' ? 'primary' : 'secondary'} onClick={() => {setResult(null); setType('headcount')}}><Users className="h-4 w-4" />Expansion</Button>
           </div>
 
           <div className="mt-6 space-y-5">
-            {type === 'compensation' && <Input label="Compensation adjustment (%)" type="number" value={adjustmentValue} onChange={(event) => setAdjustmentValue(Number(event.target.value))} helperText="Explores a pay-change assumption; it does not estimate a causal retention effect." />}
-            {type === 'headcount' && <Input label="Additional positions" type="number" value={changeCount} onChange={(event) => setChangeCount(Number(event.target.value))} helperText="Aggregate expansion only. PeopleOS does not rank employees for reduction decisions." />}
+            {type === 'compensation' && <Input label="Compensation adjustment (%)" type="number" value={adjustmentValue} onChange={(event) => {setResult(null); setAdjustmentValue(Number(event.target.value))}} helperText="Explores a pay-change assumption; it does not estimate a causal retention effect." />}
+            {type === 'headcount' && <Input label="Additional positions" type="number" value={changeCount} onChange={(event) => {setResult(null); setChangeCount(Number(event.target.value))}} helperText="Aggregate expansion only. PeopleOS does not rank employees for reduction decisions." />}
 
-            <div><label className="mb-2 block text-sm font-medium">Scope</label><select value={targetScope} onChange={(event) => setTargetScope(event.target.value as 'all' | 'department')} className="h-10 w-full rounded-xl border border-border bg-surface px-3 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30"><option value="all">Whole workforce</option><option value="department">One department</option></select></div>
-            {targetScope === 'department' && <div><label className="mb-2 block text-sm font-medium">Department</label><select value={targetDept} onChange={(event) => setTargetDept(event.target.value)} className="h-10 w-full rounded-xl border border-border bg-surface px-3 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30"><option value="">Select department</option>{departments.map((department) => <option key={department} value={department}>{department}</option>)}</select></div>}
+            <div><label className="mb-2 block text-sm font-medium">Scope</label><select value={targetScope} onChange={(event) => {setResult(null); setTargetScope(event.target.value as 'all' | 'department')}} className="h-10 w-full rounded-xl border border-border bg-surface px-3 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30"><option value="all">Whole workforce</option><option value="department">One department</option></select></div>
+            {targetScope === 'department' && <div><label className="mb-2 block text-sm font-medium">Department</label><select value={targetDept} onChange={(event) => {setResult(null); setTargetDept(event.target.value)}} className="h-10 w-full rounded-xl border border-border bg-surface px-3 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30"><option value="">Select department</option>{departments.map((department) => <option key={department} value={department}>{department}</option>)}</select></div>}
 
             <Button onClick={run} isLoading={loading} disabled={targetScope === 'department' && !targetDept} className="w-full"><Play className="h-4 w-4" />Run exploratory scenario</Button>
           </div>
+          </fieldset>
         </Surface>
 
         <div className="space-y-6">
           {!result ? <Surface padding="lg" className="min-h-[360px] grid place-items-center"><div className="max-w-lg text-center"><div className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-accent/10 text-accent"><GitBranch className="h-6 w-6" /></div><h2 className="mt-5 text-xl font-semibold">Configure a scenario to inspect sensitivity</h2><p className="mt-2 text-sm leading-6 text-text-secondary">Model outcomes and costs while keeping the assumptions available for review.</p></div></Surface> : <>
+            <p className="text-sm text-text-secondary">Source: {result.provenance?.source_name ?? 'Active dataset'}{result.provenance?.dataset_version ? ` · Dataset v${result.provenance.dataset_version}` : ''}</p>
             <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <MetricCard label="People in scope" value={result.affected_employees.toLocaleString()} detail={result.affected_departments.length ? result.affected_departments.join(', ') : 'Configured scope'} icon={Users} />
               <MetricCard label="Assumed baseline rate" value={`${result.baseline_turnover_rate.toFixed(1)}%`} detail="Baseline used by the scenario" icon={Target} />

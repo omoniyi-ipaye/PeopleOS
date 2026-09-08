@@ -311,7 +311,7 @@ def render_overview_tab(analytics_data: dict, insight_interpreter=None) -> None:
             render_kpi_card("Departments", dept_count)
     
     with col4:
-        if avg_tenure:
+        if avg_tenure is not None and pd.notna(avg_tenure):
             if insight_interpreter:
                 insight = insight_interpreter.interpret_metric('tenure_mean', avg_tenure)
                 render_metric_with_insight("Avg Tenure", f"{avg_tenure:.1f} years", insight)
@@ -362,7 +362,7 @@ def render_overview_tab(analytics_data: dict, insight_interpreter=None) -> None:
         if 'salary_bands' in analytics_data and not analytics_data['salary_bands'].empty:
             salary_insight = None
             if insight_interpreter:
-                salary_insight = "This shows salary distribution across quartiles. A bell curve suggests balanced pay; heavy skewing may indicate equity issues."
+                salary_insight = "Salary quartiles partition observed pay values. Their counts do not establish pay equity; role mix, coverage and adjusted comparisons need separate analysis."
             
             render_bar_chart(
                 analytics_data['salary_bands'],
@@ -708,77 +708,8 @@ def render_compensation_tab(comp_data: dict, df: Optional[pd.DataFrame] = None) 
 
 
 def render_succession_tab(succ_data: dict) -> None:
-    """
-    Render the Succession Planning tab content.
-
-    Args:
-        succ_data: Dictionary with succession analysis results.
-    """
-    st.header("🎯 Succession Planning")
-
-    if not succ_data:
-        render_info_banner("Upload data to view succession planning analysis.")
-        return
-
-    # Pipeline visualization
-    if 'pipeline' in succ_data:
-        st.subheader("Succession Pipeline")
-        render_succession_pipeline(succ_data['pipeline'])
-
-    st.divider()
-
-    # Bench strength
-    if 'bench_strength' in succ_data and not succ_data['bench_strength'].empty:
-        st.subheader("Bench Strength by Department")
-
-        # Summary metrics
-        bench_df = succ_data['bench_strength']
-        strong = len(bench_df[bench_df['Status'] == 'Strong'])
-        adequate = len(bench_df[bench_df['Status'] == 'Adequate'])
-        weak = len(bench_df[bench_df['Status'] == 'Weak'])
-
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("Strong Bench", strong, delta=None)
-        with col2:
-            st.metric("Adequate Bench", adequate, delta=None)
-        with col3:
-            st.metric("Weak Bench", weak, delta=None)
-
-        render_data_table(bench_df)
-
-    st.divider()
-
-    # 9-box grid
-    if 'nine_box_summary' in succ_data and not succ_data['nine_box_summary'].empty:
-        render_9box_grid(succ_data['nine_box_summary'])
-
-    st.divider()
-
-    # Readiness matrix
-    if 'readiness' in succ_data and not succ_data['readiness'].empty:
-        st.subheader("Readiness Matrix")
-        render_readiness_matrix(succ_data['readiness'])
-
-    # High potentials
-    if 'high_potentials' in succ_data and not succ_data['high_potentials'].empty:
-        st.subheader("⭐ High-Potential Employees")
-        render_data_table(succ_data['high_potentials'])
-
-    # Critical gaps
-    if 'gaps' in succ_data and not succ_data['gaps'].empty:
-        st.subheader("⚠️ Succession Gaps")
-        render_data_table(succ_data['gaps'])
-
-    # Recommendations
-    if 'recommendations' in succ_data and succ_data['recommendations']:
-        st.subheader("Retention Recommendations")
-        for rec in succ_data['recommendations'][:5]:
-            with st.expander(f"{rec['EmployeeID']} - {rec['Dept']} ({rec['Priority']})"):
-                st.markdown(f"**{rec['Recommendation']}**")
-                if 'Actions' in rec:
-                    for action in rec['Actions']:
-                        st.markdown(f"• {action}")
+    """Retired proxy-based succession display; use the recorded assessment API."""
+    st.info('Legacy succession proxies are unavailable. Use the current succession analysis with recorded potential and readiness assessments.')
 
 
 def render_team_dynamics_tab(team_data: dict) -> None:

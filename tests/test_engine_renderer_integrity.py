@@ -265,8 +265,12 @@ def test_predictive_api_uses_current_active_ids_and_derived_categories():
     from api.routes import predictions
     frame=workforce(3);frame.loc[2,'Attrition']=1
     metrics={'accuracy':.8,'precision':.7,'recall':.6,'f1':.65,'best_model':'fixture','train_size':80,'test_size':20}
-    scores=pd.DataFrame({'EmployeeID':['E0','E1','E2'],'risk_score':[.9,.1,.9],'risk_category':['Low']*3})
+    scores=pd.DataFrame({'EmployeeID':['E0','E1'],'risk_score':[.9,.1],'risk_category':['Low']*2})
     state=SimpleNamespace(risk_scores=scores,raw_df=frame,ml_engine=MLEngine(),model_metrics=metrics)
+    from src.platform.provenance import frame_fingerprint
+    state.ml_engine.is_trained=True
+    state.runtime_provenance={'workspace_id':'local','dataset_id':'fixture','generation':'one','current_fingerprint':frame_fingerprint(frame)}
+    state.model_provenance={**state.runtime_provenance,'model_id':'model-fixture'}
     with client_for(predictions,predictions.require_predictions,state) as client:
         response=client.get('/api/predictions/risk')
         assert response.status_code==200,response.text

@@ -226,6 +226,10 @@ class WorkspaceStore:
                 dataset.state = DatasetState.SUPERSEDED
         if selected is None:
             raise KeyError(f"Unknown dataset: {dataset_id}")
+        for model in workspace.models:
+            if model.state == ModelState.ACTIVE:
+                model.state = ModelState.RETIRED
+        workspace.active_model_id = None
         workspace.active_dataset_id = selected.dataset_id
         self._replace_workspace(workspace)
         return selected
@@ -286,6 +290,8 @@ class WorkspaceStore:
         selected: Optional[ModelVersion] = None
         for model in workspace.models:
             if model.model_id == model_id:
+                if model.dataset_id != workspace.active_dataset_id:
+                    raise ValueError('Model dataset differs from the active dataset')
                 if model.state != ModelState.CANDIDATE:
                     raise ValueError("Only an evaluated candidate model can be activated")
                 model.state = ModelState.ACTIVE
@@ -307,6 +313,16 @@ class WorkspaceStore:
         model_id: Optional[str] = None,
     ) -> InvestigationSession:
         workspace = self.ensure_workspace(workspace_id)
+        selected_dataset = dataset_id or workspace.active_dataset_id
+        selected_model = model_id or workspace.active_model_id
+        if selected_dataset and not any(d.dataset_id == selected_dataset for d in workspace.datasets):
+            raise KeyError('Unknown investigation dataset')
+        if selected_model:
+            model = next((m for m in workspace.models if m.model_id == selected_model), None)
+            if model is None:
+                raise KeyError('Unknown investigation model')
+            if model.dataset_id != selected_dataset:
+                raise ValueError('Investigation model and dataset are incompatible')
         session = InvestigationSession(
             session_id=f"session_{uuid4().hex}",
             workspace_id=workspace_id,

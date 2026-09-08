@@ -5,9 +5,7 @@ individual recommendation endpoints are deliberately disabled because they can
 be misused for consequential employment decisions.
 """
 
-import numpy as np
-import pandas as pd
-from src.population import active_population
+from src.platform.provenance import IntegrityError, validated_risk_scores
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
@@ -21,8 +19,10 @@ def require_predictions(state: AppState = Depends(get_app_state)) -> AppState:
     if not state.has_data():
         if not state.load_from_database():
             raise HTTPException(status_code=400, detail='No data loaded. Please upload a file first.')
-    if state.ml_engine is None or not state.ml_engine.is_trained or state.model_metrics is None:
-        raise HTTPException(status_code=409, detail='No activated predictive model is available in the current runtime.')
+    try:
+        validated_risk_scores(state)
+    except IntegrityError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     return state
 
 
@@ -65,21 +65,10 @@ async def get_aggregate_risk_distribution(
     offset: int = Query(default=0, ge=0, description='Deprecated compatibility parameter.'),
     state: AppState = Depends(require_predictions),
 ) -> PredictionsResponse:
-    if state.risk_scores is None or state.risk_scores.empty:
-        raise HTTPException(status_code=404, detail='Aggregate predictive scores are not available.')
-    frame = state.risk_scores.copy()
-    required = {'EmployeeID', 'risk_score', 'risk_category'}
-    if not required.issubset(frame) or frame['EmployeeID'].isna().any():
-        raise HTTPException(status_code=409, detail='Predictive score identities are unavailable')
-    frame['EmployeeID'] = frame['EmployeeID'].astype(str)
-    scores = pd.to_numeric(frame['risk_score'], errors='coerce')
-    if frame['EmployeeID'].duplicated().any() or not (np.isfinite(scores) & scores.between(0, 1)).all():
-        raise HTTPException(status_code=409, detail='Predictive scores have duplicate identities or invalid probabilities')
-    current = active_population(state.raw_df)
-    frame = frame[frame['EmployeeID'].isin(current['EmployeeID'].astype(str))].copy()
-    if set(frame['EmployeeID']) != set(current['EmployeeID'].astype(str)):
-        raise HTTPException(status_code=409, detail='Predictive scores do not cover the current active population')
-    frame['risk_category'] = scores.loc[frame.index].map(state.ml_engine.get_risk_category)
+    try:
+        frame = validated_risk_scores(state)
+    except IntegrityError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     high = int((frame['risk_category'] == 'High').sum())
     medium = int((frame['risk_category'] == 'Medium').sum())
     low = int((frame['risk_category'] == 'Low').sum())

@@ -24,6 +24,14 @@ class SourceEffectiveness(BaseModel):
     avg_performance: Optional[float] = None
     performance_observations: Optional[int] = None
     promotion_observations: Optional[int] = None
+    outcome_observations: Optional[int] = None
+    quality_components: List[str] = Field(default_factory=list)
+    quality_weights: Dict[str, float] = Field(default_factory=dict)
+    component_observations: Dict[str, int] = Field(default_factory=dict)
+    component_coverage: Dict[str, float] = Field(default_factory=dict)
+    minimum_component_observations: Optional[int] = None
+    quality_unavailable_reason: Optional[str] = None
+    quality_semantics: Optional[str] = None
     high_performers: Optional[int] = None
     high_performer_rate: Optional[float] = None
     attrition_count: Optional[int] = None
