@@ -25,7 +25,8 @@ The four journeys run in Chromium desktop and emulated mobile viewports:
 
 - Upload a known-answer workforce, check 80 active people, 20% observed departure
   share and 2.0-year tenure; inspect real agent evidence and Trust Center; activate
-  a different dataset and verify 30 active people, measured zero attrition and
+  a different dataset (60 records: 30 active and 30 unknown statuses) and verify
+  30 active people, measured zero observed attrition share and
   measured zero tenure.
 - Upload missing outcome values and confirm unavailable results do not become
   a measured zero or a reassuring statement.

@@ -4,6 +4,7 @@ The real orchestrator, registry, analytics, compensation and evidence pipeline r
 against known-answer workforce data. These cases do not claim live Ollama quality.
 """
 import json
+import re
 from types import SimpleNamespace
 
 import pandas as pd
@@ -109,7 +110,8 @@ def test_invalid_or_invented_model_response_falls_back_without_surfacing_claim(w
     workforce.llm_client = Selector(transform)
     result = PeopleIntelligenceAgent(workforce).investigate("What is our workforce headcount?")
     assert result.model is None
-    assert "9000" not in result.answer
+    # Citation UUIDs can contain these digits without asserting an invented count.
+    assert not re.search(r"\b9,?000\b", result.answer)
     assert "Current active employee count: 80" in result.answer
     assert any("failed verification" in warning for warning in result.warnings)
 
@@ -249,3 +251,41 @@ def test_total_current_headcount_remains_supported(workforce):
     result = PeopleIntelligenceAgent(workforce).investigate('What is our total current headcount?')
     assert result.status == 'complete'
     assert 'Current active employee count: 80' in result.answer
+
+
+@pytest.mark.parametrize('question', [
+    'How many active employees do we have?',
+    'How many current employees do we have?',
+    'How many currently active employees do we have?',
+    'What is the number of active employees?',
+    'What is the number of our current employees?',
+    'How many employees do we currently have?',
+])
+def test_equivalent_current_headcount_wording_uses_real_counts(workforce, question):
+    agent = PeopleIntelligenceAgent(workforce)
+    assert 'headcount' in agent.planner.plan(question).required_metrics
+    result = agent.investigate(question)
+    assert result.status == 'complete'
+    assert 'Current active employee count: 80' in result.answer
+    assert not result.warnings
+
+
+def test_combined_active_count_and_recorded_attrition_require_both_metrics(workforce):
+    agent = PeopleIntelligenceAgent(workforce)
+    question = 'How many active employees do we have and what is the recorded attrition share?'
+    assert {'headcount', 'observed_attrition_share'} <= set(agent.planner.plan(question).required_metrics)
+    result = agent.investigate(question)
+    assert 'Current active employee count: 80' in result.answer
+    assert 'Observed attrition share: 20.0%' in result.answer
+
+
+@pytest.mark.parametrize('question', [
+    'How many active employees are women?',
+    'What is the number of active employees in Operations?',
+    'How many current employees did we have in Q1?',
+    'What was the number of active employees last year?',
+])
+def test_equivalent_headcount_wording_does_not_bypass_scope_limits(workforce, question):
+    result = PeopleIntelligenceAgent(workforce).investigate(question)
+    assert result.status in {'partial', 'insufficient'}
+    assert result.warnings

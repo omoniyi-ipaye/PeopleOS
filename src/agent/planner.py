@@ -61,8 +61,11 @@ class EvidencePlanner:
             add("workforce.employee_experience", "strategic employee-experience lens")
             add("workforce.organization_structure", "strategic structure lens")
 
+        headcount_requested = bool(re.search(
+            r"\b(?:headcount|employee count)\b|\b(?:how many|number of)\s+(?:our\s+)?(?:(?:active|current|currently|total)\s+)*employees\b", q
+        ))
         limitations = []
-        supported = len(tools) > 1 or any(term in q for term in [
+        supported = headcount_requested or len(tools) > 1 or any(term in q for term in [
             "headcount", "workforce", "employee count", "how many employees", "tenure", "average age", "rating"
         ])
         if not supported:
@@ -75,7 +78,9 @@ class EvidencePlanner:
             limitations.append("Observed attrition share is not a period turnover rate; exposure and dated departures are required for period turnover.")
         if any(term in q for term in ["department", "team", "function", "engineering", "sales", "marketing"]):
             limitations.append("This plan returns workforce-wide and available department aggregates; it does not filter the dataset to a named team.")
-        required_metrics = []
+        required_metrics = ["headcount"] if headcount_requested else []
+        if re.search(r"\b(?:recorded|observed)\s+attrition\s+share\b", q):
+            required_metrics.append("observed_attrition_share")
         for terms, metric in [
             (["headcount", "how many employees", "employee count"], "headcount"),
             (["average salary", "mean salary"], "salary_mean"),
@@ -115,7 +120,7 @@ class EvidencePlanner:
         # A generic workforce keyword is not evidence that an arbitrary metric
         # or population restriction has been implemented. Until typed filters are
         # available, treat unfamiliar summary-query terms conservatively.
-        summary_words = set("what is are was were the our my a an and of for in about tell me show give please can you do we have how many employees employee people workforce current currently active total headcount count average mean age salary tenure performance rating overview summary statistics company organization organisation now today".split())
+        summary_words = set("what is are was were the our my a an and of for in about tell me show give please can you do we have how many employees employee people workforce current currently active total headcount count number average mean age salary tenure performance rating overview summary statistics company organization organisation now today".split())
         summary_words.update({"q1", "q2", "q3", "q4"})
         tokens = set(re.findall(r"[a-z]+[0-9]*", q))
         if len(tools) == 1 and not required_metrics and not re.search(r"\b(summary|overview|statistics)\b", q):

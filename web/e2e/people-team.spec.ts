@@ -3,11 +3,12 @@ import { test, expect, type Page } from '@playwright/test'
 // Independent known-answer fixture: no imported production calculation helpers.
 function workforce(name = 'A', missingOutcomes = false) {
   const fields = ['EmployeeID', 'Dept', 'Salary', 'Tenure', 'LastRating', 'Age', 'Gender', 'JobTitle', 'JobLevel', 'Location', 'HireDate', 'ManagerID', 'Attrition', 'SnapshotDate']
-  const rows = Array.from({ length: name === 'A' ? 120 : 30 }, (_, i) => [
+  // B satisfies the 50-row import minimum with 30 active and 30 unknown statuses.
+  const rows = Array.from({ length: name === 'A' ? 120 : 60 }, (_, i) => [
     String(i).padStart(4, '0'), ['001', '002', ''][i % 3],
     name === 'A' ? (i < 40 ? 60000 : 90000) : 40000,
     name === 'A' ? 2 : 0, 4, 30, i % 2 ? 'Female' : 'Male', 'Analyst', 'L03',
-    'Madrid', '2024-01-01', '0000', missingOutcomes ? '' : (name === 'B' || i < 80 ? 0 : i < 100 ? 1 : ''), '2026-01-01',
+    'Madrid', '2024-01-01', '0000', missingOutcomes ? '' : name === 'B' ? (i < 30 ? 0 : '') : (i < 80 ? 0 : i < 100 ? 1 : ''), '2026-01-01',
   ])
   return Buffer.from([fields.join(','), ...rows.map(row => row.join(','))].join('\n'))
 }
@@ -24,7 +25,8 @@ async function upload(page: Page, name = 'A', missingOutcomes = false) {
   if (mobileNavigation) await expect(page.getByRole('dialog', { name: 'PeopleOS navigation' })).toBeHidden()
   const response = page.waitForResponse(r => r.url().endsWith('/api/upload') && r.request().method() === 'POST')
   await page.locator('input[type=file]').setInputFiles({ name: `workforce-${name}.csv`, mimeType: 'text/csv', buffer: workforce(name, missingOutcomes) })
-  expect((await response).ok()).toBeTruthy()
+  const uploadResponse = await response
+  expect(uploadResponse.ok(), await uploadResponse.text()).toBeTruthy()
   await expect(page.getByText('Dataset activated', { exact: true })).toBeVisible()
   // Client navigation retains React Query state, so this also checks invalidation.
   await page.getByRole('link', { name: 'Open Decision Cockpit' }).click()
@@ -98,6 +100,7 @@ test('People analyst uploads, verifies figures, investigates evidence and switch
 
 test('missing outcomes remain unavailable rather than becoming zero or reassuring', async ({ page }) => {
   await upload(page, 'A', true)
+  await expect(page.getByText('0 recorded active employees; 120 unknown statuses excluded from the active count.', { exact: true })).toBeVisible()
   await metric(page, 'Observed attrition share', '—')
   await expect(page.getByText('Recorded attrition evidence is unavailable', { exact: true })).toBeVisible()
   await expect(page.getByText(/below the current watch threshold/)).toHaveCount(0)

@@ -213,11 +213,20 @@
       "correction": "Validate original required columns and preserve existing survey on invalid upload",
       "verification": "tests/test_people_team_acceptance.py",
       "state": "independently_reviewed_pending_candidate_ci"
+    },
+    {
+      "id": "QC001-07",
+      "severity": "medium",
+      "area": "agentic",
+      "observed": "Tightened scope matcher rejected equivalent supported active-employee-count wording",
+      "correction": "Shared current-headcount intent recognition and explicit combined-question metric requirements",
+      "verification": "11 additional parameterized real-engine regressions in tests/test_agentic_acceptance.py",
+      "state": "locally_verified_pending_corrected_candidate_ci"
     }
   ],
   "verification": {
     "baseline": "bd98b6a passed existing CI including all three packaged desktop smoke jobs",
-    "current_candidate": "local integration and new browser CI pending",
+    "current_candidate": "Corrected headcount wording and second browser fixture; finalCI pending",
     "actual_llm": "not tested; controlled selector fixtures only",
     "live_http": {
       "passed": 96,
@@ -243,6 +252,41 @@
       "failed": 0,
       "warnings": 13,
       "method": "Union of Analytics and Agent Foundation selected suites; Pydantic2.5.3 CI serializer compatibility"
+    },
+    "candidate_1625ec4": {
+      "commit": "1625ec47796236c38cd9b051e48c3844afe3f7b7",
+      "analytics": {
+        "run": 34230090015,
+        "passed": 441,
+        "benchmarks": 9,
+        "live_http": 96
+      },
+      "foundation": 34230090009,
+      "frontend": 34230089874,
+      "desktop": {
+        "run": 34230089943,
+        "Windows_x64": "passed",
+        "macOS_ARM64": "passed",
+        "Linux_x64": "passed"
+      },
+      "browser": {
+        "run": 34230090029,
+        "passed": 4,
+        "failed": 4,
+        "artifact": 10057479293,
+        "cause": "Second fixture had30source rows, below existing50rowminimum; corrected to60records retaining30active expectations"
+      }
+    },
+    "visual_review": {
+      "method": "Direct inspection of12 actual CI screenshots: desktop/mobile cockpit, evidence ledger, Trust Center, unknown outcomes, no-data and unsupported-question states",
+      "result": "No severe layout defect observed; active-count unknown-status clarification identified for correction",
+      "remaining": "No measured contrast, screen-reader or all-browser accessibility conformance"
+    },
+    "correction_checks": {
+      "python": 67,
+      "method": "Actual agentic/orchestrator and source-inventory regression checks",
+      "react_renderer": 23,
+      "notes": "Unknown-status population explanation added; browser fixture preserves production minimum; random citation UUID cannot trip fabricated-number assertion"
     }
   },
   "next_cycle": [
@@ -270,6 +314,11 @@
       "priority": 5,
       "task": "Run real People-team pilot and accessibility/visual review beyond synthetic browser assertions",
       "status": "requires_pilot_users"
+    },
+    {
+      "priority": 5,
+      "task": "Reduce mobile evidence ID prominence, improve header population truncation and measure secondary-text contrast",
+      "status": "observed_visual_refinements"
     }
   ]
 }

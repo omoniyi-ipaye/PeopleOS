@@ -28,7 +28,7 @@ The following gates run against the published candidate:
 - People Team Browser Acceptance: four actual application journeys on desktop and mobile Chromium, using isolated synthetic data, real FastAPI and the production Next.js frontend. No API-response mocks or local LLM service are supplied.
 - Local Desktop Build: existing Windows x64, macOS ARM64 and Linux x64 package, restart and smoke gates. Existing Windows launcher and packaging settings are preserved.
 
-The browser gate stores screenshots, server logs, reports and failure traces/videos as `people-team-browser-evidence`. Passing browser assertions are not a claim of complete visual or accessibility review. Exact candidate results belong in the PR and cycle ledger; pending or blocked gates remain explicit.
+The browser gate stores screenshots, server logs, reports and failure traces/videos as `people-team-browser-evidence`. Passing browser assertions are not a claim of complete visual or accessibility review. The first browser candidate ran eight journeys: four passed and four stopped at an undersized second test fixture. The fixture was corrected to 60 records while preserving 30 active expectations and the existing 50-row minimum. Twelve actual desktop/mobile screenshots were inspected; no severe layout defect was observed, and the review identified an unknown-status explanation to add beside the active count. Exact final candidate results belong in the PR and cycle ledger; pending or blocked gates remain explicit.
 
 ## Operating boundaries and remaining work
 

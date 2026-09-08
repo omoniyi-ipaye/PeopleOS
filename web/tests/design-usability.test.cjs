@@ -97,3 +97,15 @@ test('header distinguishes historical source records from active employees and m
  assert.match(html,/240 source records · 80 active employees/)
  assert.doesNotMatch(html,/240 people|predictive model active|experimental model available/)
 })
+
+test('active workforce card explains all-unknown and partly-known employment populations',()=>{
+ for(const [active,unknown] of [[0,120],[80,20]]) {
+  const html=render(require('../app/page').default,{},[
+   [['platform','status'],{data:{loaded:true},integrity:{status:'verified',snapshot:{source_name:'status-fixture.csv',current_rows:120,unknown_status_rows:unknown}}}],
+   [['analytics','summary'],{active_count:active,observed_attrition_share:active===0 ? null : .2,tenure_mean:null}],
+   [['analytics','departments'],{departments:[]}],
+  ])
+  assert.match(html,new RegExp(`>${active}<\\/div>`))
+  assert.ok(html.includes(`${active} recorded active employees; ${unknown} unknown statuses excluded from the active count.`))
+ }
+})
