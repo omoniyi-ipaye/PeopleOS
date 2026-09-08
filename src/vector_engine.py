@@ -19,12 +19,17 @@ logger = get_logger('vector_engine')
 class VectorEngine:
     """Optional semantic-search engine backed by local embeddings and FAISS."""
 
-    def __init__(self, model_name: str = 'all-MiniLM-L6-v2'):
+    def __init__(self, model_name: str = 'all-MiniLM-L6-v2', *, model=None, faiss_backend=None):
         self.config = load_config()
         self.vector_config = self.config.get('vector_db', {})
         self.index: Optional[Any] = None
         self.metadata: list[dict[str, Any]] = []
         self.dimension: int = 384
+
+        if model is not None and faiss_backend is not None:
+            self.model = model
+            self._faiss = faiss_backend
+            return
 
         try:
             import faiss  # type: ignore

@@ -259,7 +259,12 @@ class Database:
 
     def get_all_employees(self) -> pd.DataFrame:
         """
-        Retrieve all active employees as a DataFrame.
+        Retrieve all employee records as a DataFrame.
+
+        Terminated and soft-deleted rows are intentionally retained so
+        historical analytics and supervised outcomes remain available. Use
+        the ``is_active`` column (or ``active_population``) for current-only
+        analysis.
 
         Returns:
             DataFrame with all employee data in the expected format.
@@ -561,6 +566,19 @@ class Database:
                 ORDER BY snapshot_date ASC
             """
             return pd.read_sql_query(query, conn, params=(employee_id,))
+
+    def get_salary_progression(self, employee_id: str) -> pd.DataFrame:
+        """Return dated salary observations for one employee.
+
+        This is a projection of the immutable snapshot history; it does not
+        estimate or interpolate compensation between uploads.
+        """
+        history = self.get_employee_history(employee_id)
+        if history.empty:
+            return pd.DataFrame(columns=['snapshot_date', 'salary'])
+        return history.loc[:, ['snapshot_date', 'Salary']].rename(
+            columns={'Salary': 'salary'}
+        )
 
     def get_historical_snapshots(self, start_date: str) -> pd.DataFrame:
         """

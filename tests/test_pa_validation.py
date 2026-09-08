@@ -124,9 +124,8 @@ class TestAnalyticsEnginePAValidation:
         engine = AnalyticsEngine(known_turnover_data)
         headcount = engine.get_headcount()
         
-        # Total pool is 100, but headcount should reflect we have data for 100
-        assert headcount == 100, \
-            f"Headcount should be 100 (total pool), got {headcount}"
+        assert headcount == 80, \
+            f"Current headcount should exclude 20 terminated employees, got {headcount}"
 
     def test_active_count_in_summary(self, known_turnover_data):
         """PA Validation: Summary must show active count separately."""
@@ -154,8 +153,9 @@ class TestCompensationEnginePAValidation:
         result = engine.calculate_gender_pay_gap()
         
         # Gap = (male_avg - female_avg) / male_avg * 100 = (60000-48000)/60000*100 = 20%
-        assert result['unadjusted']['gap_percentage'] == pytest.approx(20.0, abs=0.5), \
-            f"Pay gap should be ~20%, got {result['unadjusted']['gap_percentage']}%"
+        assert result['available'] is True
+        assert result['raw_gap_pct'] == pytest.approx(20.0, abs=0.5), \
+            f"Pay gap should be ~20%, got {result['raw_gap_pct']}%"
 
     def test_pay_gap_direction(self, known_pay_gap_data):
         """PA Validation: Positive gap means males earn more."""
@@ -164,10 +164,9 @@ class TestCompensationEnginePAValidation:
         engine = CompensationEngine(known_pay_gap_data)
         result = engine.calculate_gender_pay_gap()
         
-        assert result['unadjusted']['gap_percentage'] > 0, \
+        assert result['raw_gap_pct'] > 0, \
             "Positive gap should indicate males earn more than females"
-        assert result['unadjusted']['male_avg_salary'] > result['unadjusted']['female_avg_salary'], \
-            "Male average should be higher when gap is positive"
+        assert result['male_n'] == result['female_n'] == 100
 
     def test_gini_coefficient_bounds(self, known_pay_gap_data):
         """PA Validation: Gini must be between 0 (perfect equality) and 1."""
@@ -189,10 +188,12 @@ class TestSuccessionEnginePAValidation:
     """Validate succession engine for 9-box accuracy."""
 
     def test_9box_star_classification(self, succession_test_data):
-        """PA Validation: High performer + high rating = Stars box."""
+        """PA Validation: stars require separate high performance and potential."""
         from src.succession_engine import SuccessionEngine
         
-        engine = SuccessionEngine(succession_test_data)
+        assessed = succession_test_data.copy()
+        assessed['PotentialRating'] = [5.0, 3.0, 2.0, 4.0]
+        engine = SuccessionEngine(assessed)
         matrix = engine.get_9box_matrix()
         
         star_row = matrix[matrix['EmployeeID'] == 'STAR']
@@ -215,7 +216,11 @@ class TestSuccessionEnginePAValidation:
         """PA Validation: Readiness scores must be 0-1."""
         from src.succession_engine import SuccessionEngine
         
-        engine = SuccessionEngine(succession_test_data)
+        assessed = succession_test_data.copy()
+        assessed['SuccessionReadiness'] = [
+            'Ready Now', 'Ready 1-2 Years', 'Developing', 'Early Career'
+        ]
+        engine = SuccessionEngine(assessed)
         readiness = engine.calculate_readiness_scores()
         
         assert readiness['ReadinessScore'].min() >= 0, \

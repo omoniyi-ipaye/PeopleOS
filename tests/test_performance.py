@@ -130,8 +130,15 @@ class TestSHAPPerformance:
         ml_engine = MLEngine()
         ml_engine.train_model(numeric_features, target)
 
-        # Time SHAP driver computation for single employee
+        # Time SHAP driver computation for a single employee. A core-only
+        # installation must fail closed rather than relabel feature importance
+        # as a per-person explanation.
         start = time.time()
+        if ml_engine.shap_explainer is None:
+            from src.ml_engine import MLEngineError
+            with pytest.raises(MLEngineError, match='SHAP explainer not available'):
+                ml_engine.get_risk_drivers(0, numeric_features)
+            return
         drivers = ml_engine.get_risk_drivers(0, numeric_features)
         elapsed = time.time() - start
 

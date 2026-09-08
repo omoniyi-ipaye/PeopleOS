@@ -508,7 +508,7 @@ class MLEngine:
             logger.info(f"SHAP explainer prepared with {sample_size} samples")
             
         except ImportError:
-            logger.warning("SHAP not available, explanations will use feature importances")
+            logger.warning("SHAP not available; risk-driver explanations are disabled")
             self.shap_explainer = None
         except Exception as e:
             logger.warning(f"SHAP preparation failed: {str(e)}")

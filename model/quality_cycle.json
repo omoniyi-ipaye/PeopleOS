@@ -253,7 +253,7 @@
       "frontend_renderer_cases": 30,
       "frontend_typecheck_design_build": "passed",
       "synthetic_stress": "34/34 checks passed on 20000 fictional employee records, including real upload and 32 concurrent reads",
-      "repository_wide_legacy_collection": "635 passed, 29 baseline-identical failures: 10 stale upload fixtures, 9 retired-contract expectations, 6 database debts, 4 optional FAISS dependency checks; zero Cycle002 regressions"
+      "repository_wide_legacy_collection": "666 passed, zero failures locally after resolving 29 legacy failures: governed upload fixtures, current safe-contract expectations, salary progression/database state semantics, and dependency-injected vector behavior"
     },
     "candidate": "pending publication and complete CI",
     "live_llm": "not evaluated",
