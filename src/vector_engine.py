@@ -15,16 +15,25 @@ from src.utils import load_config
 
 logger = get_logger('vector_engine')
 
+DEFAULT_EMBEDDING_MODEL = 'sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2'
+DEFAULT_EMBEDDING_REVISION = 'e8f8c211226b894fcb81acc59f3b34ba3efd5f42'
+
 
 class VectorEngine:
     """Optional semantic-search engine backed by local embeddings and FAISS."""
 
-    def __init__(self, model_name: str = 'all-MiniLM-L6-v2', *, model=None, faiss_backend=None):
+    def __init__(self, model_name: str = DEFAULT_EMBEDDING_MODEL, *, model=None,
+                 faiss_backend=None, model_revision: Optional[str] = None):
         self.config = load_config()
         self.vector_config = self.config.get('vector_db', {})
         self.index: Optional[Any] = None
         self.metadata: list[dict[str, Any]] = []
         self.dimension: int = 384
+        self.model_name = model_name
+        # Pin the evaluated default; custom models require their own validation.
+        self.model_revision = model_revision or (
+            DEFAULT_EMBEDDING_REVISION if model_name == DEFAULT_EMBEDDING_MODEL else None
+        )
 
         if model is not None and faiss_backend is not None:
             self.model = model
@@ -42,7 +51,7 @@ class VectorEngine:
 
         self._faiss = faiss
         try:
-            self.model = SentenceTransformer(model_name)
+            self.model = SentenceTransformer(model_name, revision=self.model_revision)
             logger.info(f"Loaded embedding model: {model_name}")
         except Exception as exc:
             logger.error(f"Failed to load embedding model: {exc}")
@@ -85,7 +94,7 @@ class VectorEngine:
             results = []
             for i, idx in enumerate(indices[0]):
                 if 0 <= idx < len(self.metadata) and np.isfinite(distances[0][i]) and distances[0][i] >= 0:
-                    result = self.metadata[idx].copy()
+                    result = deepcopy(self.metadata[idx])
                     result['squared_l2_distance'] = float(distances[0][i])
                     result['similarity_score'] = float(1 / (1 + distances[0][i]))
                     result['score_semantics'] = 'inverse_squared_l2_distance_not_probability_or_validated_relevance'

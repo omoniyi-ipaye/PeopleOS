@@ -20,6 +20,10 @@ class ForecastingEngine:
             return {'success': False, 'reason': 'Only monthly workforce forecasts are supported'}
         if metric not in ('headcount', 'salary', 'Salary', 'avg_salary'):
             return {'success': False, 'reason': 'Only active headcount and mean salary are supported; turnover requires dated exit events and exposure denominators.'}
+        if metric != 'headcount':
+            from src.platform.runtime_loader import pay_basis_is_confirmed
+            if not pay_basis_is_confirmed(self.history_df):
+                return {'success': False, 'reason': 'Salary forecasts require explicit annual pay and one shared currency across all historical snapshots.'}
         date_col = 'SnapshotDate' if 'SnapshotDate' in self.history_df else 'snapshot_date'
         if date_col not in self.history_df:
             return {'success': False, 'reason': 'Observed snapshot dates are required'}

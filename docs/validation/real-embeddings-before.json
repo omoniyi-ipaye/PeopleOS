@@ -1,0 +1,228 @@
+{
+  "schema_version": 1,
+  "timestamp_utc": "2026-09-08T17:51:38.804784+00:00",
+  "model": "sentence-transformers/all-MiniLM-L6-v2",
+  "execution": "real_sentence_transformers_and_faiss",
+  "status": "failed",
+  "checks": [
+    {
+      "id": "english_technical",
+      "query": "Who developed Python automation for payroll data?",
+      "expected": "python",
+      "scope": "english",
+      "retrieved_ids": [
+        "python",
+        "facilities",
+        "onboarding"
+      ],
+      "passed": true,
+      "scores": [
+        0.6377284526824951,
+        0.3878496587276459,
+        0.3790561854839325
+      ]
+    },
+    {
+      "id": "english_sales",
+      "query": "Who succeeded in customer renewals and enterprise selling?",
+      "expected": "sales",
+      "scope": "english",
+      "retrieved_ids": [
+        "sales",
+        "facilities",
+        "python"
+      ],
+      "passed": true,
+      "scores": [
+        0.48732444643974304,
+        0.41130805015563965,
+        0.402774453163147
+      ]
+    },
+    {
+      "id": "english_benefits",
+      "query": "Who helped new starters enroll in employee benefits?",
+      "expected": "onboarding",
+      "scope": "english",
+      "retrieved_ids": [
+        "onboarding",
+        "mentoring",
+        "python"
+      ],
+      "passed": true,
+      "scores": [
+        0.5508452653884888,
+        0.42050620913505554,
+        0.39638736844062805
+      ]
+    },
+    {
+      "id": "english_facilities",
+      "query": "Who repairs office furniture and manages building access?",
+      "expected": "facilities",
+      "scope": "english",
+      "retrieved_ids": [
+        "facilities",
+        "python",
+        "sales"
+      ],
+      "passed": true,
+      "scores": [
+        0.5905530452728271,
+        0.42406216263771057,
+        0.371866911649704
+      ]
+    },
+    {
+      "id": "positive_mentoring",
+      "query": "Who actively coached junior engineers?",
+      "expected": "mentoring",
+      "scope": "negation",
+      "retrieved_ids": [
+        "mentoring",
+        "no_mentoring",
+        "onboarding"
+      ],
+      "passed": true,
+      "scores": [
+        0.633954644203186,
+        0.5100213289260864,
+        0.38263070583343506
+      ]
+    },
+    {
+      "id": "negative_mentoring",
+      "query": "Who did not provide mentoring to junior developers?",
+      "expected": "no_mentoring",
+      "scope": "negation",
+      "retrieved_ids": [
+        "no_mentoring",
+        "mentoring",
+        "onboarding"
+      ],
+      "passed": true,
+      "scores": [
+        0.5768428444862366,
+        0.5718947052955627,
+        0.38327595591545105
+      ]
+    },
+    {
+      "id": "spanish_payroll",
+      "query": "¿Quién corrigió errores de nómina?",
+      "expected": "spanish_payroll",
+      "scope": "spanish",
+      "retrieved_ids": [
+        "spanish_payroll",
+        "spanish_onboarding",
+        "python"
+      ],
+      "passed": true,
+      "scores": [
+        0.6077166199684143,
+        0.4676988422870636,
+        0.3579747974872589
+      ]
+    },
+    {
+      "id": "cross_language_payroll",
+      "query": "Who fixed payroll mistakes and verified social contributions before month-end?",
+      "expected": "spanish_payroll",
+      "scope": "cross_language",
+      "retrieved_ids": [
+        "python",
+        "facilities",
+        "sales"
+      ],
+      "passed": false,
+      "scores": [
+        0.44050541520118713,
+        0.39515092968940735,
+        0.39315199851989746
+      ]
+    },
+    {
+      "id": "cross_language_onboarding",
+      "query": "Who organized employee orientation and explained benefits in Warsaw?",
+      "expected": "spanish_onboarding",
+      "scope": "cross_language",
+      "retrieved_ids": [
+        "onboarding",
+        "spanish_onboarding",
+        "facilities"
+      ],
+      "passed": false,
+      "scores": [
+        0.43652787804603577,
+        0.41677168011665344,
+        0.40789487957954407
+      ]
+    },
+    {
+      "id": "empty_query",
+      "passed": true
+    },
+    {
+      "id": "off_topic_scores_do_not_claim_validated_relevance",
+      "passed": true
+    },
+    {
+      "id": "returned_metadata_cannot_mutate_index_provenance",
+      "passed": false
+    },
+    {
+      "id": "empty_rebuild_clears_previous_records",
+      "passed": true
+    }
+  ],
+  "engine_sha256": "9727e6715e309535171a53147a48e37ca8a6a244645b8825d39c1c4df53336ce",
+  "corpus_sha256": "9032f4d46cc84e952510b453e0fb3f6b7ac4f88923de505a5f3434efe5b65cf3",
+  "limitations": [
+    "Small synthetic acceptance corpus; not population-level validity or an untouched final holdout.",
+    "Nearest neighbors are candidate source texts, not verified assessments or probabilities.",
+    "No validated no-match threshold; off-topic queries may retrieve unrelated records.",
+    "Passing on this model does not validate a different model or revision."
+  ],
+  "commit": "e09a6c12f2270256880c6a08eed0081fb1d6a8ba",
+  "dependencies": {
+    "faiss-cpu": "1.15.0",
+    "sentence-transformers": "2.3.1",
+    "torch": "2.14.0+cpu",
+    "transformers": "4.57.6"
+  },
+  "resolved_model_revision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+  "off_topic_observation": [
+    {
+      "id": "sales",
+      "text": "Blair exceeded enterprise sales targets and renewed customer contracts through careful account management.",
+      "source": {
+        "snapshot": "original"
+      },
+      "squared_l2_distance": 1.9473377466201782,
+      "similarity_score": 0.33928924798965454,
+      "score_semantics": "inverse_squared_l2_distance_not_probability_or_validated_relevance"
+    },
+    {
+      "id": "spanish_payroll",
+      "text": "Francis corrigió errores de nómina y verificó las cotizaciones antes del cierre mensual.",
+      "source": {
+        "snapshot": "original"
+      },
+      "squared_l2_distance": 1.9702714681625366,
+      "similarity_score": 0.33666956424713135,
+      "score_semantics": "inverse_squared_l2_distance_not_probability_or_validated_relevance"
+    },
+    {
+      "id": "onboarding",
+      "text": "Casey welcomed new employees, coordinated onboarding checklists and resolved questions about benefits enrollment.",
+      "source": {
+        "snapshot": "original"
+      },
+      "squared_l2_distance": 1.984991192817688,
+      "similarity_score": 0.33500936627388,
+      "score_semantics": "inverse_squared_l2_distance_not_probability_or_validated_relevance"
+    }
+  ],
+  "passed": 10,
+  "total": 13
+}

@@ -6,7 +6,7 @@ from types import SimpleNamespace
 from src.platform.runtime_lock import RUNTIME_MUTATION_LOCK, runtime_mutation
 from typing import Dict, Any, Optional
 
-from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
@@ -51,6 +51,7 @@ class DatabaseStatusResponse(BaseModel):
     features_enabled: Dict[str, bool]
     workspace_id: str = "local"
     active_dataset_id: Optional[str] = None
+    reporting_currency: Optional[str] = None
 
 
 @runtime_mutation
@@ -97,7 +98,8 @@ def _clear_active_lifecycle(workspace_id: str = "local") -> None:
 
 
 @router.post("", response_model=UploadResponse)
-async def upload_file(file: UploadFile = File(...), state: AppState = Depends(get_app_state)) -> UploadResponse:
+async def upload_file(file: UploadFile = File(...), state: AppState = Depends(get_app_state),
+                      salary_basis: Optional[str] = Form(None), salary_currency: Optional[str] = Form(None)) -> UploadResponse:
     if not file.filename:
         raise HTTPException(status_code=400, detail="No file provided")
     ext = file.filename.split(".")[-1].lower()
@@ -111,12 +113,12 @@ async def upload_file(file: UploadFile = File(...), state: AppState = Depends(ge
                 tmp.write(content)
                 tmp_path = tmp.name
             candidate = SimpleNamespace(**state.__dict__)
-            result = load_dataset(candidate, tmp_path, file.filename)
+            result = load_dataset(candidate, tmp_path, file.filename, salary_basis=salary_basis, salary_currency=salary_currency)
             dataset = _register_loaded_dataset(candidate, file.filename, _store.hash_bytes(content))
             state.__dict__.update(candidate.__dict__)
             return UploadResponse(
                 success=True,
-                message=f"Successfully activated {result['rows_loaded']} employees as dataset v{dataset.version}",
+                message=f"Successfully activated {result['rows_loaded']} employees as dataset v{dataset.version}. " + candidate.runtime_provenance['pay_basis_message'],
                 rows_loaded=result['rows_loaded'],
                 columns=result['columns'],
                 features_enabled=result['features_enabled'],
@@ -149,6 +151,7 @@ async def get_database_status(state: AppState = Depends(get_app_state)) -> Datab
         employee_count=len(state.raw_df) if state.raw_df is not None else 0,
         features_enabled=state.features_enabled,
         active_dataset_id=workspace.active_dataset_id,
+        reporting_currency=(state.runtime_provenance or {}).get('reporting_currency'),
     )
 
 
@@ -164,7 +167,9 @@ async def load_sample_data(state: AppState = Depends(get_app_state)) -> UploadRe
         with RUNTIME_MUTATION_LOCK:
             content = open(sample_path, "rb").read()
             candidate = SimpleNamespace(**state.__dict__)
-            result = load_dataset(candidate, sample_path, "sample_hr_data.csv")
+            # The bundled fictional demonstration uses annual amounts in a
+            # single illustrative reporting currency, not country-specific FX.
+            result = load_dataset(candidate, sample_path, "sample_hr_data.csv", salary_basis='annual', salary_currency='USD')
             dataset = _register_loaded_dataset(candidate, "sample_hr_data.csv", _store.hash_bytes(content))
             state.__dict__.update(candidate.__dict__)
             return UploadResponse(

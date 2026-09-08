@@ -2,13 +2,13 @@ import { test, expect, type Page } from '@playwright/test'
 
 // Independent known-answer fixture: no imported production calculation helpers.
 function workforce(name = 'A', missingOutcomes = false) {
-  const fields = ['EmployeeID', 'Dept', 'Salary', 'Tenure', 'LastRating', 'Age', 'Gender', 'JobTitle', 'JobLevel', 'Location', 'HireDate', 'ManagerID', 'Attrition', 'SnapshotDate']
+  const fields = ['EmployeeID', 'Dept', 'Salary', 'Tenure', 'LastRating', 'Age', 'Gender', 'JobTitle', 'JobLevel', 'Location', 'HireDate', 'ManagerID', 'Attrition', 'SnapshotDate', 'PayPeriod', 'Currency']
   // B satisfies the 50-row import minimum with 30 active and 30 unknown statuses.
   const rows = Array.from({ length: name === 'A' ? 120 : 60 }, (_, i) => [
     String(i).padStart(4, '0'), ['001', '002', ''][i % 3],
     name === 'A' ? (i < 40 ? 60000 : 90000) : 40000,
     name === 'A' ? 2 : 0, 4, 30, i % 2 ? 'Female' : 'Male', 'Analyst', 'L03',
-    'Madrid', '2024-01-01', '0000', missingOutcomes ? '' : name === 'B' ? (i < 30 ? 0 : '') : (i < 80 ? 0 : i < 100 ? 1 : ''), '2026-01-01',
+    'Madrid', '2024-01-01', '0000', missingOutcomes ? '' : name === 'B' ? (i < 30 ? 0 : '') : (i < 80 ? 0 : i < 100 ? 1 : ''), '2026-01-01', 'annual', 'EUR',
   ])
   return Buffer.from([fields.join(','), ...rows.map(row => row.join(','))].join('\n'))
 }
@@ -74,6 +74,36 @@ test.beforeEach(async ({ request }) => {
   expect(reset.ok()).toBeTruthy()
 })
 
+test('Unconfirmed pay stays unavailable until the analyst declares annual shared-currency amounts', async ({ page, request }) => {
+  const undeclared = workforce().toString().split('\n').map(line => line.split(',').slice(0, -2).join(',')).join('\n')
+  const firstUpload = await uploadRaw(page, 'undeclared-pay.csv', undeclared)
+  expect(firstUpload.ok(), await firstUpload.text()).toBeTruthy()
+  await expect(page.getByText('Pay analysis needs confirmed units', { exact: true })).toBeVisible()
+  const unconfirmed = await request.get('/api/analytics/summary')
+  expect(unconfirmed.ok()).toBeTruthy()
+  const masked = await unconfirmed.json()
+  expect(masked.headcount).toBe(80)
+  expect(masked.salary_mean).toBeNull()
+  expect((await request.get('/api/compensation/summary')).ok()).toBeFalsy()
+  await screenshot(page, 'pay-unconfirmed-source')
+
+  await page.getByLabel(/I confirm all monetary pay values/).check()
+  await page.getByLabel('Shared reporting currency').fill('EUR')
+  const accepted = page.waitForResponse(r => r.url().endsWith('/api/upload') && r.request().method() === 'POST')
+  await page.locator('input[type=file]').setInputFiles({ name: 'confirmed-pay.csv', mimeType: 'text/csv', buffer: Buffer.from(undeclared) })
+  expect((await accepted).ok()).toBeTruthy()
+  await expect(page.getByText('Pay analysis needs confirmed units', { exact: true })).toBeHidden()
+  const summary = await request.get('/api/compensation/summary')
+  expect(summary.ok()).toBeTruthy()
+  expect(await summary.json()).toMatchObject({ total_payroll: 6000000, avg_salary: 75000, headcount: 80 })
+  await navigate(page, 'People Intelligence', '/advisor')
+  const answer = await investigate(page, 'What is average salary for our workforce?')
+  expect(answer.ok()).toBeTruthy()
+  await expect(page.getByText(/Average active-employee salary: 75,000\b/).first()).toBeVisible()
+  await noHorizontalOverflow(page)
+  await screenshot(page, 'pay-confirmed-evidence')
+})
+
 test('Invalid salary preserves headcount and mixed pay units cannot replace verified data', async ({ page }) => {
   const lines = workforce().toString().split('\n')
   const first = lines[1].split(',')
@@ -86,7 +116,7 @@ test('Invalid salary preserves headcount and mixed pay units cannot replace veri
   await metric(page, 'Observed attrition share', '20.0%')
 
   const mixed = workforce().toString().split('\n').map((line, index) =>
-    `${line},${index === 0 ? 'PayPeriod' : index === 1 ? 'monthly' : 'annual'}`)
+    index === 1 ? line.replace(',annual,EUR', ',monthly,EUR') : line)
   const rejected = await uploadRaw(page, 'mixed-pay.csv', mixed.join('\n'))
   expect(rejected.status()).toBe(400)
   expect(await rejected.text()).toMatch(/annual salary/i)

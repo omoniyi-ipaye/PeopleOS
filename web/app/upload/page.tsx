@@ -12,9 +12,11 @@ import { Button, EmptyState, MetricCard, Page, PageHeader, SectionHeader, StateS
 export default function DataSourcesPage() {
   const queryClient = useQueryClient()
   const [result, setResult] = useState<UploadResponse | null>(null)
+  const [annualPay, setAnnualPay] = useState(false)
+  const [currency, setCurrency] = useState('')
 
   const { data: status, isLoading: statusLoading, isError: statusError, refetch: retryStatus } = useQuery<UploadStatus>({ queryKey: ['upload', 'status'], queryFn: () => api.upload.getStatus() as Promise<UploadStatus> })
-  const uploadMutation = useMutation<UploadResponse, Error, File>({ mutationFn: (file) => api.upload.uploadFile(file) as Promise<UploadResponse>, onSuccess: (data) => { setResult(data); void queryClient.resetQueries() } })
+  const uploadMutation = useMutation<UploadResponse, Error, File>({ mutationFn: (file) => api.upload.uploadFile(file, { annual: annualPay, currency }) as Promise<UploadResponse>, onSuccess: (data) => { setResult(data); setAnnualPay(false); setCurrency(''); void queryClient.resetQueries() } })
   const sampleMutation = useMutation<UploadResponse, Error, void>({ mutationFn: () => api.upload.loadSample() as Promise<UploadResponse>, onSuccess: (data) => { setResult(data); void queryClient.resetQueries() } })
   const resetMutation = useMutation({ mutationFn: () => api.upload.reset(), onSuccess: () => { setResult(null); void queryClient.resetQueries() } })
 
@@ -29,6 +31,16 @@ export default function DataSourcesPage() {
 
     {statusLoading ? <StateSummary title="Checking data source" description="Reading the active dataset lifecycle before enabling data actions." tone="info" /> : statusError ? <EmptyState title="Data source state is unavailable" description="PeopleOS could not verify which dataset is active. Retry before uploading, loading a sample or resetting data." action={<Button onClick={() => void retryStatus()}>Retry status check</Button>} /> : hasData ? <StateSummary title="Dataset active" description={`${Number.isFinite(status?.employee_count) ? status!.employee_count.toLocaleString() : 'An unavailable number of'} people are available for deterministic workforce analysis.`} tone="success" /> : <StateSummary title="No active dataset" description="Add a workforce dataset or use the sample to start the PeopleOS journey." tone="neutral" />}
     {mutationError && <div role="alert"><StateSummary title="Data action failed" description={mutationError instanceof Error ? mutationError.message : 'The requested data action could not be completed.'} tone="warning" /></div>}
+    {hasData && status?.features_enabled?.compensation === false && <StateSummary title="Pay analysis needs confirmed units" description="Your employee population remains available. Reimport the source with annual pay and a shared currency declared below, or include PayPeriod and Currency columns. Until then, PeopleOS excludes pay amounts from analytical results." tone="info" />}
+    {hasData && status?.reporting_currency && <StateSummary title={`Reporting currency: ${status.reporting_currency}`} description="Pay amounts in this dataset are declared annual and use this shared currency. PeopleOS has not converted currencies or annualized the imported values." tone="info" />}
+
+    <Surface padding="lg">
+      <SectionHeader title="Confirm pay units for this import" description="If your file already includes annual PayPeriod and one shared Currency, PeopleOS checks them automatically. Otherwise, confirm them here to enable pay analysis. Unconfirmed pay stays out of results while workforce counts remain available." />
+      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        <label className="flex items-start gap-3 text-sm"><input type="checkbox" checked={annualPay} disabled={busy} onChange={(event) => setAnnualPay(event.target.checked)} className="mt-1 h-4 w-4" /><span>I confirm all monetary pay values are annual amounts, including salaries, starting salaries, market references and band midpoints.</span></label>
+        <label className="text-sm">Shared reporting currency<input aria-label="Shared reporting currency" value={currency} disabled={busy} maxLength={3} onChange={(event) => setCurrency(event.target.value.toUpperCase())} placeholder="e.g. EUR" className="mt-2 block w-full rounded-lg border border-border bg-background p-3" /><span className="mt-1 block text-xs text-text-muted">Only confirm if every pay amount uses this currency. No automatic currency or pay-period conversion is applied.</span></label>
+      </div>
+    </Surface>
 
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
       <Surface padding="none" className="overflow-hidden">

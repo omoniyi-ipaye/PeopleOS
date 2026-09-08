@@ -140,14 +140,23 @@ def test_retrain_recreates_missing_artifact_after_restart(runtime,monkeypatch):
 
 def test_valid_model_activation_commits_exact_active_outputs(runtime):
     from src.platform.workspace import ModelState
-    from src.platform.model_lifecycle import ModelLifecycleService
+    from src.platform.model_lifecycle import ModelEvaluationPolicy, ModelLifecycleService
     a=upload(runtime,roster())
     model=runtime.store.create_model(workspace_id='local',dataset_id=a)
-    runtime.store.update_model('local',model.model_id,state=ModelState.CANDIDATE)
     engine=SimpleNamespace(is_trained=True,feature_names=['Salary'],risk_threshold_medium=.5,
         preprocessor=SimpleNamespace(transform=lambda frame,**kw:frame[['Salary']]),
         predict_risk=lambda x:np.full(len(x),.25),get_risk_category=lambda score:'Low')
-    metrics={'training_current_fingerprint':runtime.state.runtime_provenance['current_fingerprint']}
+    # This fixture controls scoring rather than fitting, but still supplies the
+    # complete evaluation evidence required for a legitimate model release.
+    metrics=dict(training_current_fingerprint=runtime.state.runtime_provenance['current_fingerprint'],
+        roc_auc=.8, brier_score=.12, baseline_brier_score=.25,
+        average_precision=.8, baseline_average_precision=.5,
+        calibration_error=.05, test_size=100, test_class_counts={'0':50,'1':50},
+        cv_preprocessing_fold_local=True, holdout_untouched_by_fit=True,
+        future_departure_validated=False,
+        evaluation_semantics='retrospective_employee_holdout_not_future_departure_validation')
+    runtime.store.update_model('local',model.model_id,state=ModelState.CANDIDATE,
+        metrics=metrics,evaluation=ModelEvaluationPolicy().evaluate(metrics))
     ModelLifecycleService._runtime_artifacts[model.model_id]=SimpleNamespace(engine=engine,metrics=metrics)
     response=runtime.client.post(f'/api/platform/workspaces/local/models/{model.model_id}/activate')
     assert response.status_code==200,response.text

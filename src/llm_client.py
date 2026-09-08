@@ -45,26 +45,47 @@ class LLMClient:
         self.max_retries = self.ollama_config.get('max_retries', 3)
         self.max_tokens = self.ollama_config.get('response_max_tokens', 500)
         self.is_available = False
+        self.model_digest = None
+        self.unavailable_reason = None
         self._check_availability()
     
     def _check_availability(self) -> None:
         """Check if Ollama is available."""
+        self.is_available = False
+        self.model_digest = None
         try:
             import ollama
             # Create client with configured host
-            self.client = ollama.Client(host=self.host)
-            # Try to list models to verify connection
-            self.client.list()
+            self.client = ollama.Client(host=self.host, timeout=self.timeout)
+            # Server reachability does not establish that the requested model exists.
+            listing = self.client.list()
+            models = listing.get('models', []) if isinstance(listing, dict) else listing.models
+            requested = self.model if ':' in self.model.rsplit('/', 1)[-1] else self.model + ':latest'
+            installed = None
+            for item in models:
+                name = (item.get('model') or item.get('name')) if isinstance(item, dict) else getattr(item, 'model', None)
+                if name and ':' not in name.rsplit('/', 1)[-1]:
+                    name += ':latest'
+                if name == requested:
+                    installed = item
+                    break
+            if installed is None:
+                raise LLMClientError(f"Configured model {self.model} is not installed")
+            self.model_digest = installed.get('digest') if isinstance(installed, dict) else getattr(installed, 'digest', None)
+            self.unavailable_reason = None
             self.is_available = True
             logger.info(f"Ollama available at {self.host} with model {self.model}")
         except ImportError:
             logger.warning("Ollama package not installed")
             self.is_available = False
             self.client = None
+            self.unavailable_reason = 'Ollama Python package is not installed'
         except Exception as e:
             logger.warning(f"Ollama not available: {str(e)}")
             self.is_available = False
             self.client = None
+            self.model_digest = None
+            self.unavailable_reason = str(e)
 
     def generate(self, prompt: str, **kwargs) -> Any:
         """
@@ -342,7 +363,9 @@ Provide your analysis:"""
         return {
             "model": self.model,
             "host": self.host,
-            "available": self.is_available
+            "available": self.is_available,
+            "model_digest": self.model_digest,
+            "unavailable_reason": self.unavailable_reason,
         }
 
     def get_executive_briefing(self, metrics: dict, analytics_data: dict) -> dict:

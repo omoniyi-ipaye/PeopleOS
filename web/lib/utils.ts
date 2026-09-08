@@ -9,8 +9,11 @@ export function formatNumber(num: number): string {
   return num.toLocaleString('en-US')
 }
 
-export function formatCurrency(num: number): string {
-  return `$${num.toLocaleString('en-US', { maximumFractionDigits: 0 })}`
+export function formatCurrency(num: number, currency?: string): string {
+  if (!Number.isFinite(num)) return 'Unavailable'
+  const amount = num.toLocaleString('en-US', { maximumFractionDigits: 0 })
+  const code = currency?.trim().toUpperCase()
+  return code && /^[A-Z]{3}$/.test(code) ? `${code} ${amount}` : amount
 }
 
 export function formatPercent(num: number, decimals = 1): string {

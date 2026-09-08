@@ -24,7 +24,7 @@ import httpx
 ROOT = Path(__file__).resolve().parents[1]
 FIELDS = ['EmployeeID', 'Dept', 'Salary', 'Tenure', 'LastRating', 'Age',
           'Gender', 'JobTitle', 'JobLevel', 'Location', 'HireDate', 'ManagerID',
-          'Attrition', 'HireSource', 'SnapshotDate']
+          'Attrition', 'HireSource', 'SnapshotDate', 'PayPeriod', 'Currency']
 
 
 def workforce():
@@ -36,7 +36,7 @@ def workforce():
                 2, '' if i < 20 else 4, 30, 'Female' if i % 2 else 'Male',
                 'Analyst', 'L03', 'Madrid', '2024-01-01', '0000',
                 0 if date == '2025-01-01' or i < 80 else (1 if i < 100 else ''),
-                'Referral' if i % 2 else 'Agency', date])))
+                'Referral' if i % 2 else 'Agency', date, 'annual', 'EUR'])))
     return rows
 
 
