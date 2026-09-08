@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "cycle_id": "PEOPLEOS-QUALITY-004",
-  "baseline_commit": "e09a6c12f2270256880c6a08eed0081fb1d6a8ba",
-  "successor": {"previous_pr": 3, "previous_branch": "fix/analytics-validation", "branch": "fix/local-model-acceptance", "reason": "PR3 merged; continue local model acceptance and pay-unit integrity on its merged tree"},
+  "cycle_id": "PEOPLEOS-QUALITY-005",
+  "baseline_commit": "2338a8467139c7e8e486cdce725968435f7d706b",
+  "successor": {"previous_pr": 4, "previous_branch": "fix/local-model-acceptance", "branch": "test/ollama-cloud-acceptance", "reason": "PR4 merged; user authorized actual cloud-model testing with fictional data"},
   "state": "local_integration_validation",
   "goal": "Correct independently reproduced data-to-insight errors for a dependable local-first People-team product; integrate and merge only the candidate verified by all required gates.",
-  "current_pass_report": "docs/validation/LOCAL_MODEL_ACCEPTANCE.md",
+  "current_pass_report": "docs/validation/CLOUD_MODEL_ACCEPTANCE.md",
   "merge_authorization": "User explicitly requested fixes, tests and merge in this pass; deployment remains outside scope.",
   "readiness_claim": "Acceptance is specific to a commit, environment, dataset, actor and use case. No test outcome means perfect or 100 percent trustworthy.",
   "tracks": [
@@ -231,6 +231,7 @@
     }
   ],
   "verification": {
+    "cycle005_checkpoint": {"full_python_passes": 816, "renderer_passes": 42, "actual_cloud_gemma4": "10 real selections, five pre-model gates and one induced recovery passed", "actual_cloud_gpt_oss_120b": "10 real selections, five pre-model gates and one induced recovery passed", "kimi_k3": "blocked: HTTP402 requires subscription or extra usage for supplied test key", "local_native_llm": "not executed", "reports": "docs/validation/cloud", "candidate_ci": "pending publication; six workflows required; final immutable verification in successor PR"},
     "cycle004_checkpoint": {"full_python_passes": 805, "initial_failure": "review hash freshness; reconciled after review", "live_api_restart_checks": 96, "real_embeddings_before": "10/13", "real_embeddings_after": "13/13 actual inference repeated offline; pinned revision", "live_llm": "blocked: runtime absent, official download approval cancelled", "candidate_ci": "pending publication; all six workflows required, including core-only E2E and three desktop platforms"},
     "cycle003_local": {"full_python_suite": 749, "renderer_tests": 40, "typescript": "passed", "live_api_restart_checks": 96, "public_benchmark_mechanics": 9, "synthetic_stress_checks": 34, "synthetic_employees": 20000, "live_llm": "not executed: runtime unavailable", "real_embeddings": "not executed: dependencies unavailable"},
     "baseline_commit": "cc197912b107fdd4e67e81e163ab9e351cdaac27",
@@ -260,7 +261,7 @@
       "synthetic_stress": "34/34 checks passed on 20000 fictional employee records, including real upload and 32 concurrent reads",
       "repository_wide_legacy_collection": "666 passed, zero failures locally after resolving 29 legacy failures: governed upload fixtures, current safe-contract expectations, salary progression/database state semantics, and dependency-injected vector behavior"
     },
-    "candidate": "Cycle004 integration checkpoint. PR3 merged at e09a6c12; five main workflows passed, legacy sixth E2E failed on stale selector. Fix and verify all six on successor PR; final immutable evidence recorded in PR.",
+    "candidate": "Cycle005 integration checkpoint. PR4 merged at2338a846 with all six candidate workflows passed. Cloud replay exposed JSON formatting and source-label display issues, plus a harness scope error; corrected and replayed. Final candidate and six workflow outcomes recorded in successor PR.",
     "live_llm": "not evaluated",
     "recurrence": "paused"
   },

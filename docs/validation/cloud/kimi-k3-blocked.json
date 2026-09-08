@@ -1,0 +1,38 @@
+{
+  "timestamp_utc": "2026-09-08T18:19:25.943687+00:00",
+  "host": "https://ollama.com",
+  "model": "kimi-k3",
+  "commit": "2338a8467139c7e8e486cdce725968435f7d706b",
+  "dirty_tree": true,
+  "cases": [
+    {
+      "name": "selector_headcount",
+      "layer": "real_cloud_selector",
+      "passed": false,
+      "selected_model": null,
+      "warnings": [
+        "Model evidence selection was unavailable or failed verification; verified deterministic evidence was used."
+      ],
+      "answer": "Finding: Verified aggregate evidence for this investigation.\nEvidence:\n- Current active employee count: 80 [ev_synthetic_headcount; workforce.summary]\nHeuristic evidence quality: 100%; coverage: 100%; sufficiency: sufficient.\nRecommended next step: review the strongest aggregate signal and validate it with the relevant People owner before changing policy or taking consequential employment action."
+    }
+  ],
+  "limits": [
+    "Synthetic cloud acceptance only; not local/offline inference, browser validation or prospective ML validity.",
+    "A provider-reported digest is recorded; cloud weight immutability is not independently established.",
+    "Test-only provider injection; cloud setup is not a shipped PeopleOS feature."
+  ],
+  "cloud_calls": [
+    {
+      "model": "kimi-k3",
+      "success": false,
+      "http_status": 402,
+      "provider_error": "{\"error\":\"this model requires a subscription or extra usage, upgrade for access at https://ollama.com/upgrade or add extra usage at https://ollama.com/settings (ref: 965a5cf6-27b2-4bbd-abb3-62ca85da124e)\"}\n",
+      "seconds": 10.059
+    }
+  ],
+  "reported_cloud_model_digest": "d189309738f0",
+  "blocked_reason": "Cloud authorization or quota blocked further execution",
+  "status": "blocked",
+  "export_note": "Condensed evidence: exact API answers, typed ledger values and raw cloud completions; repeated engine metadata omitted.",
+  "raw_report_sha256": "e9e948fed46d53bf0b4e6b6861a226b344693dcde870d43a5273a06f5bd6cc86"
+}

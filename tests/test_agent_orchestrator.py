@@ -69,7 +69,8 @@ def test_agent_runs_plan_tools_aggregates_and_falls_back_without_llm():
     assert "workforce.summary" in answer.tools_used
     assert "workforce.retention_risk" in answer.tools_used
     assert "workforce.department_risk" in answer.tools_used
-    assert "Engineering observed attrition share" in answer.answer
+    assert 'Observed attrition share:' in answer.answer
+    assert '(source department label: "Engineering")' in answer.answer
     assert "EmployeeID" not in answer.answer
 
 

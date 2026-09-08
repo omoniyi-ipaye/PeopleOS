@@ -8,6 +8,21 @@ export interface AgentAnswer { request_id: string; question: string; answer: str
 export function percent(value?: number | null) { return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1 ? `${Math.round(value * 100)}%` : 'Unavailable' }
 export function userFacingWarning(warning: string) { return /numpy|dtype|traceback|attributeerror|typeerror|valueerror|exception/i.test(warning) ? 'One analytical capability could not contribute evidence. Review the available evidence and gaps before using this answer.' : warning }
 export function evidenceClaim(item: EvidenceItem) {
+  const departmentMetrics: Record<string, string> = {
+    department_turnover_rate: 'Observed attrition share',
+    department_observed_attrition_share: 'Observed attrition share',
+    salary_dispersion_consistency_score: 'Salary-dispersion consistency score',
+    pay_equity_score: 'Pay-equity score',
+  }
+  const metric = item.metric ?? ''
+  if (Object.prototype.hasOwnProperty.call(departmentMetrics, metric)) {
+    // Quote source data separately from the typed measurement, retaining raw metadata.
+    const quoted = JSON.stringify(String(item.metadata?.department ?? 'Unknown'))
+      .replace(/[\u007f-\u009f\u2028-\u202e\u2066-\u2069]/g, char => `\\u${char.charCodeAt(0).toString(16).padStart(4, '0')}`)
+    const value = item.value === null || item.value === undefined || item.value === '' || typeof item.value === 'boolean' ? NaN : Number(item.value)
+    const measurement = Number.isFinite(value) ? (metric.startsWith('department_') ? `${(value * 100).toFixed(1)}%` : value.toFixed(2)) : 'Unavailable'
+    return `${departmentMetrics[metric]}: ${measurement} (source department label: ${quoted})`
+  }
   if (item.value === null || item.value === undefined || item.value === '' || typeof item.value === 'boolean') return item.claim
   const value = typeof item.value === 'number' ? item.value : Number(item.value)
   if (!Number.isFinite(value)) return item.claim
