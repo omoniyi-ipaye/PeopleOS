@@ -199,7 +199,7 @@ test('data lifecycle rejects malformed input, provides a template, resets, and l
   const invalid = await uploadRaw(page, 'invalid.csv', 'EmployeeID,Dept\n1,Finance\n1,Finance\n')
   expect(invalid.ok()).toBeFalsy()
   await expect(page.getByText(/duplicate|at least 50|missing/i).first()).toBeVisible()
-  await expect(page.getByText('No active dataset', { exact: true })).toBeVisible()
+  await expect(page.getByRole('main').getByText('No active dataset', { exact: true })).toBeVisible()
 
   await page.getByRole('button', { name: 'Load sample', exact: true }).click()
   await expect(page.getByText('Dataset activated', { exact: true })).toBeVisible()
@@ -207,7 +207,7 @@ test('data lifecycle rejects malformed input, provides a template, resets, and l
   const reset = page.waitForResponse(r => r.url().endsWith('/api/upload/reset') && r.request().method() === 'POST')
   await page.getByRole('button', { name: 'Reset', exact: true }).click()
   expect((await reset).ok()).toBeTruthy()
-  await expect(page.getByText('No active dataset', { exact: true })).toBeVisible()
+  await expect(page.getByRole('main').getByText('No active dataset', { exact: true })).toBeVisible()
   await expect(page.getByText('PeopleOS needs a source of truth', { exact: true })).toBeVisible()
   await screenshot(page, 'data-lifecycle-reset')
 })
@@ -240,13 +240,13 @@ test('analytical tabs preserve interpretation boundaries for sparse optional evi
 
   await navigate(page, 'Employee Experience', '/employee-experience')
   await expect(page.getByText('Measured experience data is not available', { exact: true })).toBeVisible()
-  await page.getByRole('button', { name: 'Associations & lifecycle', exact: true }).click()
+  await page.getByRole('tab', { name: 'Associations & lifecycle', exact: true }).click()
   await expect(page.getByText('No association analysis available', { exact: true })).toBeVisible()
 
   await navigate(page, 'Quality of Hire', '/quality-of-hire')
-  await page.getByRole('button', { name: 'Source cohorts', exact: true }).click()
+  await page.getByRole('tab', { name: 'Source cohorts', exact: true }).click()
   await expect(page.getByText('No source cohort data available', { exact: true })).toBeVisible()
-  await page.getByRole('button', { name: 'Observed associations', exact: true }).click()
+  await page.getByRole('tab', { name: 'Observed associations', exact: true }).click()
   await expect(page.getByText('No association analysis available', { exact: true })).toBeVisible()
 
   await navigate(page, 'Retention Forecast', '/retention-forecast')
