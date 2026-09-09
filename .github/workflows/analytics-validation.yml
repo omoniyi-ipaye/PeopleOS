@@ -27,7 +27,7 @@ jobs:
       - name: Run arithmetic, model isolation, API integrity and regression checks
         run: >-
           pytest -q
-          tests/test_analytics_accuracy.py tests/test_engine_integrity_cycle007.py tests/test_model_validation.py
+          tests/test_analytics_accuracy.py tests/test_engine_integrity_cycle007.py tests/test_analytics_engine_forensic_cycle008.py tests/test_model_validation.py
           tests/test_extended_integrity.py
           tests/test_engine_renderer_integrity.py tests/test_engine_audit_inventory.py tests/test_merge_engine.py
           tests/test_analytics_engine.py tests/test_compensation_engine.py
@@ -55,6 +55,8 @@ jobs:
           tests/test_source_label_display.py tests/test_cloud_acceptance_contract.py
       - name: Run independent arithmetic oracle harness
         run: python scripts/engine_integrity_cycle007.py --output engine-integrity-cycle007.json
+      - name: Stress AnalyticsEngine at 250k rows
+        run: python scripts/stress_analytics_engine_cycle008.py --rows 250000 --output analytics-engine-cycle008-stress.json
       - name: Verify public benchmarks and random-label controls
         run: python scripts/benchmark_analytics.py --output benchmark-results.json
       - name: Stress deterministic analytics with a fictional organization
@@ -68,6 +70,7 @@ jobs:
           name: analytics-benchmark-evidence
           path: |
             engine-integrity-cycle007.json
+            analytics-engine-cycle008-stress.json
             benchmark-results.json
             synthetic-stress-results.json
             live-acceptance-results/

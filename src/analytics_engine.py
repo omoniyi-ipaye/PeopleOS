@@ -12,6 +12,7 @@ carry the exposure denominator required for that calculation.
 
 from __future__ import annotations
 
+import re
 from typing import Any, Optional
 
 import numpy as np
@@ -24,6 +25,17 @@ from src.utils import load_config
 
 logger = get_logger('analytics_engine')
 MIN_CORRELATION_OBSERVATIONS = 10
+
+_IDENTIFIER_COLUMN = re.compile(
+    r"(?:^|_)(employee_?id|manager_?id|name|first_?name|last_?name|email|phone|address|"
+    r"ssn|social_?security|passport|national_?id|nie|dni)(?:$|_)",
+    re.I,
+)
+
+
+def _is_identifier_like(column: str) -> bool:
+    normalized = re.sub(r'[^a-z0-9]+', '_', str(column).lower()).strip('_')
+    return bool(_IDENTIFIER_COLUMN.search(normalized))
 
 
 def _valid_numeric(series: pd.Series, name: str) -> pd.Series:
@@ -77,6 +89,16 @@ def _stable_location(values: pd.Series) -> tuple[Optional[float], Optional[float
     )
 
 
+def _validated_share_threshold(value: Any) -> float:
+    try:
+        threshold = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError('share threshold must be a finite number between zero and one') from exc
+    if not np.isfinite(threshold) or not 0 <= threshold <= 1:
+        raise ValueError('share threshold must be a finite number between zero and one')
+    return threshold
+
+
 class AnalyticsEngine:
     def __init__(self, df: pd.DataFrame):
         self.df, self.population_resolution = resolve_current_population(df)
@@ -95,7 +117,6 @@ class AnalyticsEngine:
             logger.warning('Missing columns for analytics: %s', missing)
 
     def get_headcount(self) -> int:
-        """Current active employee count."""
         return len(self.active_df)
 
     def get_record_count(self) -> int:
@@ -108,13 +129,11 @@ class AnalyticsEngine:
         return float(known.mean()) if not known.empty else None
 
     def get_turnover_rate(self) -> Optional[float]:
-        """Deprecated compatibility alias for observed attrition share."""
         return self.get_observed_attrition_share()
 
     def get_department_aggregates(self) -> pd.DataFrame:
         if 'Dept' not in self.df.columns:
             return pd.DataFrame()
-
         rows: list[dict[str, Any]] = []
         for dept, current in self.df.groupby('Dept', dropna=False):
             active = current[current['Attrition'] == 0] if 'Attrition' in current.columns else current
@@ -126,7 +145,6 @@ class AnalyticsEngine:
                 'Outcome_Observations': int(len(known_attrition)),
                 'Headcount': int(len(active)),
                 'Observed_Attrition_Share': attrition_share,
-                # Compatibility alias; not a period turnover rate.
                 'Turnover_Rate': attrition_share,
             }
             if 'Salary' in active.columns:
@@ -140,14 +158,10 @@ class AnalyticsEngine:
         return pd.DataFrame(rows)
 
     def get_correlations(self, target_column: str = 'Attrition', max_features: int = 20) -> pd.DataFrame:
-        """Pairwise Pearson association with explicit support and p-value.
-
-        Each feature uses its own valid pairwise population. Pairs below the
-        minimum support are omitted rather than emitting an unstable coefficient.
-        """
-        if target_column not in self.df.columns:
+        if target_column not in self.df.columns or _is_identifier_like(target_column):
             return pd.DataFrame()
-        numeric = self.df.select_dtypes(include=[np.number]).drop(columns=['EmployeeID'], errors='ignore').replace([np.inf, -np.inf], np.nan)
+        numeric = self.df.select_dtypes(include=[np.number]).replace([np.inf, -np.inf], np.nan)
+        numeric = numeric[[column for column in numeric.columns if not _is_identifier_like(column)]]
         for col in numeric:
             numeric[col] = _valid_numeric(numeric[col], col).reindex(numeric.index)
         if target_column not in numeric.columns or numeric[target_column].dropna().nunique() < 2:
@@ -156,7 +170,6 @@ class AnalyticsEngine:
             variance = numeric.var(numeric_only=True).sort_values(ascending=False)
             keep = [target_column] + [c for c in variance.index if c != target_column][:max_features]
             numeric = numeric[[c for c in keep if c in numeric.columns]]
-
         rows: list[dict[str, Any]] = []
         for feature in numeric.columns:
             if feature == target_column:
@@ -173,14 +186,7 @@ class AnalyticsEngine:
                 continue
             if not np.isfinite(coefficient) or not np.isfinite(p_value):
                 continue
-            rows.append({
-                'Feature': feature,
-                'Correlation': float(coefficient),
-                'Abs_Correlation': abs(float(coefficient)),
-                'P_Value': float(p_value),
-                'Observations': n,
-                'Metric_Semantics': 'pairwise_pearson_association_not_causal_effect',
-            })
+            rows.append({'Feature': feature, 'Correlation': float(coefficient), 'Abs_Correlation': abs(float(coefficient)), 'P_Value': float(p_value), 'Observations': n, 'Metric_Semantics': 'pairwise_pearson_association_not_causal_effect'})
         if not rows:
             return pd.DataFrame()
         return pd.DataFrame(rows).sort_values('Abs_Correlation', ascending=False)
@@ -188,33 +194,23 @@ class AnalyticsEngine:
     def get_summary_statistics(self) -> dict:
         attrition_share = self.get_observed_attrition_share()
         result: dict[str, Any] = {
-            'headcount': self.get_headcount(),
-            'record_count': self.get_record_count(),
-            'active_count': self.get_headcount(),
-            'observed_attrition_share': attrition_share,
-            'turnover_rate': attrition_share,  # compatibility only
+            'headcount': self.get_headcount(), 'record_count': self.get_record_count(), 'active_count': self.get_headcount(),
+            'observed_attrition_share': attrition_share, 'turnover_rate': attrition_share,
             'turnover_rate_semantics': 'observed_attrition_share_not_period_turnover',
             'department_count': int(self.active_df['Dept'].nunique()) if 'Dept' in self.active_df.columns else 0,
-            'population_as_of_date': self.population_resolution.as_of_date,
-            'snapshot_history': self.population_resolution.snapshot_history,
+            'population_as_of_date': self.population_resolution.as_of_date, 'snapshot_history': self.population_resolution.snapshot_history,
         }
         for col in ('Salary', 'Tenure', 'LastRating', 'Age'):
             if col in self.active_df.columns:
                 values = _valid_numeric(self.active_df[col], col)
                 mean, median, deviation = _stable_location(values)
-                result[f'{col.lower()}_mean'] = mean
-                result[f'{col.lower()}_median'] = median
-                result[f'{col.lower()}_std'] = deviation
-                result[f'{col.lower()}_observations'] = int(len(values))
-                result[f'{col.lower()}_excluded_count'] = int(len(self.active_df) - len(values))
+                result[f'{col.lower()}_mean'] = mean; result[f'{col.lower()}_median'] = median; result[f'{col.lower()}_std'] = deviation
+                result[f'{col.lower()}_observations'] = int(len(values)); result[f'{col.lower()}_excluded_count'] = int(len(self.active_df) - len(values))
         if 'Attrition' in self.df.columns:
             known = _valid_attrition(self.df['Attrition'])
-            result['attrition_count'] = int((known == 1).sum())
-            result['attrition_known_count'] = int(len(known))
-            result['attrition_excluded_count'] = int(len(self.df) - len(known))
+            result['attrition_count'] = int((known == 1).sum()); result['attrition_known_count'] = int(len(known)); result['attrition_excluded_count'] = int(len(self.df) - len(known))
         temporal = self.get_temporal_stats(active_only=True)
-        if temporal:
-            result['temporal'] = temporal
+        if temporal: result['temporal'] = temporal
         return result
 
     def get_temporal_stats(self, active_only: bool = False) -> dict:
@@ -223,101 +219,70 @@ class AnalyticsEngine:
         for col, key in [('RatingVelocity', 'avg_velocity'), ('PromotionLag', 'avg_promo_lag'), ('SalaryGrowth', 'avg_salary_growth')]:
             if col in frame.columns:
                 values = _valid_numeric(frame[col], col)
-                if not values.empty:
-                    result[key] = float(values.mean())
+                if not values.empty: result[key] = float(values.mean())
         return result
 
     def get_tenure_distribution(self) -> pd.DataFrame:
-        if 'Tenure' not in self.active_df.columns:
-            return pd.DataFrame()
-        active = self.active_df.copy()
-        bins = [0, 1, 2, 5, 10, float('inf')]
-        labels = ['<1 year', '1-2 years', '2-5 years', '5-10 years', '10+ years']
+        if 'Tenure' not in self.active_df.columns: return pd.DataFrame()
+        active = self.active_df.copy(); bins = [0, 1, 2, 5, 10, float('inf')]; labels = ['<1 year', '1-2 years', '2-5 years', '5-10 years', '10+ years']
         active['Tenure_Bucket'] = pd.cut(_valid_numeric(active['Tenure'], 'Tenure').reindex(active.index), bins=bins, labels=labels, right=False).cat.add_categories('Unknown').fillna('Unknown')
         distribution = active['Tenure_Bucket'].value_counts(sort=False).rename_axis('Tenure_Range').reset_index(name='Count')
-        # Attrition outcome by tenure is calculated over current records, because active-only data cannot contain departed outcomes.
         if 'Attrition' in self.df.columns:
-            current = self.df.copy()
-            current['Tenure_Bucket'] = pd.cut(_valid_numeric(current['Tenure'], 'Tenure').reindex(current.index), bins=bins, labels=labels, right=False).cat.add_categories('Unknown').fillna('Unknown')
-            valid_outcomes = _valid_attrition(current['Attrition'])
-            current['_valid_attrition'] = valid_outcomes.reindex(current.index)
+            current = self.df.copy(); current['Tenure_Bucket'] = pd.cut(_valid_numeric(current['Tenure'], 'Tenure').reindex(current.index), bins=bins, labels=labels, right=False).cat.add_categories('Unknown').fillna('Unknown')
+            valid_outcomes = _valid_attrition(current['Attrition']); current['_valid_attrition'] = valid_outcomes.reindex(current.index)
             shares = current.groupby('Tenure_Bucket', observed=False)['_valid_attrition'].mean().rename('Observed_Attrition_Share')
-            distribution = distribution.merge(shares.reset_index().rename(columns={'Tenure_Bucket': 'Tenure_Range'}), on='Tenure_Range', how='left')
-            distribution['Turnover_Rate'] = distribution['Observed_Attrition_Share']
+            distribution = distribution.merge(shares.reset_index().rename(columns={'Tenure_Bucket': 'Tenure_Range'}), on='Tenure_Range', how='left'); distribution['Turnover_Rate'] = distribution['Observed_Attrition_Share']
         return distribution
 
     def get_age_distribution(self) -> pd.DataFrame:
-        if 'Age' not in self.active_df.columns:
-            return pd.DataFrame()
-        bins = [0, 25, 35, 45, 55, float('inf')]
-        labels = ['Under 25', '25-34', '35-44', '45-54', '55+']
+        if 'Age' not in self.active_df.columns: return pd.DataFrame()
+        bins = [0, 25, 35, 45, 55, float('inf')]; labels = ['Under 25', '25-34', '35-44', '45-54', '55+']
         bucket = pd.cut(_valid_numeric(self.active_df['Age'], 'Age').reindex(self.active_df.index), bins=bins, labels=labels, right=False).cat.add_categories('Unknown').fillna('Unknown')
         return bucket.value_counts(sort=False).rename_axis('Age_Range').reset_index(name='Count')
 
     def get_salary_bands(self) -> pd.DataFrame:
-        if 'Salary' not in self.active_df.columns:
-            return pd.DataFrame()
+        if 'Salary' not in self.active_df.columns: return pd.DataFrame()
         salary = _valid_numeric(self.active_df['Salary'], 'Salary')
-        if salary.empty:
-            return pd.DataFrame()
-        quantiles = salary.quantile([0, .25, .5, .75, 1]).values
-        rows = []
+        if salary.empty: return pd.DataFrame()
+        quantiles = salary.quantile([0, .25, .5, .75, 1]).values; rows = []
         for i in range(4):
-            lower, upper = float(quantiles[i]), float(quantiles[i + 1])
-            include_upper = i == 3
+            lower, upper = float(quantiles[i]), float(quantiles[i + 1]); include_upper = i == 3
             mask = (salary >= lower) & ((salary <= upper) if include_upper else (salary < upper))
             rows.append({'Band': f'Q{i + 1}', 'Lower': lower, 'Upper': upper, 'Count': int(mask.sum())})
         return pd.DataFrame(rows)
 
     def get_high_risk_departments(self, threshold: Optional[float] = None) -> pd.DataFrame:
-        threshold = self.high_risk_threshold if threshold is None else threshold
-        stats_df = self.get_department_aggregates()
-        metric = 'Observed_Attrition_Share'
-        if metric not in stats_df.columns:
-            return pd.DataFrame()
+        threshold = _validated_share_threshold(self.high_risk_threshold if threshold is None else threshold)
+        stats_df = self.get_department_aggregates(); metric = 'Observed_Attrition_Share'
+        if metric not in stats_df.columns: return pd.DataFrame()
         return stats_df[stats_df[metric].fillna(-1) > threshold].sort_values(metric, ascending=False)
 
     def compare_groups(self, group_col: str, metric_col: str) -> dict:
-        if group_col not in self.active_df.columns or metric_col not in self.active_df.columns:
-            return {'success': False, 'reason': 'Columns not found'}
-        frame = self.active_df.dropna(subset=[group_col, metric_col]).copy()
-        frame[metric_col] = _valid_numeric(frame[metric_col], metric_col).reindex(frame.index)
-        grouped = frame.dropna(subset=[metric_col]).groupby(group_col)[metric_col]
-        eligible = [(name, group.values) for name, group in grouped if len(group) >= 10]
-        if len(eligible) < 2:
-            return {'success': False, 'reason': 'Not enough groups with data (at least 10 samples)'}
-        names = [name for name, _ in eligible]
-        values = [vals for _, vals in eligible]
+        if _is_identifier_like(group_col) or _is_identifier_like(metric_col): return {'success': False, 'reason': 'Identifier-like columns are not valid analytical dimensions or measures'}
+        if group_col not in self.active_df.columns or metric_col not in self.active_df.columns: return {'success': False, 'reason': 'Columns not found'}
+        frame = self.active_df.dropna(subset=[group_col, metric_col]).copy(); frame[metric_col] = _valid_numeric(frame[metric_col], metric_col).reindex(frame.index)
+        grouped = frame.dropna(subset=[metric_col]).groupby(group_col)[metric_col]; eligible = [(name, group.values) for name, group in grouped if len(group) >= 10]
+        if len(eligible) < 2: return {'success': False, 'reason': 'Not enough groups with data (at least 10 samples)'}
+        names = [name for name, _ in eligible]; values = [vals for _, vals in eligible]
         try:
-            if len(values) == 2:
-                stat, p_value = stats.ttest_ind(values[0], values[1], equal_var=False, nan_policy='omit')
-                test_name = "Welch's T-Test"
-            else:
-                stat, p_value = stats.f_oneway(*values)
-                test_name = 'One-way ANOVA'
-            if not np.isfinite(stat) or not np.isfinite(p_value):
-                return {'success': False, 'reason': 'Group variation is insufficient for a finite statistical test.'}
-            return {
-                'success': True, 'test_name': test_name, 'statistic': float(stat), 'p_value': float(p_value),
-                'is_significant': bool(p_value < .05), 'groups_compared': names,
-                'group_observations': {str(name): int(len(vals)) for name, vals in eligible},
-                'sample_size': int(sum(len(vals) for vals in values)),
-                'population': 'current_active_employees_with_valid_metric_and_group_label',
-                'interpretation': f"Observed group difference for {metric_col}; {test_name} p={p_value:.4f}. Statistical significance does not establish causation or unfairness."
-            }
+            if len(values) == 2: stat, p_value = stats.ttest_ind(values[0], values[1], equal_var=False, nan_policy='omit'); test_name = "Welch's T-Test"
+            else: stat, p_value = stats.f_oneway(*values); test_name = 'One-way ANOVA'
+            if not np.isfinite(stat) or not np.isfinite(p_value): return {'success': False, 'reason': 'Group variation is insufficient for a finite statistical test.'}
+            return {'success': True, 'test_name': test_name, 'statistic': float(stat), 'p_value': float(p_value), 'is_significant': bool(p_value < .05), 'groups_compared': names, 'group_observations': {str(name): int(len(vals)) for name, vals in eligible}, 'sample_size': int(sum(len(vals) for vals in values)), 'population': 'current_active_employees_with_valid_metric_and_group_label', 'interpretation': f"Observed group difference for {metric_col}; {test_name} p={p_value:.4f}. Statistical significance does not establish causation or unfairness."}
         except Exception as exc:
-            logger.error('Statistical test failed: %s', exc)
-            return {'success': False, 'reason': str(exc)}
+            logger.error('Statistical test failed: %s', exc); return {'success': False, 'reason': str(exc)}
 
     def get_confidence_interval(self, col: str, confidence: float = 0.95) -> Optional[tuple]:
-        if col not in self.active_df.columns:
-            return None
-        if not 0 < confidence < 1:
-            raise ValueError('confidence must be between zero and one')
+        if _is_identifier_like(col) or col not in self.active_df.columns: return None
+        if not 0 < confidence < 1: raise ValueError('confidence must be between zero and one')
         data = _valid_numeric(self.active_df[col], col)
-        if len(data) < 2:
+        if len(data) < 2: return None
+        unique = set(data.unique().tolist())
+        if unique and unique <= {0, 1}:
             return None
-        mean = data.mean()
-        sem = stats.sem(data)
-        margin = sem * stats.t.ppf((1 + confidence) / 2, len(data) - 1)
-        return float(mean - margin), float(mean + margin)
+        mean, _, deviation = _stable_location(data)
+        if mean is None or deviation is None: return None
+        sem = deviation / np.sqrt(len(data)); critical = float(stats.t.ppf((1 + confidence) / 2, len(data) - 1)); margin = sem * critical
+        lower, upper = mean - margin, mean + margin
+        if not all(np.isfinite(value) for value in (sem, critical, margin, lower, upper)): return None
+        return float(lower), float(upper)

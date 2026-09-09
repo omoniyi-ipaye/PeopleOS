@@ -1,0 +1,129 @@
+{
+  "schema_version": 1,
+  "cycle_id": "PEOPLEOS-QUALITY-008",
+  "engine": "AnalyticsEngine",
+  "status": "forensically_reviewed",
+  "verified_code_candidate": "cf0ad3b8f3e2b3a335af469ff22e64701aa89aee",
+  "review_scope": {
+    "methods": [
+      "get_headcount",
+      "get_record_count",
+      "get_observed_attrition_share",
+      "get_turnover_rate",
+      "get_department_aggregates",
+      "get_correlations",
+      "get_summary_statistics",
+      "get_temporal_stats",
+      "get_tenure_distribution",
+      "get_age_distribution",
+      "get_salary_bands",
+      "get_high_risk_departments",
+      "compare_groups",
+      "get_confidence_interval"
+    ],
+    "review_dimensions": [
+      "population semantics",
+      "independent arithmetic correctness",
+      "denominator reconciliation",
+      "bucket boundary behavior",
+      "statistical reference equivalence",
+      "minimum-support behavior",
+      "row-order and affine invariance",
+      "identifier semantics",
+      "binary-versus-continuous statistic semantics",
+      "non-finite/extreme-value behavior",
+      "source immutability",
+      "high-volume performance and reconciliation"
+    ]
+  },
+  "confirmed_findings": [
+    {
+      "id": "AN-008-01",
+      "severity": "high",
+      "finding": "Student-t confidence intervals could emit non-finite bounds for extreme-but-finite continuous inputs.",
+      "correction": "Confidence intervals now derive from the stable scaled location/spread calculation and return unavailable if SEM, critical value, margin or bounds are non-finite.",
+      "regression_contract": "test_confidence_interval_never_emits_nonfinite_bounds_for_extreme_finite_inputs"
+    },
+    {
+      "id": "AN-008-02",
+      "severity": "high",
+      "finding": "Observed attrition-share screening accepted invalid thresholds outside [0,1] and non-finite values.",
+      "correction": "Share thresholds are now required to be finite numeric values in the closed interval [0,1].",
+      "regression_contract": "test_high_risk_department_threshold_rejects_invalid_share_thresholds"
+    },
+    {
+      "id": "AN-008-03",
+      "severity": "high",
+      "finding": "Numerically encoded identifier-like fields could be treated as quantitative correlation targets/features, group-test measures/dimensions or confidence-interval measures.",
+      "correction": "Identifier-like fields are excluded/rejected at the AnalyticsEngine inferential boundary even when their storage type is numeric.",
+      "regression_contracts": [
+        "test_identifier_like_numeric_fields_are_not_correlation_features_or_targets",
+        "test_identifier_like_fields_are_rejected_as_group_test_measures_or_groups",
+        "test_confidence_interval_rejects_identifier_like_measure"
+      ]
+    },
+    {
+      "id": "AN-008-04",
+      "severity": "medium",
+      "finding": "The generic Student-t mean confidence-interval helper could be applied to binary measures, including active-population Attrition, where that interval semantics is not appropriate.",
+      "correction": "Binary measures now return unavailable from the Student-t mean interval helper. Any future attrition-rate uncertainty must use a dedicated proportion/binomial interval over known current outcomes.",
+      "regression_contract": "test_confidence_interval_rejects_binary_measure_instead_of_using_student_t"
+    }
+  ],
+  "forensic_validation": {
+    "contracts": {
+      "passed": 48,
+      "total": 48,
+      "runtime_seconds": 1.14
+    },
+    "stress": {
+      "rows": 250000,
+      "seed": 808,
+      "runtime_seconds": 0.5309,
+      "passed": 11,
+      "total": 11,
+      "headcount": 205065,
+      "record_count": 250000,
+      "salary_observations": 204866,
+      "attrition_known_count": 237432
+    },
+    "stress_invariants": [
+      "department headcount reconciles to active headcount",
+      "department records reconcile to current records",
+      "department known outcomes reconcile to known outcomes",
+      "tenure buckets reconcile to active headcount",
+      "age buckets reconcile to active headcount",
+      "salary quartile counts reconcile to valid active salary observations",
+      "known plus excluded attrition outcomes reconcile to current records",
+      "observed attrition share remains in [0,1]",
+      "summary numbers remain finite",
+      "correlation coefficients and p-values remain finite",
+      "source DataFrame row population is unchanged"
+    ],
+    "full_analytics_validation": "passed on verified code candidate",
+    "independent_arithmetic_oracle": "passed",
+    "public_benchmark_random_label_controls": "passed",
+    "whole_product_synthetic_stress_20000": "passed",
+    "live_api_known_answer_validation": "passed",
+    "agent_foundation": "passed",
+    "e2e_user_journey": "passed",
+    "release_security": "passed",
+    "local_ollama_acceptance": "passed"
+  },
+  "evidence": {
+    "forensic_workflow_run": 34413318497,
+    "forensic_artifact_id": 10128083110,
+    "forensic_artifact_sha256": "cf62e78deedb93cff0d1ecc32cf4a56ec1071de6710c85cd9daf4677b695ecfa",
+    "reviewed_file_sha256": "d7e791dd39cdcedf5595840e65e0fd9a822b2f0b3f28a542f9cfc75dfced3fb2"
+  },
+  "compatibility_debt": [
+    {
+      "item": "get_high_risk_departments",
+      "note": "Legacy internal name. The metric is observed attrition-share screening, not predictive employee risk. External API semantics already state this explicitly. Preserve compatibility unless a future breaking migration is justified."
+    }
+  ],
+  "future_semantic_extension": [
+    "If uncertainty intervals for attrition proportions are exposed, implement a dedicated proportion/binomial interval over known current outcomes rather than reusing Student-t mean intervals."
+  ],
+  "readiness_boundary": "AnalyticsEngine is forensically reviewed under the recorded deterministic, statistical, semantic and high-volume stress contracts. This is strong evidence for the reviewed input domains, not a claim that every possible future dataset or use case is defect-free."
+}
