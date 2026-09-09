@@ -61,6 +61,28 @@ def _stable_salary_stats(values: pd.Series) -> tuple[float, float, float]:
     return mean, median, deviation
 
 
+def _positive_finite(value: Any, *, name: str) -> float:
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f'{name} must be a finite positive number') from exc
+    if not np.isfinite(numeric) or numeric <= 0:
+        raise ValueError(f'{name} must be a finite positive number')
+    return numeric
+
+
+def _positive_integer(value: Any, *, name: str, minimum: int = 1) -> int:
+    if isinstance(value, bool):
+        raise ValueError(f'{name} must be an integer of at least {minimum}')
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f'{name} must be an integer of at least {minimum}') from exc
+    if not np.isfinite(numeric) or not numeric.is_integer() or numeric < minimum:
+        raise ValueError(f'{name} must be an integer of at least {minimum}')
+    return int(numeric)
+
+
 class CompensationEngine:
     def __init__(self, df: pd.DataFrame):
         current, self.population_resolution = resolve_current_population(df)
@@ -130,6 +152,7 @@ class CompensationEngine:
         return pd.DataFrame(rows)
 
     def identify_salary_outliers(self, z_threshold: float = 2.5) -> pd.DataFrame:
+        z_threshold = _positive_finite(z_threshold, name='z_threshold')
         if 'Dept' not in self.df.columns:
             return pd.DataFrame()
         rows = []
@@ -171,7 +194,11 @@ class CompensationEngine:
             ratio = pd.to_numeric(frame['CompaRatio'], errors='coerce')
             ratio = ratio.where(np.isfinite(ratio) & (ratio > 0))
             frame['CompaRatio'] = ratio
-            frame['BandMidpoint'] = np.where(ratio > 0, frame['Salary'] / ratio, np.nan)
+            with np.errstate(over='ignore', divide='ignore', invalid='ignore'):
+                midpoint = frame['Salary'] / ratio
+            frame['BandMidpoint'] = midpoint.where(np.isfinite(midpoint))
+            if frame['BandMidpoint'].isna().sum() > ratio.isna().sum():
+                self.warnings.append('Some supplied compa-ratios implied non-finite band midpoints and were marked unavailable')
             semantics = 'supplied_compa_ratio'
         else:
             if 'Dept' not in frame.columns:
@@ -181,10 +208,11 @@ class CompensationEngine:
             frame['CompaRatio'] = frame['Salary'] / midpoint.replace(0, np.nan)
             semantics = 'relative_to_department_median_not_formal_compa_ratio'
             self.warnings.append('No external salary-band midpoint was supplied; displayed compa-ratio compatibility values are relative to department median')
-        frame['CompaStatus'] = frame['CompaRatio'].apply(
-            lambda r: 'Unavailable' if pd.isna(r) or not np.isfinite(r) or r <= 0
+        frame['CompaStatus'] = [
+            'Unavailable' if pd.isna(r) or not np.isfinite(r) or r <= 0 or pd.isna(m) or not np.isfinite(m)
             else 'Below reference' if r < .8 else 'Above reference' if r > 1.2 else 'Near reference'
-        )
+            for r, m in zip(frame['CompaRatio'], frame['BandMidpoint'])
+        ]
         frame['MetricSemantics'] = semantics
         cols = [c for c in ['EmployeeID', 'Dept', 'Salary', 'BandMidpoint', 'CompaRatio', 'CompaStatus', 'MetricSemantics'] if c in frame.columns]
         return frame[cols]
@@ -212,6 +240,7 @@ class CompensationEngine:
         return series.astype(str).str.strip().str.lower()
 
     def calculate_gender_pay_gap(self, min_group_size: int = 10) -> Dict[str, Any]:
+        min_group_size = _positive_integer(min_group_size, name='min_group_size', minimum=2)
         if 'Gender' not in self.df.columns:
             return {'available': False, 'reason': 'Gender unavailable'}
         frame = self.df.copy()
@@ -221,7 +250,9 @@ class CompensationEngine:
         male_salary, female_salary = frame.loc[male, 'Salary'], frame.loc[female, 'Salary']
         if len(male_salary) < min_group_size or len(female_salary) < min_group_size:
             return {'available': False, 'reason': f'At least {min_group_size} observations per compared group are required'}
-        raw_gap = (male_salary.mean() - female_salary.mean()) / male_salary.mean() * 100 if male_salary.mean() else 0.0
+        male_mean = float(male_salary.mean())
+        female_mean = float(female_salary.mean())
+        raw_gap = (male_mean - female_mean) / male_mean * 100 if male_mean else 0.0
         t_stat, p_value = stats.ttest_ind(male_salary, female_salary, equal_var=False, nan_policy='omit')
 
         strata = []
@@ -229,8 +260,10 @@ class CompensationEngine:
             for title, group in frame.assign(_gender=gender).groupby('JobTitle'):
                 men = group.loc[group['_gender'].isin({'male', 'm', 'man'}), 'Salary']
                 women = group.loc[group['_gender'].isin({'female', 'f', 'woman'}), 'Salary']
-                eligible = len(men) >= min_group_size and len(women) >= min_group_size and men.mean() > 0
-                gap = ((men.mean() - women.mean()) / men.mean() * 100) if eligible else None
+                men_mean = float(men.mean()) if len(men) else 0.0
+                women_mean = float(women.mean()) if len(women) else 0.0
+                eligible = len(men) >= min_group_size and len(women) >= min_group_size and men_mean > 0
+                gap = ((men_mean - women_mean) / men_mean * 100) if eligible else None
                 strata.append({'job_title': title, 'male_n': len(men), 'female_n': len(women), 'gap_pct': gap, 'eligible': eligible, 'weight': len(men) + len(women) if eligible else 0})
         eligible = [s for s in strata if s['eligible']]
         weight = sum(s['weight'] for s in eligible)
