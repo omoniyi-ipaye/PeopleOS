@@ -32,16 +32,17 @@ const secondaryItems = [
   { name: 'Settings', href: '/settings', icon: Settings },
 ]
 
-function isActive(pathname: string, matches: string[]) {
+function isActive(pathname: string | null, matches: string[]) {
+  if (!pathname) return false
   return matches.some((match) => match === '/' ? pathname === '/' : pathname === match || pathname.startsWith(`${match}/`))
 }
 
-function ItemLink({ item, pathname, collapsed, onNavigate }: { item: { name: string; href: string; icon: typeof Home; matches?: string[] }; pathname: string; collapsed: boolean; onNavigate?: () => void }) {
+function ItemLink({ item, pathname, collapsed, onNavigate }: { item: { name: string; href: string; icon: typeof Home; matches?: string[] }; pathname: string | null; collapsed: boolean; onNavigate?: () => void }) {
   const active = item.matches ? isActive(pathname, item.matches) : pathname === item.href
   return <Link href={item.href} onClick={onNavigate} aria-label={item.name} aria-current={active ? 'page' : undefined} title={collapsed ? item.name : undefined} className={cn('group flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500', active ? 'bg-violet-50 text-violet-700 ring-1 ring-violet-100 dark:bg-violet-500/10 dark:text-violet-300 dark:ring-violet-500/20' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-white', collapsed && 'justify-center px-0')}><item.icon aria-hidden="true" className={cn('h-[18px] w-[18px] shrink-0', active && 'text-violet-600 dark:text-violet-300')} />{!collapsed && <span className="truncate">{item.name}</span>}</Link>
 }
 
-function NavigationLinks({ pathname, collapsed = false, onNavigate }: { pathname: string; collapsed?: boolean; onNavigate?: () => void }) {
+function NavigationLinks({ pathname, collapsed = false, onNavigate }: { pathname: string | null; collapsed?: boolean; onNavigate?: () => void }) {
   return <div className="flex min-h-0 flex-1 flex-col">
     <nav aria-label="Main navigation" className="flex-1 overflow-y-auto px-3 py-5">
       <div className="space-y-1">{primaryItems.map(item => <ItemLink key={item.href} item={item} pathname={pathname} collapsed={collapsed} onNavigate={onNavigate} />)}</div>
