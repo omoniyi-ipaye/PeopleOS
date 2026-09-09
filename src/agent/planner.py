@@ -176,6 +176,7 @@ class EvidencePlanner:
             limitations.append("No registered analysis matches this question. Ask about workforce counts, compensation, observed attrition, experience, fairness, or organizational structure.")
         if re.search(r"\b(why|cause[sd]?|causal|because)\b", q):
             limitations.append("These observational aggregates cannot establish causes or explain why an outcome occurred.")
+            must_abstain = True
         if re.search(r"\b(last|this|next|previous)\s+(month|quarter|year|week)\b|\b20\d{2}\b|\bq[1-4]\b|\b(january|february|march|april|may|june|july|august|september|october|november|december)\b", q):
             limitations.append("This investigation does not apply the requested time filter; evidence describes the loaded current snapshot.")
             must_abstain = True
