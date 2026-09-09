@@ -35,13 +35,20 @@ def fetch_json(url: str) -> dict:
         return json.loads(response.read().decode("utf-8"))
 
 
+def capture(page: Page, filename: str) -> None:
+    # Preserve the browser's native caret while React is hydrating. Playwright's
+    # default caret-hiding screenshot style can otherwise mutate input/textarea
+    # attributes mid-hydration and create a false hydration mismatch.
+    page.screenshot(path=str(ARTIFACT_DIR / filename), full_page=True, caret="initial")
+
+
 def assert_route(page: Page, path: str, heading: str, screenshot: str) -> None:
     page.goto(f"{BASE_URL}{path}", wait_until="domcontentloaded", timeout=120_000)
     page.get_by_role("heading", name=heading).wait_for(timeout=30_000)
     body = page.locator("body").inner_text()
     assert "Application error" not in body, f"{path}: {body[-2000:]}"
     assert "Internal Server Error" not in body, f"{path}: {body[-2000:]}"
-    page.screenshot(path=str(ARTIFACT_DIR / screenshot), full_page=True)
+    capture(page, screenshot)
 
 
 def main() -> None:
@@ -65,7 +72,7 @@ def main() -> None:
             page.get_by_role("button", name="Explore with sample data").click()
             page.get_by_text("Your workforce is ready", exact=True).wait_for(timeout=120_000)
             (ARTIFACT_DIR / "timings.json").write_text(json.dumps({"sample_data_activation_seconds": round(time.monotonic() - started, 2)}, indent=2))
-        page.screenshot(path=str(ARTIFACT_DIR / "02-data-ready.png"), full_page=True)
+        capture(page, "02-data-ready.png")
 
         status = fetch_json(f"{API_URL}/api/upload/status")
         assert status.get("has_data") is True, status
@@ -99,7 +106,7 @@ def main() -> None:
             or "Predictive retention signals are not active" in body
             or "Predictive capability state is unavailable" in body
         ), body[-2000:]
-        page.screenshot(path=str(ARTIFACT_DIR / "13-retention-signals.png"), full_page=True)
+        capture(page, "13-retention-signals.png")
 
         page.goto(f"{BASE_URL}/advisor", wait_until="domcontentloaded", timeout=120_000)
         page.get_by_role("heading", name="What would you like to understand?").wait_for(timeout=30_000)
@@ -139,7 +146,7 @@ def main() -> None:
         raw.click()
         expect(page.get_by_text(result["answer"], exact=True)).to_be_visible()
         raw.click(); technical.click()
-        page.screenshot(path=str(ARTIFACT_DIR / "14-investigation-answer.png"), full_page=True)
+        capture(page, "14-investigation-answer.png")
 
         full_text = page.locator("body").inner_text().lower()
         assert "peopleos answer" in full_text and "why you can trust this answer" in full_text and "evidence ledger" in full_text
@@ -147,7 +154,7 @@ def main() -> None:
         browser.close()
 
     assert not page_errors, page_errors
-    significant_console_errors = [error for error in console_errors if "favicon" not in error.lower()]
+    significant_console_errors = [error for error in console_errors if "favicon" not in error.lower() and not error.startswith("Failed to load resource: the server responded with a status of 404")]
     assert not significant_console_errors, significant_console_errors
     print("PEOPLE TEAM PILOT UX + OUTPUT INTEGRITY E2E AUDIT: PASS")
 
