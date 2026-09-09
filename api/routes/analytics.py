@@ -47,6 +47,10 @@ async def get_analytics_summary(state: AppState = Depends(require_data)) -> Anal
     takeaways = []
     if share is not None:
         takeaways.append(f"Observed attrition share in the current outcome population is {share:.1%}; this is not a period turnover rate.")
+    if stats.get('attrition_excluded_count'):
+        takeaways.append(
+            f"{stats['attrition_excluded_count']} record(s) with missing or invalid Attrition outcomes were excluded from the observed attrition denominator."
+        )
     return AnalyticsSummary(
         headcount=stats.get('headcount', 0),
         record_count=stats.get('record_count'),
@@ -63,6 +67,7 @@ async def get_analytics_summary(state: AppState = Depends(require_data)) -> Anal
         attrition_count=stats.get('attrition_count'),
         active_count=stats.get('active_count'),
         attrition_known_count=stats.get('attrition_known_count'),
+        attrition_excluded_count=stats.get('attrition_excluded_count'),
         salary_observations=stats.get('salary_observations'),
         salary_excluded_count=stats.get('salary_excluded_count'),
         tenure_observations=stats.get('tenure_observations'),
