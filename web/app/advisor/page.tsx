@@ -1,6 +1,6 @@
 'use client'
 
-import { FormEvent, useEffect, useRef, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { ArrowRight, Search, Sparkles } from 'lucide-react'
@@ -16,6 +16,39 @@ const suggestedQuestions = [
   ['How are teams structured?', 'Where do we have aggregate span-of-control or role-tenure pressure?'],
 ]
 
+function deeperQuestions(question: string) {
+  const q = question.toLowerCase()
+  if (/salary|pay|compensation/.test(q)) return [
+    ['By department', 'Average salary by department'],
+    ['By location', 'Average salary by location'],
+    ['By job level', 'Average salary by job level'],
+    ['Salary vs tenure', 'Correlation between salary and tenure'],
+  ]
+  if (/attrition|departure|retention|turnover/.test(q)) return [
+    ['By department', 'Recorded attrition share by department'],
+    ['By location', 'Recorded attrition share by location'],
+    ['By job level', 'Recorded attrition share by job level'],
+    ['Compare workforce size', 'Headcount by department'],
+  ]
+  if (/headcount|how many|workforce size|employee count/.test(q)) return [
+    ['By department', 'Headcount by department'],
+    ['By location', 'Headcount by location'],
+    ['By job level', 'Headcount by job level'],
+    ['Role mix', 'Headcount by role'],
+  ]
+  if (/experience|engagement|pulse|enps/.test(q)) return [
+    ['Workforce by department', 'Headcount by department'],
+    ['Tenure relationship', 'Correlation between tenure and performance rating'],
+    ['Location mix', 'Headcount by location'],
+  ]
+  return [
+    ['Workforce by department', 'Headcount by department'],
+    ['Pay by department', 'Average salary by department'],
+    ['Attrition by department', 'Recorded attrition share by department'],
+    ['Location mix', 'Headcount by location'],
+  ]
+}
+
 export default function PeopleIntelligencePage() {
   const status = useQuery<RuntimeStatus>({ queryKey: ['platform', 'status'], queryFn: () => api.getStatus() as Promise<RuntimeStatus> })
   const snapshot = status.data?.integrity?.snapshot
@@ -25,8 +58,16 @@ export default function PeopleIntelligencePage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const controller = useRef<AbortController | null>(null)
+  const initialQueryLoaded = useRef(false)
   useEffect(() => () => controller.current?.abort(), [])
+  useEffect(() => {
+    if (initialQueryLoaded.current || typeof window === 'undefined') return
+    initialQueryLoaded.current = true
+    const prompt = new URLSearchParams(window.location.search).get('q')?.trim()
+    if (prompt) setQuestion(prompt.slice(0, 2000))
+  }, [])
   const currentResult = ready && result?.generation === snapshot?.generation ? result : null
+  const followUps = useMemo(() => currentResult ? deeperQuestions(currentResult.answer.question) : [], [currentResult])
 
   async function investigate(selected?: string) {
     const prompt = (selected ?? question).trim()
@@ -64,7 +105,15 @@ export default function PeopleIntelligencePage() {
     {loading && <Surface padding="md"><div role="status" aria-live="polite"><p className="font-semibold">Looking through your workforce data…</p><p className="mt-2 text-sm text-text-secondary">PeopleOS is running the relevant calculations and checking whether there is enough evidence to answer.</p></div><Button className="mt-3" variant="secondary" size="sm" onClick={cancel}>Stop</Button></Surface>}
     {error && <div role="alert"><StateSummary title="No answer shown" description={error} tone="warning" /></div>}
     {result && !currentResult && !loading && <StateSummary title="Your workforce data changed" description="The previous answer has been hidden. Ask again to use the current data." tone="info" />}
-    {currentResult && !loading && <InvestigationResult result={currentResult.answer} source={currentResult.source} />}
+    {currentResult && !loading && <>
+      <InvestigationResult result={currentResult.answer} source={currentResult.source} />
+      <Surface padding="md" className="border-violet-100/80 bg-violet-50/30 dark:border-violet-500/15 dark:bg-violet-500/[0.03]">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div><div className="text-sm font-semibold text-text-primary">Explore deeper</div><div className="mt-1 text-xs text-text-secondary">Run another verified calculation from the same workforce data.</div></div>
+          <div className="flex flex-wrap gap-2">{followUps.map(([label, prompt]) => <Button key={`${label}-${prompt}`} type="button" variant="secondary" size="sm" disabled={loading} onClick={() => void investigate(prompt)}>{label}</Button>)}</div>
+        </div>
+      </Surface>
+    </>}
 
     {ready && !currentResult && !loading && <div className="text-center text-xs text-text-muted">PeopleOS calculates from your active workforce data. AI can organise and explain verified results, but it does not create the underlying facts.</div>}
   </Page>
