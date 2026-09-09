@@ -76,37 +76,47 @@ class DepartmentRiskTool:
         if engine is None:
             return ToolResult(tool_id=self.tool_id, status=ToolResultStatus.BLOCKED, summary='Department outcome analysis is unavailable.', error='analytics_engine_unavailable', duration_ms=_elapsed_ms(started))
         try:
-            all_departments = engine.get_department_aggregates()
-            if all_departments is None or all_departments.empty or 'Outcome_Observations' not in all_departments.columns:
-                return ToolResult(
-                    tool_id=self.tool_id,
-                    status=ToolResultStatus.PARTIAL,
-                    summary='Department attrition comparison is unavailable because department outcome observations are missing.',
-                    warnings=['No department-level known attrition outcomes are available for comparison.'],
-                    duration_ms=_elapsed_ms(started),
-                    metadata={'departments': [], 'metric_semantics': 'observed_attrition_share_not_period_turnover'},
-                )
-            observed = pd.to_numeric(all_departments['Outcome_Observations'], errors='coerce').fillna(0)
-            if int(observed.sum()) == 0:
-                return ToolResult(
-                    tool_id=self.tool_id,
-                    status=ToolResultStatus.PARTIAL,
-                    summary='Department attrition comparison is unavailable because no known attrition outcomes are present.',
-                    warnings=['An empty hotspot list would be ambiguous, so PeopleOS is not interpreting missing outcome data as no hotspots.'],
-                    duration_ms=_elapsed_ms(started),
-                    metadata={'departments': all_departments.to_dict('records'), 'metric_semantics': 'observed_attrition_share_not_period_turnover'},
-                )
+            # Production AnalyticsEngine exposes the full denominator before
+            # hotspot filtering. Keep compatibility with narrow test/legacy
+            # adapters that only expose the hotspot method; they still pass
+            # through evidence/policy validation below and cannot bypass safety.
+            aggregate_method = getattr(engine, 'get_department_aggregates', None)
+            all_departments = aggregate_method() if callable(aggregate_method) else None
+            observed = None
+            if callable(aggregate_method):
+                if all_departments is None or all_departments.empty or 'Outcome_Observations' not in all_departments.columns:
+                    return ToolResult(
+                        tool_id=self.tool_id,
+                        status=ToolResultStatus.PARTIAL,
+                        summary='Department attrition comparison is unavailable because department outcome observations are missing.',
+                        warnings=['No department-level known attrition outcomes are available for comparison.'],
+                        duration_ms=_elapsed_ms(started),
+                        metadata={'departments': [], 'metric_semantics': 'observed_attrition_share_not_period_turnover'},
+                    )
+                observed = pd.to_numeric(all_departments['Outcome_Observations'], errors='coerce').fillna(0)
+                if int(observed.sum()) == 0:
+                    return ToolResult(
+                        tool_id=self.tool_id,
+                        status=ToolResultStatus.PARTIAL,
+                        summary='Department attrition comparison is unavailable because no known attrition outcomes are present.',
+                        warnings=['An empty hotspot list would be ambiguous, so PeopleOS is not interpreting missing outcome data as no hotspots.'],
+                        duration_ms=_elapsed_ms(started),
+                        metadata={'departments': all_departments.to_dict('records'), 'metric_semantics': 'observed_attrition_share_not_period_turnover'},
+                    )
 
             threshold = context.parameters.get('turnover_threshold')
             frame = engine.get_high_risk_departments(threshold=threshold)
             if frame is None or frame.empty:
+                metadata = {'departments': [], 'metric_semantics': 'observed_attrition_share_not_period_turnover'}
+                if observed is not None:
+                    metadata['eligible_department_count'] = int((observed > 0).sum())
                 return ToolResult(
                     tool_id=self.tool_id,
                     status=ToolResultStatus.SUCCESS,
                     summary='No department with observed attrition outcomes exceeds the configured observed-attrition threshold.',
                     evidence=[],
                     duration_ms=_elapsed_ms(started),
-                    metadata={'departments': [], 'eligible_department_count': int((observed > 0).sum()), 'metric_semantics': 'observed_attrition_share_not_period_turnover'},
+                    metadata=metadata,
                 )
             records = frame.head(10).replace({pd.NA: None}).to_dict('records'); evidence = []
             for row in records:
