@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "cycle_id": "PEOPLEOS-QUALITY-006-FINAL",
+  "status": "merged_engineering_ready_for_controlled_pilot",
+  "baseline_commit": "ae986ef5be780790a798871d5a20fb6d2e95f343",
+  "verified_candidate": "90f1958708a78481b8931893076f14c076be92a1",
+  "merge_commit": "a300db48b2fe6d11076ed14fcdd891d170316764",
+  "pull_request": 6,
+  "verification": {
+    "required_workflows": {
+      "Agent Foundation": "passed",
+      "Frontend Modernization": "passed",
+      "E2E User Journey": "passed",
+      "Analytics Validation": "passed",
+      "People Team Browser Acceptance": "passed_on_full_desktop_mobile_rerun",
+      "Local Desktop Build": "passed",
+      "Release Security": "passed",
+      "Local Ollama Acceptance": "passed"
+    },
+    "browser_note": "First attempt passed 21 of 22 tests and hit a transient desktop upload wait timeout in the dataset-switch test; the same case passed on mobile. The full rerun passed all journeys and the action/process coverage ledger without weakening product guardrails.",
+    "desktop_targets": [
+      "Windows x64",
+      "macOS ARM64",
+      "Linux x64"
+    ]
+  },
+  "product_boundary": {
+    "analytics_source_of_truth": "deterministic_engines",
+    "ai_role": "governed_interpretation_and_investigation_over_verified_evidence",
+    "arbitrary_shell_or_python_for_llm": false,
+    "individual_consequential_ranking": false,
+    "aggregate_drill_down": true,
+    "stacked_cohort_filters": true,
+    "privacy_minimum_support_enforced": true
+  },
+  "distribution": {
+    "repository_visibility": "public",
+    "license_position": "source_available_with_commercial_use_restriction",
+    "commercial_use": "requires_express_written_permission_from_Omoniyi_Ipaye",
+    "commercial_policy": "COMMERCIAL_USE.md",
+    "commercial_request_template": ".github/ISSUE_TEMPLATE/commercial_use_request.md",
+    "pilot_feedback_template": ".github/ISSUE_TEMPLATE/pilot_feedback.md",
+    "release_notes_draft": "docs/releases/PUBLIC_BETA_RELEASE_NOTES.md",
+    "github_release_published": false,
+    "code_signing_claimed": false,
+    "macos_notarization_claimed": false
+  },
+  "remaining_before_broad_release": [
+    "Independent fresh-user installation and usability pilot",
+    "Review pilot feedback and resolve evidence-backed friction",
+    "Decide whether Windows signing and macOS notarization are required",
+    "Review final archives, checksums and third-party/model notices",
+    "Explicitly authorize GitHub Release and public binary distribution",
+    "Perform organization-specific prospective predictive validation before stronger predictive intended-use claims"
+  ],
+  "readiness_claim": "Engineering acceptance is specific to the verified candidate and validated use cases. It supports a controlled pilot; it is not a production certification or a claim of prospective organization-specific predictive validity."
+}
