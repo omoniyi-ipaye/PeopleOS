@@ -91,7 +91,7 @@ def test_crosstab_suppresses_small_cells():
 def test_stacked_categorical_and_numeric_filters_define_exact_cohort():
     spec = AnalysisSpec(
         operation='group_summary',
-        group_by='JobLevel',
+        group_by='Dept',
         measure='Salary',
         statistic='mean',
         filters=[
