@@ -82,7 +82,7 @@ def main() -> None:
             ("/advisor", "What would you like to understand?", "09-ask-peopleos.png"),
             ("/scenario-planner", "What if we changed something?", "10-plan.png"),
             ("/platform", "Can I rely on PeopleOS?", "11-trust-privacy.png"),
-            ("/settings", "System configuration and capability state", "12-settings.png"),
+            ("/settings", "PeopleOS settings", "12-settings.png"),
         ]
         for path, heading, screenshot in routes:
             assert_route(page, path, heading, screenshot)
