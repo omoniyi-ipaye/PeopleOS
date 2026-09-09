@@ -3,7 +3,7 @@
 Metric semantics are explicit:
 - headcount = current active employees;
 - record_count = current employee observations with known/unknown status;
-- observed_attrition_share = share of current rows observed as departed.
+- observed_attrition_share = share of rows with a valid recorded 0/1 Attrition outcome that are departed.
 
 `turnover_rate`/`Turnover_Rate` remain compatibility aliases only. They do not
 represent a period turnover rate because the canonical employee dataset does not
@@ -23,6 +23,7 @@ from src.population import active_population, observed_attrition_share, resolve_
 from src.utils import load_config
 
 logger = get_logger('analytics_engine')
+MIN_CORRELATION_OBSERVATIONS = 10
 
 
 def _valid_numeric(series: pd.Series, name: str) -> pd.Series:
@@ -35,7 +36,14 @@ def _valid_numeric(series: pd.Series, name: str) -> pd.Series:
         values = values[values.between(1, 120)]
     elif name == 'LastRating':
         values = values[values.between(1, 5)]
+    elif name == 'Attrition':
+        values = values[values.isin([0, 1])]
     return values
+
+
+def _valid_attrition(series: pd.Series) -> pd.Series:
+    """Return only finite binary recorded outcomes, preserving original index."""
+    return _valid_numeric(series, 'Attrition')
 
 
 def _stable_location(values: pd.Series) -> tuple[Optional[float], Optional[float], Optional[float]]:
@@ -94,7 +102,10 @@ class AnalyticsEngine:
         return len(self.df)
 
     def get_observed_attrition_share(self) -> Optional[float]:
-        return observed_attrition_share(self.df)
+        if 'Attrition' not in self.df.columns:
+            return None
+        known = _valid_attrition(self.df['Attrition'])
+        return float(known.mean()) if not known.empty else None
 
     def get_turnover_rate(self) -> Optional[float]:
         """Deprecated compatibility alias for observed attrition share."""
@@ -107,7 +118,7 @@ class AnalyticsEngine:
         rows: list[dict[str, Any]] = []
         for dept, current in self.df.groupby('Dept', dropna=False):
             active = current[current['Attrition'] == 0] if 'Attrition' in current.columns else current
-            known_attrition = current['Attrition'].dropna() if 'Attrition' in current.columns else pd.Series(dtype=float)
+            known_attrition = _valid_attrition(current['Attrition']) if 'Attrition' in current.columns else pd.Series(dtype=float)
             attrition_share = float(known_attrition.mean()) if not known_attrition.empty else None
             row: dict[str, Any] = {
                 'Dept': str(dept) if pd.notna(dept) else 'Unknown',
@@ -129,6 +140,11 @@ class AnalyticsEngine:
         return pd.DataFrame(rows)
 
     def get_correlations(self, target_column: str = 'Attrition', max_features: int = 20) -> pd.DataFrame:
+        """Pairwise Pearson association with explicit support and p-value.
+
+        Each feature uses its own valid pairwise population. Pairs below the
+        minimum support are omitted rather than emitting an unstable coefficient.
+        """
         if target_column not in self.df.columns:
             return pd.DataFrame()
         numeric = self.df.select_dtypes(include=[np.number]).drop(columns=['EmployeeID'], errors='ignore').replace([np.inf, -np.inf], np.nan)
@@ -140,8 +156,34 @@ class AnalyticsEngine:
             variance = numeric.var(numeric_only=True).sort_values(ascending=False)
             keep = [target_column] + [c for c in variance.index if c != target_column][:max_features]
             numeric = numeric[[c for c in keep if c in numeric.columns]]
-        corr = numeric.corr(numeric_only=True)[target_column].drop(target_column, errors='ignore').dropna()
-        return pd.DataFrame({'Feature': corr.index, 'Correlation': corr.values, 'Abs_Correlation': corr.abs().values}).sort_values('Abs_Correlation', ascending=False)
+
+        rows: list[dict[str, Any]] = []
+        for feature in numeric.columns:
+            if feature == target_column:
+                continue
+            pair = numeric[[feature, target_column]].dropna()
+            n = int(len(pair))
+            if n < MIN_CORRELATION_OBSERVATIONS:
+                continue
+            if pair[feature].nunique() < 2 or pair[target_column].nunique() < 2:
+                continue
+            try:
+                coefficient, p_value = stats.pearsonr(pair[feature].to_numpy(dtype=float), pair[target_column].to_numpy(dtype=float))
+            except (ValueError, FloatingPointError):
+                continue
+            if not np.isfinite(coefficient) or not np.isfinite(p_value):
+                continue
+            rows.append({
+                'Feature': feature,
+                'Correlation': float(coefficient),
+                'Abs_Correlation': abs(float(coefficient)),
+                'P_Value': float(p_value),
+                'Observations': n,
+                'Metric_Semantics': 'pairwise_pearson_association_not_causal_effect',
+            })
+        if not rows:
+            return pd.DataFrame()
+        return pd.DataFrame(rows).sort_values('Abs_Correlation', ascending=False)
 
     def get_summary_statistics(self) -> dict:
         attrition_share = self.get_observed_attrition_share()
@@ -166,8 +208,10 @@ class AnalyticsEngine:
                 result[f'{col.lower()}_observations'] = int(len(values))
                 result[f'{col.lower()}_excluded_count'] = int(len(self.active_df) - len(values))
         if 'Attrition' in self.df.columns:
-            result['attrition_count'] = int((self.df['Attrition'] == 1).sum())
-            result['attrition_known_count'] = int(self.df['Attrition'].notna().sum())
+            known = _valid_attrition(self.df['Attrition'])
+            result['attrition_count'] = int((known == 1).sum())
+            result['attrition_known_count'] = int(len(known))
+            result['attrition_excluded_count'] = int(len(self.df) - len(known))
         temporal = self.get_temporal_stats(active_only=True)
         if temporal:
             result['temporal'] = temporal
@@ -195,7 +239,9 @@ class AnalyticsEngine:
         if 'Attrition' in self.df.columns:
             current = self.df.copy()
             current['Tenure_Bucket'] = pd.cut(_valid_numeric(current['Tenure'], 'Tenure').reindex(current.index), bins=bins, labels=labels, right=False).cat.add_categories('Unknown').fillna('Unknown')
-            shares = current.groupby('Tenure_Bucket', observed=False)['Attrition'].mean().rename('Observed_Attrition_Share')
+            valid_outcomes = _valid_attrition(current['Attrition'])
+            current['_valid_attrition'] = valid_outcomes.reindex(current.index)
+            shares = current.groupby('Tenure_Bucket', observed=False)['_valid_attrition'].mean().rename('Observed_Attrition_Share')
             distribution = distribution.merge(shares.reset_index().rename(columns={'Tenure_Bucket': 'Tenure_Range'}), on='Tenure_Range', how='left')
             distribution['Turnover_Rate'] = distribution['Observed_Attrition_Share']
         return distribution
