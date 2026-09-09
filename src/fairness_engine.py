@@ -43,7 +43,17 @@ class FairnessEngine:
 
     def _identify_available_attributes(self) -> None:
         if 'Age_Group' in self.protected_attributes and 'Age_Group' not in self.df.columns and 'Age' in self.df.columns:
-            self.df['Age_Group'] = pd.cut(pd.to_numeric(self.df['Age'], errors='coerce'), bins=[0, 30, 40, 50, 60, float('inf')], labels=['Under 30', '30-39', '40-49', '50-59', '60+'], right=False)
+            age = pd.to_numeric(self.df['Age'], errors='coerce')
+            # Keep the fairness population aligned with the canonical analytics
+            # contract. Impossible ages must not silently become a protected-age
+            # group such as "60+".
+            age = age.where(np.isfinite(age) & age.between(1, 120))
+            self.df['Age_Group'] = pd.cut(
+                age,
+                bins=[0, 30, 40, 50, 60, float('inf')],
+                labels=['Under 30', '30-39', '40-49', '50-59', '60+'],
+                right=False,
+            )
         self.available_protected_attributes = [a for a in self.protected_attributes if a in self.df.columns]
         self.available_monitoring_dimensions = [a for a in self.monitoring_dimensions if a in self.df.columns and a not in self.available_protected_attributes]
 
@@ -71,15 +81,27 @@ class FairnessEngine:
         known = pd.to_numeric(self.df[outcome_col], errors='coerce')
         known = known[known.isin([0, 1])]
         overall = float(known.mean()) if not known.empty else np.nan
+        overall_known_count = int(len(known))
         for attr in self.available_attributes:
+            attribute_frame = self.df[[attr, outcome_col]].copy()
+            attribute_outcome = pd.to_numeric(attribute_frame[outcome_col], errors='coerce')
+            attribute_known = attribute_frame[attr].notna() & attribute_outcome.isin([0, 1])
+            attribute_observed_count = int(attribute_known.sum())
             eligible, suppressed = self._eligible_group_rates(attr, outcome_col)
             for _, row in eligible.iterrows():
                 rows.append({
                     'group': row[attr], 'rate': float(row['mean']), 'count': int(row['count']),
                     'disparity': float(abs(row['mean'] - overall)) if np.isfinite(overall) else None,
+                    # Compatibility field: this is an observed outcome-rate ratio,
+                    # not a favorable-selection parity ratio unless the stored
+                    # outcome itself is favorable.
                     'parity_ratio': float(row['mean'] / overall) if np.isfinite(overall) and overall > 0 else None,
+                    'outcome_rate_ratio_to_overall': float(row['mean'] / overall) if np.isfinite(overall) and overall > 0 else None,
                     'attribute': attr, 'dimension_type': self._dimension_type(attr),
                     'suppressed_group_count': suppressed,
+                    'overall_known_outcome_count': overall_known_count,
+                    'attribute_observed_count': attribute_observed_count,
+                    'attribute_coverage': (float(attribute_observed_count / overall_known_count) if overall_known_count else None),
                     'metric_semantics': f'observed_{outcome_col.lower()}_rate_disparity',
                 })
         return pd.DataFrame(rows)
@@ -125,10 +147,13 @@ class FairnessEngine:
         risk = pd.to_numeric(merged[risk_col], errors='coerce')
         risk = risk.where(risk.between(0, 1))
         overall = float(risk.mean()) if risk.notna().any() else np.nan
+        overall_risk_count = int(risk.notna().sum())
         for attr in self.available_attributes:
             if attr not in merged.columns:
                 continue
-            stats_df = merged.assign(_risk=risk).dropna(subset=[attr, '_risk']).groupby(attr)['_risk'].agg(['mean', 'std', 'count']).reset_index()
+            attr_valid = merged[attr].notna() & risk.notna()
+            attribute_observed_count = int(attr_valid.sum())
+            stats_df = merged.assign(_risk=risk).dropna(subset=[attr, '_risk']).groupby(attr, observed=True)['_risk'].agg(['mean', 'std', 'count']).reset_index()
             suppressed = int((stats_df['count'] < self.min_group_size).sum())
             stats_df = stats_df[stats_df['count'] >= self.min_group_size]
             for _, row in stats_df.iterrows():
@@ -140,6 +165,9 @@ class FairnessEngine:
                     'mean_risk': float(row['mean']), 'std_risk': float(row['std']) if pd.notna(row['std']) else None,
                     'count': int(row['count']), 'difference_from_overall': disparity,
                     'suppressed_group_count': suppressed,
+                    'overall_risk_observations': overall_risk_count,
+                    'attribute_observed_count': attribute_observed_count,
+                    'attribute_coverage': (float(attribute_observed_count / overall_risk_count) if overall_risk_count else None),
                 })
         return {'available': True, 'attribute_analysis': pd.DataFrame(rows), 'warnings': warnings, 'semantics': 'unadjusted_prediction_disparity_screen_not_bias_determination'}
 
@@ -151,6 +179,7 @@ class FairnessEngine:
         merged = self.df.merge(self.predictions, on='EmployeeID', how='inner')
         if outcome_col not in merged.columns or prediction_col not in merged.columns:
             return pd.DataFrame()
+        merged[outcome_col] = pd.to_numeric(merged[outcome_col], errors='coerce')
         merged[prediction_col] = pd.to_numeric(merged[prediction_col], errors='coerce')
         merged = merged[merged[outcome_col].isin([0, 1]) & merged[prediction_col].isin([0, 1])]
         rows = []
@@ -162,9 +191,34 @@ class FairnessEngine:
                     continue
                 positives = data[data[outcome_col] == 1]
                 negatives = data[data[outcome_col] == 0]
-                tpr = float(pd.to_numeric(positives[prediction_col], errors='coerce').mean()) if len(positives) else None
-                fpr = float(pd.to_numeric(negatives[prediction_col], errors='coerce').mean()) if len(negatives) else None
-                rows.append({'attribute': attr, 'dimension_type': self._dimension_type(attr), 'group': group, 'tpr': tpr, 'fpr': fpr, 'count': len(data), 'positive_n': len(positives), 'negative_n': len(negatives)})
+                positive_n = int(len(positives))
+                negative_n = int(len(negatives))
+                # Equalized-odds components have different denominators. A large
+                # overall group does not make a TPR based on one positive outcome
+                # or an FPR based on one negative outcome reliable enough to
+                # present as a measured group rate.
+                tpr = (
+                    float(pd.to_numeric(positives[prediction_col], errors='coerce').mean())
+                    if positive_n >= self.min_group_size else None
+                )
+                fpr = (
+                    float(pd.to_numeric(negatives[prediction_col], errors='coerce').mean())
+                    if negative_n >= self.min_group_size else None
+                )
+                rows.append({
+                    'attribute': attr,
+                    'dimension_type': self._dimension_type(attr),
+                    'group': group,
+                    'tpr': tpr,
+                    'fpr': fpr,
+                    'count': int(len(data)),
+                    'positive_n': positive_n,
+                    'negative_n': negative_n,
+                    'minimum_class_size': self.min_group_size,
+                    'tpr_available': tpr is not None,
+                    'fpr_available': fpr is not None,
+                    'metric_semantics': 'equalized_odds_rates_require_minimum_support_per_outcome_class',
+                })
         return pd.DataFrame(rows)
 
     def get_fairness_summary(self, outcome_col: str = 'Attrition') -> Dict[str, Any]:
