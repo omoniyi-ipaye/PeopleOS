@@ -22,6 +22,7 @@ class AnalyticsSummary(BaseModel):
     attrition_count: Optional[int] = None
     active_count: Optional[int] = None
     attrition_known_count: Optional[int] = None
+    attrition_excluded_count: Optional[int] = None
     salary_observations: Optional[int] = None
     salary_excluded_count: Optional[int] = None
     tenure_observations: Optional[int] = None
