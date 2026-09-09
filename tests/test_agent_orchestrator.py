@@ -83,7 +83,7 @@ class FakeState:
         self.model_provenance = {**self.runtime_provenance,'model_id':'fixture-model'}
 
 
-def test_causal_attrition_question_abstains_even_when_descriptive_evidence_exists():
+def test_causal_attrition_question_abstains_without_substitute_descriptive_numbers():
     answer = PeopleIntelligenceAgent(FakeState()).investigate(
         "Why is attrition elevated?"
     )
@@ -91,10 +91,8 @@ def test_causal_attrition_question_abstains_even_when_descriptive_evidence_exist
     assert answer.status == "insufficient"
     assert "cannot establish causes" in " ".join(answer.warnings)
     assert answer.model is None
-    assert "workforce.summary" in answer.tools_used
-    assert "workforce.retention_risk" in answer.tools_used
-    assert "workforce.department_risk" in answer.tools_used
-    assert 'Observed attrition share:' in answer.answer
+    assert answer.tools_used == []
+    assert 'Observed attrition share:' not in answer.answer
     assert "EmployeeID" not in answer.answer
     assert "will not infer" in answer.answer.lower()
 
