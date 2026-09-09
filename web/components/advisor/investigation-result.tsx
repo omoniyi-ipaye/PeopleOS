@@ -34,9 +34,80 @@ export function evidenceClaim(item: EvidenceItem) {
   if (['model_f1', 'model_roc_auc'].includes(item.metric ?? '')) return `${label}: ${value.toFixed(3)}`
   if (item.metric === 'salary_mean') return `${label}: ${Math.round(value).toLocaleString()}`
   if (item.metric === 'tenure_mean') return `${label}: ${value.toFixed(1)} years`
+  if (item.metric === 'age_mean') return `${label}: ${value.toFixed(1)} years`
   if (item.metric === 'lastrating_mean') return `${label}: ${value.toFixed(1)}/5`
   if (['headcount', 'record_count', 'active_count', 'department_count'].includes(item.metric ?? '')) return `${label}: ${Math.round(value).toLocaleString()}`
   return item.claim
+}
+
+function numericValue(item?: EvidenceItem) {
+  if (!item || item.value === null || item.value === undefined || item.value === '' || typeof item.value === 'boolean') return null
+  const value = typeof item.value === 'number' ? item.value : Number(item.value)
+  return Number.isFinite(value) ? value : null
+}
+
+function requestedMetric(question: string) {
+  const q = question.toLowerCase()
+  if (/\b(headcount|how many|employee count|workforce size|staff count)\b/.test(q)) return ['active_count', 'headcount']
+  if (/\b(attrition|departure)\b/.test(q) && /\b(share|percentage|rate)\b/.test(q)) return ['observed_attrition_share']
+  if (/\b(average|mean)\b/.test(q) && /\b(salary|pay|compensation)\b/.test(q)) return ['salary_mean']
+  if (/\b(average|mean)\b/.test(q) && /\btenure\b/.test(q)) return ['tenure_mean']
+  if (/\b(average|mean)\b/.test(q) && /\bage\b/.test(q)) return ['age_mean']
+  if (/\b(average|mean)\b/.test(q) && /\b(rating|performance rating)\b/.test(q)) return ['lastrating_mean']
+  if (/\b(how many|number of)\b/.test(q) && /\bdepartments?\b/.test(q)) return ['department_count']
+  return []
+}
+
+function directAnswer(question: string, items: EvidenceItem[]) {
+  const wanted = requestedMetric(question)
+  const item = wanted.flatMap(metric => items.filter(candidate => candidate.metric === metric))[0]
+  const value = numericValue(item)
+  if (!item || value === null) return null
+
+  switch (item.metric) {
+    case 'active_count':
+    case 'headcount':
+      return `Your current active workforce is ${Math.round(value).toLocaleString()} people.`
+    case 'observed_attrition_share':
+      return `Recorded attrition share is ${(value * 100).toFixed(1)}%. This is the share of known employee outcomes marked as departed, not automatically a period turnover rate.`
+    case 'salary_mean':
+      return `Average active-employee salary is ${Math.round(value).toLocaleString()} in the source reporting currency.`
+    case 'tenure_mean':
+      return `Average active-employee tenure is ${value.toFixed(1)} years.`
+    case 'age_mean':
+      return `Average active-employee age is ${value.toFixed(1)} years.`
+    case 'lastrating_mean':
+      return `Average active-employee rating is ${value.toFixed(1)}/5.`
+    case 'department_count':
+      return `Your current workforce is represented across ${Math.round(value).toLocaleString()} departments.`
+    default:
+      return null
+  }
+}
+
+function humanAnswer(result: AgentAnswer, items: EvidenceItem[]) {
+  if (result.status === 'insufficient' || result.status === 'unavailable') {
+    const reason = result.evidence.unknowns[0] ?? result.warnings[0]
+    return reason
+      ? `PeopleOS can't answer this reliably from the current data. ${userFacingWarning(reason)}`
+      : `PeopleOS can't answer this reliably from the current data.`
+  }
+
+  const direct = directAnswer(result.question, items)
+  if (direct) return direct
+
+  const useful = items.filter((item, index, all) =>
+    numericValue(item) !== null && all.findIndex(candidate => candidate.metric === item.metric && candidate.claim === item.claim) === index
+  ).slice(0, 3)
+
+  if (!useful.length) return result.status === 'partial'
+    ? 'PeopleOS found some relevant context, but there is not enough measured evidence to give a reliable conclusion.'
+    : 'PeopleOS completed the investigation, but there is no concise measured result to surface.'
+
+  const intro = result.status === 'partial'
+    ? 'Here is what the available evidence can support so far:'
+    : 'Here is what your workforce data shows:'
+  return `${intro}\n${useful.map(item => `• ${evidenceClaim(item)}`).join('\n')}`
 }
 
 export function InvestigationResult({ result, source }: { result: AgentAnswer; source: string }) {
@@ -47,6 +118,7 @@ export function InvestigationResult({ result, source }: { result: AgentAnswer; s
   const limitations = Array.from(new Set([...result.warnings, ...tools.flatMap(tool => tool.warnings)]))
   const complete = result.status === 'complete'
   const partial = result.status === 'partial'
+  const displayAnswer = humanAnswer(result, items)
 
   return <div className="space-y-4">
     <Surface padding="lg" className="overflow-hidden">
@@ -55,11 +127,11 @@ export function InvestigationResult({ result, source }: { result: AgentAnswer; s
         <StatusBadge tone={complete ? 'success' : partial ? 'warning' : 'neutral'}>{complete ? 'Supported by your data' : partial ? 'Some evidence missing' : 'Not enough evidence'}</StatusBadge>
       </div>
 
-      <div className="mt-6 whitespace-pre-wrap break-words text-[15px] leading-7 text-slate-800 dark:text-slate-200">{result.answer}</div>
+      <div className="mt-6 whitespace-pre-wrap break-words text-[17px] leading-8 text-slate-800 dark:text-slate-200">{displayAnswer}</div>
 
       <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-slate-200/70 pt-4 text-xs text-slate-500 dark:border-white/10 dark:text-slate-400">
         <span className="inline-flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />Source: {source}</span>
-        <span>{result.model ? 'AI organised verified evidence' : 'Deterministic answer'}</span>
+        <span>{result.model ? 'AI organised verified evidence' : 'Calculated from verified data'}</span>
         <span>{items.length} supporting evidence item{items.length === 1 ? '' : 's'}</span>
       </div>
     </Surface>
@@ -89,7 +161,11 @@ export function InvestigationResult({ result, source }: { result: AgentAnswer; s
 
     <details className="group rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500">Technical details<ChevronDown className="h-4 w-4 text-slate-400 transition group-open:rotate-180" /></summary>
-      <div className="border-t border-slate-200/70 p-5 text-sm dark:border-white/10"><div className="space-y-3">{tools.map(tool => <div key={tool.result_id} className="flex items-start justify-between gap-4 border-b border-border pb-3 last:border-0"><div><div className="font-medium">{tool.tool_id.replaceAll('_', ' ').replaceAll('.', ' · ')}</div><div className="mt-1 text-xs text-text-muted">{userFacingWarning(tool.summary)} · {tool.evidence.length} evidence items</div></div><StatusBadge tone={tool.status === 'success' ? 'success' : tool.status === 'failed' ? 'danger' : 'warning'}>{tool.status}</StatusBadge></div>)}</div><p className="mt-4 break-all text-xs text-text-muted">Request: {result.request_id}</p></div>
+      <div className="border-t border-slate-200/70 p-5 text-sm dark:border-white/10">
+        <div className="space-y-3">{tools.map(tool => <div key={tool.result_id} className="flex items-start justify-between gap-4 border-b border-border pb-3 last:border-0"><div><div className="font-medium">{tool.tool_id.replaceAll('_', ' ').replaceAll('.', ' · ')}</div><div className="mt-1 text-xs text-text-muted">{userFacingWarning(tool.summary)} · {tool.evidence.length} evidence items</div></div><StatusBadge tone={tool.status === 'success' ? 'success' : tool.status === 'failed' ? 'danger' : 'warning'}>{tool.status}</StatusBadge></div>)}</div>
+        <details className="mt-5 rounded-xl border border-border p-4"><summary className="cursor-pointer text-xs font-semibold text-text-secondary">Raw verified response</summary><pre className="mt-3 whitespace-pre-wrap break-words font-sans text-xs leading-5 text-text-muted">{result.answer}</pre></details>
+        <p className="mt-4 break-all text-xs text-text-muted">Request: {result.request_id}</p>
+      </div>
     </details>
   </div>
 }
