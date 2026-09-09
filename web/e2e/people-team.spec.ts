@@ -143,7 +143,7 @@ test('Ask PeopleOS stays simple while evidence and raw verification remain inspe
   await expect(page.getByText('Your current active workforce is 80 people.', { exact: true })).toBeVisible()
   await expect(page.getByText('PeopleOS answer', { exact: true })).toBeVisible()
   await expect(page.getByText('Why you can trust this answer', { exact: true })).toBeVisible()
-  expect(page.getByText(result.answer, { exact: true })).toHaveCount(0)
+  await expect(page.getByText(result.answer, { exact: true })).not.toBeVisible()
 
   await page.locator('summary').filter({ hasText: 'Why you can trust this answer' }).click()
   await expect(page.getByText('Evidence quality', { exact: true })).toBeVisible()
@@ -200,7 +200,7 @@ test('five-item navigation is calm and every core destination fits desktop and m
     ['Plan','/scenario-planner','What if we changed something?'],
     ['Data','/upload','Your workforce data'],
     ['Trust & Privacy','/platform','Can I rely on PeopleOS?'],
-    ['Settings','/settings','System configuration and capability state'],
+    ['Settings','/settings','PeopleOS settings'],
   ] as const
   for (const [name,path,heading] of destinations) {
     await openPrimary(page, name, path)
