@@ -1,63 +1,73 @@
 # Public beta release checklist
 
 This is a preparation record, not a published release or a production certification.
-Baseline: `ae986ef5be780790a798871d5a20fb6d2e95f343` (PR #5 merged).
-Candidate branch: `release/public-beta-preparation`. Exact candidate and CI evidence
-will be recorded in the preparation PR. Do not publish artifacts from mixed revisions.
+
+Baseline before public-beta hardening: `ae986ef5be780790a798871d5a20fb6d2e95f343` (PR #5 merged).
+Verified public-beta candidate: `90f1958708a78481b8931893076f14c076be92a1`.
+Merged to `main`: `a300db48b2fe6d11076ed14fcdd891d170316764` via PR #6.
 
 ## Intended release scope
 
-Local, single-user descriptive People analytics and evidence-backed investigations.
-Use fictional sample data first. Show source populations, exclusions, units and
-limitations. Predictive outputs require their existing explicit evaluation/activation
-controls; no prospective organizational predictive accuracy is claimed. Cloud acceptance
-is test evidence only, not a shipped cloud-provider setting or offline validation.
+Local, single-user descriptive People analytics and evidence-backed investigations for People Operations and HR teams. Start with fictional sample data. PeopleOS shows source populations, exclusions, units, validation state and limitations. Predictive outputs remain behind explicit evaluation/activation controls and no prospective organization-specific predictive accuracy is claimed.
 
-## Required release gates
+## Engineering gates — completed
 
-- [ ] Owner chooses distribution licence; current commercial restriction remains in force.
-- [ ] All six existing candidate workflows pass, preserving all three desktop smoke/restart checks.
-- [ ] New archive/checksum/provenance checks pass on Windows x64, macOS ARM64 and Linux x64.
-- [ ] Native local Ollama acceptance passes with runtime/model identity and scope recorded,
-      or local AI is explicitly an unvalidated optional preview in release notes.
-- [ ] Dependency/security audit findings are triaged; no known release-blocking issue hidden.
-- [ ] Published documentation matches actual UI, supported data and recovery capabilities.
-- [ ] Fresh-user installation and dummy-data walkthrough completed on target machines;
-      CI is supporting evidence, not a substitute for human usability feedback.
-- [ ] Archive contents and third-party distribution notices reviewed. Downloaded model
-      weights have their own terms and are not implicitly licensed by PeopleOS.
-- [ ] Version/tag and release notes identify one verified commit and its checksums.
-- [ ] Public publication authorized after the reviewable candidate and assets are ready.
+- [x] Agent Foundation passed on the verified candidate.
+- [x] Frontend Modernization passed on the verified candidate.
+- [x] E2E User Journey passed on the verified candidate.
+- [x] Analytics Validation passed on the verified candidate.
+- [x] People Team Browser Acceptance passed its full desktop/mobile rerun on the verified candidate.
+- [x] Local Desktop Build passed for Windows x64, macOS ARM64 and Linux x64 build/smoke/restart/archive paths.
+- [x] Release Security passed across the validated frontend and Python dependency profiles.
+- [x] Local Ollama Acceptance passed on the verified candidate.
+- [x] README updated to the current People-team product positioning.
+- [x] Commercial-use policy documented and a request template added.
+- [x] Pilot feedback template added.
 
-## Baseline evidence
+## Licensing status
 
-[PR #5](https://github.com/omoniyi-ipaye/PeopleOS/pull/5): six candidate workflows green;
-24 production-browser journeys; 816 local Python tests and 42 renderer tests;
-34 stress checks on 20,000 fictional employees, 96 live dummy checks and nine public
-benchmark mechanics checks. These counts overlap and must not be added together.
-Gemma 4 31B and GPT-OSS 120B each passed ten actual cloud selections, five pre-model
-gates and one induced recovery case. Kimi K3 returned HTTP 402; native local inference
-was not executed in that pass. Candidate-specific changes require fresh applicable checks.
+PeopleOS remains **source-available**, not OSI open source.
 
-## Licensing decision prepared for the owner
+The current `LICENSE` retains the Apache 2.0 text plus an additional commercial-use restriction. Commercial use is prohibited without the express written permission of Omoniyi Ipaye. See `COMMERCIAL_USE.md` for the plain-language explanation and the Commercial use request issue template for the permission workflow.
 
-Recommended for the requested open-source launch: retain Apache License 2.0 terms and
-copyright attribution, remove the appended commercial-use restriction, and state the
-chosen terms consistently in README and release notes. Business use would be permitted.
-The exact proposed edit is [PROPOSED_APACHE_LICENSE.patch](PROPOSED_APACHE_LICENSE.patch).
-This document proposes that change; it does not grant new rights or change LICENSE.
-Confirm ownership/contributor rights before relicensing contributions. If the restriction
-is retained, describe the release as source-available rather than open source.
+This repository must not describe the project as unrestricted open source while that additional restriction remains in force.
 
-References: [current licence](../../LICENSE),
-[Open Source Definition](https://opensource.org/osd),
-[Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0).
+## Ready for pilot
+
+The following are now engineering-ready for a controlled pilot:
+
+- fictional sample-data onboarding;
+- `.xlsx`, `.csv` and `.json` imports;
+- deterministic workforce analytics;
+- governed Ask PeopleOS investigations;
+- privacy-bounded aggregate drill-down with typed cohort filters;
+- evidence/provenance inspection;
+- scenario planning with non-consequential boundaries;
+- packaged desktop lifecycle controls;
+- desktop/mobile browser acceptance coverage.
+
+## Human / owner-controlled items still open
+
+- [ ] Independent fresh-user installation and usability walkthrough on target machines.
+- [ ] Capture pilot outcomes and recurring friction using the pilot feedback template.
+- [ ] Decide whether Windows code signing and macOS notarization are required before broad public distribution.
+- [ ] Choose a version/tag and final public release notes when publication is authorized.
+- [ ] Review release archives, checksums and third-party/model notices before publishing binaries.
+- [ ] Explicitly authorize creation of a GitHub Release / public binary distribution.
+- [ ] Perform organization-specific prospective predictive validation before making stronger intended-use predictive claims.
 
 ## Distribution limitations
 
-CI artifacts are temporary build evidence until promoted to a versioned release.
-Checksums detect changed bytes; they do not establish publisher identity. No signing,
-macOS notarization or Windows reputation claim is made. Do not tell users to disable
-system-wide security protections. Local file copies are not a tested enterprise backup
-service. Multi-user hosting, enterprise identity and real employee-data pilots are outside
-this beta preparation pass.
+CI artifacts are build evidence until promoted to a versioned release. Checksums establish byte integrity, not publisher identity. No Windows signing, macOS notarization or publisher reputation claim is currently made. Do not tell users to disable system-wide security protections. Multi-user hosting, enterprise identity, organization-specific retention policies and real employee-data pilots remain outside the current public-beta engineering validation.
+
+## Verification summary
+
+PR #6 (`Prepare public beta distribution and close dependency security gaps`) merged the verified candidate after all eight required workflows passed. The final browser acceptance rerun passed the complete desktop/mobile journeys and its action/process coverage ledger. No privacy, evidence, security or analytical guardrail was weakened to obtain the passing result.
+
+See also:
+
+- `docs/product/PEOPLEOS_10_10_PRODUCT_PLAN.md`
+- `COMMERCIAL_USE.md`
+- `SECURITY.md`
+- `docs/PUBLIC_BETA_GUIDE.md`
+- PR #6 workflow evidence
