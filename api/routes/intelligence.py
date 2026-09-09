@@ -9,7 +9,8 @@ from pydantic import BaseModel, Field
 
 from api.authorization import require_permission
 from api.dependencies import AppState, get_app_state
-from src.agent.orchestrator import AgentAnswer, PeopleIntelligenceAgent
+from src.agent.orchestrator import AgentAnswer
+from src.agent.governed_agent import GovernedPeopleIntelligenceAgent
 from src.platform.workspace import WorkspaceStore
 from src.platform.provenance import IntegrityError, require_dataset_identity
 
@@ -27,35 +28,35 @@ class InvestigationRequest(BaseModel):
 
 def require_dataset(state: AppState = Depends(get_app_state)) -> AppState:
     if not state.has_data() and not state.load_from_database():
-        raise HTTPException(
-            status_code=400,
-            detail="No workforce dataset is loaded. Upload data before starting an investigation.",
-        )
+        raise HTTPException(status_code=400, detail="No workforce dataset is loaded. Upload data before starting an investigation.")
     return state
 
 
 @router.get("/capabilities")
 async def capabilities(request: Request, state: AppState = Depends(get_app_state)) -> dict:
     require_permission(request, "workspace.read")
-    agent = PeopleIntelligenceAgent(state)
+    agent = GovernedPeopleIntelligenceAgent(state)
     workspace = _store.ensure_workspace("local", "Local workspace")
     return {
         "agent": "People Intelligence Agent",
         "mode": "governed-read-only",
-        "tools": agent.registry.list_ids(),
+        "tools": agent.registry.list_ids() + [agent.derived_tool.tool_id],
         "policy": agent.policy.policy_id,
         "llm_available": bool(getattr(state, "llm_client", None) and getattr(state.llm_client, "is_available", False)),
+        "derived_analysis": {
+            "enabled": True,
+            "execution": "typed-deterministic",
+            "row_level_output": False,
+            "shell_access": False,
+            "network_access": False,
+        },
         "data_loaded": state.has_data(),
         "workspace": workspace.model_dump(mode="json"),
     }
 
 
 @router.post("/investigate", response_model=AgentAnswer)
-async def investigate(
-    payload: InvestigationRequest,
-    request: Request,
-    state: AppState = Depends(require_dataset),
-) -> AgentAnswer:
+async def investigate(payload: InvestigationRequest, request: Request, state: AppState = Depends(require_dataset)) -> AgentAnswer:
     """Investigate a workforce question through governed aggregate tools."""
     actor = require_permission(request, "investigate")
     workspace = _store.ensure_workspace(payload.workspace_id)
@@ -89,13 +90,15 @@ async def investigate(
     model_id = session.model_id or workspace.active_model_id
     if model_id and model_id != (getattr(state, 'model_provenance', None) or {}).get('model_id'):
         raise HTTPException(status_code=409, detail='Investigation model differs from the active runtime model. Start a new investigation.')
+
     with RUNTIME_MUTATION_LOCK:
         try:
             require_dataset_identity(state, payload.workspace_id, dataset_id)
         except IntegrityError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         analysis_state = SimpleNamespace(**state.__dict__)
-    answer = PeopleIntelligenceAgent(analysis_state).investigate(
+
+    answer = GovernedPeopleIntelligenceAgent(analysis_state).investigate(
         payload.question,
         actor_id=actor.actor_id,
         workspace_id=payload.workspace_id,
