@@ -8,6 +8,7 @@ on:
       - 'src/compensation_engine.py'
       - 'src/population.py'
       - 'tests/test_compensation_engine_forensic_cycle009.py'
+      - 'tests/test_compensation_engine_forensic_semantics_cycle009.py'
       - 'scripts/stress_compensation_engine_cycle009.py'
       - '.github/workflows/compensation-engine-forensic.yml'
 
@@ -26,7 +27,7 @@ jobs:
       - name: Install CompensationEngine-only validation dependencies
         run: python -m pip install pandas==2.1.4 numpy==1.26.3 scipy==1.15.3 pytest==9.0.3 pyyaml==6.0.1
       - name: Run CompensationEngine forensic contracts
-        run: pytest -q tests/test_compensation_engine_forensic_cycle009.py
+        run: pytest -q tests/test_compensation_engine_forensic_cycle009.py tests/test_compensation_engine_forensic_semantics_cycle009.py
       - name: Run 250k-row CompensationEngine stress harness
         run: python scripts/stress_compensation_engine_cycle009.py --rows 250000 --output compensation-engine-cycle009-stress.json
       - name: Preserve CompensationEngine forensic evidence
