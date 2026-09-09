@@ -120,7 +120,9 @@ def main() -> None:
         assert counts[0]["dataset_version"] == status["active_dataset_id"], counts
         assert re.search(rf"Current active employee count: {expected_headcount:,}(?![\d,])", result["answer"]), result["answer"]
 
-        expect(page.get_by_text(result["answer"], exact=True)).to_be_visible(timeout=30_000)
+        # The foreground is a concise People-team answer, not the internal
+        # evidence/audit rendering returned by the API.
+        expect(page.get_by_text(f"Your current active workforce is {expected_headcount:,} people.", exact=True)).to_be_visible(timeout=30_000)
         expect(page.get_by_text("PeopleOS answer", exact=True)).to_be_visible()
         expect(page.get_by_text("Why you can trust this answer", exact=True)).to_be_visible()
 
@@ -134,6 +136,17 @@ def main() -> None:
         expect(ledger).to_be_visible()
         ledger.click()
         expect(page.get_by_text(f"Current active employee count: {expected_headcount:,}", exact=True)).to_be_visible()
+
+        # The exact raw response remains inspectable for audit/debugging without
+        # competing with the normal People-team experience.
+        technical = page.locator("summary").filter(has_text="Technical details")
+        technical.click()
+        raw = page.locator("summary").filter(has_text="Raw verified response")
+        raw.click()
+        expect(page.get_by_text(result["answer"], exact=True)).to_be_visible()
+        raw.click()
+        technical.click()
+
         page.screenshot(path=str(ARTIFACT_DIR / "14-investigation-answer.png"), full_page=True)
 
         # The user-facing surface stays simple while the governance contract remains
