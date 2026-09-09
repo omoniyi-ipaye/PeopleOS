@@ -40,7 +40,6 @@ export default function DecisionCockpitPage() {
 
   const departments = departmentData?.departments ?? []
   const largestDepartment = [...departments].sort((a, b) => b.headcount - a.headcount)[0]
-  // An explicitly unavailable modern measurement must not revive a legacy value.
   const rawAttritionShare = summary.observed_attrition_share !== undefined ? summary.observed_attrition_share : summary.turnover_rate
   const observedAttritionShare = rawAttritionShare != null && Number.isFinite(rawAttritionShare) && rawAttritionShare >= 0 && rawAttritionShare <= 1 ? rawAttritionShare : null
   const rating = summary.lastrating_mean ?? null
@@ -79,7 +78,7 @@ export default function DecisionCockpitPage() {
   ] as const
 
   return <div className="mx-auto max-w-[1440px] space-y-6 pb-10">
-    <section className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between"><div><div className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-violet-600 dark:text-violet-300">Decision cockpit</div><h1 className="text-3xl font-semibold tracking-tight text-slate-950 dark:text-white md:text-4xl">What deserves your attention?</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-400">Start with the workforce signals that matter. Evidence boundaries stay available without competing with the decision itself.</p></div><Link href="/advisor" className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-slate-800 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-100"><Brain className="h-4 w-4" /> Ask PeopleOS</Link></section>
+    <section className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between"><div><div className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-violet-600 dark:text-violet-300">Decision cockpit</div><h1 className="text-3xl font-semibold tracking-tight text-slate-950 dark:text-white md:text-4xl">What deserves your attention?</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-400">Start with the workforce signals that matter. Evidence boundaries stay available without competing with the decision itself.</p></div><Link href="/advisor" aria-label="Start an investigation" className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-slate-800 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-100"><Brain className="h-4 w-4" /> Ask PeopleOS</Link></section>
 
     {status?.integrity?.snapshot && <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-600 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300"><span>Source: <strong>{status.integrity.snapshot.source_name ?? 'Current workforce dataset'}</strong>{status.integrity.snapshot.dataset_version != null ? ` · version ${status.integrity.snapshot.dataset_version}` : ''}</span><span>{status.integrity.status === 'verified' ? 'Dataset snapshot verified' : 'Dataset integrity needs attention'}</span><Link href="/upload" className="font-semibold text-violet-600 dark:text-violet-300">Manage data source</Link></div>}
 
