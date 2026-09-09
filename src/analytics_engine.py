@@ -12,6 +12,7 @@ carry the exposure denominator required for that calculation.
 
 from __future__ import annotations
 
+import re
 from typing import Any, Optional
 
 import numpy as np
@@ -24,6 +25,17 @@ from src.utils import load_config
 
 logger = get_logger('analytics_engine')
 MIN_CORRELATION_OBSERVATIONS = 10
+
+_IDENTIFIER_COLUMN = re.compile(
+    r"(?:^|_)(employee_?id|manager_?id|name|first_?name|last_?name|email|phone|address|"
+    r"ssn|social_?security|passport|national_?id|nie|dni)(?:$|_)",
+    re.I,
+)
+
+
+def _is_identifier_like(column: str) -> bool:
+    normalized = re.sub(r'[^a-z0-9]+', '_', str(column).lower()).strip('_')
+    return bool(_IDENTIFIER_COLUMN.search(normalized))
 
 
 def _valid_numeric(series: pd.Series, name: str) -> pd.Series:
@@ -149,10 +161,15 @@ class AnalyticsEngine:
         return pd.DataFrame(rows)
 
     def get_correlations(self, target_column: str = 'Attrition', max_features: int = 20) -> pd.DataFrame:
-        """Pairwise Pearson association with explicit support and p-value."""
-        if target_column not in self.df.columns:
+        """Pairwise Pearson association with explicit support and p-value.
+
+        Identifier-like columns are excluded even when numerically encoded. Numeric
+        identifiers have arithmetic values but no defensible quantitative meaning.
+        """
+        if target_column not in self.df.columns or _is_identifier_like(target_column):
             return pd.DataFrame()
-        numeric = self.df.select_dtypes(include=[np.number]).drop(columns=['EmployeeID'], errors='ignore').replace([np.inf, -np.inf], np.nan)
+        numeric = self.df.select_dtypes(include=[np.number]).replace([np.inf, -np.inf], np.nan)
+        numeric = numeric[[column for column in numeric.columns if not _is_identifier_like(column)]]
         for col in numeric:
             numeric[col] = _valid_numeric(numeric[col], col).reindex(numeric.index)
         if target_column not in numeric.columns or numeric[target_column].dropna().nunique() < 2:
@@ -282,6 +299,8 @@ class AnalyticsEngine:
         return stats_df[stats_df[metric].fillna(-1) > threshold].sort_values(metric, ascending=False)
 
     def compare_groups(self, group_col: str, metric_col: str) -> dict:
+        if _is_identifier_like(group_col) or _is_identifier_like(metric_col):
+            return {'success': False, 'reason': 'Identifier-like columns are not valid analytical dimensions or measures'}
         if group_col not in self.active_df.columns or metric_col not in self.active_df.columns:
             return {'success': False, 'reason': 'Columns not found'}
         frame = self.active_df.dropna(subset=[group_col, metric_col]).copy()
@@ -314,7 +333,7 @@ class AnalyticsEngine:
             return {'success': False, 'reason': str(exc)}
 
     def get_confidence_interval(self, col: str, confidence: float = 0.95) -> Optional[tuple]:
-        if col not in self.active_df.columns:
+        if _is_identifier_like(col) or col not in self.active_df.columns:
             return None
         if not 0 < confidence < 1:
             raise ValueError('confidence must be between zero and one')
