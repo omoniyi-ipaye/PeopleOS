@@ -36,7 +36,7 @@ def fetch_json(url: str) -> dict:
 
 
 def assert_route(page: Page, path: str, heading: str, screenshot: str) -> None:
-    page.goto(f"{BASE_URL}{path}", wait_until="networkidle", timeout=120_000)
+    page.goto(f"{BASE_URL}{path}", wait_until="domcontentloaded", timeout=120_000)
     page.get_by_role("heading", name=heading).wait_for(timeout=30_000)
     body = page.locator("body").inner_text()
     assert "Application error" not in body, f"{path}: {body[-2000:]}"
@@ -87,12 +87,13 @@ def main() -> None:
         for path, heading, screenshot in routes:
             assert_route(page, path, heading, screenshot)
 
-        page.goto(f"{BASE_URL}/flight-risk", wait_until="networkidle", timeout=120_000)
+        page.goto(f"{BASE_URL}/flight-risk", wait_until="domcontentloaded", timeout=120_000)
         body = page.locator("body").inner_text()
         assert "Where is predictive retention pressure concentrated?" in body or "Predictive retention signals are not active" in body, body[-2000:]
         page.screenshot(path=str(ARTIFACT_DIR / "13-retention-signals.png"), full_page=True)
 
-        page.goto(f"{BASE_URL}/advisor", wait_until="networkidle", timeout=120_000)
+        page.goto(f"{BASE_URL}/advisor", wait_until="domcontentloaded", timeout=120_000)
+        page.get_by_role("heading", name="What would you like to understand?").wait_for(timeout=30_000)
         summary = fetch_json(f"{API_URL}/api/analytics/summary")
         expected_headcount = summary["headcount"]
         assert isinstance(expected_headcount, int) and expected_headcount > 0, summary
