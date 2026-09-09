@@ -66,12 +66,7 @@ def _stable_salary_stats(values: pd.Series) -> tuple[float, float, float]:
 
 
 def _stable_welch_ttest(first: pd.Series, second: pd.Series) -> tuple[Optional[float], Optional[float]]:
-    """Welch t-test on a common positive scale to avoid overflow.
-
-    A positive common scale leaves the t statistic and p-value unchanged. When
-    the standard error is zero or the finite degrees-of-freedom calculation is
-    unavailable, inferential output fails closed rather than emitting inf/NaN.
-    """
+    """Welch t-test on a common positive scale to avoid overflow."""
     a = np.asarray(first, dtype=float)
     b = np.asarray(second, dtype=float)
     if len(a) < 2 or len(b) < 2 or not np.isfinite(a).all() or not np.isfinite(b).all():
@@ -170,12 +165,6 @@ class CompensationEngine:
         return pd.DataFrame(rows)
 
     def calculate_pay_equity_score(self) -> pd.DataFrame:
-        """Compatibility endpoint for within-department salary dispersion.
-
-        `EquityScore` is NOT an adjusted pay-equity conclusion. It is retained so
-        existing API clients continue to work while the semantic field is exposed
-        as `MetricSemantics=salary_dispersion_consistency`.
-        """
         if 'Dept' not in self.df.columns:
             return pd.DataFrame()
         rows = []
@@ -218,7 +207,6 @@ class CompensationEngine:
         return pd.DataFrame(rows)
 
     def get_salary_bands(self) -> pd.DataFrame:
-        """Return salary quartiles; quartiles are not job/career levels."""
         salary = self.df['Salary']
         q = salary.quantile([0, .25, .5, .75, 1]).values
         labels = ['Q1 – lower quartile', 'Q2', 'Q3', 'Q4 – upper quartile']
@@ -230,13 +218,41 @@ class CompensationEngine:
         return pd.DataFrame(rows)
 
     def calculate_compa_ratio(self) -> pd.DataFrame:
-        """Calculate true compa-ratio only when a supplied ratio/band basis exists.
-
-        If no external band midpoint exists in the schema, return a clearly named
-        relative-to-department-median ratio in the compatibility columns.
-        """
+        """Use supplied market-band midpoint when available; otherwise preserve compatibility fallback."""
         frame = self.df.copy()
-        if 'CompaRatio' in frame.columns:
+        supplied_midpoint = 'BandMidpoint' in frame.columns
+        supplied_ratio = 'CompaRatio' in frame.columns
+
+        if supplied_midpoint:
+            midpoint = pd.to_numeric(frame['BandMidpoint'], errors='coerce')
+            midpoint = midpoint.where(np.isfinite(midpoint) & (midpoint > 0))
+            with np.errstate(over='ignore', divide='ignore', invalid='ignore'):
+                expected_ratio = frame['Salary'] / midpoint
+            expected_ratio = expected_ratio.where(np.isfinite(expected_ratio) & (expected_ratio > 0))
+            ratio = expected_ratio.copy()
+            semantics = 'supplied_band_midpoint_compa_ratio'
+
+            if supplied_ratio:
+                stated = pd.to_numeric(frame['CompaRatio'], errors='coerce')
+                stated = stated.where(np.isfinite(stated) & (stated > 0))
+                comparable = stated.notna() & expected_ratio.notna()
+                consistent = pd.Series(True, index=frame.index)
+                consistent.loc[comparable] = np.isclose(
+                    stated.loc[comparable].to_numpy(dtype=float),
+                    expected_ratio.loc[comparable].to_numpy(dtype=float),
+                    rtol=1e-6,
+                    atol=1e-9,
+                )
+                mismatched = comparable & ~consistent
+                ratio = expected_ratio.where(~mismatched)
+                if int(mismatched.sum()):
+                    self.warnings.append(
+                        f'Marked {int(mismatched.sum())} compa-ratio row(s) unavailable because supplied ratio and band midpoint were inconsistent'
+                    )
+                semantics = 'supplied_band_midpoint_compa_ratio_verified_against_supplied_ratio'
+            frame['BandMidpoint'] = midpoint
+            frame['CompaRatio'] = ratio
+        elif supplied_ratio:
             ratio = pd.to_numeric(frame['CompaRatio'], errors='coerce')
             ratio = ratio.where(np.isfinite(ratio) & (ratio > 0))
             frame['CompaRatio'] = ratio
@@ -254,6 +270,7 @@ class CompensationEngine:
             frame['CompaRatio'] = frame['Salary'] / midpoint.replace(0, np.nan)
             semantics = 'relative_to_department_median_not_formal_compa_ratio'
             self.warnings.append('No external salary-band midpoint was supplied; displayed compa-ratio compatibility values are relative to department median')
+
         frame['CompaStatus'] = [
             'Unavailable' if pd.isna(r) or not np.isfinite(r) or r <= 0 or pd.isna(m) or not np.isfinite(m)
             else 'Below reference' if r < .8 else 'Above reference' if r > 1.2 else 'Near reference'
@@ -264,7 +281,6 @@ class CompensationEngine:
         return frame[cols]
 
     def correlate_salary_with_attrition(self) -> Dict[str, Any]:
-        """Association across current employee records, including departed outcomes."""
         frame, _ = resolve_current_population(self.historical_df)
         if 'Attrition' not in frame.columns:
             return {'available': False, 'reason': 'Attrition unavailable'}
@@ -306,7 +322,10 @@ class CompensationEngine:
             return {
                 'available': False,
                 'reason': f'At least {min_group_size} observations per compared group are required',
-                'male_n': int(len(male_salary)), 'female_n': int(len(female_salary)),
+                'male_n': None,
+                'female_n': None,
+                'groups_suppressed': True,
+                'minimum_group_size': min_group_size,
                 'gender_known_binary_count': gender_known_binary_count,
                 'gender_excluded_count': gender_excluded_count,
                 'gender_coverage': gender_coverage,
@@ -325,10 +344,24 @@ class CompensationEngine:
                 men_mean = _stable_salary_stats(men)[0] if len(men) else 0.0
                 women_mean = _stable_salary_stats(women)[0] if len(women) else 0.0
                 eligible = len(men) >= min_group_size and len(women) >= min_group_size and men_mean > 0
-                gap = ((men_mean - women_mean) / men_mean * 100) if eligible else None
-                weight = len(men) + len(women) if eligible else 0
-                stratified_observations += weight
-                strata.append({'job_title': title, 'male_n': len(men), 'female_n': len(women), 'gap_pct': gap, 'eligible': eligible, 'weight': weight})
+                title_label = 'Unknown' if pd.isna(title) else str(title)
+                if eligible:
+                    gap = ((men_mean - women_mean) / men_mean * 100)
+                    weight = len(men) + len(women)
+                    stratified_observations += weight
+                    strata.append({
+                        'job_title': title_label,
+                        'male_n': int(len(men)), 'female_n': int(len(women)),
+                        'gap_pct': float(gap), 'eligible': True, 'suppressed': False,
+                        'minimum_group_size': min_group_size, 'weight': int(weight),
+                    })
+                else:
+                    strata.append({
+                        'job_title': title_label,
+                        'male_n': None, 'female_n': None,
+                        'gap_pct': None, 'eligible': False, 'suppressed': True,
+                        'minimum_group_size': min_group_size, 'weight': 0,
+                    })
         eligible_strata = [s for s in strata if s['eligible']]
         weight = sum(s['weight'] for s in eligible_strata)
         stratified = sum(s['gap_pct'] * s['weight'] for s in eligible_strata) / weight if weight else None
