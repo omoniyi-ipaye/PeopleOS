@@ -4,7 +4,7 @@ from __future__ import annotations
 import re
 from typing import Any, Optional
 
-from src.agent.analysis_sandbox import AnalysisSpec, GovernedAnalysisSandbox
+from src.agent.analysis_sandbox import AnalysisSpec, CohortFilter, GovernedAnalysisSandbox
 from src.agent.evidence import EvidenceItem, EvidenceKind, ToolResult, ToolResultStatus
 from src.agent.tools import ToolContext
 
@@ -20,55 +20,112 @@ _GROUPS = {
 }
 
 
-def plan_derived_analysis(question: str) -> Optional[AnalysisSpec]:
-    """Translate explicit aggregate analytical language into a bounded spec.
+def _cohort_filters(question: str) -> list[CohortFilter]:
+    """Extract explicit cohort constraints without guessing unknown entities."""
+    q = re.sub(r'\s+', ' ', question.strip())
+    filters: list[CohortFilter] = []
 
-    This grammar intentionally covers common People-team follow-ups rather than
-    guessing at arbitrary intent. Unsupported requests continue through the
-    normal fail-closed agent path.
-    """
+    categorical_patterns = [
+        ('Dept', r'\b(?:department|team|function)\s*(?:=|is|of)?\s*["“]?([A-Za-z][A-Za-z0-9 &/._-]{1,50})["”]?(?=\s*(?:,|and|with|where|who|having|$))'),
+        ('Location', r'\b(?:location|office|city|country)\s*(?:=|is|of)?\s*["“]?([A-Za-z][A-Za-z0-9 &/._-]{1,50})["”]?(?=\s*(?:,|and|with|where|who|having|$))'),
+        ('JobLevel', r'\b(?:job\s+level|level)\s*(?:=|is)?\s*["“]?([A-Za-z0-9._-]{1,30})["”]?'),
+        ('JobTitle', r'\b(?:job\s+title|role)\s*(?:=|is)?\s*["“]?([A-Za-z][A-Za-z0-9 &/._-]{1,60})["”]?(?=\s*(?:,|and|with|where|who|having|$))'),
+        ('Gender', r'\bgender\s*(?:=|is)?\s*["“]?([A-Za-z][A-Za-z -]{1,30})["”]?'),
+    ]
+    for column, pattern in categorical_patterns:
+        match = re.search(pattern, q, re.I)
+        if match:
+            filters.append(CohortFilter(column=column, operator='eq', value=match.group(1).strip()))
+
+    # Natural People-language shortcuts: "Engineering in Madrid" and "women in Sales".
+    known_lead = re.search(r'\b([A-Z][A-Za-z0-9 &/._-]{1,40})\s+(?:employees?|people|staff)\s+in\s+([A-Z][A-Za-z0-9 &/._-]{1,40})\b', q)
+    if known_lead and not any(f.column == 'Dept' for f in filters) and not any(f.column == 'Location' for f in filters):
+        filters.extend([
+            CohortFilter(column='Dept', operator='eq', value=known_lead.group(1).strip()),
+            CohortFilter(column='Location', operator='eq', value=known_lead.group(2).strip()),
+        ])
+
+    for word, value in [('women', 'Female'), ('female', 'Female'), ('men', 'Male'), ('male', 'Male')]:
+        if re.search(rf'\b{word}\b', q, re.I) and not any(f.column == 'Gender' for f in filters):
+            filters.append(CohortFilter(column='Gender', operator='eq', value=value))
+            break
+
+    numeric_columns = {
+        'tenure': 'Tenure', 'age': 'Age', 'salary': 'Salary', 'pay': 'Salary',
+        'rating': 'LastRating', 'performance rating': 'LastRating',
+    }
+    numeric_words = '|'.join(sorted(map(re.escape, numeric_columns), key=len, reverse=True))
+    comparisons = [
+        ('lte', r'(?:under|below|less than|at most|up to)\s*([0-9]+(?:\.[0-9]+)?)'),
+        ('gte', r'(?:over|above|more than|at least)\s*([0-9]+(?:\.[0-9]+)?)'),
+        ('lt', r'<\s*([0-9]+(?:\.[0-9]+)?)'),
+        ('gt', r'>\s*([0-9]+(?:\.[0-9]+)?)'),
+    ]
+    for metric_match in re.finditer(rf'\b({numeric_words})\b([^,.;]*)', q, re.I):
+        column = numeric_columns[metric_match.group(1).lower()]
+        tail = metric_match.group(2)
+        for operator, pattern in comparisons:
+            comp = re.search(pattern, tail, re.I)
+            if comp:
+                filters.append(CohortFilter(column=column, operator=operator, value=float(comp.group(1))))
+                break
+
+    # Deduplicate exact filters while preserving order.
+    unique: list[CohortFilter] = []
+    seen = set()
+    for item in filters:
+        key = (item.column, item.operator, str(item.value).casefold())
+        if key not in seen:
+            seen.add(key); unique.append(item)
+    return unique[:8]
+
+
+def plan_derived_analysis(question: str) -> Optional[AnalysisSpec]:
+    """Translate explicit aggregate analytical language into a bounded spec."""
     q = re.sub(r'\s+', ' ', question.lower().strip())
     if re.search(r'\b(why|cause[sd]?|causal|because|fire|terminate|dismiss|rank employees?|which employees?|who should)\b', q):
         return None
     if re.search(r'\b(last|this|next|previous)\s+(month|quarter|year|week)\b|\b20\d{2}\b|\bq[1-4]\b', q):
         return None
 
+    filters = _cohort_filters(question)
     measure_words = '|'.join(sorted((re.escape(k) for k in _MEASURES), key=len, reverse=True))
     group_words = '|'.join(sorted((re.escape(k) for k in _GROUPS), key=len, reverse=True))
 
-    # Average/median/sum measure by a supported aggregate dimension.
     match = re.search(rf'\b(average|mean|median|total|sum)\s+(?:active[- ]employee\s+)?({measure_words})\s+(?:by|across)\s+({group_words})\b', q)
     if match:
         statistic = {'average': 'mean', 'mean': 'mean', 'median': 'median', 'total': 'sum', 'sum': 'sum'}[match.group(1)]
-        return AnalysisSpec(operation='group_summary', population='active', group_by=_GROUPS[match.group(3)], measure=_MEASURES[match.group(2)], statistic=statistic)
+        return AnalysisSpec(operation='group_summary', population='active', filters=filters, group_by=_GROUPS[match.group(3)], measure=_MEASURES[match.group(2)], statistic=statistic)
 
-    # Headcount/count by a supported dimension.
     match = re.search(rf'\b(?:headcount|employee count|people count|count)\s+(?:by|across)\s+({group_words})\b', q)
     if match:
-        return AnalysisSpec(operation='group_summary', population='active', group_by=_GROUPS[match.group(1)], statistic='count')
+        return AnalysisSpec(operation='group_summary', population='active', filters=filters, group_by=_GROUPS[match.group(1)], statistic='count')
 
-    # Recorded attrition/departure share by group uses the current population,
-    # not the active-only population.
     match = re.search(rf'\b(?:recorded |observed )?(?:attrition|departure)\s+(?:share|rate|percentage)\s+(?:by|across)\s+({group_words})\b', q)
     if match:
-        return AnalysisSpec(operation='group_summary', population='current', group_by=_GROUPS[match.group(1)], measure='Attrition', statistic='rate')
+        return AnalysisSpec(operation='group_summary', population='current', filters=filters, group_by=_GROUPS[match.group(1)], measure='Attrition', statistic='rate')
 
-    # Pairwise numeric relationship. This remains explicitly non-causal.
     match = re.search(rf'\b(?:correlation|relationship|association)\s+between\s+({measure_words})\s+and\s+({measure_words})\b', q)
     if match:
-        return AnalysisSpec(operation='correlation', population='active', measure=_MEASURES[match.group(1)], second_measure=_MEASURES[match.group(2)])
+        return AnalysisSpec(operation='correlation', population='active', filters=filters, measure=_MEASURES[match.group(1)], second_measure=_MEASURES[match.group(2)])
 
-    # Crosstab / distribution of one supported categorical dimension by another.
     match = re.search(rf'\b(?:crosstab|cross[- ]tab|distribution)\s+(?:of\s+)?({group_words})\s+(?:by|across)\s+({group_words})\b', q)
     if match and _GROUPS[match.group(1)] != _GROUPS[match.group(2)]:
-        return AnalysisSpec(operation='crosstab', population='active', group_by=_GROUPS[match.group(1)], second_group_by=_GROUPS[match.group(2)])
+        return AnalysisSpec(operation='crosstab', population='active', filters=filters, group_by=_GROUPS[match.group(1)], second_group_by=_GROUPS[match.group(2)])
+
+    # Filtered one-number summaries, e.g. "average salary for department Engineering, location Madrid, tenure under 2".
+    match = re.search(rf'\b(average|mean|median|total|sum)\s+({measure_words})\b', q)
+    if match and filters:
+        statistic = {'average': 'mean', 'mean': 'mean', 'median': 'median', 'total': 'sum', 'sum': 'sum'}[match.group(1)]
+        # A synthetic single cohort label lets the sandbox retain the same governed group-summary path.
+        return AnalysisSpec(operation='group_summary', population='active', filters=filters, group_by=filters[0].column, measure=_MEASURES[match.group(2)], statistic=statistic, max_groups=20)
 
     return None
 
 
 class GovernedDerivedAnalysisTool:
     tool_id = 'workforce.derived_analysis'
-    description = 'Runs a typed, aggregate-only downstream calculation with minimum-support and identifier controls.'
+    description = 'Runs a typed, aggregate-only downstream calculation with cohort filters, minimum-support and identifier controls.'
 
     def __init__(self, state: Any):
         self.state = state
@@ -99,6 +156,7 @@ class GovernedDerivedAnalysisTool:
             confidence=1.0,
             metadata={
                 'analysis_spec': spec.model_dump(),
+                'filter_context': result.get('filter_context', {}),
                 'population': result['population'],
                 'population_count': result['population_count'],
                 'semantics': result['semantics'],
