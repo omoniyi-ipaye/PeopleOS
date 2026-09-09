@@ -65,13 +65,14 @@ class ExperienceEngine:
         'careergrowthsatisfaction': 'Career Growth',
     }
 
-    # Neutral configured score bands; these are not diagnoses of engagement.
+    # Continuous score bands. All bands are [low, high), except the top band
+    # which includes 100. This avoids gaps for decimal composite values.
     SEGMENTS = {
-        'Very high score band': (80, 100),
-        'High score band': (60, 79),
-        'Mid score band': (40, 59),
-        'Low score band': (20, 39),
-        'Very low score band': (0, 19),
+        'Very high score band': (80.0, 100.0),
+        'High score band': (60.0, 80.0),
+        'Mid score band': (40.0, 60.0),
+        'Low score band': (20.0, 40.0),
+        'Very low score band': (0.0, 20.0),
     }
 
     def __init__(self, df: pd.DataFrame):
@@ -80,10 +81,20 @@ class ExperienceEngine:
         self.exp_config = self.config.get('experience', {})
         self.logger = get_logger('experience_engine')
         self.warnings: List[str] = []
-        self._column_map = {col.lower(): col for col in self.df.columns}
+        self._column_map = self._build_column_map()
         self._detect_available_signals()
         self._validate_data()
         self._compute_experience_index()
+
+    def _build_column_map(self) -> Dict[str, str]:
+        buckets: Dict[str, List[str]] = {}
+        for col in self.df.columns:
+            buckets.setdefault(str(col).lower(), []).append(str(col))
+        collisions = {key: names for key, names in buckets.items() if len(names) > 1}
+        if collisions:
+            detail = ', '.join(f'{key}: {names}' for key, names in sorted(collisions.items()))
+            raise ExperienceEngineError(f'Ambiguous case-insensitive column names: {detail}')
+        return {key: names[0] for key, names in buckets.items()}
 
     def _get_column(self, lowercase_name: str) -> Optional[str]:
         return self._column_map.get(lowercase_name)
@@ -133,6 +144,7 @@ class ExperienceEngine:
         weighted = pd.Series(0.0, index=self.df.index)
         denominator = pd.Series(0.0, index=self.df.index)
         components = pd.DataFrame(index=self.df.index)
+        self.signal_observation_counts: Dict[str, int] = {}
         for name, (columns, default_scale, weight_key, default_weight) in definitions.items():
             weight = float(weights.get(weight_key, default_weight))
             if not np.isfinite(weight) or weight < 0:
@@ -146,7 +158,10 @@ class ExperienceEngine:
                 if scale is None:
                     self.warnings.append(f'{actual} excluded: configure its signal_scales minimum and maximum.')
                     continue
-                low, high = map(float, scale)
+                try:
+                    low, high = map(float, scale)
+                except (TypeError, ValueError) as exc:
+                    raise ExperienceEngineError(f'Invalid signal scale for {actual}') from exc
                 if not np.isfinite([low, high]).all() or low >= high:
                     raise ExperienceEngineError(f'Invalid signal scale for {actual}')
                 values = pd.to_numeric(self.df[actual], errors='coerce')
@@ -155,6 +170,7 @@ class ExperienceEngine:
             if normalized and weight > 0:
                 component = pd.concat(normalized, axis=1).mean(axis=1)
                 components[name] = component
+                self.signal_observation_counts[name] = int(component.notna().sum())
                 weighted += component.fillna(0) * weight
                 denominator += component.notna() * weight
         self.df['_exi_score'] = (weighted / denominator.replace(0, np.nan)).round(1)
@@ -173,9 +189,14 @@ class ExperienceEngine:
             return 'Low configured experience score band'
         return 'Very low configured experience score band'
 
+    def _segment_mask(self, values: pd.Series, low: float, high: float) -> pd.Series:
+        if high == 100.0:
+            return (values >= low) & (values <= high)
+        return (values >= low) & (values < high)
+
     def _get_segment(self, exi: float) -> str:
         for name, (low, high) in self.SEGMENTS.items():
-            if low <= exi <= high:
+            if exi >= low and (exi <= high if high == 100.0 else exi < high):
                 return name
         return 'Unknown'
 
@@ -244,14 +265,14 @@ class ExperienceEngine:
         total = int(len(measured))
         segments = []
         for name, (low, high) in self.SEGMENTS.items():
-            values = measured[(measured >= low) & (measured <= high)]
+            values = measured[self._segment_mask(measured, low, high)]
             count = int(len(values))
             segments.append({
                 'segment': name,
                 'count': count,
                 'percentage': round(count / total * 100, 1) if total else 0.0,
                 'avg_exi': round(float(values.mean()), 1) if count else None,
-                'exi_range': f'{low}-{high}',
+                'exi_range': f'{low:g}-{high:g}',
             })
         low_pct = sum(row['percentage'] for row in segments if row['segment'] in {'Low score band', 'Very low score band'})
         high_pct = sum(row['percentage'] for row in segments if row['segment'] in {'High score band', 'Very high score band'})
@@ -315,7 +336,7 @@ class ExperienceEngine:
             return {'available': False, 'reason': 'EXI not computed'}
         threshold = self.exp_config.get('thresholds', {}).get('at_risk_exi', 40) if threshold is None else threshold
         threshold = _finite_range(threshold, name='threshold', low=0, high=100)
-        _positive_integer(limit, name='limit')  # validated for backwards compatibility; not used for row output
+        _positive_integer(limit, name='limit')
         low = self.df[self.df['_exi_score'] < threshold].copy()
         return {
             'available': True,
