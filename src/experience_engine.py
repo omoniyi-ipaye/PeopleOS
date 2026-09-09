@@ -2,8 +2,8 @@
 
 PeopleOS computes a configurable 0-100 composite only from explicit measured
 experience responses. HRIS proxy fields do not become sentiment. Individual
-experience ranking, manager ranking and undersized cohort disclosure are blocked
-at the engine boundary as well as at the API boundary.
+experience ranking, manager ranking and undersized cohort/cell disclosure are
+blocked at the engine boundary as well as at the API boundary.
 """
 
 from __future__ import annotations
@@ -65,8 +65,6 @@ class ExperienceEngine:
         'careergrowthsatisfaction': 'Career Growth',
     }
 
-    # Continuous score bands. All bands are [low, high), except the top band
-    # which includes 100. This avoids gaps for decimal composite values.
     SEGMENTS = {
         'Very high score band': (80.0, 100.0),
         'High score band': (60.0, 80.0),
@@ -233,7 +231,6 @@ class ExperienceEngine:
         return result
 
     def get_employee_exi(self, employee_id: str) -> Dict[str, Any]:
-        """Compatibility method for controlled diagnostics; not exposed by governed API."""
         emp = self.df[self.df['EmployeeID'] == employee_id]
         if emp.empty:
             return {'available': False, 'reason': f'Employee {employee_id} not found'}
@@ -258,33 +255,39 @@ class ExperienceEngine:
                 pass
         return result
 
+    def _apply_segment_suppression(self, rows: List[Dict[str, Any]]) -> bool:
+        primary = [i for i, row in enumerate(rows) if 0 < int(row['_raw_count']) < MIN_AGGREGATE_SUPPORT]
+        suppress = set(primary)
+        if len(primary) == 1:
+            candidates = [(int(row['_raw_count']), i) for i, row in enumerate(rows) if i not in suppress and int(row['_raw_count']) > 0]
+            if candidates:
+                suppress.add(min(candidates)[1])
+        for i, row in enumerate(rows):
+            row['suppressed'] = i in suppress
+            if row['suppressed']:
+                row['count'] = None
+                row['percentage'] = None
+                row['avg_exi'] = None
+            row.pop('_raw_count', None)
+        return bool(suppress)
+
     def get_engagement_segments(self) -> Dict[str, Any]:
         measured = self.df['_exi_score'].dropna()
         if measured.empty:
             return {'available': False, 'reason': 'EXI not computed'}
         total = int(len(measured))
-        segments = []
+        rows: List[Dict[str, Any]] = []
         for name, (low, high) in self.SEGMENTS.items():
             values = measured[self._segment_mask(measured, low, high)]
             count = int(len(values))
-            segments.append({
-                'segment': name,
-                'count': count,
-                'percentage': round(count / total * 100, 1) if total else 0.0,
-                'avg_exi': round(float(values.mean()), 1) if count else None,
-                'exi_range': f'{low:g}-{high:g}',
-            })
-        low_pct = sum(row['percentage'] for row in segments if row['segment'] in {'Low score band', 'Very low score band'})
-        high_pct = sum(row['percentage'] for row in segments if row['segment'] in {'High score band', 'Very high score band'})
-        return {
-            'available': True,
-            'segments': segments,
-            'total_employees': total,
-            'health_indicator': 'Measured score distribution',
-            'thriving_percentage': round(high_pct, 1),
-            'at_risk_percentage': round(low_pct, 1),
-            'recommendations': ['Treat score bands as descriptive aggregate monitoring, not diagnoses of employee engagement.'],
-        }
+            rows.append({'segment': name, '_raw_count': count, 'count': count, 'percentage': round(count / total * 100, 1) if total else 0.0, 'avg_exi': round(float(values.mean()), 1) if count else None, 'exi_range': f'{low:g}-{high:g}', 'suppressed': False})
+        suppression_applied = self._apply_segment_suppression(rows)
+        if suppression_applied:
+            high_pct = low_pct = None
+        else:
+            high_pct = round(sum(float(row['percentage'] or 0) for row in rows if row['segment'] in {'High score band', 'Very high score band'}), 1)
+            low_pct = round(sum(float(row['percentage'] or 0) for row in rows if row['segment'] in {'Low score band', 'Very low score band'}), 1)
+        return {'available': True, 'segments': rows, 'total_employees': total, 'health_indicator': 'Measured score distribution', 'thriving_percentage': high_pct, 'at_risk_percentage': low_pct, 'suppression_applied': suppression_applied, 'recommendations': ['Treat score bands as descriptive aggregate monitoring, not diagnoses of employee engagement.']}
 
     def identify_experience_drivers(self) -> Dict[str, Any]:
         if not self.df['_exi_score'].notna().any():
@@ -300,24 +303,11 @@ class ExperienceEngine:
             corr = float(pairs['_exi_score'].corr(pairs[col]))
             if not np.isfinite(corr):
                 continue
-            drivers.append({
-                'factor': col,
-                'sample_size': int(len(pairs)),
-                'metric_semantics': 'observational_association_excluding_index_components',
-                'correlation': round(corr, 3),
-                'impact': 'High' if abs(corr) >= .4 else 'Medium' if abs(corr) >= .2 else 'Low',
-                'direction': 'Positive' if corr > 0 else 'Negative' if corr < 0 else 'None',
-            })
+            drivers.append({'factor': col, 'sample_size': int(len(pairs)), 'metric_semantics': 'observational_association_excluding_index_components', 'correlation': round(corr, 3), 'impact': 'High' if abs(corr) >= .4 else 'Medium' if abs(corr) >= .2 else 'Low', 'direction': 'Positive' if corr > 0 else 'Negative' if corr < 0 else 'None'})
         drivers.sort(key=lambda row: abs(row['correlation']), reverse=True)
         positive = [d for d in drivers if d['correlation'] > .1][:3]
         negative = [d for d in drivers if d['correlation'] < -.1][:3]
-        return {
-            'available': True,
-            'drivers': drivers[:10],
-            'top_positive_drivers': positive,
-            'top_negative_drivers': negative,
-            'recommendations': ['Observed correlations are not causal drivers; validate confounding and stability before intervention.'],
-        }
+        return {'available': True, 'drivers': drivers[:10], 'top_positive_drivers': positive, 'top_negative_drivers': negative, 'recommendations': ['Observed correlations are not causal drivers; validate confounding and stability before intervention.']}
 
     def _get_at_risk_by_dept(self, low_score_df: pd.DataFrame) -> List[Dict[str, Any]]:
         if 'Dept' not in low_score_df.columns or low_score_df.empty:
@@ -331,21 +321,15 @@ class ExperienceEngine:
         return rows[:10]
 
     def get_at_risk_employees(self, threshold: Optional[float] = None, limit: int = 20) -> Dict[str, Any]:
-        """Compatibility name; returns aggregate low-score monitoring only."""
         if not self.df['_exi_score'].notna().any():
             return {'available': False, 'reason': 'EXI not computed'}
         threshold = self.exp_config.get('thresholds', {}).get('at_risk_exi', 40) if threshold is None else threshold
         threshold = _finite_range(threshold, name='threshold', low=0, high=100)
         _positive_integer(limit, name='limit')
         low = self.df[self.df['_exi_score'] < threshold].copy()
-        return {
-            'available': True,
-            'total_at_risk': int(len(low)),
-            'threshold_used': threshold,
-            'employees': None,
-            'by_department': self._get_at_risk_by_dept(low),
-            'metric_semantics': 'aggregate_count_below_configured_composite_threshold_not_employee_risk_prediction',
-        }
+        low_count = int(len(low))
+        suppressed = 0 < low_count < MIN_AGGREGATE_SUPPORT
+        return {'available': True, 'total_at_risk': None if suppressed else low_count, 'threshold_used': threshold, 'employees': None, 'by_department': [] if suppressed else self._get_at_risk_by_dept(low), 'suppressed': suppressed, 'metric_semantics': 'aggregate_count_below_configured_composite_threshold_not_employee_risk_prediction'}
 
     def get_lifecycle_experience(self) -> Dict[str, Any]:
         if not self.df['_exi_score'].notna().any():
@@ -353,104 +337,36 @@ class ExperienceEngine:
         if not self.has_tenure:
             return {'available': False, 'reason': 'Tenure column required for lifecycle analysis'}
         cfg = self.exp_config.get('lifecycle_stages', {})
-        new_hire = float(cfg.get('new_hire_months', 6))
-        ramping = float(cfg.get('ramping_months', 12))
-        established = float(cfg.get('established_months', 36))
+        new_hire = float(cfg.get('new_hire_months', 6)); ramping = float(cfg.get('ramping_months', 12)); established = float(cfg.get('established_months', 36))
         if not np.isfinite([new_hire, ramping, established]).all() or not (0 <= new_hire <= ramping <= established):
             raise ExperienceEngineError('Lifecycle stage thresholds must be finite, ordered, and non-negative')
-        tenure = pd.to_numeric(self.df[self._get_column('tenure')], errors='coerce')
-        months = tenure * 12
-        stage = pd.Series('Unknown', index=self.df.index, dtype='object')
-        valid = tenure.notna() & np.isfinite(tenure) & (tenure >= 0)
-        stage.loc[valid & (months < new_hire)] = 'New Hire'
-        stage.loc[valid & (months >= new_hire) & (months < ramping)] = 'Ramping'
-        stage.loc[valid & (months >= ramping) & (months < established)] = 'Established'
-        stage.loc[valid & (months >= established)] = 'Veteran'
+        tenure = pd.to_numeric(self.df[self._get_column('tenure')], errors='coerce'); months = tenure * 12
+        stage = pd.Series('Unknown', index=self.df.index, dtype='object'); valid = tenure.notna() & np.isfinite(tenure) & (tenure >= 0)
+        stage.loc[valid & (months < new_hire)] = 'New Hire'; stage.loc[valid & (months >= new_hire) & (months < ramping)] = 'Ramping'; stage.loc[valid & (months >= ramping) & (months < established)] = 'Established'; stage.loc[valid & (months >= established)] = 'Veteran'
         stages = []
         for name in ['New Hire', 'Ramping', 'Established', 'Veteran', 'Unknown']:
-            group = self.df[stage == name]
-            respondents = group['_exi_score'].dropna()
+            group = self.df[stage == name]; respondents = group['_exi_score'].dropna()
             if len(respondents) < MIN_AGGREGATE_SUPPORT:
                 continue
-            stages.append({
-                'stage': name,
-                'count': int(len(group)),
-                'avg_exi': round(float(respondents.mean()), 1),
-                'respondent_count': int(len(respondents)),
-                'at_risk_count': int((respondents < 40).sum()),
-            })
-        return {
-            'available': True,
-            'stages': stages,
-            'concerns': [],
-            'recommendations': ['Lifecycle differences are cross-sectional descriptive comparisons, not longitudinal stage effects.'],
-        }
+            low_count = int((respondents < 40).sum()); low_suppressed = 0 < low_count < MIN_AGGREGATE_SUPPORT
+            stages.append({'stage': name, 'count': int(len(group)), 'avg_exi': round(float(respondents.mean()), 1), 'respondent_count': int(len(respondents)), 'at_risk_count': None if low_suppressed else low_count, 'at_risk_suppressed': low_suppressed})
+        return {'available': True, 'stages': stages, 'concerns': [], 'recommendations': ['Lifecycle differences are cross-sectional descriptive comparisons, not longitudinal stage effects.']}
 
     def analyze_manager_impact(self) -> Dict[str, Any]:
-        return {
-            'available': False,
-            'reason': 'Manager-level experience ranking is disabled at the aggregate engine boundary.',
-            'managers_analyzed': 0,
-            'overall_avg_exi': None,
-            'managers_below_average': 0,
-            'bottom_managers': None,
-            'top_managers': None,
-            'recommendations': [],
-        }
+        return {'available': False, 'reason': 'Manager-level experience ranking is disabled at the aggregate engine boundary.', 'managers_analyzed': 0, 'overall_avg_exi': None, 'managers_below_average': 0, 'bottom_managers': None, 'top_managers': None, 'recommendations': []}
 
     def get_available_signals(self) -> Dict[str, Any]:
         coverage = round(self.respondent_count / len(self.df) * 100, 1) if len(self.df) else 0.0
         recommendations = []
-        if not self.has_enps:
-            recommendations.append('Add eNPS_Score column to enable measured advocacy tracking')
-        if not self.has_pulse:
-            recommendations.append('Add Pulse_Score column for measured pulse responses')
-        if not self.has_manager_satisfaction:
-            recommendations.append('Add ManagerSatisfaction column to measure manager experience')
-        if coverage < 50:
-            recommendations.append('Increase survey response coverage before drawing broad workforce conclusions')
-        return {
-            'has_enps': self.has_enps,
-            'has_onboarding': self.has_onboarding,
-            'has_pulse': self.has_pulse,
-            'has_manager_satisfaction': self.has_manager_satisfaction,
-            'has_engagement': self.has_engagement,
-            'has_work_life': self.has_work_life,
-            'has_career_growth': self.has_career_growth,
-            'total_signals': int(self.available_survey_signals),
-            'coverage_percentage': coverage,
-            'recommendations': recommendations,
-        }
+        if not self.has_enps: recommendations.append('Add eNPS_Score column to enable measured advocacy tracking')
+        if not self.has_pulse: recommendations.append('Add Pulse_Score column for measured pulse responses')
+        if not self.has_manager_satisfaction: recommendations.append('Add ManagerSatisfaction column to measure manager experience')
+        if coverage < 50: recommendations.append('Increase survey response coverage before drawing broad workforce conclusions')
+        return {'has_enps': self.has_enps, 'has_onboarding': self.has_onboarding, 'has_pulse': self.has_pulse, 'has_manager_satisfaction': self.has_manager_satisfaction, 'has_engagement': self.has_engagement, 'has_work_life': self.has_work_life, 'has_career_growth': self.has_career_growth, 'total_signals': int(self.available_survey_signals), 'coverage_percentage': coverage, 'recommendations': recommendations}
 
     def analyze_all(self) -> Dict[str, Any]:
-        index = self.calculate_experience_index()
-        segments = self.get_engagement_segments()
-        drivers = self.identify_experience_drivers()
-        low_score = self.get_at_risk_employees()
-        lifecycle = self.get_lifecycle_experience()
-        manager = self.analyze_manager_impact()
-        signals = self.get_available_signals()
+        index = self.calculate_experience_index(); segments = self.get_engagement_segments(); drivers = self.identify_experience_drivers(); low_score = self.get_at_risk_employees(); lifecycle = self.get_lifecycle_experience(); manager = self.analyze_manager_impact(); signals = self.get_available_signals()
         recommendations = []
-        for section in (segments, drivers, lifecycle):
-            recommendations.extend(section.get('recommendations', []) or [])
+        for section in (segments, drivers, lifecycle): recommendations.extend(section.get('recommendations', []) or [])
         recommendations = list(dict.fromkeys(recommendations))
-        return {
-            'experience_index': index,
-            'segments': segments,
-            'drivers': drivers,
-            'at_risk': low_score,
-            'lifecycle': lifecycle,
-            'manager_impact': manager,
-            'signals': signals,
-            'summary': {
-                'overall_exi': index.get('overall_exi'),
-                'health_indicator': segments.get('health_indicator', 'Unavailable'),
-                'total_employees': int(len(self.df)),
-                'at_risk_count': int(low_score.get('total_at_risk', 0) or 0),
-                'signals_available': int(self.available_survey_signals),
-                'total_warnings': len(self.warnings),
-                'total_recommendations': len(recommendations),
-            },
-            'recommendations': recommendations,
-            'warnings': list(dict.fromkeys(self.warnings)),
-        }
+        return {'experience_index': index, 'segments': segments, 'drivers': drivers, 'at_risk': low_score, 'lifecycle': lifecycle, 'manager_impact': manager, 'signals': signals, 'summary': {'overall_exi': index.get('overall_exi'), 'health_indicator': segments.get('health_indicator', 'Unavailable'), 'total_employees': int(len(self.df)), 'at_risk_count': None if low_score.get('suppressed') else low_score.get('total_at_risk'), 'signals_available': int(self.available_survey_signals), 'total_warnings': len(self.warnings), 'total_recommendations': len(recommendations)}, 'recommendations': recommendations, 'warnings': list(dict.fromkeys(self.warnings))}
