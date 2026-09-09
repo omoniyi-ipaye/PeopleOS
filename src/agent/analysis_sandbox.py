@@ -1,8 +1,9 @@
 """Governed downstream analysis for PeopleOS.
 
-This is deliberately not a Python/shell sandbox. AI may request one of a small
-set of typed analytical operations; deterministic code validates the columns,
-population and minimum support before returning aggregate results.
+AI may request typed analytical operations over aggregate workforce populations.
+The runtime validates columns, filters, populations and minimum support before
+returning any result. It never exposes employee rows and has no shell/network
+execution capability.
 """
 from __future__ import annotations
 
@@ -20,6 +21,7 @@ from src.serialization import json_safe
 MIN_GROUP_SIZE = 5
 MIN_CORRELATION_PAIRS = 10
 MAX_GROUPS = 20
+MAX_FILTERS = 8
 
 _BLOCKED_COLUMN = re.compile(
     r"(?:^|_)(employee_?id|manager_?id|name|first_?name|last_?name|email|phone|address|"
@@ -27,9 +29,16 @@ _BLOCKED_COLUMN = re.compile(
 )
 
 
+class CohortFilter(BaseModel):
+    column: str
+    operator: Literal['eq', 'neq', 'lt', 'lte', 'gt', 'gte', 'in']
+    value: Any
+
+
 class AnalysisSpec(BaseModel):
     operation: Literal['group_summary', 'compare_groups', 'correlation', 'crosstab']
     population: Literal['active', 'current'] = 'active'
+    filters: list[CohortFilter] = Field(default_factory=list, max_length=MAX_FILTERS)
     group_by: Optional[str] = None
     second_group_by: Optional[str] = None
     measure: Optional[str] = None
@@ -62,16 +71,36 @@ class GovernedAnalysisSandbox:
         frame = self._population(spec.population)
         if frame.empty:
             return self._unavailable(spec, 'The requested population is empty.')
+        for cohort_filter in spec.filters:
+            self._validate_column(frame, cohort_filter.column)
         for column in [spec.group_by, spec.second_group_by, spec.measure, spec.second_measure]:
             if column is not None:
                 self._validate_column(frame, column)
+
+        before_filters = len(frame)
+        frame = self._apply_filters(frame, spec.filters)
+        if frame.empty:
+            return self._unavailable(spec, 'No records match the requested cohort filters.')
+        if len(frame) < MIN_GROUP_SIZE:
+            return self._unavailable(spec, f'The requested cohort has fewer than {MIN_GROUP_SIZE} records and is not shown.')
+
         if spec.operation == 'group_summary':
-            return self._group_summary(frame, spec)
-        if spec.operation == 'compare_groups':
-            return self._compare_groups(frame, spec)
-        if spec.operation == 'correlation':
-            return self._correlation(frame, spec)
-        return self._crosstab(frame, spec)
+            result = self._group_summary(frame, spec)
+        elif spec.operation == 'compare_groups':
+            result = self._compare_groups(frame, spec)
+        elif spec.operation == 'correlation':
+            result = self._correlation(frame, spec)
+        else:
+            result = self._crosstab(frame, spec)
+
+        if result.get('available'):
+            result['filter_context'] = {
+                'filters': [item.model_dump() for item in spec.filters],
+                'population_before_filters': before_filters,
+                'population_after_filters': len(frame),
+                'excluded_by_filters': before_filters - len(frame),
+            }
+        return result
 
     def _population(self, population: str) -> pd.DataFrame:
         if population == 'active':
@@ -89,8 +118,38 @@ class GovernedAnalysisSandbox:
 
     @staticmethod
     def _numeric(series: pd.Series) -> pd.Series:
-        numeric = pd.to_numeric(series, errors='coerce').replace([np.inf, -np.inf], np.nan)
-        return numeric
+        return pd.to_numeric(series, errors='coerce').replace([np.inf, -np.inf], np.nan)
+
+    def _apply_filters(self, frame: pd.DataFrame, filters: list[CohortFilter]) -> pd.DataFrame:
+        result = frame
+        for item in filters:
+            series = result[item.column]
+            if item.operator in {'lt', 'lte', 'gt', 'gte'}:
+                numeric = self._numeric(series)
+                try:
+                    target = float(item.value)
+                except (TypeError, ValueError) as exc:
+                    raise ValueError(f'Numeric filter requires a numeric value for {item.column}') from exc
+                if item.operator == 'lt': mask = numeric < target
+                elif item.operator == 'lte': mask = numeric <= target
+                elif item.operator == 'gt': mask = numeric > target
+                else: mask = numeric >= target
+            else:
+                normalized = series.fillna('Unknown').astype(str).str.strip().str.casefold()
+                if item.operator == 'in':
+                    if not isinstance(item.value, list) or not item.value:
+                        raise ValueError('in filter requires a non-empty list')
+                    wanted = {str(value).strip().casefold() for value in item.value}
+                    mask = normalized.isin(wanted)
+                else:
+                    target = str(item.value).strip().casefold()
+                    mask = normalized == target
+                    if item.operator == 'neq':
+                        mask = ~mask
+            result = result.loc[mask.fillna(False)].copy()
+            if result.empty:
+                break
+        return result
 
     def _group_summary(self, frame: pd.DataFrame, spec: AnalysisSpec) -> dict[str, Any]:
         group = frame[spec.group_by].fillna('Unknown').astype(str).str.strip().replace('', 'Unknown')
@@ -131,7 +190,7 @@ class GovernedAnalysisSandbox:
         values = self._numeric(frame[spec.measure])
         results = []
         for wanted in [spec.group_a, spec.group_b]:
-            mask = labels == str(wanted)
+            mask = labels.str.casefold() == str(wanted).casefold()
             eligible = int(mask.sum())
             valid = values[mask].dropna()
             if eligible < MIN_GROUP_SIZE or len(valid) < MIN_GROUP_SIZE:
@@ -175,7 +234,7 @@ class GovernedAnalysisSandbox:
 
     @staticmethod
     def _result(spec: AnalysisSpec, output: dict[str, Any], population_count: int) -> dict[str, Any]:
-        return json_safe({'available': True, 'operation': spec.operation, 'population': spec.population, 'population_count': population_count, 'spec': spec.model_dump(), 'output': output, 'semantics': 'Deterministic derived aggregate; not a causal conclusion or employment recommendation.'})
+        return json_safe({'available': True, 'operation': spec.operation, 'population': spec.population, 'population_count': population_count, 'spec': spec.model_dump(), 'output': output, 'semantics': 'Deterministic derived aggregate over the exact governed cohort; not a causal conclusion or employment recommendation.'})
 
     @staticmethod
     def _unavailable(spec: AnalysisSpec, reason: str) -> dict[str, Any]:
