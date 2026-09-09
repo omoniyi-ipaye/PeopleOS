@@ -10,8 +10,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 from typing import Any
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 import pandas as pd
 
@@ -44,8 +49,6 @@ def source_rows() -> list[dict[str, Any]]:
 
 
 def expected(rows: list[dict[str, Any]]) -> dict[str, Any]:
-    # This fixture has one row per employee and one snapshot date, so direct
-    # source-row arithmetic is the independent oracle.
     known = [row for row in rows if row['Attrition'] in (0, 1)]
     active = [row for row in rows if row['Attrition'] == 0]
     salary = [float(row['Salary']) for row in active if row['Salary'] is not None and float(row['Salary']) > 0]
