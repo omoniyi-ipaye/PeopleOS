@@ -46,7 +46,11 @@ def _gini(values: np.ndarray) -> float:
 def _stable_salary_stats(values: pd.Series) -> tuple[float, float, float]:
     """Calculate location and sample spread without overflowing intermediate sums."""
     array = values.to_numpy(dtype=float)
+    if not len(array):
+        raise CompensationEngineError('Salary statistics require at least one value')
     scale = float(np.max(np.abs(array)))
+    if not np.isfinite(scale) or scale <= 0:
+        raise CompensationEngineError('Salary magnitude exceeds the finite reporting range')
     scaled = array / scale
     mean = float(np.mean(scaled) * scale)
     ordered = np.sort(scaled)
@@ -59,6 +63,44 @@ def _stable_salary_stats(values: pd.Series) -> tuple[float, float, float]:
     if not all(np.isfinite(value) for value in (mean, median, deviation)):
         raise CompensationEngineError('Salary magnitude exceeds the finite reporting range')
     return mean, median, deviation
+
+
+def _stable_welch_ttest(first: pd.Series, second: pd.Series) -> tuple[Optional[float], Optional[float]]:
+    """Welch t-test on a common positive scale to avoid overflow.
+
+    A positive common scale leaves the t statistic and p-value unchanged. When
+    the standard error is zero or the finite degrees-of-freedom calculation is
+    unavailable, inferential output fails closed rather than emitting inf/NaN.
+    """
+    a = np.asarray(first, dtype=float)
+    b = np.asarray(second, dtype=float)
+    if len(a) < 2 or len(b) < 2 or not np.isfinite(a).all() or not np.isfinite(b).all():
+        return None, None
+    scale = float(max(np.max(np.abs(a)), np.max(np.abs(b))))
+    if not np.isfinite(scale) or scale <= 0:
+        return None, None
+    a = a / scale
+    b = b / scale
+    mean_a, mean_b = float(np.mean(a)), float(np.mean(b))
+    var_a, var_b = float(np.var(a, ddof=1)), float(np.var(b, ddof=1))
+    if not all(np.isfinite(v) and v >= 0 for v in (var_a, var_b)):
+        return None, None
+    term_a = var_a / len(a)
+    term_b = var_b / len(b)
+    se2 = term_a + term_b
+    if not np.isfinite(se2) or se2 <= 0:
+        return None, None
+    statistic = (mean_a - mean_b) / np.sqrt(se2)
+    df_denom = (term_a * term_a) / (len(a) - 1) + (term_b * term_b) / (len(b) - 1)
+    if not np.isfinite(statistic) or not np.isfinite(df_denom) or df_denom <= 0:
+        return None, None
+    degrees = (se2 * se2) / df_denom
+    if not np.isfinite(degrees) or degrees <= 0:
+        return None, None
+    p_value = float(2 * stats.t.sf(abs(float(statistic)), degrees))
+    if not np.isfinite(p_value):
+        return None, None
+    return float(statistic), p_value
 
 
 def _positive_finite(value: Any, *, name: str) -> float:
@@ -119,10 +161,11 @@ class CompensationEngine:
             return pd.DataFrame()
         for dept, group in self.df.groupby('Dept'):
             salary = group['Salary']
+            mean, _, _ = _stable_salary_stats(salary)
             rows.append({
                 'Dept': dept, 'Headcount': len(group), 'P10': salary.quantile(.10), 'P25': salary.quantile(.25),
                 'P50': salary.quantile(.50), 'P75': salary.quantile(.75), 'P90': salary.quantile(.90),
-                'Mean': salary.mean(), 'Min': salary.min(), 'Max': salary.max(),
+                'Mean': mean, 'Min': float(salary.min()), 'Max': float(salary.max()),
             })
         return pd.DataFrame(rows)
 
@@ -138,8 +181,7 @@ class CompensationEngine:
         rows = []
         for dept, group in self.df.groupby('Dept'):
             salaries = group['Salary'].dropna()
-            mean = float(salaries.mean()) if not salaries.empty else 0.0
-            std = float(salaries.std(ddof=1)) if len(salaries) > 1 else 0.0
+            mean, _, std = _stable_salary_stats(salaries)
             cv = float(std / mean) if mean > 0 else 0.0
             gini = _gini(salaries.to_numpy())
             score = float(np.clip(1 - ((min(cv, 1.0) + min(gini, 1.0)) / 2), 0, 1))
@@ -157,17 +199,21 @@ class CompensationEngine:
             return pd.DataFrame()
         rows = []
         for dept, group in self.df.groupby('Dept'):
-            mean = group['Salary'].mean()
-            std = group['Salary'].std(ddof=1)
-            if not np.isfinite(std) or std <= 0:
+            mean, _, std = _stable_salary_stats(group['Salary'])
+            if std <= 0:
                 continue
-            for _, row in group.iterrows():
-                z = (row['Salary'] - mean) / std
+            scale = max(abs(mean), float(group['Salary'].abs().max()))
+            normalized_salary = group['Salary'] / scale
+            normalized_mean = mean / scale
+            normalized_std = std / scale
+            for idx, row in group.iterrows():
+                z = (float(normalized_salary.loc[idx]) - normalized_mean) / normalized_std
                 if abs(z) >= z_threshold:
+                    deviation_pct = ((row['Salary'] / mean) - 1.0) * 100 if mean else 0.0
                     rows.append({
                         'EmployeeID': row.get('EmployeeID'), 'Dept': dept, 'Salary': row['Salary'], 'DeptAvg': mean,
-                        'DeviationPct': ((row['Salary'] - mean) / mean) * 100 if mean else 0,
-                        'ZScore': float(z), 'Flag': 'Above department distribution' if z > 0 else 'Below department distribution',
+                        'DeviationPct': float(deviation_pct), 'ZScore': float(z),
+                        'Flag': 'Above department distribution' if z > 0 else 'Below department distribution',
                     })
         return pd.DataFrame(rows)
 
@@ -227,7 +273,11 @@ class CompensationEngine:
         valid = salary.notna() & np.isfinite(salary) & (salary > 0) & outcome.isin([0, 1])
         if valid.sum() < 20 or outcome.loc[valid].nunique() < 2:
             return {'available': False, 'reason': 'Insufficient valid salary/outcome pairs'}
-        corr, p = stats.pointbiserialr(outcome.loc[valid].astype(int), salary.loc[valid].astype(float))
+        measured_salary = salary.loc[valid].astype(float)
+        scale = float(measured_salary.abs().max())
+        if not np.isfinite(scale) or scale <= 0:
+            return {'available': False, 'reason': 'Salary has insufficient variation for correlation'}
+        corr, p = stats.pointbiserialr(outcome.loc[valid].astype(int), measured_salary / scale)
         if not np.isfinite(corr) or not np.isfinite(p):
             return {'available': False, 'reason': 'Salary has insufficient variation for correlation'}
         return {
@@ -247,35 +297,56 @@ class CompensationEngine:
         gender = self._gender_label(frame['Gender'])
         male = gender.isin({'male', 'm', 'man'})
         female = gender.isin({'female', 'f', 'woman'})
+        known = male | female
+        gender_known_binary_count = int(known.sum())
+        gender_excluded_count = int(len(frame) - gender_known_binary_count)
+        gender_coverage = float(gender_known_binary_count / len(frame)) if len(frame) else None
         male_salary, female_salary = frame.loc[male, 'Salary'], frame.loc[female, 'Salary']
         if len(male_salary) < min_group_size or len(female_salary) < min_group_size:
-            return {'available': False, 'reason': f'At least {min_group_size} observations per compared group are required'}
-        male_mean = float(male_salary.mean())
-        female_mean = float(female_salary.mean())
-        raw_gap = (male_mean - female_mean) / male_mean * 100 if male_mean else 0.0
-        t_stat, p_value = stats.ttest_ind(male_salary, female_salary, equal_var=False, nan_policy='omit')
+            return {
+                'available': False,
+                'reason': f'At least {min_group_size} observations per compared group are required',
+                'male_n': int(len(male_salary)), 'female_n': int(len(female_salary)),
+                'gender_known_binary_count': gender_known_binary_count,
+                'gender_excluded_count': gender_excluded_count,
+                'gender_coverage': gender_coverage,
+            }
+        male_mean, _, _ = _stable_salary_stats(male_salary)
+        female_mean, _, _ = _stable_salary_stats(female_salary)
+        raw_gap = ((male_mean - female_mean) / male_mean) * 100 if male_mean else 0.0
+        t_stat, p_value = _stable_welch_ttest(male_salary, female_salary)
 
         strata = []
+        stratified_observations = 0
         if 'JobTitle' in frame.columns:
-            for title, group in frame.assign(_gender=gender).groupby('JobTitle'):
+            for title, group in frame.assign(_gender=gender).groupby('JobTitle', dropna=False):
                 men = group.loc[group['_gender'].isin({'male', 'm', 'man'}), 'Salary']
                 women = group.loc[group['_gender'].isin({'female', 'f', 'woman'}), 'Salary']
-                men_mean = float(men.mean()) if len(men) else 0.0
-                women_mean = float(women.mean()) if len(women) else 0.0
+                men_mean = _stable_salary_stats(men)[0] if len(men) else 0.0
+                women_mean = _stable_salary_stats(women)[0] if len(women) else 0.0
                 eligible = len(men) >= min_group_size and len(women) >= min_group_size and men_mean > 0
                 gap = ((men_mean - women_mean) / men_mean * 100) if eligible else None
-                strata.append({'job_title': title, 'male_n': len(men), 'female_n': len(women), 'gap_pct': gap, 'eligible': eligible, 'weight': len(men) + len(women) if eligible else 0})
-        eligible = [s for s in strata if s['eligible']]
-        weight = sum(s['weight'] for s in eligible)
-        stratified = sum(s['gap_pct'] * s['weight'] for s in eligible) / weight if weight else None
+                weight = len(men) + len(women) if eligible else 0
+                stratified_observations += weight
+                strata.append({'job_title': title, 'male_n': len(men), 'female_n': len(women), 'gap_pct': gap, 'eligible': eligible, 'weight': weight})
+        eligible_strata = [s for s in strata if s['eligible']]
+        weight = sum(s['weight'] for s in eligible_strata)
+        stratified = sum(s['gap_pct'] * s['weight'] for s in eligible_strata) / weight if weight else None
+        inference_available = t_stat is not None and p_value is not None
         return {
-            'available': True, 'raw_gap_pct': float(raw_gap), 'male_n': len(male_salary), 'female_n': len(female_salary),
-            'welch_t_stat': float(t_stat) if np.isfinite(t_stat) else None,
-            'p_value': float(p_value) if np.isfinite(t_stat) and np.isfinite(p_value) else None,
-            'is_significant': bool(np.isfinite(t_stat) and np.isfinite(p_value) and p_value < .05),
-            'inference_available': bool(np.isfinite(t_stat) and np.isfinite(p_value)),
+            'available': True, 'raw_gap_pct': float(raw_gap), 'raw_gap_reference': 'male_mean_salary',
+            'male_n': len(male_salary), 'female_n': len(female_salary),
+            'gender_known_binary_count': gender_known_binary_count,
+            'gender_excluded_count': gender_excluded_count,
+            'gender_coverage': gender_coverage,
+            'welch_t_stat': t_stat,
+            'p_value': p_value,
+            'is_significant': bool(inference_available and p_value < .05),
+            'inference_available': inference_available,
             'job_title_stratified_gap_pct': float(stratified) if stratified is not None else None,
-            'eligible_job_title_strata': len(eligible), 'job_title_strata': strata,
+            'eligible_job_title_strata': len(eligible_strata), 'job_title_strata': strata,
+            'job_title_stratified_observations': int(stratified_observations),
+            'job_title_stratified_excluded_count': int(gender_known_binary_count - stratified_observations),
             'semantics': 'descriptive_and_job_title_stratified_gap_not_regression_adjusted_equity',
             'warning': 'Pay-gap statistics are disparity indicators, not a legal or causal determination of pay equity.'
         }
@@ -287,8 +358,15 @@ class CompensationEngine:
         tenure = pd.to_numeric(frame['Tenure'], errors='coerce')
         tenure = tenure.where(np.isfinite(tenure) & (tenure >= 0))
         frame['TenureBucket'] = pd.cut(tenure, bins=[0, 1, 2, 5, 10, float('inf')], labels=['<1 year', '1-2 years', '2-5 years', '5-10 years', '10+ years'], right=False).cat.add_categories('Unknown').fillna('Unknown')
-        grouped = frame.groupby('TenureBucket', observed=False)['Salary'].agg(['mean', 'median', 'min', 'max', 'count']).reset_index()
-        return grouped.rename(columns={'mean': 'Mean', 'median': 'Median', 'min': 'Min', 'max': 'Max', 'count': 'Count'})
+        rows = []
+        for bucket, group in frame.groupby('TenureBucket', observed=False):
+            salary = group['Salary']
+            if salary.empty:
+                rows.append({'TenureBucket': bucket, 'Mean': np.nan, 'Median': np.nan, 'Min': np.nan, 'Max': np.nan, 'Count': 0})
+                continue
+            mean, median, _ = _stable_salary_stats(salary)
+            rows.append({'TenureBucket': bucket, 'Mean': mean, 'Median': median, 'Min': float(salary.min()), 'Max': float(salary.max()), 'Count': int(len(salary))})
+        return pd.DataFrame(rows)
 
     def get_compensation_summary(self) -> Dict[str, Any]:
         salary = self.df['Salary']
@@ -304,12 +382,31 @@ class CompensationEngine:
             'population': 'current_active_employees_with_valid_positive_salary',
         }
 
+    def _aggregate_outlier_summary(self) -> Dict[str, Any]:
+        outliers = self.identify_salary_outliers()
+        if outliers.empty:
+            return {
+                'count': 0, 'departments_affected': 0,
+                'above_count': 0, 'below_count': 0,
+                'population': 'current_active_employees_with_valid_positive_salary',
+                'semantics': 'aggregate_salary_distribution_outlier_count_not_employee_ranking',
+            }
+        flags = outliers['Flag'].astype(str)
+        return {
+            'count': int(len(outliers)),
+            'departments_affected': int(outliers['Dept'].nunique()) if 'Dept' in outliers else 0,
+            'above_count': int(flags.str.startswith('Above').sum()),
+            'below_count': int(flags.str.startswith('Below').sum()),
+            'population': 'current_active_employees_with_valid_positive_salary',
+            'semantics': 'aggregate_salary_distribution_outlier_count_not_employee_ranking',
+        }
+
     def analyze_all(self) -> Dict[str, Any]:
         return {
             'summary': self.get_compensation_summary(),
             'equity': self.calculate_pay_equity_score(),
             'salary_dispersion': self.calculate_pay_equity_score(),
-            'outliers': self.identify_salary_outliers(),
+            'outliers': self._aggregate_outlier_summary(),
             'gender_pay_gap': self.calculate_gender_pay_gap(),
             'salary_attrition_association': self.correlate_salary_with_attrition(),
             'warnings': list(dict.fromkeys(self.warnings)),
