@@ -77,6 +77,16 @@ def _stable_location(values: pd.Series) -> tuple[Optional[float], Optional[float
     )
 
 
+def _validated_share_threshold(value: Any) -> float:
+    try:
+        threshold = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError('share threshold must be a finite number between zero and one') from exc
+    if not np.isfinite(threshold) or not 0 <= threshold <= 1:
+        raise ValueError('share threshold must be a finite number between zero and one')
+    return threshold
+
+
 class AnalyticsEngine:
     def __init__(self, df: pd.DataFrame):
         self.df, self.population_resolution = resolve_current_population(df)
@@ -126,7 +136,6 @@ class AnalyticsEngine:
                 'Outcome_Observations': int(len(known_attrition)),
                 'Headcount': int(len(active)),
                 'Observed_Attrition_Share': attrition_share,
-                # Compatibility alias; not a period turnover rate.
                 'Turnover_Rate': attrition_share,
             }
             if 'Salary' in active.columns:
@@ -140,11 +149,7 @@ class AnalyticsEngine:
         return pd.DataFrame(rows)
 
     def get_correlations(self, target_column: str = 'Attrition', max_features: int = 20) -> pd.DataFrame:
-        """Pairwise Pearson association with explicit support and p-value.
-
-        Each feature uses its own valid pairwise population. Pairs below the
-        minimum support are omitted rather than emitting an unstable coefficient.
-        """
+        """Pairwise Pearson association with explicit support and p-value."""
         if target_column not in self.df.columns:
             return pd.DataFrame()
         numeric = self.df.select_dtypes(include=[np.number]).drop(columns=['EmployeeID'], errors='ignore').replace([np.inf, -np.inf], np.nan)
@@ -192,7 +197,7 @@ class AnalyticsEngine:
             'record_count': self.get_record_count(),
             'active_count': self.get_headcount(),
             'observed_attrition_share': attrition_share,
-            'turnover_rate': attrition_share,  # compatibility only
+            'turnover_rate': attrition_share,
             'turnover_rate_semantics': 'observed_attrition_share_not_period_turnover',
             'department_count': int(self.active_df['Dept'].nunique()) if 'Dept' in self.active_df.columns else 0,
             'population_as_of_date': self.population_resolution.as_of_date,
@@ -235,7 +240,6 @@ class AnalyticsEngine:
         labels = ['<1 year', '1-2 years', '2-5 years', '5-10 years', '10+ years']
         active['Tenure_Bucket'] = pd.cut(_valid_numeric(active['Tenure'], 'Tenure').reindex(active.index), bins=bins, labels=labels, right=False).cat.add_categories('Unknown').fillna('Unknown')
         distribution = active['Tenure_Bucket'].value_counts(sort=False).rename_axis('Tenure_Range').reset_index(name='Count')
-        # Attrition outcome by tenure is calculated over current records, because active-only data cannot contain departed outcomes.
         if 'Attrition' in self.df.columns:
             current = self.df.copy()
             current['Tenure_Bucket'] = pd.cut(_valid_numeric(current['Tenure'], 'Tenure').reindex(current.index), bins=bins, labels=labels, right=False).cat.add_categories('Unknown').fillna('Unknown')
@@ -270,7 +274,7 @@ class AnalyticsEngine:
         return pd.DataFrame(rows)
 
     def get_high_risk_departments(self, threshold: Optional[float] = None) -> pd.DataFrame:
-        threshold = self.high_risk_threshold if threshold is None else threshold
+        threshold = _validated_share_threshold(self.high_risk_threshold if threshold is None else threshold)
         stats_df = self.get_department_aggregates()
         metric = 'Observed_Attrition_Share'
         if metric not in stats_df.columns:
@@ -317,7 +321,13 @@ class AnalyticsEngine:
         data = _valid_numeric(self.active_df[col], col)
         if len(data) < 2:
             return None
-        mean = data.mean()
-        sem = stats.sem(data)
-        margin = sem * stats.t.ppf((1 + confidence) / 2, len(data) - 1)
-        return float(mean - margin), float(mean + margin)
+        mean, _, deviation = _stable_location(data)
+        if mean is None or deviation is None:
+            return None
+        sem = deviation / np.sqrt(len(data))
+        critical = float(stats.t.ppf((1 + confidence) / 2, len(data) - 1))
+        margin = sem * critical
+        lower, upper = mean - margin, mean + margin
+        if not all(np.isfinite(value) for value in (sem, critical, margin, lower, upper)):
+            return None
+        return float(lower), float(upper)
