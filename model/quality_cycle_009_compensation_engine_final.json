@@ -1,0 +1,69 @@
+{
+  "cycle": "PEOPLEOS-QUALITY-009",
+  "engine": "CompensationEngine",
+  "status": "forensically_reviewed",
+  "verified_code_candidate": "bc4ff3ec179303e067dc1c11d7fe962bdcdc93e3",
+  "verified_exact_head_with_audit_record": "fb92d23b29cc2c8fa22c2644a6dfa5c3be231ae6",
+  "reviewed_source_sha256": "51b79c2c5ef30d837597ae2ab79765af39ad55b88df8e799ae0c52b08a6ad1cc",
+  "methods_reviewed": [
+    "calculate_salary_percentiles",
+    "calculate_pay_equity_score",
+    "identify_salary_outliers",
+    "get_salary_bands",
+    "calculate_compa_ratio",
+    "correlate_salary_with_attrition",
+    "calculate_gender_pay_gap",
+    "get_salary_by_tenure",
+    "get_compensation_summary",
+    "analyze_all"
+  ],
+  "confirmed_defects_fixed": [
+    "Outlier z-score threshold accepted zero, negative, NaN and infinite values; it now requires a finite positive threshold.",
+    "Supplied CompaRatio could imply a non-finite BandMidpoint; non-finite derived midpoints now fail closed as unavailable.",
+    "Gender pay-gap minimum group size accepted negative, zero, fractional, NaN and infinite values; it now requires a finite integer of at least two.",
+    "Raw gender pay-gap percentage did not disclose its reference denominator; output now declares male_mean_salary explicitly.",
+    "Unknown/unmapped gender rows were silently excluded; output now reports known binary-gender population, excluded count and coverage.",
+    "Welch inference on extreme finite salaries could overflow inside SciPy; a scale-invariant stable Welch implementation now avoids non-finite intermediate arithmetic and fails closed when inference is undefined.",
+    "analyze_all exposed employee-level salary outlier records internally; it now returns aggregate outlier counts only.",
+    "External BandMidpoint values were ignored when CompaRatio was absent; supplied market-band midpoint is now the authoritative compa-ratio basis.",
+    "Contradictory supplied BandMidpoint and CompaRatio values were trusted independently; they are now reconciled row by row and inconsistent rows fail closed.",
+    "Ineligible small job-title gender strata exposed exact male/female counts; suppressed strata now hide exact subgroup counts and disclose only the minimum support rule.",
+    "Overall unsupported male/female comparisons could expose exact undersized group counts; unsupported small groups are now count-suppressed.",
+    "Direct salary statistics in department dispersion, outlier z-scores, percentiles, tenure summaries and salary-attrition association were hardened against extreme finite magnitudes using scale-stable arithmetic."
+  ],
+  "forensic_validation": {
+    "contracts_passed": 36,
+    "contracts_total": 36,
+    "stress_rows": 250000,
+    "stress_checks_passed": 13,
+    "stress_checks_total": 13,
+    "stress_elapsed_seconds": 0.9156,
+    "stress_summary": {
+      "active_count": 204863,
+      "salary_observations": 204495,
+      "excluded_salary_count": 368
+    },
+    "artifact_id": 10129066832,
+    "artifact_sha256": "89d72f3a0ab8e958eaa3af0eea4cc78768d1635335e6d69e2a9b29b2add7a3cb",
+    "workflow_run_id": 34415940735
+  },
+  "exact_head_gates": {
+    "CompensationEngine Forensic Validation": "passed",
+    "Analytics Validation": "passed",
+    "Agent Foundation": "passed",
+    "E2E User Journey": "passed",
+    "People Team Browser Acceptance": "passed",
+    "Release Security": "passed",
+    "Local Ollama Acceptance": "passed"
+  },
+  "boundaries": [
+    "Current compensation summaries use current active employees with valid positive salary.",
+    "EquityScore is a compatibility field for salary-dispersion consistency, not an adjusted pay-equity conclusion.",
+    "Department-median compa values are an explicit compatibility fallback, not formal market compa-ratios.",
+    "Formal compa-ratio semantics require a supplied valid BandMidpoint or a supplied ratio that can be reconciled to a finite midpoint.",
+    "Gender pay-gap results are descriptive disparity indicators and not legal, causal or regression-adjusted pay-equity determinations.",
+    "Small gender strata are suppressed rather than exposing exact subgroup counts.",
+    "Employee-level salary outlier records are not exposed through the aggregate analysis surface or governed API."
+  ],
+  "readiness_boundary": "This cycle materially strengthens confidence in deterministic compensation calculations, finite numerical behavior, population accounting, compa semantics, disparity-screening transparency and privacy suppression. It does not establish organization-specific legal pay equity or market competitiveness without validated external compensation bands and appropriate covariates."
+}
