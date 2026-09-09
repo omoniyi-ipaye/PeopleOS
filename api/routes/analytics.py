@@ -143,12 +143,30 @@ async def get_high_risk_departments(
     threshold: Optional[float] = Query(default=None, ge=0, le=1, description="Observed attrition-share screening threshold"),
     state: AppState = Depends(require_data),
 ) -> HighRiskDepartmentsResponse:
-    frame = state.analytics_engine.get_high_risk_departments(threshold=threshold)
     minimum_group_size = 10
+    used = state.analytics_engine.high_risk_threshold if threshold is None else threshold
+
+    # Inspect the full department denominator first. An empty hotspot frame means
+    # something very different when no outcomes are measured at all.
+    all_departments = state.analytics_engine.get_department_aggregates()
+    if all_departments is None or all_departments.empty or 'Outcome_Observations' not in all_departments.columns:
+        return HighRiskDepartmentsResponse(
+            departments=[], threshold=used, minimum_group_size=minimum_group_size,
+            suppressed_department_count=0, outcome_observations=0, evidence_available=False,
+            unavailable_reason='Department outcome observations are unavailable; an empty hotspot list is not evidence that no hotspot exists.',
+        )
+    outcome_observations = int(pd.to_numeric(all_departments['Outcome_Observations'], errors='coerce').fillna(0).sum())
+    if outcome_observations == 0:
+        return HighRiskDepartmentsResponse(
+            departments=[], threshold=used, minimum_group_size=minimum_group_size,
+            suppressed_department_count=0, outcome_observations=0, evidence_available=False,
+            unavailable_reason='No known department attrition outcomes are present; PeopleOS will not interpret missing outcome evidence as no hotspots.',
+        )
+
+    frame = state.analytics_engine.get_high_risk_departments(threshold=threshold)
     eligible = frame['Total_Records'].fillna(0) >= minimum_group_size if 'Total_Records' in frame else pd.Series(False, index=frame.index)
     suppressed = int((~eligible).sum())
     frame = frame.loc[eligible]
-    used = state.analytics_engine.high_risk_threshold if threshold is None else threshold
     departments = []
     for _, row in frame.iterrows():
         share = float(row.get('Observed_Attrition_Share', row.get('Turnover_Rate', 0)))
@@ -157,9 +175,14 @@ async def get_high_risk_departments(
             headcount=int(row.get('Headcount', 0)), avg_salary=row.get('Avg_Salary'), avg_rating=row.get('Avg_Rating'),
             reason='Observed attrition share exceeds the configured aggregate screening threshold; local causes are not inferred.',
         ))
-    return HighRiskDepartmentsResponse(departments=departments, threshold=used,
-                                       minimum_group_size=minimum_group_size,
-                                       suppressed_department_count=suppressed)
+    return HighRiskDepartmentsResponse(
+        departments=departments, threshold=used,
+        minimum_group_size=minimum_group_size,
+        suppressed_department_count=suppressed,
+        outcome_observations=outcome_observations,
+        evidence_available=True,
+        unavailable_reason=None,
+    )
 
 
 @router.get("/clusters")
