@@ -54,15 +54,29 @@ def test_agent_audit_stores_question_hash_not_plaintext_or_evidence(tmp_path):
 
 
 class FakeFairnessEngine:
+    min_group_size = 10
+
     def calculate_demographic_parity(self, outcome_col):
         assert outcome_col == "Attrition"
+        # Mirrors the production engine contract: small groups are already
+        # suppressed, and the count of suppressed groups is carried forward.
         return pd.DataFrame([
-            {"attribute": "Gender", "group": "A", "rate": 0.20, "count": 25, "disparity": 0.08, "parity_ratio": 0.70},
-            {"attribute": "Gender", "group": "B", "rate": 0.35, "count": 4, "disparity": 0.23, "parity_ratio": 0.45},
+            {
+                "attribute": "Gender",
+                "group": "A",
+                "rate": 0.20,
+                "count": 25,
+                "disparity": 0.08,
+                "parity_ratio": 0.70,
+                "suppressed_group_count": 1,
+                "overall_known_outcome_count": 29,
+                "attribute_observed_count": 29,
+                "attribute_coverage": 1.0,
+            },
         ])
 
 
-def test_fairness_tool_suppresses_small_groups():
+def test_fairness_tool_preserves_engine_small_group_suppression():
     state = SimpleNamespace(
         fairness_engine=FakeFairnessEngine(),
         raw_df=pd.DataFrame({"Attrition": [0, 1]}),
@@ -72,6 +86,6 @@ def test_fairness_tool_suppresses_small_groups():
     assert result.status == ToolResultStatus.SUCCESS
     assert len(result.evidence) == 1
     assert result.evidence[0].metadata["group"] == "A"
-    assert all(item.metadata.get("group") != "B" for item in result.evidence)
+    assert result.metadata["suppressed_group_count"] == 1
     assert "suppressed" in " ".join(result.warnings).lower()
     assert all(record["group"] != "B" for record in result.metadata["eligible_groups"])
