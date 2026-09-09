@@ -242,6 +242,12 @@ def test_confidence_interval_rejects_identifier_like_measure():
     assert AnalyticsEngine(df).get_confidence_interval('ManagerID') is None
 
 
+def test_confidence_interval_rejects_binary_measure_instead_of_using_student_t():
+    df = frame(40); df['BinaryFlag'] = np.resize([0, 1], 40)
+    assert AnalyticsEngine(df).get_confidence_interval('BinaryFlag') is None
+    assert AnalyticsEngine(df).get_confidence_interval('Attrition') is None
+
+
 @pytest.mark.parametrize('threshold', [-0.01, 1.01, float('nan'), float('inf'), -float('inf')])
 def test_high_risk_department_threshold_rejects_invalid_share_thresholds(threshold):
     with pytest.raises(ValueError):
