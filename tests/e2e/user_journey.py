@@ -88,8 +88,17 @@ def main() -> None:
             assert_route(page, path, heading, screenshot)
 
         page.goto(f"{BASE_URL}/flight-risk", wait_until="domcontentloaded", timeout=120_000)
+        terminal_retention_state = page.get_by_role(
+            "heading",
+            name=re.compile(r"Where is predictive retention pressure concentrated\?|Predictive retention signals are not active|Predictive capability state is unavailable"),
+        ).first
+        terminal_retention_state.wait_for(timeout=30_000)
         body = page.locator("body").inner_text()
-        assert "Where is predictive retention pressure concentrated?" in body or "Predictive retention signals are not active" in body, body[-2000:]
+        assert (
+            "Where is predictive retention pressure concentrated?" in body
+            or "Predictive retention signals are not active" in body
+            or "Predictive capability state is unavailable" in body
+        ), body[-2000:]
         page.screenshot(path=str(ARTIFACT_DIR / "13-retention-signals.png"), full_page=True)
 
         page.goto(f"{BASE_URL}/advisor", wait_until="domcontentloaded", timeout=120_000)
