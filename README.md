@@ -1,70 +1,185 @@
-# PeopleOS: Governed People Intelligence System
+# PeopleOS
 
-PeopleOS is a **local-first, privacy-preserving People Intelligence platform** for People Operations and HR leaders. It combines deterministic workforce analytics with a governed AI investigation layer so users can ask complex workforce questions, inspect the supporting evidence, understand limitations, and keep consequential employment decisions outside the agent autonomy boundary.
+### Your local People Analyst — deterministic workforce analytics with governed AI.
 
-Sensitive workforce data is processed inside the PeopleOS environment. The default API binding is loopback-only, local AI synthesis can run through Ollama, and remote API access must be explicitly enabled and authenticated.
+PeopleOS is a **local-first People Intelligence system for People Operations, People Analytics and HR teams**.
 
-## Try the public beta
+Bring in workforce data, understand what matters, ask questions in normal People language, drill into cohorts and inspect the evidence behind every answer — without making an LLM the source of truth.
 
-Start with the [Public Beta Guide](docs/PUBLIC_BETA_GUIDE.md) for a local source install, fictional sample data, salary declarations, recovery limits and troubleshooting. The beta scope is local evaluation; published installers and production readiness are not implied by the source build instructions.
-
-- [First run and sample walkthrough](docs/PUBLIC_BETA_GUIDE.md#first-run-with-fictional-data)
-- [Import and salary requirements](docs/PUBLIC_BETA_GUIDE.md#import-your-own-test-data)
-- [Security and safe reporting](SECURITY.md)
-- [Bug report](.github/ISSUE_TEMPLATE/bug_report.md) and [feature request](.github/ISSUE_TEMPLATE/feature_request.md) templates
+> **PeopleOS analyses. People decide.**
 
 ---
 
-## What PeopleOS Does
+## Why PeopleOS
 
-### Governed People Intelligence Agent
-PeopleOS investigates workforce questions through a deterministic plan and an allowlisted set of aggregate analytics tools:
+Most People teams have data, dashboards and increasingly AI tools — but still have to answer the hardest questions manually:
 
-`question → plan → governed tools → evidence → sufficiency/confidence → policy gate → synthesis → verification/audit`
+- Where are people leaving?
+- Which teams deserve a closer look?
+- How does pay differ across groups?
+- What changes when we look at tenure, location or job level?
+- Is an observed relationship meaningful or just noise?
+- What evidence actually supports this conclusion?
 
-The agent:
-- uses aggregate workforce evidence rather than unrestricted raw employee records;
-- records workspace, dataset and model provenance;
-- distinguishes **sufficient**, **limited** and **insufficient** evidence;
-- refuses to infer a missing conclusion when evidence is insufficient;
-- falls back to deterministic evidence summaries when Ollama is unavailable;
-- blocks punitive or consequential employment recommendations at the model boundary;
-- never has authority to terminate, demote, discipline, reduce pay, or otherwise execute consequential employment actions.
+PeopleOS is designed to make those investigations fast **without hiding the calculation behind AI-generated prose**.
 
-### Workforce Analytics
-PeopleOS retains its deterministic analytics capabilities, including:
-- retention and attrition analysis;
-- survival forecasting;
-- compensation and pay-equity analysis;
-- workforce and department health;
-- employee-experience and sentiment analysis;
-- fairness analysis with small-group suppression;
-- succession and quality-of-hire analytics;
-- organizational structure and network analysis;
-- scenario and causal analysis where supported by the dataset.
+The system separates calculation from interpretation:
 
-### Workspace and Lifecycle Control Plane
-PeopleOS now maintains explicit control-plane identities for:
-- **workspaces**;
-- **dataset versions** and active dataset state;
-- **model versions**;
-- model lifecycle: `created → training → evaluating → candidate → active / rejected / failed`;
-- **investigation sessions**;
-- idempotent operational jobs;
-- health, fitness and bounded recovery state.
+```text
+workforce data
+    ↓
+deterministic analytics
+    ↓
+governed cohort / downstream analysis
+    ↓
+typed evidence + provenance
+    ↓
+AI interpretation
+    ↓
+clear People-team answer
+```
 
-The System Health page at `/platform` shows dataset/model history, active versions, fitness checks, access role, investigation state and the self-healing boundary.
+The AI can organise, explain and investigate verified evidence. It does **not** invent the underlying metrics.
 
 ---
 
-## Safety, Privacy and Governance
+## The experience
 
-PeopleOS uses deterministic controls around the probabilistic AI layer.
+PeopleOS is intentionally simple by default and powerful when you drill deeper.
 
-### Local-first access
-The backend defaults to `127.0.0.1`. Loopback traffic is treated as the trusted local owner.
+### 1. Add workforce data
 
-If you intentionally expose the API beyond loopback, configure both an API token and a server-side role:
+Start with fictional sample data or import your own test dataset.
+
+Supported import formats:
+
+- `.xlsx`
+- `.csv`
+- `.json`
+
+PeopleOS validates the dataset before analysis and fails closed when required meaning or units are unclear.
+
+### 2. See what deserves attention
+
+The Home and Insights experiences surface the most useful available signals based on what the current dataset actually supports.
+
+PeopleOS does not pretend a capability exists when the required evidence is missing.
+
+### 3. Ask PeopleOS
+
+Ask questions in normal People language, for example:
+
+- `What is our current headcount?`
+- `Where are people leaving?`
+- `How does pay look across departments?`
+- `What should I look at first?`
+- `Show average salary by job level in Engineering.`
+- `Compare attrition by location.`
+
+Simple questions get simple answers.
+
+The supporting evidence, coverage, methodology, provenance and raw verified response remain available through progressive disclosure when you want to inspect them.
+
+### 4. Explore deeper
+
+PeopleOS supports governed aggregate drill-down across available workforce dimensions, including:
+
+- department
+- location
+- job level
+- job title
+- gender
+- tenure
+- age
+- salary
+- rating
+
+Categorical and numeric filters can be stacked to investigate an exact cohort, subject to privacy/support thresholds.
+
+Examples:
+
+```text
+Engineering → Madrid → L3 → tenure < 2 years
+```
+
+or conversationally:
+
+```text
+Average salary by job level for Engineering employees in Madrid with under 4 years tenure.
+```
+
+Supported downstream operations include grouped summaries, rates, correlations and crosstabs.
+
+PeopleOS enforces minimum cohort/group sizes and blocks identifier-like drill-down fields. The normal analytical experience remains **aggregate, not employee-ranking software**.
+
+---
+
+## What PeopleOS can analyse
+
+Capabilities are dataset-dependent, but the deterministic analytical layer includes:
+
+- workforce composition and department health
+- headcount and workforce structure
+- recorded attrition and retention
+- tenure and cohort retention analysis
+- compensation distribution and pay analysis
+- employee-experience measures when genuinely present in the data
+- quality-of-hire analysis
+- fairness analysis with small-group suppression
+- organizational structure and network analysis
+- governed scenario planning
+- predictive retention signals through an explicit model lifecycle
+- aggregate derived analysis through the governed downstream-analysis runtime
+
+PeopleOS distinguishes descriptive evidence, configured/assumed constructs and predictive evidence rather than presenting them as equally certain.
+
+---
+
+## Trust by design
+
+PeopleOS is built around a simple rule:
+
+> **No number should become more authoritative just because AI explained it.**
+
+The deterministic evidence contract preserves the important context around a result, including:
+
+- value
+- population / denominator
+- eligible and excluded observations where relevant
+- semantic meaning
+- validation state
+- source tool
+- dataset provenance
+
+PeopleOS deliberately fails closed in important cases.
+
+It will not:
+
+- turn missing evidence into `0`;
+- claim there is no hotspot when outcome evidence is unavailable;
+- claim parity merely because a comparison could not be established;
+- present observational correlation as causation;
+- describe a model score as a validated future-event probability without the required validation;
+- rank employees for termination, demotion or other consequential employment action;
+- let an LLM directly execute arbitrary shell commands, network calls or unrestricted Python against employee data.
+
+Causal questions abstain when the available evidence cannot establish causation.
+
+---
+
+## Local-first privacy boundary
+
+PeopleOS is designed to run locally.
+
+By default the backend binds to:
+
+```text
+127.0.0.1
+```
+
+Local AI synthesis can run through Ollama, and deterministic analytics continue to work without making a model the calculator or source of truth.
+
+If you intentionally expose the API beyond loopback, configure authentication and a server-side role:
 
 ```bash
 export PEOPLEOS_API_HOST=0.0.0.0
@@ -73,52 +188,46 @@ export PEOPLEOS_API_ROLE='analyst'   # viewer | analyst | admin
 export PEOPLEOS_API_ACTOR_ID='named-operator'
 ```
 
-Remote clients cannot choose their own role in a request header. The role is assigned server-side after the bearer-token boundary succeeds.
+Remote clients cannot choose their own authorization role in a request header.
 
 ### Role boundaries
-- **owner**: trusted local owner; full control-plane access;
-- **admin**: workspace/data/model administration, including governed model activation and recovery;
-- **analyst**: investigations and read access, but no model activation or recovery;
-- **viewer**: read-only system and lifecycle visibility.
 
-### Bounded self-healing
-PeopleOS currently operates at **L2 bounded auto-heal** for control-plane metadata only. Automatic recovery may repair registry metadata or mark interrupted jobs as safely retryable. It cannot:
-- change employee data;
-- activate a model;
-- change policy thresholds;
-- execute employment actions.
-
-### Git safety
-Runtime files span the OS-native PeopleOS data directory and, for source runs, repository-relative paths such as `.peopleos/`, `data/`, `sessions/` and `logs/`. See the [storage and recovery notes](docs/PUBLIC_BETA_GUIDE.md#storage-backup-and-recovery). Git exclusions do not encrypt data or make files safe to share.
+- **owner** — trusted local owner with full control-plane access
+- **admin** — workspace/data/model administration and governed recovery
+- **analyst** — investigations and read access without model activation/recovery authority
+- **viewer** — read-only lifecycle/system visibility
 
 ---
 
-## Architecture
+## Desktop experience
 
-The canonical machine-readable system definition is:
+PeopleOS also supports a packaged local desktop experience.
 
-`model/system.json`
+The desktop lifecycle includes bounded in-app controls for:
 
-The architecture upgrade record is:
+- Open PeopleOS
+- Restart app
+- Quit PeopleOS
 
-`docs/architecture/AGENT_SYSTEM_UPGRADE.md`
+Users should not need a terminal, Task Manager or Activity Monitor to manage the running application.
 
-The canonical model captures the system boundary, AS-IS/TRANSITION/TARGET components, typed flows, lifecycle states, controls, risks, health loop, bounded autonomy and dependency-ordered build steps.
+The current build pipeline validates packaged Windows x64, macOS ARM64 and Linux x64 paths, including smoke/restart/archive checks.
 
-PeopleOS intentionally keeps the deterministic analytics engines responsible for calculations and state. The LLM is used for interpretation and synthesis, not as the source of truth and not as the enforcement layer.
+Published, signed installers are a separate release step and are not implied by source availability.
 
 ---
 
-## Setup
+## Getting started
+
+For the full first-run walkthrough, use the [Public Beta Guide](docs/PUBLIC_BETA_GUIDE.md).
 
 ### Prerequisites
+
 - Python 3.10+
-- Node.js 22 recommended for the current Next.js 16 frontend
-- Ollama is optional; core analytics and deterministic agent fallback do not require it
+- Node.js 22 recommended for the current Next.js frontend
+- Ollama is optional
 
-### Install the default core runtime
-
-The default installation intentionally excludes the transformer/GPU/vector-search stack. It includes the API, deterministic analytics, predictive/statistical engines, governed agent runtime, local Ollama client and the transitional legacy Streamlit dependency required by the current ML module.
+### Install the core runtime
 
 ```bash
 python -m pip install -r requirements.txt
@@ -128,17 +237,15 @@ npm ci
 cd ..
 ```
 
-### Optional advanced embeddings and semantic search
+The default runtime intentionally excludes the heavy transformer/GPU/vector-search stack.
 
-Install the advanced tier only when you want local sentence-transformer embeddings or FAISS semantic search:
+### Optional advanced embeddings
 
 ```bash
 pip install -r requirements-advanced.txt
 ```
 
-The advanced tier includes the core runtime automatically. A normal PeopleOS install does not require Torch, sentence-transformers or FAISS.
-
-### Optional local AI synthesis
+### Optional local AI
 
 Install Ollama and pull a compatible model, for example:
 
@@ -147,97 +254,135 @@ ollama serve
 ollama pull gemma3
 ```
 
-### Run PeopleOS
-
-**Backend:**
+### Run the backend
 
 ```bash
 uvicorn api.main:app --host 127.0.0.1 --port 8000
 ```
 
-Alternatively, run `python -m api.main` from the repository root; it also defaults to loopback.
+or:
 
-**Frontend:**
+```bash
+python -m api.main
+```
+
+### Run the web app
 
 ```bash
 cd web
 npm run dev -- --hostname 127.0.0.1
 ```
 
-Open `http://localhost:3000`.
+Then open:
 
-API documentation is available locally at `http://127.0.0.1:8000/docs`.
+```text
+http://localhost:3000
+```
+
+Local API documentation is available at:
+
+```text
+http://127.0.0.1:8000/docs
+```
 
 ---
 
-## Data Lifecycle
+## Data and pay semantics
 
-PeopleOS uses a Golden Schema. A template is available through the application/API.
+PeopleOS uses a normalized workforce schema and maps familiar HR fields into deterministic analytical contracts.
 
-Typical core fields include:
+Typical fields include:
+
 - `EmployeeID`
 - `Dept`
 - `Tenure`
 - `Salary`
 - `LastRating`
 - `Age`
+- `JobTitle`
+- `JobLevel`
+- `Location`
+- `Attrition`
 
-Additional fields unlock additional analytical capabilities, for example:
-- `Attrition` for attrition/retention modelling;
-- `PerformanceText` for NLP/sentiment capabilities;
-- `HireSource` and interview scores for quality-of-hire analytics.
+Additional fields unlock additional capabilities.
 
-When data is uploaded, PeopleOS validates and preprocesses it, records a dataset version containing its content hash, row count, columns and basic quality metrics, and activates that dataset version. Predictive training and advanced vector indexing are not implicitly authorized by the upload action; they belong to their explicit lifecycle boundaries.
-
----
-
-## Model Lifecycle
-
-Predictive model lifecycle is explicit in the new control plane:
-
-1. create a model version;
-2. enter training state;
-3. evaluate the resulting metrics;
-4. accept as a candidate only if the deterministic evaluation policy passes;
-5. activate only through a permitted governance action;
-6. retire the previous active version;
-7. monitor freshness and quality.
-
-Agent investigations never implicitly authorize model activation.
-
-> **Transition note:** Some legacy analytical routes still use the original process-global `AppState` runtime and its historical initialization behavior. The governed workspace/model control plane isolates the new lifecycle and agent surfaces while those legacy routes are migrated incrementally. This is tracked explicitly as transition debt rather than hidden as completed work.
+Monetary analytics require trustworthy pay-period and currency meaning. If those semantics cannot be established, PeopleOS keeps pay analysis unavailable rather than silently assuming annualization or currency equivalence.
 
 ---
 
-## Verification and Build Readiness
+## Predictive model lifecycle
 
-Architecture checks can be run directly:
+Predictive functionality is deliberately separate from deterministic observed analytics.
 
-```bash
-python scripts/validate_system_model.py
-python scripts/check_build_readiness.py
+A model follows an explicit lifecycle:
+
+```text
+created → training → evaluating → candidate → active / rejected / failed
 ```
 
-The CI release gates cover:
-- governed agent evidence/orchestration;
-- model policy enforcement;
-- privacy and access controls;
-- workspace/data/model/session lifecycle invariants;
-- RBAC, job idempotency and bounded recovery;
-- canonical system-model validation;
-- Next.js 16 / React 19 lint and production build;
-- a browser-level user journey that boots the core runtime without Torch/sentence-transformers, activates sample data, opens System Health and runs a governed People Intelligence investigation.
+Activation is a governed action. Asking PeopleOS a question never implicitly authorizes model activation.
 
-The current architecture target is **BUILD READY WITH ASSUMPTIONS** while the legacy AppState routes remain in the transition layer. The repository must not be described as fully migrated until that debt is removed.
+Predictive scores are described as model-score bands unless future-event probability validity has actually been established for the intended use.
 
 ---
 
-## Version
+## Architecture
 
-The current branch represents the **3.0 transition architecture**: PeopleOS evolving from a local HR analytics application into a governed People Intelligence system with explicit lifecycle, evidence, authorization and health boundaries.
+The canonical machine-readable system definition is:
+
+[`model/system.json`](model/system.json)
+
+The architecture upgrade record is:
+
+[`docs/architecture/AGENT_SYSTEM_UPGRADE.md`](docs/architecture/AGENT_SYSTEM_UPGRADE.md)
+
+The 10/10 product direction and drill-down principles are recorded in:
+
+[`docs/product/PEOPLEOS_10_10_PRODUCT_PLAN.md`](docs/product/PEOPLEOS_10_10_PRODUCT_PLAN.md)
+
+PeopleOS intentionally keeps deterministic analytics engines responsible for calculations and state. The probabilistic model sits **on top of evidence**, not underneath truth.
+
+---
+
+## Verification
+
+The current `main` candidate passed the complete public-beta preparation validation matrix before merge:
+
+- Agent Foundation
+- Frontend Modernization
+- E2E User Journey
+- Analytics Validation
+- People Team Browser Acceptance — desktop and mobile
+- Local Desktop Build
+- Release Security
+- Local Ollama Acceptance
+
+The browser suite exercises real People-team journeys including data import, pay-unit gating, malicious source labels, bad replacement data, concise AI answers with inspectable evidence, unsupported/causal abstention, dataset changes, mobile layout, scenario planning and Trust & Privacy.
+
+CI is strong technical evidence. It is **not** a substitute for independent fresh-user usability testing or organization-specific prospective validation of predictive use cases.
+
+---
+
+## Public beta status
+
+PeopleOS is currently a **reviewable public-beta candidate**, not a production certification.
+
+The current intended scope is local, single-user People analytics and governed investigation with fictional/test data first.
+
+Before broader production use, teams should still perform their own security, privacy, legal, data-governance and intended-use review.
+
+See:
+
+- [Public Beta Guide](docs/PUBLIC_BETA_GUIDE.md)
+- [Public Beta Release Checklist](docs/releases/PUBLIC_BETA_CHECKLIST.md)
+- [Security Policy](SECURITY.md)
 
 ---
 
 ## License
 
-See the repository `LICENSE` file for the authoritative license terms. Any additional commercial-use conditions should be interpreted only from the repository’s actual license text, not from this README.
+The repository's [`LICENSE`](LICENSE) file is authoritative.
+
+The current license text includes an additional commercial-use restriction. Unless that restriction is deliberately changed by the owner, PeopleOS should be described as **source-available rather than OSI open source**.
+
+No license change is implied by this README.
