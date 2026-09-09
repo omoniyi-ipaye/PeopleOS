@@ -1,5 +1,5 @@
 {
-  "review_context": "Incremental reviewed-file hashes after the deterministic evidence, pilot UX hardening, and Cycle 007 population-resolution integrity review. Entries override only paths already inventoried in model/engine_audit.json.",
+  "review_context": "Incremental reviewed-file hashes after the deterministic evidence, pilot UX hardening, Cycle 007 population-resolution integrity review, and Cycle 008 AnalyticsEngine forensic review. Entries override only paths already inventoried in model/engine_audit.json.",
   "reviewed_file_sha256": {
     "api/routes/analytics.py": "0bb0409b1e003103a37fee14cf2cef6a208e1b7a120fe03cc2113f7b57633e7e",
     "api/routes/fairness.py": "90d8d783d324e87749d09a9b06a4856570c7b656134d0c46fd42f7714bc8c39b",
@@ -8,7 +8,7 @@
     "src/agent/adapters.py": "d90e1b0e84b7a29d43f5f5d9b9f9500c13ed0cf960d16d7db9cc1f57cf0a8cb8",
     "src/agent/people_tools.py": "5055f77404fb005ab2f33f0e183be7945eccb19de7f153d90abbad551cbda1a8",
     "src/agent/planner.py": "634b00a55f3e9c05a36ca71677a060be2acc516be38cd016585d6bda55314868",
-    "src/analytics_engine.py": "3abb66cf09eaecd5c3de04ee9efb3414bb4dc78bc5eac9dda370a349f0825473",
+    "src/analytics_engine.py": "aec3104fed793c6e47a5fa3c6331da2b216109797382a0dac26220a0da341204",
     "src/fairness_engine.py": "2f5ed47d89f7003396e0f046d50ca2f39dcc268c090259c68af0be022af9d38d",
     "src/population.py": "90463fd810abf3ae96f3ef2828595238afcf2f92bf096166cf25c809605fbb31",
     "web/app/advisor/page.tsx": "a68b783eb6f89710e414938df63ac9fd8373ea14f80821d8772f1fccc6cceca6",
