@@ -47,10 +47,6 @@ def workforce() -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def sorted_records(frame: pd.DataFrame) -> pd.DataFrame:
-    return frame.sort_values('EmployeeID').reset_index(drop=True)
-
-
 def test_reconciliation_accounting_identities_hold_across_summary_and_departments():
     frame = workforce()
     engine = AnalyticsEngine(frame)
@@ -155,7 +151,10 @@ def test_row_order_does_not_change_unique_employee_results():
         'tenure_mean', 'age_mean', 'lastrating_mean', 'attrition_count', 'attrition_known_count',
     ]
     for key in keys:
-        assert shuffled[key] == pytest.approx(baseline[key]) if isinstance(baseline[key], float) else shuffled[key] == baseline[key]
+        if isinstance(baseline[key], float):
+            assert shuffled[key] == pytest.approx(baseline[key])
+        else:
+            assert shuffled[key] == baseline[key]
 
 
 def test_historical_rows_do_not_double_count_current_employee_state():
@@ -178,7 +177,7 @@ def test_historical_rows_do_not_double_count_current_employee_state():
     assert combined_summary['population_as_of_date'] == '2026-09-01'
 
 
-def test_equal_timestamp_conflicts_resolve_deterministically_independent_of_source_order():
+def test_conflicting_equal_timestamp_snapshots_fail_closed_independent_of_source_order():
     base = workforce().iloc[:10].copy()
     conflict_a = base.iloc[[0]].copy()
     conflict_b = base.iloc[[0]].copy()
@@ -189,10 +188,18 @@ def test_equal_timestamp_conflicts_resolve_deterministically_independent_of_sour
 
     first = pd.concat([base, conflict_a, conflict_b], ignore_index=True)
     second = pd.concat([base, conflict_b, conflict_a], ignore_index=True)
-    resolved_first, _ = resolve_current_population(first)
-    resolved_second, _ = resolve_current_population(second)
+    for candidate in [first, second]:
+        with pytest.raises(ValueError, match='current state is ambiguous'):
+            resolve_current_population(candidate)
 
-    pd.testing.assert_frame_equal(sorted_records(resolved_first), sorted_records(resolved_second), check_dtype=False)
+
+def test_exact_duplicate_snapshot_rows_are_harmless_and_collapsed():
+    frame = workforce().iloc[:10].copy()
+    duplicate = frame.iloc[[0]].copy()
+    resolved, resolution = resolve_current_population(pd.concat([frame, duplicate], ignore_index=True))
+    assert len(resolved) == len(frame)
+    assert resolution.source_rows == len(frame) + 1
+    assert resolution.current_rows == len(frame)
 
 
 def test_governed_group_summary_matches_manual_filtered_oracle():
@@ -228,6 +235,35 @@ def test_governed_compare_groups_honors_requested_sum_statistic():
     assert returned['Madrid'] == pytest.approx(expected['Madrid'])
     assert returned['London'] == pytest.approx(expected['London'])
     assert result['output']['difference_b_minus_a'] == pytest.approx(expected['London'] - expected['Madrid'])
+
+
+def test_governed_compare_groups_honors_count_mean_median_and_rate_statistics():
+    frame = workforce()
+    active = AnalyticsEngine(frame).active_df
+    for statistic, measure in [('count', 'Salary'), ('mean', 'Salary'), ('median', 'Salary')]:
+        spec = AnalysisSpec(
+            operation='compare_groups', population='active', group_by='Location', measure=measure,
+            statistic=statistic, group_a='Madrid', group_b='London',
+        )
+        result = GovernedAnalysisSandbox(frame).run(spec)
+        returned = {row['group']: row['value'] for row in result['output']['groups']}
+        grouped = active.groupby('Location')[measure]
+        if statistic == 'count': expected = grouped.count()
+        elif statistic == 'mean': expected = grouped.mean()
+        else: expected = grouped.median()
+        assert returned['Madrid'] == pytest.approx(expected['Madrid'])
+        assert returned['London'] == pytest.approx(expected['London'])
+
+    rate_spec = AnalysisSpec(
+        operation='compare_groups', population='current', group_by='Location', measure='Attrition',
+        statistic='rate', group_a='Madrid', group_b='London',
+    )
+    rate_result = GovernedAnalysisSandbox(frame).run(rate_spec)
+    current, _ = resolve_current_population(frame)
+    expected_rate = current.dropna(subset=['Attrition']).groupby('Location')['Attrition'].mean()
+    returned_rate = {row['group']: row['value'] for row in rate_result['output']['groups']}
+    assert returned_rate['Madrid'] == pytest.approx(expected_rate['Madrid'])
+    assert returned_rate['London'] == pytest.approx(expected_rate['London'])
 
 
 def test_governed_correlation_is_order_invariant_and_affine_invariant():
