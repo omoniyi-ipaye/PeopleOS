@@ -24,8 +24,18 @@ def test_every_engine_and_public_method_has_an_explicit_review():
 
 def test_review_hashes_and_analytical_component_inventory_are_current():
     audit=json.loads((ROOT/'model/engine_audit.json').read_text())
-    for path,expected in audit['reviewed_file_sha256'].items():
-        assert hashlib.sha256((ROOT/path).read_bytes()).hexdigest()==expected, f'Review must be updated after changing {path}'
+    update_path=ROOT/'model/engine_audit_review_updates.json'
+    updates=json.loads(update_path.read_text()) if update_path.exists() else {}
+    expected_hashes={**audit['reviewed_file_sha256'], **updates.get('reviewed_file_sha256', {})}
+    # An incremental update may only replace an already inventoried reviewed path;
+    # it cannot silently expand the analytical audit scope.
+    assert set(updates.get('reviewed_file_sha256', {})) <= set(audit['reviewed_file_sha256'])
+    mismatches={}
+    for path,expected in expected_hashes.items():
+        actual=hashlib.sha256((ROOT/path).read_bytes()).hexdigest()
+        if actual!=expected:
+            mismatches[path]={'expected':expected,'actual':actual}
+    assert not mismatches, 'Review must be updated after changing analytical files:\n'+json.dumps(mismatches,indent=2,sort_keys=True)
     recorded={p for row in audit['engines'] for p in row['renderers']}
     analytical_components=set()
     for directory in ['charts','diagnostics']:
