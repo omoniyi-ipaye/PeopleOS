@@ -12,18 +12,46 @@ from src.agent.registry import ToolRegistry
 class FakeAnalyticsEngine:
     def get_summary_statistics(self):
         return {
-            "headcount": 100,
+            "headcount": 90,
+            "record_count": 100,
             "active_count": 90,
             "observed_attrition_share": 0.10,
+            "attrition_known_count": 100,
             "salary_mean": 70000.0,
+            "salary_observations": 90,
+            "salary_excluded_count": 0,
             "tenure_mean": 3.2,
+            "tenure_observations": 90,
+            "tenure_excluded_count": 0,
+            "age_mean": None,
+            "age_observations": 0,
+            "age_excluded_count": 90,
             "lastrating_mean": 4.1,
+            "lastrating_observations": 90,
+            "lastrating_excluded_count": 0,
             "department_count": 3,
         }
 
+    def get_department_aggregates(self):
+        return pd.DataFrame([
+            {
+                "Dept": "Engineering",
+                "Total_Records": 40,
+                "Outcome_Observations": 40,
+                "Headcount": 31,
+                "Observed_Attrition_Share": 0.22,
+            },
+        ])
+
     def get_high_risk_departments(self, threshold=None):
         return pd.DataFrame([
-            {"Dept": "Engineering", "Observed_Attrition_Share": 0.22, "Headcount": 40},
+            {
+                "Dept": "Engineering",
+                "Total_Records": 40,
+                "Outcome_Observations": 40,
+                "Observed_Attrition_Share": 0.22,
+                "Headcount": 31,
+            },
         ])
 
 
@@ -33,8 +61,10 @@ class FakeLLM:
 
     def __init__(self, response):
         self.response = response
+        self.calls = 0
 
     def generate(self, prompt, **kwargs):
+        self.calls += 1
         return self.response
 
 
@@ -42,11 +72,7 @@ class FakeState:
     analytics_engine = FakeAnalyticsEngine()
     compensation_engine = None
     structural_engine = None
-    model_metrics = {"f1": 0.86}
-    risk_scores = pd.DataFrame({
-        "risk_category": ["High", "High", "Medium", "Low"],
-        "risk_score": [0.82, 0.79, 0.61, 0.20],
-    })
+    model_metrics = {"f1": 0.86, "future_departure_validated": False}
 
     def __init__(self, llm_client=None):
         self.llm_client = llm_client
@@ -57,27 +83,28 @@ class FakeState:
         self.model_provenance = {**self.runtime_provenance,'model_id':'fixture-model'}
 
 
-def test_agent_runs_plan_tools_aggregates_and_falls_back_without_llm():
+def test_causal_attrition_question_abstains_even_when_descriptive_evidence_exists():
     answer = PeopleIntelligenceAgent(FakeState()).investigate(
         "Why is attrition elevated?"
     )
 
-    assert answer.status == "partial"
+    assert answer.status == "insufficient"
     assert "cannot establish causes" in " ".join(answer.warnings)
     assert answer.model is None
-    assert answer.confidence > 0.7
     assert "workforce.summary" in answer.tools_used
     assert "workforce.retention_risk" in answer.tools_used
     assert "workforce.department_risk" in answer.tools_used
     assert 'Observed attrition share:' in answer.answer
-    assert '(source department label: "Engineering")' in answer.answer
     assert "EmployeeID" not in answer.answer
+    assert "will not infer" in answer.answer.lower()
 
 
 def test_agent_blocks_punitive_llm_synthesis_and_returns_safe_evidence():
-    state = FakeState(FakeLLM("Fire the highest-risk employees immediately."))
-    answer = PeopleIntelligenceAgent(state).investigate("Why is attrition elevated?")
+    llm = FakeLLM("Fire the highest-risk employees immediately.")
+    state = FakeState(llm)
+    answer = PeopleIntelligenceAgent(state).investigate("Show department hotspots.")
 
+    assert llm.calls == 1
     assert answer.model is None
     assert "blocked" in " ".join(answer.warnings).lower()
     assert "Fire the highest-risk" not in answer.answer
