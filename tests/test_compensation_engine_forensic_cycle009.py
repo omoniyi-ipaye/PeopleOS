@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import math
+import warnings
 import numpy as np
 import pandas as pd
 import pytest
@@ -53,8 +54,7 @@ def test_summary_matches_plain_arithmetic_and_coverage():
 
 def test_departed_salaries_do_not_change_current_compensation_summary():
     df = frame(60)
-    engine = CompensationEngine(df)
-    baseline = engine.get_compensation_summary()
+    baseline = CompensationEngine(df).get_compensation_summary()
     changed = df.copy()
     changed.loc[changed['Attrition'] == 1, 'Salary'] *= 100
     assert CompensationEngine(changed).get_compensation_summary() == pytest.approx(baseline)
@@ -184,6 +184,9 @@ def test_gender_pay_gap_matches_reference_denominator_and_welch_test():
     assert result['welch_t_stat'] == pytest.approx(t)
     assert result['p_value'] == pytest.approx(p)
     assert result['male_n'] == result['female_n'] == 20
+    assert result['raw_gap_reference'] == 'male_mean_salary'
+    assert result['gender_excluded_count'] == 0
+    assert result['gender_coverage'] == pytest.approx(1.0)
 
 
 @pytest.mark.parametrize('minimum', [0, -1, 1.5, float('nan'), float('inf')])
@@ -198,6 +201,16 @@ def test_gender_pay_gap_fails_closed_without_two_supported_groups():
     assert result['available'] is False
 
 
+def test_gender_pay_gap_reports_unknown_gender_exclusions_and_coverage():
+    df = frame(50); df['Attrition'] = 0
+    df['Gender'] = ['Male']*20 + ['Female']*20 + ['Unknown']*10
+    result = CompensationEngine(df).calculate_gender_pay_gap(10)
+    assert result['available']
+    assert result['gender_known_binary_count'] == 40
+    assert result['gender_excluded_count'] == 10
+    assert result['gender_coverage'] == pytest.approx(0.8)
+
+
 def test_constant_equal_gender_groups_have_descriptive_zero_gap_but_no_inference():
     df = frame(40); df['Attrition'] = 0
     df['Gender'] = ['Male']*20 + ['Female']*20; df['Salary'] = 100_000.0
@@ -206,6 +219,19 @@ def test_constant_equal_gender_groups_have_descriptive_zero_gap_but_no_inference
     assert result['raw_gap_pct'] == pytest.approx(0.0)
     assert result['inference_available'] is False
     assert result['p_value'] is None
+
+
+def test_extreme_gender_pay_gap_is_stable_without_runtime_overflow_warning():
+    df = frame(40); df['Attrition'] = 0
+    df['Gender'] = ['Male']*20 + ['Female']*20
+    df['Salary'] = np.array([1.0e306, 9.0e305] * 10 + [8.0e305, 7.0e305] * 10)
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter('always')
+        result = CompensationEngine(df).calculate_gender_pay_gap(10)
+    assert result['available']
+    assert math.isfinite(result['raw_gap_pct'])
+    assert result['p_value'] is None or math.isfinite(result['p_value'])
+    assert not [w for w in caught if issubclass(w.category, RuntimeWarning)]
 
 
 def test_tenure_salary_bucket_boundaries_and_reconciliation():
@@ -228,7 +254,6 @@ def test_row_order_does_not_change_aggregate_results():
 
 def test_extreme_finite_inputs_never_escape_as_nonfinite_outputs():
     df = frame(20); df['Attrition'] = 0
-    # Keep total payroll finite while challenging intermediate calculations.
     df['Salary'] = np.resize([1e306, 9e305], len(df))
     engine = CompensationEngine(df)
     summary = engine.get_compensation_summary()
@@ -238,6 +263,27 @@ def test_extreme_finite_inputs_never_escape_as_nonfinite_outputs():
     dispersion = engine.calculate_pay_equity_score()
     for col in ['AvgSalary','StdDev','CV','Gini','EquityScore']:
         assert np.isfinite(pd.to_numeric(dispersion[col], errors='coerce').dropna()).all()
+    percentiles = engine.calculate_salary_percentiles()
+    for col in ['P10','P25','P50','P75','P90','Mean','Min','Max']:
+        assert np.isfinite(pd.to_numeric(percentiles[col], errors='coerce').dropna()).all()
+    tenure = engine.get_salary_by_tenure()
+    for col in ['Mean','Median','Min','Max']:
+        assert np.isfinite(pd.to_numeric(tenure[col], errors='coerce').dropna()).all()
+    outliers = engine.identify_salary_outliers(2.5)
+    if not outliers.empty:
+        for col in ['Salary','DeptAvg','DeviationPct','ZScore']:
+            assert np.isfinite(pd.to_numeric(outliers[col], errors='coerce').dropna()).all()
+
+
+def test_analyze_all_does_not_expose_individual_salary_outlier_records():
+    df = frame(40); df['Attrition'] = 0; df['Dept'] = 'A'
+    df['Salary'] = 50_000.0
+    df.loc[0, 'Salary'] = 500_000.0
+    result = CompensationEngine(df).analyze_all()
+    outliers = result.get('outliers')
+    assert isinstance(outliers, dict)
+    assert 'EmployeeID' not in str(outliers)
+    assert outliers['population'] == 'current_active_employees_with_valid_positive_salary'
 
 
 def test_source_dataframe_is_not_mutated():
