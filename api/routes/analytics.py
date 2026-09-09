@@ -133,8 +133,18 @@ async def get_correlations(
     frame = state.analytics_engine.get_correlations(target_column=target)
     if frame.empty:
         return CorrelationsResponse(correlations=[], target_column=target)
-    frame = frame.dropna(subset=['Correlation', 'Abs_Correlation'])
-    items = [CorrelationData(feature=row['Feature'], correlation=float(row['Correlation']), abs_correlation=float(row['Abs_Correlation'])) for _, row in frame.head(limit).iterrows()]
+    frame = frame.dropna(subset=['Correlation', 'Abs_Correlation', 'P_Value', 'Observations'])
+    items = [
+        CorrelationData(
+            feature=row['Feature'],
+            correlation=float(row['Correlation']),
+            abs_correlation=float(row['Abs_Correlation']),
+            p_value=float(row['P_Value']),
+            observations=int(row['Observations']),
+            metric_semantics=str(row.get('Metric_Semantics', 'pairwise_pearson_association_not_causal_effect')),
+        )
+        for _, row in frame.head(limit).iterrows()
+    ]
     return CorrelationsResponse(correlations=items, target_column=target)
 
 
