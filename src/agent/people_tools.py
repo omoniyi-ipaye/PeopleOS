@@ -3,6 +3,8 @@
 from time import perf_counter
 from typing import Any, Dict, List
 
+import pandas as pd
+
 from src.agent.evidence import EvidenceItem, EvidenceKind, ToolResult, ToolResultStatus
 from src.agent.tools import ToolContext
 
@@ -40,58 +42,84 @@ class FairnessOutcomeTool:
                 return ToolResult(
                     tool_id=self.tool_id,
                     status=ToolResultStatus.PARTIAL,
-                    summary="No protected-group disparity evidence is available.",
+                    summary="No eligible protected-group disparity evidence is available.",
+                    warnings=["This can mean protected-group values, known outcomes, or minimum group support are insufficient; it must not be interpreted as evidence of parity."],
                     duration_ms=_elapsed_ms(started),
                 )
 
-            eligible = frame[frame["count"] >= self.min_group_size].copy()
-            suppressed = int(len(frame) - len(eligible))
+            # The engine already enforces minimum group size. Preserve its
+            # suppression ledger rather than recalculating from the filtered
+            # frame (which would incorrectly report zero suppressed groups).
+            if "suppressed_group_count" in frame.columns:
+                suppressed = int(
+                    frame.groupby("attribute", observed=True)["suppressed_group_count"].max().fillna(0).sum()
+                )
+            else:
+                suppressed = 0
+
             evidence: List[EvidenceItem] = []
             records: List[Dict[str, Any]] = []
-            for _, row in eligible.iterrows():
+            for _, row in frame.iterrows():
+                disparity_value = row.get("disparity")
+                disparity = None if pd.isna(disparity_value) else float(disparity_value)
+                parity_value = row.get("parity_ratio")
                 record = {
                     "attribute": str(row.get("attribute")),
                     "group": str(row.get("group")),
-                    "rate": float(row.get("rate", 0.0)),
+                    "rate": None if pd.isna(row.get("rate")) else float(row.get("rate")),
                     "count": int(row.get("count", 0)),
-                    "disparity": float(row.get("disparity", 0.0)),
-                    "parity_ratio": None if row.get("parity_ratio") is None else float(row["parity_ratio"]),
+                    "disparity": disparity,
+                    "outcome_rate_ratio_to_overall": None if pd.isna(parity_value) else float(parity_value),
+                    "overall_known_outcome_count": int(row.get("overall_known_outcome_count", 0) or 0),
+                    "attribute_observed_count": int(row.get("attribute_observed_count", 0) or 0),
+                    "attribute_coverage": None if pd.isna(row.get("attribute_coverage")) else float(row.get("attribute_coverage")),
                 }
                 records.append(record)
-                if record["disparity"] >= 0.05:
+                if disparity is not None and disparity >= 0.05:
                     evidence.append(EvidenceItem(
                         kind=EvidenceKind.DERIVED,
                         claim=(
-                            f"{record['attribute']} group '{record['group']}' has an attrition-rate "
-                            f"disparity of {record['disparity']:.1%} from the workforce baseline."
+                            f"{record['attribute']} group '{record['group']}' observed attrition rate differs "
+                            f"from the overall known-outcome rate by {disparity:.1%} in absolute terms."
                         ),
                         source_tool=self.tool_id,
-                        value=record["disparity"],
+                        value=disparity,
                         metric="attrition_outcome_disparity",
-                        confidence=0.85,
+                        confidence=1.0,
                         dataset_version=context.dataset_version,
                         metadata={
                             "attribute": record["attribute"],
                             "group": record["group"],
                             "group_size": record["count"],
-                            "parity_ratio": record["parity_ratio"],
+                            "measured_count": record["attribute_observed_count"],
+                            "eligible_count": record["overall_known_outcome_count"],
+                            "attribute_coverage": record["attribute_coverage"],
+                            "outcome_rate_ratio_to_overall": record["outcome_rate_ratio_to_overall"],
+                            "confidence_basis": "deterministic_descriptive_disparity",
+                            "not_legal_or_causal_fairness_determination": True,
                         },
                     ))
 
-            warnings = []
+            warnings = [
+                "Outcome disparity is a descriptive screening measure; it does not establish discrimination, bias, or causation."
+            ]
             if suppressed:
                 warnings.append(
-                    f"{suppressed} small group(s) were suppressed because group size was below {self.min_group_size}."
+                    f"{suppressed} small group(s) were suppressed because group size was below {engine.min_group_size}."
                 )
 
             return ToolResult(
                 tool_id=self.tool_id,
-                status=ToolResultStatus.SUCCESS,
-                summary="Aggregate fairness outcome analysis completed.",
+                status=ToolResultStatus.SUCCESS if evidence else ToolResultStatus.PARTIAL,
+                summary=(
+                    "Aggregate fairness outcome disparities calculated."
+                    if evidence else
+                    "Eligible groups were measured, but no disparity crossed the agent evidence threshold; this is not proof of parity."
+                ),
                 evidence=evidence,
                 warnings=warnings,
                 duration_ms=_elapsed_ms(started),
-                metadata={"eligible_groups": records, "minimum_group_size": self.min_group_size},
+                metadata={"eligible_groups": records, "minimum_group_size": engine.min_group_size, "suppressed_group_count": suppressed},
             )
         except Exception as exc:
             return ToolResult(
@@ -104,10 +132,10 @@ class FairnessOutcomeTool:
 
 
 class EmployeeExperienceTool:
-    """Aggregate Employee Experience Index evidence without employee-level output."""
+    """Aggregate Employee Experience evidence without employee-level output."""
 
     tool_id = "workforce.employee_experience"
-    description = "Aggregate experience index, engagement segments and experience drivers."
+    description = "Aggregate configured experience composite, engagement segments and measured signals."
 
     def __init__(self, state: Any):
         self.state = state
@@ -135,13 +163,18 @@ class EmployeeExperienceTool:
                 overall = index.get("overall_exi")
                 if overall is not None:
                     evidence.append(EvidenceItem(
-                        kind=EvidenceKind.DERIVED,
-                        claim=f"Overall Employee Experience Index is {float(overall):.1f}/100.",
+                        kind=EvidenceKind.ASSUMED,
+                        claim=f"Configured Employee Experience Index: {float(overall):.1f}/100.",
                         source_tool=self.tool_id,
                         value=float(overall),
                         metric="employee_experience_index",
-                        confidence=0.85,
+                        confidence=1.0,
                         dataset_version=context.dataset_version,
+                        metadata={
+                            "confidence_basis": "deterministic_configured_composite",
+                            "configured_composite_not_validated_outcome": True,
+                            "not_probability": True,
+                        },
                     ))
                 # Grouped summaries are safe aggregate context; do not carry any
                 # employee-level arrays returned by other experience sub-analyses.
@@ -160,14 +193,18 @@ class EmployeeExperienceTool:
                     count = value.get("count") if isinstance(value, dict) else value
                     if isinstance(count, (int, float)):
                         evidence.append(EvidenceItem(
-                            kind=EvidenceKind.DERIVED,
-                            claim=f"{segment} experience segment count: {int(count)}.",
+                            kind=EvidenceKind.ASSUMED,
+                            claim=f"Configured '{segment}' experience segment count: {int(count)}.",
                             source_tool=self.tool_id,
                             value=int(count),
                             metric="experience_segment_count",
-                            confidence=0.9,
+                            confidence=1.0,
                             dataset_version=context.dataset_version,
-                            metadata={"segment": str(segment)},
+                            metadata={
+                                "segment": str(segment),
+                                "confidence_basis": "deterministic_configured_threshold",
+                                "configured_segment_not_validated_outcome": True,
+                            },
                         ))
 
             summary = analysis.get("summary", {}) or {}
@@ -181,10 +218,13 @@ class EmployeeExperienceTool:
             signals = analysis.get("signals", {}) or {}
             metadata["signals"] = signals
 
+            warnings.append(
+                "EXI weights and segment thresholds are configured constructs. Treat them as deterministic summaries of measured inputs, not validated employee outcomes or probabilities."
+            )
             return ToolResult(
                 tool_id=self.tool_id,
-                status=ToolResultStatus.SUCCESS if evidence else ToolResultStatus.PARTIAL,
-                summary="Aggregate employee-experience evidence calculated." if evidence else "Measured employee-experience evidence is unavailable.",
+                status=ToolResultStatus.PARTIAL if evidence else ToolResultStatus.PARTIAL,
+                summary="Configured employee-experience composites calculated with construct limitations preserved." if evidence else "Measured employee-experience evidence is unavailable.",
                 evidence=evidence,
                 warnings=warnings,
                 duration_ms=_elapsed_ms(started),

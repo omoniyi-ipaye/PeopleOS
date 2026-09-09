@@ -1,24 +1,27 @@
 'use client'
 
-import { SectionHeader, StateSummary, StatusBadge, Surface } from '@/components/ui'
+import { CheckCircle2, ChevronDown, ShieldCheck } from 'lucide-react'
+import { StateSummary, StatusBadge, Surface } from '@/components/ui'
 
 export interface EvidenceItem { evidence_id: string; kind: string; claim: string; source_tool: string; value?: unknown; metric?: string | null; confidence: number; metadata?: Record<string, unknown> }
 export interface ToolResult { result_id: string; tool_id: string; status: 'success' | 'partial' | 'blocked' | 'failed'; summary: string; evidence: EvidenceItem[]; warnings: string[] }
 export interface AgentAnswer { request_id: string; question: string; answer: string; status: string; confidence: number; tools_used: string[]; model?: string | null; evidence: { coverage_score?: number | null; sufficiency?: string; unknowns: string[]; contradictions?: string[]; verification_notes: string[]; tool_results: ToolResult[] }; warnings: string[] }
+
 export function percent(value?: number | null) { return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1 ? `${Math.round(value * 100)}%` : 'Unavailable' }
 export function userFacingWarning(warning: string) { return /numpy|dtype|traceback|attributeerror|typeerror|valueerror|exception/i.test(warning) ? 'One analytical capability could not contribute evidence. Review the available evidence and gaps before using this answer.' : warning }
+
 export function evidenceClaim(item: EvidenceItem) {
   const departmentMetrics: Record<string, string> = {
     department_turnover_rate: 'Observed attrition share',
     department_observed_attrition_share: 'Observed attrition share',
     salary_dispersion_consistency_score: 'Salary-dispersion consistency score',
+    salary_dispersion_cv: 'Salary coefficient of variation',
+    salary_dispersion_gini: 'Salary Gini coefficient',
     pay_equity_score: 'Pay-equity score',
   }
   const metric = item.metric ?? ''
   if (Object.prototype.hasOwnProperty.call(departmentMetrics, metric)) {
-    // Quote source data separately from the typed measurement, retaining raw metadata.
-    const quoted = JSON.stringify(String(item.metadata?.department ?? 'Unknown'))
-      .replace(/[\u007f-\u009f\u2028-\u202e\u2066-\u2069]/g, char => `\\u${char.charCodeAt(0).toString(16).padStart(4, '0')}`)
+    const quoted = JSON.stringify(String(item.metadata?.department ?? 'Unknown')).replace(/[\u007f-\u009f\u2028-\u202e\u2066-\u2069]/g, char => `\\u${char.charCodeAt(0).toString(16).padStart(4, '0')}`)
     const value = item.value === null || item.value === undefined || item.value === '' || typeof item.value === 'boolean' ? NaN : Number(item.value)
     const measurement = Number.isFinite(value) ? (metric.startsWith('department_') ? `${(value * 100).toFixed(1)}%` : value.toFixed(2)) : 'Unavailable'
     return `${departmentMetrics[metric]}: ${measurement} (source department label: ${quoted})`
@@ -31,33 +34,148 @@ export function evidenceClaim(item: EvidenceItem) {
   if (['model_f1', 'model_roc_auc'].includes(item.metric ?? '')) return `${label}: ${value.toFixed(3)}`
   if (item.metric === 'salary_mean') return `${label}: ${Math.round(value).toLocaleString()}`
   if (item.metric === 'tenure_mean') return `${label}: ${value.toFixed(1)} years`
+  if (item.metric === 'age_mean') return `${label}: ${value.toFixed(1)} years`
   if (item.metric === 'lastrating_mean') return `${label}: ${value.toFixed(1)}/5`
   if (['headcount', 'record_count', 'active_count', 'department_count'].includes(item.metric ?? '')) return `${label}: ${Math.round(value).toLocaleString()}`
   return item.claim
 }
+
+function numericValue(item?: EvidenceItem) {
+  if (!item || item.value === null || item.value === undefined || item.value === '' || typeof item.value === 'boolean') return null
+  const value = typeof item.value === 'number' ? item.value : Number(item.value)
+  return Number.isFinite(value) ? value : null
+}
+
+function requestedMetric(question: string) {
+  const q = question.toLowerCase()
+  if (/\b(headcount|how many|employee count|workforce size|staff count)\b/.test(q)) return ['active_count', 'headcount']
+  if (/\b(attrition|departure)\b/.test(q) && /\b(share|percentage|rate)\b/.test(q)) return ['observed_attrition_share']
+  if (/\b(average|mean)\b/.test(q) && /\b(salary|pay|compensation)\b/.test(q)) return ['salary_mean']
+  if (/\b(average|mean)\b/.test(q) && /\btenure\b/.test(q)) return ['tenure_mean']
+  if (/\b(average|mean)\b/.test(q) && /\bage\b/.test(q)) return ['age_mean']
+  if (/\b(average|mean)\b/.test(q) && /\b(rating|performance rating)\b/.test(q)) return ['lastrating_mean']
+  if (/\b(how many|number of)\b/.test(q) && /\bdepartments?\b/.test(q)) return ['department_count']
+  return []
+}
+
+function directAnswer(question: string, items: EvidenceItem[]) {
+  const wanted = requestedMetric(question)
+  const item = wanted.flatMap(metric => items.filter(candidate => candidate.metric === metric))[0]
+  const value = numericValue(item)
+  if (!item || value === null) return null
+
+  switch (item.metric) {
+    case 'active_count':
+    case 'headcount':
+      return `Your current active workforce is ${Math.round(value).toLocaleString()} people.`
+    case 'observed_attrition_share':
+      return `Recorded attrition share is ${(value * 100).toFixed(1)}%. This is the share of known employee outcomes marked as departed, not automatically a period turnover rate.`
+    case 'salary_mean':
+      return `Average active-employee salary is ${Math.round(value).toLocaleString()} in the source reporting currency.`
+    case 'tenure_mean':
+      return `Average active-employee tenure is ${value.toFixed(1)} years.`
+    case 'age_mean':
+      return `Average active-employee age is ${value.toFixed(1)} years.`
+    case 'lastrating_mean':
+      return `Average active-employee rating is ${value.toFixed(1)}/5.`
+    case 'department_count':
+      return `Your current workforce is represented across ${Math.round(value).toLocaleString()} departments.`
+    default:
+      return null
+  }
+}
+
+function humanAnswer(result: AgentAnswer, items: EvidenceItem[]) {
+  if (result.status === 'insufficient' || result.status === 'unavailable') {
+    const reason = result.evidence.unknowns[0] ?? result.warnings[0]
+    return reason
+      ? `PeopleOS can't answer this reliably from the current data. ${userFacingWarning(reason)}`
+      : `PeopleOS can't answer this reliably from the current data.`
+  }
+
+  if (result.tools_used.includes('workforce.derived_analysis')) return result.answer
+
+  const direct = directAnswer(result.question, items)
+  if (direct) return direct
+
+  const useful = items.filter((item, index, all) =>
+    numericValue(item) !== null && all.findIndex(candidate => candidate.metric === item.metric && candidate.claim === item.claim) === index
+  ).slice(0, 3)
+
+  if (!useful.length) return result.status === 'partial'
+    ? 'PeopleOS found some relevant context, but there is not enough measured evidence to give a reliable conclusion.'
+    : 'PeopleOS completed the investigation, but there is no concise measured result to surface.'
+
+  const intro = result.status === 'partial'
+    ? 'Here is what the available evidence can support so far:'
+    : 'Here is what your workforce data shows:'
+  return `${intro}\n${useful.map(item => `• ${evidenceClaim(item)}`).join('\n')}`
+}
+
 export function InvestigationResult({ result, source }: { result: AgentAnswer; source: string }) {
   const tools = result.evidence.tool_results
   const items = tools.flatMap(tool => tool.evidence)
   const unknowns = result.evidence.unknowns
   const contradictions = result.evidence.contradictions ?? []
   const limitations = Array.from(new Set([...result.warnings, ...tools.flatMap(tool => tool.warnings)]))
-  return <div className="space-y-5">
-    <Surface padding="lg"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-wider text-text-muted">Investigation result</p><h2 className="mt-2 text-xl font-semibold">{result.question}</h2></div><StatusBadge tone={result.status === 'complete' ? 'info' : 'warning'}>{result.status === 'complete' ? 'Investigation completed' : result.status === 'partial' ? 'Partial evidence' : 'Insufficient evidence'}</StatusBadge></div><p className="mt-3 text-xs text-text-muted">Source: {source}</p><div className="mt-5 whitespace-pre-wrap break-words rounded-2xl bg-background-secondary p-5 text-sm leading-7 text-text-primary">{result.answer}</div><p className="mt-3 text-xs text-text-secondary">{result.model ? `Evidence prioritisation: ${result.model}` : 'Deterministic synthesis'} · Review the evidence before making a decision.</p></Surface>
-    <div className="grid gap-5 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
-      <Surface padding="lg"><SectionHeader title="Evidence and gaps" description="Scores describe support for this investigation; they are not a probability that the answer is true." /><dl className="mt-4 grid grid-cols-2 gap-4"><div><dt className="text-xs text-text-secondary">Heuristic evidence quality</dt><dd className="mt-1 text-xl font-semibold">{percent(result.confidence)}</dd></div><div><dt className="text-xs text-text-secondary">Tool evidence coverage</dt><dd className="mt-1 text-xl font-semibold">{percent(result.evidence.coverage_score)}</dd></div><div><dt className="text-xs text-text-secondary">Successful runs with evidence</dt><dd className="mt-1 font-semibold">{tools.filter(tool => tool.status === 'success' && tool.evidence.length > 0).length} of {tools.length}</dd></div><div><dt className="text-xs text-text-secondary">Known gaps and conflicts</dt><dd className="mt-1 font-semibold">{unknowns.length + contradictions.length}</dd></div></dl>
-      {unknowns.length > 0 && <div className="mt-5"><h3 className="font-semibold">Missing evidence</h3><ul className="mt-2 list-disc space-y-2 pl-5 text-sm text-text-secondary">{unknowns.map((item, index) => <li key={index}>{userFacingWarning(item)}</li>)}</ul></div>}
-      {contradictions.length > 0 && <div className="mt-5"><h3 className="font-semibold text-warning">Conflicting evidence</h3><ul className="mt-2 list-disc space-y-2 pl-5 text-sm">{contradictions.map((item, index) => <li key={index}>{userFacingWarning(item)}</li>)}</ul></div>}
-      {limitations.length > 0 && <details className="mt-5"><summary className="cursor-pointer font-semibold">Limitations and controls ({limitations.length})</summary><ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-text-secondary">{limitations.map((item, index) => <li key={index}>{userFacingWarning(item)}</li>)}</ul></details>}</Surface>
-      <Surface padding="lg"><SectionHeader title="Tool execution" description="Actual outcomes returned by the investigation." /><ul className="mt-4 divide-y divide-border">{tools.map(tool => <li key={tool.result_id} className="py-3"><div className="flex flex-wrap items-center justify-between gap-2"><span className="break-words text-sm font-semibold">{tool.tool_id.replaceAll('_', ' ').replaceAll('.', ' · ')}</span><StatusBadge tone={tool.status === 'success' ? 'success' : tool.status === 'failed' ? 'danger' : 'warning'}>{tool.status}</StatusBadge></div><p className="mt-2 text-sm text-text-secondary">{userFacingWarning(tool.summary)}</p><p className="mt-1 text-xs text-text-muted">{tool.evidence.length} evidence items</p></li>)}</ul>{tools.length === 0 && <p className="mt-4 text-sm text-text-secondary">No analytical tools returned results.</p>}</Surface>
-    </div>
-    <Surface padding="lg"><details><summary className="cursor-pointer font-semibold">Evidence ledger ({items.length} items)</summary><div className="mt-4 space-y-3">{items.map(item => <div key={item.evidence_id} className="rounded-xl border border-border p-4"><p className="text-sm font-medium">{evidenceClaim(item)}</p><EvidencePopulation item={item} /><p className="mt-2 break-words text-xs text-text-muted">Evidence: {item.evidence_id} · Source: {item.source_tool} · {item.kind} · heuristic weight {percent(item.confidence)}</p></div>)}{items.length === 0 && <p className="text-sm text-text-secondary">No supporting evidence was available.</p>}</div></details></Surface>
-    <Surface padding="md"><details><summary className="cursor-pointer text-sm font-semibold">Verification and request details</summary><p className="mt-3 break-all text-xs text-text-muted">Request: {result.request_id}</p><ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-text-secondary">{result.evidence.verification_notes.map((note, index) => <li key={index}>{userFacingWarning(note)}</li>)}</ul></details></Surface>
-    <StateSummary title="Review before action" description="PeopleOS supports aggregate investigation. It does not make employment decisions or change employee records." tone="info" />
+  const complete = result.status === 'complete'
+  const partial = result.status === 'partial'
+  const displayAnswer = humanAnswer(result, items)
+
+  return <div className="space-y-4">
+    <Surface padding="lg" className="overflow-hidden">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div><p className="text-xs font-bold uppercase tracking-[0.16em] text-violet-600 dark:text-violet-300">PeopleOS answer</p><h2 className="mt-2 max-w-3xl text-xl font-semibold tracking-tight text-slate-950 dark:text-white">{result.question}</h2></div>
+        <StatusBadge tone={complete ? 'success' : partial ? 'warning' : 'neutral'}>{complete ? 'Supported by your data' : partial ? 'Some evidence missing' : 'Not enough evidence'}</StatusBadge>
+      </div>
+
+      <div className="mt-6 whitespace-pre-wrap break-words text-[17px] leading-8 text-slate-800 dark:text-slate-200">{displayAnswer}</div>
+
+      <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-slate-200/70 pt-4 text-xs text-slate-500 dark:border-white/10 dark:text-slate-400">
+        <span className="inline-flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />Source: {source}</span>
+        <span>{result.model ? 'AI organised verified evidence' : 'Calculated from verified data'}</span>
+        <span>{items.length} supporting evidence item{items.length === 1 ? '' : 's'}</span>
+      </div>
+    </Surface>
+
+    {(unknowns.length > 0 || contradictions.length > 0) && <StateSummary title={contradictions.length ? 'Some evidence conflicts' : 'There are limits to this answer'} description={(contradictions[0] ?? unknowns[0]) ? userFacingWarning(contradictions[0] ?? unknowns[0]) : 'Review the available evidence before acting.'} tone="warning" />}
+
+    <details className="group rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500">
+        <div className="flex items-center gap-3"><ShieldCheck className="h-5 w-5 text-emerald-600 dark:text-emerald-400" /><div><div className="font-semibold text-slate-900 dark:text-white">Why you can trust this answer</div><div className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Population, evidence coverage, missing data and calculation sources</div></div></div>
+        <ChevronDown className="h-4 w-4 text-slate-400 transition group-open:rotate-180" />
+      </summary>
+      <div className="border-t border-slate-200/70 p-5 dark:border-white/10">
+        <dl className="grid gap-4 sm:grid-cols-4">
+          <TrustMetric label="Evidence quality" value={percent(result.confidence)} />
+          <TrustMetric label="Coverage" value={percent(result.evidence.coverage_score)} />
+          <TrustMetric label="Tools with evidence" value={`${tools.filter(tool => tool.evidence.length > 0 && ['success', 'partial'].includes(tool.status)).length}/${tools.length}`} />
+          <TrustMetric label="Known gaps" value={`${unknowns.length + contradictions.length}`} />
+        </dl>
+        {limitations.length > 0 && <div className="mt-5"><div className="text-sm font-semibold">Important limitations</div><ul className="mt-2 space-y-1.5 text-sm leading-6 text-slate-600 dark:text-slate-400">{limitations.slice(0, 8).map((item, index) => <li key={index}>• {userFacingWarning(item)}</li>)}</ul></div>}
+      </div>
+    </details>
+
+    <details className="group rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500">Evidence ledger ({items.length} items)<ChevronDown className="h-4 w-4 text-slate-400 transition group-open:rotate-180" /></summary>
+      <div className="space-y-3 border-t border-slate-200/70 p-5 dark:border-white/10">{items.map(item => <div key={item.evidence_id} className="rounded-xl border border-border p-4"><p className="text-sm font-medium">{evidenceClaim(item)}</p><EvidencePopulation item={item} /><p className="mt-2 break-words text-xs text-text-muted">Evidence: {item.evidence_id} · Source: {item.source_tool} · {item.kind}</p></div>)}{items.length === 0 && <p className="text-sm text-text-secondary">No supporting evidence was available.</p>}</div>
+    </details>
+
+    <details className="group rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500">Technical details<ChevronDown className="h-4 w-4 text-slate-400 transition group-open:rotate-180" /></summary>
+      <div className="border-t border-slate-200/70 p-5 text-sm dark:border-white/10">
+        <div className="space-y-3">{tools.map(tool => <div key={tool.result_id} className="flex items-start justify-between gap-4 border-b border-border pb-3 last:border-0"><div><div className="font-medium">{tool.tool_id.replaceAll('_', ' ').replaceAll('.', ' · ')}</div><div className="mt-1 text-xs text-text-muted">{userFacingWarning(tool.summary)} · {tool.evidence.length} evidence items</div></div><StatusBadge tone={tool.status === 'success' ? 'success' : tool.status === 'failed' ? 'danger' : 'warning'}>{tool.status}</StatusBadge></div>)}</div>
+        <details className="mt-5 rounded-xl border border-border p-4"><summary className="cursor-pointer text-xs font-semibold text-text-secondary">Raw verified response</summary><pre className="mt-3 whitespace-pre-wrap break-words font-sans text-xs leading-5 text-text-muted">{result.answer}</pre></details>
+        <p className="mt-4 break-all text-xs text-text-muted">Request: {result.request_id}</p>
+      </div>
+    </details>
   </div>
 }
 
+function TrustMetric({ label, value }: { label: string; value: string }) { return <div className="rounded-xl bg-slate-50 p-3 dark:bg-white/[0.03]"><dt className="text-[11px] font-medium text-slate-500 dark:text-slate-400">{label}</dt><dd className="mt-1 text-lg font-semibold text-slate-900 dark:text-white">{value}</dd></div> }
+
 function EvidencePopulation({ item }: { item: EvidenceItem }) {
-  const labels: Record<string, string> = { measured_count: 'Measured', eligible_count: 'Eligible population', excluded_count: 'Excluded or missing', sample_size: 'Sample size', population: 'Population' }
+  const labels: Record<string, string> = { measured_count: 'Measured', eligible_count: 'Eligible', excluded_count: 'Excluded or missing', sample_size: 'Sample size', population: 'Population' }
   const fields = Object.entries(labels).flatMap(([key, label]) => {
     const value = item.metadata?.[key]
     if (typeof value === 'number' && Number.isFinite(value)) return [`${label}: ${value.toLocaleString()}`]

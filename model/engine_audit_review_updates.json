@@ -1,0 +1,24 @@
+{
+  "review_context": "Incremental reviewed-file hashes after the deterministic evidence and pilot UX hardening pass. Entries override only paths already inventoried in model/engine_audit.json.",
+  "reviewed_file_sha256": {
+    "api/routes/analytics.py": "0bb0409b1e003103a37fee14cf2cef6a208e1b7a120fe03cc2113f7b57633e7e",
+    "api/routes/fairness.py": "90d8d783d324e87749d09a9b06a4856570c7b656134d0c46fd42f7714bc8c39b",
+    "api/routes/predictions.py": "9610451bf5c856964b7b33dea52a1618bce2cbfbb7d679b6ec204ec886d85c21",
+    "api/schemas/predictions.py": "b9647b0346d3899d10293eeb6dbe7fed3b6329de6f8198af4c3ddf15581dc95a",
+    "src/agent/adapters.py": "d90e1b0e84b7a29d43f5f5d9b9f9500c13ed0cf960d16d7db9cc1f57cf0a8cb8",
+    "src/agent/people_tools.py": "5055f77404fb005ab2f33f0e183be7945eccb19de7f153d90abbad551cbda1a8",
+    "src/agent/planner.py": "634b00a55f3e9c05a36ca71677a060be2acc516be38cd016585d6bda55314868",
+    "src/analytics_engine.py": "3abb66cf09eaecd5c3de04ee9efb3414bb4dc78bc5eac9dda370a349f0825473",
+    "src/fairness_engine.py": "2f5ed47d89f7003396e0f046d50ca2f39dcc268c090259c68af0be022af9d38d",
+    "web/app/advisor/page.tsx": "a68b783eb6f89710e414938df63ac9fd8373ea14f80821d8772f1fccc6cceca6",
+    "web/app/employee-experience/page.tsx": "d5cc8370f5a3f5dffde4900e12680ba97bb5ebdb1a7fe3cc9ee85d57a2a56625",
+    "web/app/page.tsx": "e07fd095c9527746a809e7f111151f357e64a052f0e212974d52de493c6a8ad5",
+    "web/app/platform/page.tsx": "99886b2ca9d893a5e0f76ec5c4d6730cc55b29c6c19c58b39dcc7ed7a896cac8",
+    "web/app/quality-of-hire/page.tsx": "d91ff4a13991ac1f93afb944a748bee81c658e5467adcc5262d735e3f7924147",
+    "web/app/retention-forecast/page.tsx": "d5e6fc71ff2dae0bb20e8aa46055712ed6b939cd2ab5d244c677b49b1ea6de33",
+    "web/app/scenario-planner/page.tsx": "8ba5e976e417237f78c4d2fde4583ae019d9c474e4b139c6def2ea857d43da0f",
+    "web/app/workforce-health/page.tsx": "8853e3854432ee47ecbaed84fe8f0f88d615ebaad42fb8395d8030a2d0c8612a",
+    "web/components/advisor/investigation-result.tsx": "089adf3b85f01c955fcbb30ff0f384feade06b70d3d116f987377175b299f5e2",
+    "web/components/sidebar.tsx": "2f9a3617c953fda2822f43478c70cadf7530d494e293b5ffd554f665d3461288"
+  }
+}

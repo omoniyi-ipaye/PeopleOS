@@ -22,6 +22,7 @@ class AnalyticsSummary(BaseModel):
     attrition_count: Optional[int] = None
     active_count: Optional[int] = None
     attrition_known_count: Optional[int] = None
+    attrition_excluded_count: Optional[int] = None
     salary_observations: Optional[int] = None
     salary_excluded_count: Optional[int] = None
     tenure_observations: Optional[int] = None
@@ -76,10 +77,13 @@ class SalaryBand(BaseModel):
 
 
 class CorrelationData(BaseModel):
-    """Observed association with target; not a causal driver."""
+    """Pairwise Pearson association with explicit support; not a causal driver."""
     feature: str
     correlation: float
     abs_correlation: float
+    p_value: float
+    observations: int
+    metric_semantics: str = "pairwise_pearson_association_not_causal_effect"
 
 
 class HighRiskDepartment(BaseModel):
@@ -102,7 +106,8 @@ class DistributionsResponse(BaseModel):
 class CorrelationsResponse(BaseModel):
     correlations: List[CorrelationData]
     target_column: str
-    metric_semantics: str = "observational_association_not_causal_effect"
+    minimum_pairwise_observations: int = 10
+    metric_semantics: str = "pairwise_pearson_association_with_support_not_causal_effect"
 
 
 class HighRiskDepartmentsResponse(BaseModel):
@@ -110,4 +115,7 @@ class HighRiskDepartmentsResponse(BaseModel):
     threshold: float
     minimum_group_size: int = 10
     suppressed_department_count: int = 0
+    outcome_observations: int = 0
+    evidence_available: bool = True
+    unavailable_reason: Optional[str] = None
     threshold_semantics: str = "observed_attrition_share_screening_threshold"

@@ -35,16 +35,16 @@ test('research waits for capability and exposes capability failure without claim
   assert.doesNotMatch(failed, /0 indexed records|Search the evidence in workforce text/)
 })
 
-test('unmeasured experience never renders omitted respondent coverage as measured zero', () => {
+test('unmeasured experience stays clearly unavailable and never invents respondent coverage', () => {
   const Page = require('../app/employee-experience/page').default
   const html = render(Page, [[['experience','analysis'], {
     experience_index:{available:false,reason:'Survey fields missing'},
     segments:{available:false},drivers:{available:false},lifecycle:{available:false},
     signals:{has_enps:false,has_pulse:false,total_signals:0},summary:{health_indicator:'Unknown',total_employees:120,at_risk_count:0},warnings:[],recommendations:[],
   }]])
-  assert.match(html, /Measured respondents[\s\S]*Unavailable/)
-  assert.match(html, /Response coverage was not reported/)
-  assert.doesNotMatch(html, /0\.0% of current employee records/)
+  assert.match(html, /No measured experience data yet/)
+  assert.match(html, /will not guess engagement/)
+  assert.doesNotMatch(html, /0\.0% response coverage|0 measured respondents/)
 })
 
 test('empty department payload remains unavailable and supporting query failures stay visible', () => {
@@ -52,9 +52,9 @@ test('empty department payload remains unavailable and supporting query failures
   const html = render(Page, [[['analytics','departments'], {departments:[],total_departments:0}]], [
     [['analytics','correlations'], 'correlation failure'], [['analytics','high-risk-departments'], 'risk failure'],
   ])
-  assert.match(html, /No department evidence is available/)
-  assert.match(html, /Some supporting evidence is unavailable/)
-  assert.match(html, /Active people represented[\s\S]*Unavailable/)
+  assert.match(html, /No workforce insight is available yet/)
+  assert.match(html, /Some supporting analysis is temporarily unavailable/)
+  assert.match(html, /Active people[\s\S]*Unavailable/)
 })
 
 test('platform failure cannot masquerade as an inactive predictive model', () => {
@@ -64,13 +64,13 @@ test('platform failure cannot masquerade as an inactive predictive model', () =>
   assert.doesNotMatch(html, /Predictive retention signals are not active/)
 })
 
-test('data-source controls fail closed while source state cannot be verified', () => {
+test('data controls fail closed while source state cannot be verified', () => {
   const Page = require('../app/upload/page').default
   const html = render(Page, [], [[['upload','status'], 'offline']])
-  assert.match(html, /Data source state is unavailable/)
-  assert.match(html, /Retry status check/)
-  assert.match(html, /Browse files<\/button>/)
-  assert.match(html, /disabled[^>]*>[^<]*(?:<[^>]+>)*Load sample/)
+  assert.match(html, /Your data source could not be checked/)
+  assert.match(html, />Retry<\/button>/)
+  assert.match(html, /Choose file<\/button>/)
+  assert.match(html, /disabled[^>]*>[\s\S]*Explore with sample data/)
 })
 
 test('scenario inputs expose bounded numeric contracts and bound select labels', () => {

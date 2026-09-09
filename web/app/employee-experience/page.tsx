@@ -3,11 +3,10 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api-client'
-import { Button, EmptyState, MetricCard, Page, PageHeader, SectionHeader, StateSummary, StatusBadge, Surface } from '@/components/ui'
-import { Activity, ArrowUpRight, Heart, Layers, RefreshCw, Signal, Target } from 'lucide-react'
+import { Button, EmptyState, MetricCard, Page, PageHeader, SectionHeader, StateSummary, StatusBadge, Surface, TrustDisclosure } from '@/components/ui'
+import { ArrowUpRight, Heart, Layers, RefreshCw, Signal, Target } from 'lucide-react'
 
-type ExperienceTab = 'overview' | 'associations'
-
+type ExperienceTab = 'overview' | 'patterns'
 interface Segment { segment: string; count: number; percentage: number; avg_exi: number | null }
 interface Driver { factor: string; correlation: number; impact: string; direction: string }
 interface Stage { stage: string; count: number; avg_exi: number | null; at_risk_count: number }
@@ -22,24 +21,23 @@ interface ExperienceAnalysis {
   recommendations: string[]
 }
 
-function toneForScore(value?: number) {
-  if (value === undefined || !Number.isFinite(value)) return 'neutral' as const
-  if (value >= 80) return 'success' as const
-  if (value >= 60) return 'info' as const
-  if (value >= 40) return 'warning' as const
-  return 'danger' as const
+const segmentLabels: Record<string, string> = {
+  Thriving: 'Highest score band',
+  Content: 'Upper score band',
+  Neutral: 'Middle score band',
+  Disengaged: 'Lower score band',
+  Critical: 'Lowest score band',
 }
+
+function segmentLabel(value: string) { return segmentLabels[value] ?? value.replaceAll('_', ' ') }
+function humanize(value: string) { return value.replaceAll('_', ' ').replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/\b\w/g, char => char.toUpperCase()) }
 
 export default function EmployeeExperiencePage() {
   const [tab, setTab] = useState<ExperienceTab>('overview')
-  const { data, isLoading, isError, error, refetch } = useQuery<ExperienceAnalysis>({
-    queryKey: ['experience', 'analysis'],
-    queryFn: () => api.experience.getAnalysis() as Promise<ExperienceAnalysis>,
-  })
-
-  const header = <PageHeader eyebrow="Understand · Employee Experience" title="What do measured experience signals tell us?" description="PeopleOS reports experience only from explicit survey or experience measurements. It will not infer engagement from tenure, performance, salary or promotion proxies." />
-  if (isLoading) return <Page>{header}<StateSummary title="Reading measured experience signals" description="Checking survey coverage and aggregate experience evidence." tone="info" /></Page>
-  if (isError) return <Page>{header}<EmptyState title="Employee Experience is unavailable" description={error instanceof Error ? error.message : 'The experience analysis could not be loaded.'} action={<Button onClick={() => refetch()}><RefreshCw className="h-4 w-4" />Retry</Button>} /></Page>
+  const { data, isLoading, isError, error, refetch } = useQuery<ExperienceAnalysis>({ queryKey: ['experience', 'analysis'], queryFn: () => api.experience.getAnalysis() as Promise<ExperienceAnalysis> })
+  const header = <PageHeader eyebrow="Insights · Experience" title="How are people experiencing work?" description="See what your measured experience signals say, with response coverage kept visible and assumptions available when you want them." />
+  if (isLoading) return <Page>{header}<StateSummary title="Preparing experience insights" description="Reading the measured survey and experience signals available in your data." tone="info" /></Page>
+  if (isError) return <Page>{header}<EmptyState title="Experience insights are unavailable" description={error instanceof Error ? error.message : 'PeopleOS could not read the experience data.'} action={<Button onClick={() => refetch()}><RefreshCw className="h-4 w-4" />Retry</Button>} /></Page>
 
   const measured = Boolean(data?.experience_index.available)
   const rawScore = measured ? (data?.summary.overall_exi ?? data?.experience_index.overall_exi) : undefined
@@ -49,69 +47,45 @@ export default function EmployeeExperiencePage() {
   const segments = measured ? (data?.segments.segments ?? []) : []
   const drivers = measured ? (data?.drivers.drivers ?? []) : []
   const stages = measured ? (data?.lifecycle.stages ?? []) : []
+  const largestSegment = [...segments].sort((a, b) => b.percentage - a.percentage)[0]
+  const lowerShare = segments.filter(segment => ['Disengaged', 'Critical'].includes(segment.segment)).reduce((sum, segment) => sum + segment.percentage, 0)
 
-  return (
-    <Page>
-      {header}
-      {!measured && <StateSummary title="Measured experience data is not available" description={data?.experience_index.reason ?? 'Add explicit experience survey signals before interpreting workforce experience.'} tone="info" />}
-      {data?.warnings?.length ? <StateSummary title="Interpretation notes" description={data.warnings.slice(0, 3).join(' · ')} tone="info" /> : null}
+  return <Page>
+    {header}
+    {!measured && <EmptyState title="No measured experience data yet" description="Add explicit survey or experience fields to analyse employee experience. PeopleOS will not guess engagement from salary, tenure or performance." />}
 
-      <div className="flex flex-wrap gap-2" role="tablist" aria-label="Employee experience views">
-        <Button role="tab" aria-selected={tab === 'overview'} aria-controls="experience-overview" variant={tab === 'overview' ? 'primary' : 'secondary'} size="sm" onClick={() => setTab('overview')}><Heart className="h-4 w-4" />Measured overview</Button>
-        <Button role="tab" aria-selected={tab === 'associations'} aria-controls="experience-associations" variant={tab === 'associations' ? 'primary' : 'secondary'} size="sm" onClick={() => setTab('associations')}><Layers className="h-4 w-4" />Associations & lifecycle</Button>
-      </div>
-
+    {measured && <>
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Experience composite" value={score === undefined ? 'Not available' : Math.round(score)} detail={measured ? 'Configured weighted composite of measured signals' : 'No proxy-derived score is created'} icon={Activity} tone={toneForScore(score)} />
-        <MetricCard label="Measured respondents" value={respondents == null ? 'Unavailable' : respondents.toLocaleString()} detail={responseCoverage == null ? 'Response coverage was not reported' : `${(responseCoverage * 100).toFixed(1)}% of current employee records`} icon={Target} />
-        <MetricCard label="Available signal columns" value={(data?.signals.total_signals ?? 0).toLocaleString()} detail={`${data?.signals.has_enps ? 'eNPS · ' : ''}${data?.signals.has_pulse ? 'Pulse · ' : ''}${data?.signals.coverage_percentage == null ? 'coverage not reported' : `${data.signals.coverage_percentage.toFixed(0)}% employee coverage`}`} icon={Signal} />
-        <MetricCard label="Low-score aggregate" value={measured ? (data?.summary.at_risk_count ?? 0).toLocaleString() : '—'} detail={measured ? 'Aggregate score-band count; no employee list exposed' : 'Unavailable without measured signals'} icon={Heart} tone={measured && (data?.summary.at_risk_count ?? 0) > 0 ? 'warning' : 'neutral'} />
+        <MetricCard label="Experience composite" value={score === undefined ? 'Unavailable' : Math.round(score)} detail="Configured composite of measured signals" icon={Heart} />
+        <MetricCard label="Respondents" value={respondents == null ? 'Unavailable' : respondents.toLocaleString()} detail={responseCoverage == null ? 'Coverage unavailable' : `${(responseCoverage * 100).toFixed(1)}% response coverage`} icon={Target} />
+        <MetricCard label="Signals available" value={(data?.signals.total_signals ?? 0).toLocaleString()} detail={`${data?.signals.has_enps ? 'eNPS · ' : ''}${data?.signals.has_pulse ? 'Pulse · ' : ''}measured inputs`} icon={Signal} />
+        <MetricCard label="Two lower score bands" value={(data?.summary.at_risk_count ?? 0).toLocaleString()} detail="Configured bands · aggregate only" icon={Heart} tone={(data?.summary.at_risk_count ?? 0) > 0 ? 'warning' : 'neutral'} />
       </section>
 
-      {tab === 'overview' ? (
-        <div id="experience-overview" role="tabpanel" className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(340px,0.85fr)]">
-          <Surface padding="lg">
-            <SectionHeader title="Measured score distribution" description="Configured score bands for aggregate monitoring, not diagnoses of individual engagement." />
-            <div className="mt-5 space-y-4">
-              {segments.length ? segments.map((segment) => (
-                <div key={segment.segment} className="grid gap-3 border-b border-border py-3 last:border-0 sm:grid-cols-[minmax(160px,0.6fr)_minmax(220px,1fr)_auto] sm:items-center">
-                  <div><div className="font-semibold">{segment.segment}</div><div className="text-xs text-text-muted">{segment.count.toLocaleString()} people · composite {segment.avg_exi == null ? 'Unavailable' : segment.avg_exi.toFixed(1)}</div></div>
-                  <div className="h-2 overflow-hidden rounded-full bg-background-secondary"><div className="h-full rounded-full bg-accent" style={{ width: `${Math.min(100, Math.max(0, segment.percentage))}%` }} /></div>
-                  <div className="text-sm font-semibold">{segment.percentage.toFixed(1)}%</div>
-                </div>
-              )) : <EmptyState title="No measured segment view available" description="PeopleOS will not create engagement segments from HRIS proxy fields." />}
-            </div>
-          </Surface>
+      <div className="flex flex-wrap gap-2" role="tablist" aria-label="Employee experience views">
+        <Button role="tab" aria-selected={tab === 'overview'} variant={tab === 'overview' ? 'primary' : 'secondary'} size="sm" onClick={() => setTab('overview')}><Heart className="h-4 w-4" />Overview</Button>
+        <Button role="tab" aria-selected={tab === 'patterns'} variant={tab === 'patterns' ? 'primary' : 'secondary'} size="sm" onClick={() => setTab('patterns')}><Layers className="h-4 w-4" />Patterns</Button>
+      </div>
 
-          <Surface padding="lg">
-            <SectionHeader title="What can be concluded" description="Keep the measurement boundary visible without overstating it." />
-            <div className="mt-5 space-y-3">
-              <StateSummary title={measured ? 'Measured composite available' : 'Measurement unavailable'} description={measured ? (data?.experience_index.interpretation ?? 'Interpret together with signal coverage and component definitions.') : 'Collect explicit experience measurements before drawing experience conclusions.'} tone="info" />
-              {(data?.recommendations ?? []).slice(0, 4).map((item, index) => <div key={`${item}-${index}`} className="flex gap-3 rounded-xl border border-border p-4"><span className="mt-0.5 text-xs font-bold text-accent">0{index + 1}</span><p className="text-sm leading-6 text-text-secondary">{item}</p></div>)}
-            </div>
-          </Surface>
-        </div>
-      ) : (
-        <div id="experience-associations" role="tabpanel" className="grid gap-6 lg:grid-cols-2">
-          <Surface padding="lg">
-            <SectionHeader title="Observed associations" description="Correlations with the measured composite are not causal drivers." />
-            <div className="mt-5 space-y-3">
-              {drivers.length ? drivers.map((driver) => <div key={driver.factor} className="flex items-center justify-between gap-4 border-b border-border py-3 last:border-0"><div><div className="font-medium">{driver.factor}</div><div className="text-xs text-text-muted">{driver.direction} observed association · legacy magnitude band {driver.impact}</div></div><StatusBadge tone={Math.abs(driver.correlation) >= .4 ? 'info' : 'neutral'}>r={driver.correlation.toFixed(2)}</StatusBadge></div>) : <EmptyState title="No association analysis available" description={data?.drivers.reason ?? 'Measured paired data is required.'} />}
-            </div>
-          </Surface>
-          <Surface padding="lg">
-            <SectionHeader title="Lifecycle comparison" description="Descriptive differences by stage; not estimated stage effects." />
-            <div className="mt-5 space-y-3">
-              {stages.length ? stages.map((stage) => <div key={stage.stage} className="grid grid-cols-[1fr_auto] gap-4 border-b border-border py-3 last:border-0"><div><div className="font-medium">{stage.stage}</div><div className="text-xs text-text-muted">{stage.count.toLocaleString()} people · composite {stage.avg_exi == null ? 'Unavailable' : stage.avg_exi.toFixed(1)}</div></div><div className="text-right"><div className="font-semibold">{stage.at_risk_count}</div><div className="text-[11px] text-text-muted">low-score band</div></div></div>) : <EmptyState title="No lifecycle comparison available" description={data?.lifecycle.reason ?? 'Measured experience data is required.'} />}
-            </div>
-          </Surface>
-        </div>
-      )}
+      {tab === 'overview' ? <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
+        <Surface padding="lg"><SectionHeader title="Experience distribution" description="How measured responses fall across the configured score bands." /><div className="mt-5 space-y-4">{segments.length ? segments.map(segment => <div key={segment.segment} className="grid gap-3 border-b border-border py-3 last:border-0 sm:grid-cols-[minmax(170px,0.7fr)_minmax(220px,1fr)_auto] sm:items-center"><div><div className="font-semibold">{segmentLabel(segment.segment)}</div><div className="text-xs text-text-muted">{segment.count.toLocaleString()} responses</div></div><div className="h-2 overflow-hidden rounded-full bg-background-secondary"><div className="h-full rounded-full bg-accent" style={{ width: `${Math.min(100, Math.max(0, segment.percentage))}%` }} /></div><div className="text-sm font-semibold">{segment.percentage.toFixed(1)}%</div></div>) : <EmptyState title="No distribution available" />}</div></Surface>
+        <Surface padding="lg">
+          <SectionHeader title="What the responses show" description="A descriptive read of the measured distribution, not a diagnosis of individual engagement." />
+          <div className="mt-5 space-y-4">
+            {largestSegment ? <div className="rounded-2xl bg-background-secondary p-5"><div className="text-3xl font-semibold">{largestSegment.percentage.toFixed(1)}%</div><div className="mt-1 font-semibold">fall in the {segmentLabel(largestSegment.segment).toLowerCase()}</div><div className="mt-2 text-sm leading-6 text-text-secondary">{largestSegment.count.toLocaleString()} measured responses are represented in this configured band.</div></div> : null}
+            <div className="rounded-xl border border-border p-4 text-sm leading-6 text-text-secondary">{lowerShare.toFixed(1)}% of measured responses fall in the two lower configured score bands. Use the underlying survey questions and local context before deciding what this means.</div>
+          </div>
+        </Surface>
+      </div> : <div className="grid gap-6 lg:grid-cols-2">
+        <Surface padding="lg"><SectionHeader title="Related patterns" description="Signals that move with the experience composite and may deserve investigation." /><div className="mt-5 space-y-3">{drivers.length ? drivers.map(driver => <div key={driver.factor} className="flex items-center justify-between gap-4 border-b border-border py-3 last:border-0"><div><div className="font-medium">{humanize(driver.factor)}</div><div className="text-xs text-text-muted">{driver.direction} relationship</div></div><StatusBadge tone={Math.abs(driver.correlation) >= .4 ? 'info' : 'neutral'}>r={driver.correlation.toFixed(2)}</StatusBadge></div>) : <EmptyState title="No reliable related patterns yet" description={data?.drivers.reason ?? 'More paired measurements are needed.'} />}</div></Surface>
+        <Surface padding="lg"><SectionHeader title="Lifecycle view" description="How the measured composite differs across workforce stages." /><div className="mt-5 space-y-3">{stages.length ? stages.map(stage => <div key={stage.stage} className="grid grid-cols-[1fr_auto] gap-4 border-b border-border py-3 last:border-0"><div><div className="font-medium">{humanize(stage.stage)}</div><div className="text-xs text-text-muted">{stage.count.toLocaleString()} measured people</div></div><div className="text-right"><div className="font-semibold">{stage.avg_exi == null ? '—' : stage.avg_exi.toFixed(1)}</div><div className="text-[11px] text-text-muted">composite</div></div></div>) : <EmptyState title="No lifecycle comparison available" description={data?.lifecycle.reason ?? 'More measured experience data is needed.'} />}</div></Surface>
+      </div>}
 
-      <Surface padding="md" className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div><div className="font-semibold">Need to understand a measured signal?</div><div className="text-sm text-text-secondary">Take the aggregate signal into People Intelligence and inspect supporting evidence and gaps before acting.</div></div>
-        <a href="/advisor" className="inline-flex items-center gap-2 text-sm font-semibold text-accent">Investigate evidence <ArrowUpRight className="h-4 w-4" /></a>
-      </Surface>
-    </Page>
-  )
+      <TrustDisclosure title="How this experience score works" summary={responseCoverage == null ? undefined : `${(responseCoverage * 100).toFixed(1)}% response coverage`}>
+        <p>The Experience composite is a configured weighted combination of explicit measured survey or experience signals. Band names in the product are intentionally neutral because the composite is not an external benchmark or a diagnosis of individual engagement.</p><p className="mt-2">Related patterns are correlations with the composite and do not prove cause and effect. Missing or out-of-range responses are excluded rather than filled with HRIS proxies.</p>
+      </TrustDisclosure>
+
+      <Surface padding="md" className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><div className="font-semibold">Want to understand a pattern?</div><div className="text-sm text-text-secondary">Take it into People Intelligence and ask a follow-up in normal People language.</div></div><a href="/advisor" className="inline-flex items-center gap-2 text-sm font-semibold text-accent">Ask PeopleOS <ArrowUpRight className="h-4 w-4" /></a></Surface>
+    </>}
+  </Page>
 }

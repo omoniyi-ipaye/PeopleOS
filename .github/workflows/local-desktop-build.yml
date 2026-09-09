@@ -6,6 +6,19 @@ on:
     branches: [main]
     paths:
       - 'desktop/**'
+      - 'scripts/bundle_desktop.py'
+      - 'tests/test_desktop_bundle.py'
+      - 'LICENSE'
+      - 'NOTICE*'
+      - 'THIRD_PARTY*'
+      - 'licenses/**'
+      - 'README.md'
+      - 'SECURITY.md'
+      - 'CONTRIBUTING.md'
+      - 'docs/PUBLIC_BETA_GUIDE.md'
+      - 'docs/releases/**'
+      - 'docs/beta/**'
+      - 'docs/architecture/LOCAL_DISTRIBUTION.md'
       - 'src/local_paths.py'
       - 'src/utils.py'
       - 'src/platform/**'
@@ -23,6 +36,19 @@ on:
     branches: [main]
     paths:
       - 'desktop/**'
+      - 'scripts/bundle_desktop.py'
+      - 'tests/test_desktop_bundle.py'
+      - 'LICENSE'
+      - 'NOTICE*'
+      - 'THIRD_PARTY*'
+      - 'licenses/**'
+      - 'README.md'
+      - 'SECURITY.md'
+      - 'CONTRIBUTING.md'
+      - 'docs/PUBLIC_BETA_GUIDE.md'
+      - 'docs/releases/**'
+      - 'docs/beta/**'
+      - 'docs/architecture/LOCAL_DISTRIBUTION.md'
       - 'src/local_paths.py'
       - 'src/utils.py'
       - 'src/platform/**'
@@ -59,6 +85,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -106,6 +134,9 @@ jobs:
           python tests/local_restart_probe.py load
           python tests/local_restart_probe.py restore
 
+      - name: Verify release bundle contract
+        run: python -m unittest discover -s tests -p test_desktop_bundle.py
+
       - name: Build self-contained PeopleOS executable
         run: pyinstaller --noconfirm --clean desktop/peopleos.spec
 
@@ -120,12 +151,15 @@ jobs:
         run: |
           if [ -f dist/PeopleOS.exe ]; then du -h dist/PeopleOS.exe; else du -h dist/PeopleOS; fi
 
+      - name: Bundle smoke-tested application with provenance and checksums
+        run: python scripts/bundle_desktop.py --platform ${{ matrix.platform }} --revision ${{ github.event.pull_request.head.sha || github.sha }}
+
       - name: Upload local application
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
           path: |
-            dist/PeopleOS
-            dist/PeopleOS.exe
+            release/PeopleOS-${{ matrix.platform }}.*
+            release/SHA256SUMS
           if-no-files-found: error
           retention-days: 14

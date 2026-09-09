@@ -1,54 +1,84 @@
 'use client'
 
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api-client'
-import { EmptyState, MetricCard, Page, PageHeader, SectionHeader, StateSummary, StatusBadge, Surface } from '@/components/ui'
-import { Activity, Brain, Cpu, Database, Search, Server, ShieldCheck } from 'lucide-react'
-import type { UploadStatus } from '@/types/api'
+import { Button, EmptyState, MetricCard, Page, PageHeader, SectionHeader, StateSummary, StatusBadge, Surface, TrustDisclosure } from '@/components/ui'
+import { Activity, Brain, Database, ExternalLink, Power, RefreshCw, Server, ShieldCheck } from 'lucide-react'
+
+interface PlatformStatus {
+  data?: { loaded?: boolean; row_count?: number }
+  capabilities?: Record<string, boolean>
+}
+interface UploadState { features_enabled?: Record<string, boolean> }
+interface DesktopState { desktop: boolean; restart_supported?: boolean; quit_supported?: boolean }
 
 export default function SettingsPage() {
-  const { data: status, isLoading: statusLoading, isError } = useQuery<UploadStatus>({ queryKey: ['api', 'status'], queryFn: () => api.getStatus() as Promise<UploadStatus> })
-  const { data: health, isLoading: healthLoading } = useQuery<{ status: string }>({ queryKey: ['api', 'health'], queryFn: () => api.getHealth() as Promise<{ status: string }> })
+  const [desktopAction, setDesktopAction] = useState<'open' | 'restart' | 'quit' | null>(null)
+  const platform = useQuery<PlatformStatus>({ queryKey: ['api', 'status'], queryFn: () => api.getStatus() as Promise<PlatformStatus> })
+  const health = useQuery<{ status: string }>({ queryKey: ['api', 'health'], queryFn: () => api.getHealth() as Promise<{ status: string }> })
+  const upload = useQuery<UploadState>({ queryKey: ['upload', 'status'], queryFn: () => api.upload.getStatus() as Promise<UploadState> })
+  const desktop = useQuery<DesktopState>({
+    queryKey: ['desktop', 'status'], retry: false,
+    queryFn: async () => { const response = await fetch('/api/desktop/status'); return response.ok ? response.json() : { desktop: false } },
+  })
 
-  if (statusLoading || healthLoading) return <Page><StateSummary title="Reading PeopleOS configuration" description="Checking runtime, dataset and capability state." tone="info" /></Page>
-  if (isError) return <Page><EmptyState title="System state is unavailable" description="PeopleOS could not read its current runtime configuration." /></Page>
+  async function runDesktop(action: 'open' | 'restart' | 'quit') {
+    setDesktopAction(action)
+    try {
+      const response = await fetch(`/api/desktop/${action}`, { method: 'POST' })
+      if (!response.ok) throw new Error('Desktop control unavailable')
+      if (action === 'open') window.setTimeout(() => setDesktopAction(null), 800)
+    } catch {
+      setDesktopAction(null)
+    }
+  }
 
-  const engines = status?.engines ?? {}
-  const engineRows = [
-    ['Analytics core', 'analytics', Activity],
-    ['Predictive engine', 'ml', Brain],
-    ['Compensation', 'compensation', Database],
-    ['Succession', 'succession', Database],
-    ['Team dynamics', 'team_dynamics', Cpu],
-    ['Fairness', 'fairness', ShieldCheck],
-    ['Semantic search', 'vector_search', Search],
-    ['Local AI', 'llm', Brain],
-  ] as const
+  if (platform.isLoading || health.isLoading) return <Page><StateSummary title="Opening settings" description="Checking your PeopleOS app and workforce state." tone="info" /></Page>
+  if (platform.isError) return <Page><EmptyState title="Settings are temporarily unavailable" description="PeopleOS could not read the current app state." /></Page>
 
-  return (
-    <Page>
-      <PageHeader eyebrow="Govern · Settings" title="System configuration and capability state" description="Operational configuration belongs here. Trust, evidence fitness and recovery controls remain in Trust Center." />
+  const capabilities = platform.data?.capabilities ?? {}
+  const features = upload.data?.features_enabled ?? {}
+  const hasData = Boolean(platform.data?.data?.loaded)
+  const appHealthy = health.data?.status === 'healthy'
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Runtime" value={health?.status === 'healthy' ? 'Healthy' : health?.status ?? 'Unknown'} detail="Backend health state" icon={Server} tone={health?.status === 'healthy' ? 'success' : 'warning'} />
-        <MetricCard label="Dataset" value={status?.data?.loaded ? 'Active' : 'Not loaded'} detail={status?.data?.loaded ? `${status.data.row_count.toLocaleString()} rows` : 'Add data in Data & Sources'} icon={Database} tone={status?.data?.loaded ? 'success' : 'neutral'} />
-        <MetricCard label="Predictive capability" value={status?.engines?.ml ? 'Available' : 'Not active'} detail="Separate governed model lifecycle" icon={Brain} tone={status?.engines?.ml ? 'info' : 'neutral'} />
-        <MetricCard label="Local AI" value={status?.engines?.llm ? 'Available' : 'Fallback mode'} detail={status?.engines?.llm ? 'Contextual synthesis available' : 'Deterministic synthesis remains available'} icon={ShieldCheck} tone={status?.engines?.llm ? 'info' : 'success'} />
-      </section>
+  return <Page>
+    <PageHeader eyebrow="Settings" title="PeopleOS settings" description="Manage the local app and see which capabilities are available. Technical details stay out of the way unless you need them." />
 
-      <Surface padding="lg">
-        <SectionHeader title="Capability registry" description="Which analytical engines are currently available in this runtime." />
-        <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          {engineRows.map(([label, key, Icon]) => { const active = Boolean((engines as Record<string, boolean>)[key]); return <div key={key} className="rounded-2xl border border-border p-4"><div className="flex items-center justify-between"><Icon className="h-4 w-4 text-accent" /><StatusBadge tone={active ? 'success' : 'neutral'}>{active ? 'Available' : 'Unavailable'}</StatusBadge></div><div className="mt-4 text-sm font-semibold">{label}</div><div className="mt-1 text-xs text-text-muted">{active ? 'Ready for supported workflows' : 'Not part of the current active capability set'}</div></div> })}
+    {desktop.data?.desktop && <Surface padding="lg" className="border-violet-200/70 bg-gradient-to-br from-white to-violet-50/30 dark:border-violet-500/20 dark:from-slate-950 dark:to-violet-500/[0.03]">
+      <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+        <div><div className="text-xs font-bold uppercase tracking-[0.16em] text-violet-600 dark:text-violet-300">Desktop app</div><h2 className="mt-2 text-xl font-semibold">PeopleOS is running on this computer</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-text-secondary">Open another PeopleOS tab, restart the local app cleanly, or quit it completely. No terminal or Task Manager needed.</p></div>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" disabled={desktopAction !== null} onClick={() => void runDesktop('open')}><ExternalLink className="h-4 w-4" />Open PeopleOS</Button>
+          <Button variant="secondary" disabled={desktopAction !== null || !desktop.data.restart_supported} onClick={() => void runDesktop('restart')}><RefreshCw className={`h-4 w-4 ${desktopAction === 'restart' ? 'animate-spin' : ''}`} />Restart app</Button>
+          <Button variant="danger" disabled={desktopAction !== null || !desktop.data.quit_supported} onClick={() => void runDesktop('quit')}><Power className="h-4 w-4" />Quit PeopleOS</Button>
         </div>
-      </Surface>
-
-      {status?.features_enabled ? <Surface padding="lg"><SectionHeader title="Dataset-enabled features" description="Features inferred from the active source schema; this does not mean every optional model is trained." /><div className="mt-5 flex flex-wrap gap-2">{Object.entries(status.features_enabled).map(([key, enabled]) => <StatusBadge key={key} tone={enabled ? 'success' : 'neutral'}>{key.replaceAll('_', ' ')} · {enabled ? 'ready' : 'not available'}</StatusBadge>)}</div></Surface> : null}
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Surface padding="lg"><SectionHeader title="Runtime architecture" description="Current product stack" /><div className="mt-5 space-y-3 text-sm text-text-secondary"><div className="flex justify-between border-b border-border py-2"><span>Web application</span><span className="font-medium text-text-primary">Next.js 16 · React 19</span></div><div className="flex justify-between border-b border-border py-2"><span>API</span><span className="font-medium text-text-primary">FastAPI</span></div><div className="flex justify-between border-b border-border py-2"><span>Default install</span><span className="font-medium text-text-primary">Core analytics runtime</span></div><div className="flex justify-between py-2"><span>Advanced NLP/vector</span><span className="font-medium text-text-primary">Optional capability tier</span></div></div></Surface>
-        <Surface padding="lg"><SectionHeader title="Privacy boundary" description="How local-first operation is represented" /><StateSummary title="Workforce data remains inside the configured PeopleOS runtime" description="External model or connector use must be explicitly configured and governed. The UI should never imply a capability is active solely because source fields exist." tone="success" /></Surface>
       </div>
-    </Page>
-  )
+      {desktopAction === 'restart' && <p className="mt-4 text-sm text-text-secondary">PeopleOS is restarting and will reopen when it is ready.</p>}
+      {desktopAction === 'quit' && <p className="mt-4 text-sm text-text-secondary">PeopleOS is closing. You can close this browser tab.</p>}
+    </Surface>}
+
+    <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <MetricCard label="PeopleOS app" value={appHealthy ? 'Ready' : health.data?.status ?? 'Needs attention'} detail="Local application status" icon={Server} tone={appHealthy ? 'success' : 'warning'} />
+      <MetricCard label="Workforce data" value={hasData ? 'Ready' : 'Not added'} detail={hasData ? `${platform.data?.data?.row_count?.toLocaleString() ?? ''} source records` : 'Add a workforce file to begin'} icon={Database} tone={hasData ? 'success' : 'neutral'} />
+      <MetricCard label="Predictive insights" value={capabilities.predictive_model ? 'Available' : 'Not active'} detail="Shown only after a governed model is activated" icon={Brain} tone={capabilities.predictive_model ? 'info' : 'neutral'} />
+      <MetricCard label="AI assistance" value={capabilities.llm ? 'Available' : 'Deterministic mode'} detail={capabilities.llm ? 'AI can organise verified evidence' : 'Calculations and verified answers still work'} icon={ShieldCheck} tone="success" />
+    </section>
+
+    <Surface padding="lg">
+      <SectionHeader title="What your current data supports" description="PeopleOS only enables analysis when the required data is present and usable." />
+      <div className="mt-5 flex flex-wrap gap-2">
+        {Object.keys(features).length ? Object.entries(features).map(([key, enabled]) => <StatusBadge key={key} tone={enabled ? 'success' : 'neutral'}>{key.replaceAll('_', ' ')} · {enabled ? 'ready' : 'not available'}</StatusBadge>) : <span className="text-sm text-text-secondary">Add workforce data to see available analysis areas.</span>}
+      </div>
+    </Surface>
+
+    <Surface padding="lg"><SectionHeader title="Privacy" description="Your default PeopleOS boundary" /><StateSummary title="Your workforce data stays in this PeopleOS installation" description="External AI or connectors are never implied to be active just because your file contains a field. Any external capability must be explicitly configured." tone="success" /></Surface>
+
+    <TrustDisclosure title="Advanced system details" summary="For technical review and troubleshooting">
+      <div className="grid gap-3 md:grid-cols-2">
+        {Object.entries(capabilities).map(([key, enabled]) => <div key={key} className="flex items-center justify-between rounded-xl border border-border px-4 py-3"><div className="flex items-center gap-2 text-sm"><Activity className="h-4 w-4 text-accent" />{key.replaceAll('_', ' ')}</div><StatusBadge tone={enabled ? 'success' : 'neutral'}>{enabled ? 'Available' : 'Unavailable'}</StatusBadge></div>)}
+      </div>
+      <div className="mt-5 text-sm leading-6 text-text-secondary">PeopleOS uses a local Next.js interface with a FastAPI analytical runtime. Advanced model and retrieval capabilities remain optional and governed separately from deterministic workforce calculations.</div>
+    </TrustDisclosure>
+  </Page>
 }

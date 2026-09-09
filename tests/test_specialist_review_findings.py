@@ -62,7 +62,6 @@ def test_regression_activation_retaining_previous_survey_and_nlp(monkeypatch):
         data_loader=SimpleNamespace(features_enabled={}), features_enabled={},
         enps_df=old_survey, onboarding_df=None, nlp_results={"dataset": "OLD"},
     )
-    # Keep activation's real reset logic; replace optional expensive engine init.
     def initialize(s):
         s.sentiment_engine = SentimentEngine(s.raw_df, s.enps_df, s.onboarding_df)
     monkeypatch.setattr(runtime_loader, "_initialize_read_only_engines", initialize)
@@ -91,7 +90,7 @@ def test_regression_scenario_cache_surviving_dataset_change(monkeypatch):
     assert error.value.status_code == 404
 
 
-def test_regression_experience_agent_success_with_no_measured_evidence():
+def test_regression_experience_agent_marks_configured_composite_as_partial_evidence():
     from src.experience_engine import ExperienceEngine
     from src.agent.people_tools import EmployeeExperienceTool
     frame = workforce()
@@ -99,19 +98,20 @@ def test_regression_experience_agent_success_with_no_measured_evidence():
     engine = ExperienceEngine(frame)
     assert engine.calculate_experience_index()["overall_exi"] == 75
     result = EmployeeExperienceTool(SimpleNamespace(experience_engine=engine)).execute(context())
-    assert result.status.value == "success"
+    assert result.status.value == "partial"
     assert any(item.metric == 'employee_experience_index' and item.value == 75 for item in result.evidence)
     assert any(item.metric == 'experience_segment_count' for item in result.evidence)
+    assert result.warnings
 
 
-def test_regression_fairness_agent_failure_for_all_retained():
+def test_regression_fairness_agent_marks_no_comparison_support_as_partial():
     from src.fairness_engine import FairnessEngine
     from src.agent.people_tools import FairnessOutcomeTool
     frame = workforce()
     result = FairnessOutcomeTool(SimpleNamespace(raw_df=frame, fairness_engine=FairnessEngine(frame))).execute(context())
-    assert result.status.value == 'success'
+    assert result.status.value == 'partial'
     assert result.error is None
-    assert all(row['parity_ratio'] is None for row in result.metadata['eligible_groups'])
+    assert result.evidence == []
 
 
 def test_regression_agent_accepting_wrong_population_and_invalid_score():
@@ -154,7 +154,7 @@ def test_regression_qoh_source_grade_from_one_measured_person():
     assert row["hire_count"] == 20 and row["performance_observations"] == 1
     assert pd.isna(row["quality_score"]) and row["grade"] == "Unavailable"
     response = _safe_source(row).model_dump()
-    assert response["performance_observations"] == 1 
+    assert response["performance_observations"] == 1
 
 
 def test_regression_composites_changing_with_component_availability():
@@ -174,7 +174,6 @@ def test_regression_scenario_positive_payback_for_negative_return():
     result = ScenarioEngine(workforce()).simulate_headcount_change("expansion", {"scope": "all"}, change_count=1)
     assert result.cost_impact.net_impact < 0
     assert result.payback_months is None
-    # With a continuing negative modeled annual net, payback is not reached.
 
 
 def test_regression_missing_compa_ratio_labeled_near_reference():

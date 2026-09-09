@@ -49,6 +49,12 @@ class RiskPrediction(BaseModel):
 
 
 class RiskDistribution(BaseModel):
+    """Compatibility names for deterministic model-score bands.
+
+    `high_risk`/`medium_risk`/`low_risk` are retained for clients, but the
+    category_semantics field is authoritative. They are counts in configured
+    score bands, not observed departures or validated future-event counts.
+    """
     high_risk: int
     medium_risk: int
     low_risk: int
@@ -56,6 +62,8 @@ class RiskDistribution(BaseModel):
     high_risk_pct: float
     medium_risk_pct: float
     low_risk_pct: float
+    category_semantics: str = 'configured_model_score_bands_not_observed_departure_outcomes'
+    future_departure_validated: bool = False
 
 
 class EmployeeRiskDetail(BaseModel):
@@ -80,4 +88,7 @@ class PredictionsResponse(BaseModel):
     distribution: RiskDistribution
     model_metrics: ModelMetrics
     output_scope: str = 'aggregate_only'
-    governance_note: str = 'Individual employee risk ranking is disabled for consequential employment governance.'
+    governance_note: str = (
+        'Individual employee risk ranking is disabled. Aggregate category counts are deterministic model-score bands; '
+        'their future-departure validity is reported separately in model_metrics.'
+    )

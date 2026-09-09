@@ -30,8 +30,6 @@ def _find_free_port() -> int:
 
 
 def _configure_environment() -> tuple[int, Path]:
-    # Import only the path helper before the API so every persistence consumer
-    # observes the correct PEOPLEOS_HOME from its first initialization.
     from src.local_paths import get_peopleos_paths
 
     paths = get_peopleos_paths()
@@ -52,11 +50,8 @@ def _configure_environment() -> tuple[int, Path]:
 def _restore_workspace() -> None:
     try:
         from api.runtime_registry import get_local_state
-
         get_local_state().load_from_database()
     except Exception:
-        # First run and empty databases are normal. The product remains usable
-        # and will present the add-data onboarding state.
         return
 
 
@@ -75,25 +70,15 @@ def _wait_until_ready(url: str, timeout_seconds: float = 30.0) -> None:
 
 
 def _record_smoke_failure() -> None:
-    """Persist frozen-startup diagnostics even for windowed executables.
-
-    Windows and macOS production packages intentionally have no console. During
-    CI that can otherwise turn an import/startup failure into an opaque exit
-    code. The smoke probe reads this file and prints it into the Actions log.
-    """
-
     if os.getenv("PEOPLEOS_SMOKE_TEST") != "1":
         return
-
     details = traceback.format_exc()
     try:
         smoke_home = Path(os.getenv("PEOPLEOS_HOME") or Path.cwd())
         smoke_home.mkdir(parents=True, exist_ok=True)
         (smoke_home / "desktop-smoke-failure.log").write_text(details, encoding="utf-8")
     except Exception:
-        # Diagnostics must never hide the original application failure.
         pass
-
     if sys.stderr is not None:
         try:
             print(details, file=sys.stderr, flush=True)
@@ -104,56 +89,68 @@ def _record_smoke_failure() -> None:
 def main() -> int:
     port, ui_dir = _configure_environment()
     if not ui_dir.exists():
-        raise RuntimeError(
-            "PeopleOS UI assets are missing. Build with PEOPLEOS_DESKTOP_BUILD=1 before packaging."
-        )
+        raise RuntimeError("PeopleOS UI assets are missing. Build with PEOPLEOS_DESKTOP_BUILD=1 before packaging.")
 
-    # Import after environment configuration so runtime paths are deterministic.
     import uvicorn
     from api.main import app
+    from desktop.control import controller
     from desktop.static_ui import install_static_ui
 
     install_static_ui(app, ui_dir)
     _restore_workspace()
 
-    config = uvicorn.Config(
-        app,
-        host="127.0.0.1",
-        port=port,
-        log_level="warning",
-        access_log=False,
-    )
-    server = uvicorn.Server(config)
-    thread = threading.Thread(target=server.run, name="peopleos-local-server", daemon=True)
-    thread.start()
-
     health_url = f"http://127.0.0.1:{port}/api/health"
     app_url = f"http://127.0.0.1:{port}/"
-    _wait_until_ready(health_url)
+    first_start = True
 
-    if os.getenv("PEOPLEOS_SMOKE_TEST") == "1":
-        # Packaging CI proves both the API and exported UI are served by the
-        # final executable, then exits without opening an interactive browser.
-        with urllib.request.urlopen(app_url, timeout=3.0) as response:
-            body = response.read(4096).decode("utf-8", errors="ignore")
-            if response.status != 200 or "PeopleOS" not in body:
-                raise RuntimeError("Packaged PeopleOS UI smoke test failed")
+    while True:
+        config = uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning", access_log=False)
+        server = uvicorn.Server(config)
+        controller.configure(
+            app_url=app_url,
+            open_callback=lambda: webbrowser.open(app_url, new=0, autoraise=True),
+            stop_callback=lambda: setattr(server, "should_exit", True),
+        )
+        thread = threading.Thread(target=server.run, name="peopleos-local-server", daemon=True)
+        thread.start()
+        _wait_until_ready(health_url)
+
+        if os.getenv("PEOPLEOS_SMOKE_TEST") == "1":
+            with urllib.request.urlopen(app_url, timeout=3.0) as response:
+                body = response.read(4096).decode("utf-8", errors="ignore")
+                if response.status != 200 or "PeopleOS" not in body:
+                    raise RuntimeError("Packaged PeopleOS UI smoke test failed")
+            # Desktop controls must exist in the packaged build without exposing a
+            # generic process surface.
+            with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/desktop/status", timeout=3.0) as response:
+                status_body = response.read().decode("utf-8", errors="ignore")
+                if response.status != 200 or '"desktop":true' not in status_body.replace(" ", "").lower():
+                    raise RuntimeError("Packaged PeopleOS desktop control smoke test failed")
+            server.should_exit = True
+            thread.join(timeout=5)
+            return 0
+
+        # First start and an intentional restart both reopen the product. A user
+        # never needs to discover the local port or find a hidden process.
+        webbrowser.open(app_url, new=1 if first_start else 0, autoraise=True)
+        first_start = False
+
+        try:
+            while thread.is_alive():
+                time.sleep(0.25)
+        except KeyboardInterrupt:
+            server.should_exit = True
+            thread.join(timeout=5)
+            return 0
+
+        action = controller.consume_action()
+        if action == "restart":
+            thread.join(timeout=5)
+            continue
+        # Explicit Quit or an unexpected server stop both end the packaged app.
         server.should_exit = True
         thread.join(timeout=5)
         return 0
-
-    webbrowser.open(app_url, new=1, autoraise=True)
-
-    # Keep the local service alive while the launcher process is running.
-    try:
-        while thread.is_alive():
-            time.sleep(0.5)
-    except KeyboardInterrupt:
-        pass
-    finally:
-        server.should_exit = True
-        thread.join(timeout=5)
-    return 0
 
 
 if __name__ == "__main__":

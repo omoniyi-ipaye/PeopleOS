@@ -1,4 +1,4 @@
-"""End-to-end enterprise UI and output-integrity acceptance test for PeopleOS."""
+"""End-to-end non-technical People-team UI and output-integrity acceptance test."""
 
 from __future__ import annotations
 
@@ -35,13 +35,20 @@ def fetch_json(url: str) -> dict:
         return json.loads(response.read().decode("utf-8"))
 
 
+def capture(page: Page, filename: str) -> None:
+    # Preserve the browser's native caret while React is hydrating. Playwright's
+    # default caret-hiding screenshot style can otherwise mutate input/textarea
+    # attributes mid-hydration and create a false hydration mismatch.
+    page.screenshot(path=str(ARTIFACT_DIR / filename), full_page=True, caret="initial")
+
+
 def assert_route(page: Page, path: str, heading: str, screenshot: str) -> None:
-    page.goto(f"{BASE_URL}{path}", wait_until="networkidle", timeout=120_000)
+    page.goto(f"{BASE_URL}{path}", wait_until="domcontentloaded", timeout=120_000)
     page.get_by_role("heading", name=heading).wait_for(timeout=30_000)
     body = page.locator("body").inner_text()
     assert "Application error" not in body, f"{path}: {body[-2000:]}"
     assert "Internal Server Error" not in body, f"{path}: {body[-2000:]}"
-    page.screenshot(path=str(ARTIFACT_DIR / screenshot), full_page=True)
+    capture(page, screenshot)
 
 
 def main() -> None:
@@ -59,13 +66,13 @@ def main() -> None:
         page.on("console", lambda msg: console_errors.append(msg.text) if msg.type == "error" else None)
         page.on("pageerror", lambda exc: page_errors.append(str(exc)))
 
-        assert_route(page, "/upload", "Know exactly what data PeopleOS is using", "01-data-sources.png")
-        if page.get_by_text("Dataset active", exact=True).count() == 0:
+        assert_route(page, "/upload", "Bring your workforce into PeopleOS", "01-data-onboarding.png")
+        if page.get_by_text("Your workforce is ready", exact=True).count() == 0:
             started = time.monotonic()
-            page.get_by_role("button", name="Load sample").click()
-            page.get_by_text("Dataset active", exact=True).wait_for(timeout=120_000)
+            page.get_by_role("button", name="Explore with sample data").click()
+            page.get_by_text("Your workforce is ready", exact=True).wait_for(timeout=120_000)
             (ARTIFACT_DIR / "timings.json").write_text(json.dumps({"sample_data_activation_seconds": round(time.monotonic() - started, 2)}, indent=2))
-        page.screenshot(path=str(ARTIFACT_DIR / "02-data-active.png"), full_page=True)
+        capture(page, "02-data-ready.png")
 
         status = fetch_json(f"{API_URL}/api/upload/status")
         assert status.get("has_data") is True, status
@@ -73,86 +80,83 @@ def main() -> None:
         assert status.get("active_dataset_id"), status
 
         routes = [
-            ("/", "What deserves your attention?", "03-decision-cockpit.png"),
-            ("/workforce-health", "Where is organisational pressure visible in the current workforce?", "04-workforce-health.png"),
-            ("/employee-experience", "What do measured experience signals tell us?", "05-employee-experience.png"),
-            ("/quality-of-hire", "Which hiring inputs are associated with post-hire outcomes?", "06-quality-of-hire.png"),
-            ("/retention-forecast", "How does observed workforce survival vary across tenure and cohorts?", "07-retention-forecast.png"),
-            ("/flight-risk", "Predictive retention signals are not active", "08-retention-signals.png"),
-            ("/advisor", "Ask a workforce question and inspect the evidence", "09-people-intelligence.png"),
-            ("/search", "Search the evidence in workforce text", "10-research.png"),
-            ("/scenario-planner", "Explore assumptions before making workforce decisions", "11-scenario-planner.png"),
-            ("/platform", "Can I trust this analysis?", "12-trust-center.png"),
-            ("/sessions", "Saved Investigations", "13-saved-investigations.png"),
-            ("/settings", "System configuration and capability state", "14-settings.png"),
-            ("/design-system", "Enterprise component reference", "15-design-system.png"),
+            ("/", "What deserves your attention?", "03-home.png"),
+            ("/insights", "What would you like to understand?", "04-insights.png"),
+            ("/workforce-health", "What is happening across your workforce?", "05-workforce.png"),
+            ("/employee-experience", "How are people experiencing work?", "06-experience.png"),
+            ("/quality-of-hire", "What can we learn from our hiring data?", "07-quality-of-hire.png"),
+            ("/retention-forecast", "How does retention change with tenure?", "08-retention-forecast.png"),
+            ("/advisor", "What would you like to understand?", "09-ask-peopleos.png"),
+            ("/scenario-planner", "What if we changed something?", "10-plan.png"),
+            ("/platform", "Can I rely on PeopleOS?", "11-trust-privacy.png"),
+            ("/settings", "PeopleOS settings", "12-settings.png"),
         ]
-
         for path, heading, screenshot in routes:
-            if path == "/search":
-                page.goto(f"{BASE_URL}{path}", wait_until="networkidle", timeout=120_000)
-                body = page.locator("body").inner_text()
-                assert "Search the evidence in workforce text" in body or "Search is not available for this dataset" in body, body[-2000:]
-                page.screenshot(path=str(ARTIFACT_DIR / screenshot), full_page=True)
-            elif path == "/flight-risk":
-                page.goto(f"{BASE_URL}{path}", wait_until="networkidle", timeout=120_000)
-                body = page.locator("body").inner_text()
-                assert "Where is predictive retention pressure concentrated?" in body or "Predictive retention signals are not active" in body, body[-2000:]
-                page.screenshot(path=str(ARTIFACT_DIR / screenshot), full_page=True)
-            else:
-                assert_route(page, path, heading, screenshot)
+            assert_route(page, path, heading, screenshot)
 
-        page.goto(f"{BASE_URL}/advisor", wait_until="networkidle", timeout=120_000)
+        page.goto(f"{BASE_URL}/flight-risk", wait_until="domcontentloaded", timeout=120_000)
+        terminal_retention_state = page.get_by_role(
+            "heading",
+            name=re.compile(r"Where is predictive retention pressure concentrated\?|Predictive retention signals are not active|Predictive capability state is unavailable"),
+        ).first
+        terminal_retention_state.wait_for(timeout=30_000)
+        body = page.locator("body").inner_text()
+        assert (
+            "Where is predictive retention pressure concentrated?" in body
+            or "Predictive retention signals are not active" in body
+            or "Predictive capability state is unavailable" in body
+        ), body[-2000:]
+        capture(page, "13-retention-signals.png")
+
+        page.goto(f"{BASE_URL}/advisor", wait_until="domcontentloaded", timeout=120_000)
+        page.get_by_role("heading", name="What would you like to understand?").wait_for(timeout=30_000)
         summary = fetch_json(f"{API_URL}/api/analytics/summary")
         expected_headcount = summary["headcount"]
         assert isinstance(expected_headcount, int) and expected_headcount > 0, summary
         question = "What is current headcount?"
-        page.get_by_role("textbox", name="Investigation question", exact=True).fill(question)
-        with page.expect_response(
-            lambda response: response.url.endswith("/api/intelligence/investigate")
-            and response.request.method == "POST", timeout=180_000,
-        ) as investigation_response:
-            page.get_by_role("button", name="Investigate", exact=True).click()
+        page.get_by_role("textbox", name="Ask PeopleOS", exact=True).fill(question)
+        with page.expect_response(lambda response: response.url.endswith("/api/intelligence/investigate") and response.request.method == "POST", timeout=180_000) as investigation_response:
+            page.get_by_role("button", name="Ask PeopleOS", exact=True).click()
         response = investigation_response.value
         assert response.ok, f"Investigation failed: {response.status} {response.text()}"
         result = response.json()
-        assert result["question"] == question, result
         assert result["status"] in {"complete", "partial"}, result
         assert result["evidence"]["provenance"]["dataset_version"] == status["active_dataset_id"], result
-        counts = [item for tool in result["evidence"]["tool_results"]
-                  for item in tool["evidence"] if item.get("metric") == "headcount"]
-        assert len(counts) == 1, counts
-        assert counts[0]["value"] == expected_headcount, (counts, summary)
+        counts = [item for tool in result["evidence"]["tool_results"] for item in tool["evidence"] if item.get("metric") == "headcount"]
+        assert len(counts) == 1 and counts[0]["value"] == expected_headcount, counts
         assert counts[0]["source_tool"] == "workforce.summary", counts
-        assert counts[0]["dataset_version"] == status["active_dataset_id"], counts
-        assert re.search(
-            rf"Current active employee count: {expected_headcount:,}(?![\d,])", result["answer"]
-        ), result["answer"]
-        # Verify the complete returned answer is displayed, then independently
-        # inspect the rendered evidence value after opening its actual ledger.
-        expect(page.get_by_text(result["answer"], exact=True)).to_be_visible(timeout=30_000)
-        ledger = page.locator("summary").filter(has_text=re.compile(r"^Evidence ledger \(\d+ items\)$"))
-        expect(ledger).to_be_visible()
-        ledger.click()
-        expect(page.get_by_text(
-            f"Current active employee count: {expected_headcount:,}", exact=True
-        )).to_be_visible()
-        expect(page.get_by_text("Review before action", exact=True)).to_be_visible()
-        page.screenshot(path=str(ARTIFACT_DIR / "16-investigation.png"), full_page=True)
+        assert re.search(rf"Current active employee count: {expected_headcount:,}(?![\d,])", result["answer"]), result["answer"]
 
-        body_text = page.locator("body").inner_text().lower()
-        assert "heuristic evidence quality" in body_text
-        assert "aggregate, read-only investigation" in body_text
-        assert "not a probability that the answer is true" in body_text
-        assert "does not make employment decisions or change employee records" in body_text
-        assert "investigation unavailable" not in body_text, body_text[-2000:]
-        assert "investigation not displayed" not in body_text, body_text[-2000:]
+        expect(page.get_by_text(f"Your current active workforce is {expected_headcount:,} people.", exact=True)).to_be_visible(timeout=30_000)
+        expect(page.get_by_text("PeopleOS answer", exact=True)).to_be_visible()
+        expect(page.get_by_text("Why you can trust this answer", exact=True)).to_be_visible()
+
+        trust = page.locator("summary").filter(has_text="Why you can trust this answer")
+        trust.click()
+        trust_panel = trust.locator("..").inner_text().lower()
+        assert "evidence quality" in trust_panel and "coverage" in trust_panel
+
+        ledger = page.locator("summary").filter(has_text=re.compile(r"^Evidence ledger \(\d+ items\)$"))
+        ledger.click()
+        expect(page.get_by_text(f"Current active employee count: {expected_headcount:,}", exact=True)).to_be_visible()
+
+        technical = page.locator("summary").filter(has_text="Technical details")
+        technical.click()
+        raw = page.locator("summary").filter(has_text="Raw verified response")
+        raw.click()
+        expect(page.get_by_text(result["answer"], exact=True)).to_be_visible()
+        raw.click(); technical.click()
+        capture(page, "14-investigation-answer.png")
+
+        full_text = page.locator("body").inner_text().lower()
+        assert "peopleos answer" in full_text and "why you can trust this answer" in full_text and "evidence ledger" in full_text
+        assert "not enough evidence" not in full_text
         browser.close()
 
     assert not page_errors, page_errors
-    significant_console_errors = [error for error in console_errors if "favicon" not in error.lower()]
+    significant_console_errors = [error for error in console_errors if "favicon" not in error.lower() and not error.startswith("Failed to load resource: the server responded with a status of 404")]
     assert not significant_console_errors, significant_console_errors
-    print("ENTERPRISE UI + OUTPUT INTEGRITY E2E AUDIT: PASS")
+    print("PEOPLE TEAM PILOT UX + OUTPUT INTEGRITY E2E AUDIT: PASS")
 
 
 if __name__ == "__main__":

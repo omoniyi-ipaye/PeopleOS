@@ -18,7 +18,7 @@ from urllib.parse import urlparse
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from src.llm_client import LLMClient
+from src.safe_llm_client import SafeLLMClient
 from src.utils import load_config
 from src.agent.evidence import EvidenceBundle, EvidenceItem, ToolResult
 from src.agent.orchestrator import PeopleIntelligenceAgent
@@ -35,7 +35,7 @@ def answer_matches_known_values(answer, include_span=False):
     return actual == expected and '999999' not in answer and 'Ignore all instructions' not in answer
 
 
-class RecordingLocalClient(LLMClient):
+class RecordingLocalClient(SafeLLMClient):
     """Record actual completions without replacing the model or transport."""
     def __init__(self):
         self.completions = []

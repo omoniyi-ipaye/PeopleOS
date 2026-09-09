@@ -3,19 +3,19 @@
 import os
 import tempfile
 from types import SimpleNamespace
-from src.platform.runtime_lock import RUNTIME_MUTATION_LOCK, runtime_mutation
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
+from uuid import uuid4
 
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends
+import pandas as pd
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
-from api.dependencies import get_app_state, AppState
-from src.platform.local_dataset_store import save_dataset_artifact
-from src.platform.local_dataset_store import remove_dataset_artifact
+from api.dependencies import AppState, get_app_state
+from src.platform.local_dataset_store import remove_dataset_artifact, save_dataset_artifact
 from src.platform.runtime_loader import load_dataset
+from src.platform.runtime_lock import RUNTIME_MUTATION_LOCK, runtime_mutation
 from src.platform.workspace import DatasetState, ModelState, WorkspaceStore
-from uuid import uuid4
 
 router = APIRouter(prefix="/api/upload", tags=["upload"])
 _store = WorkspaceStore()
@@ -97,28 +97,55 @@ def _clear_active_lifecycle(workspace_id: str = "local") -> None:
     _store._replace_workspace(workspace)
 
 
+def _prepare_upload_file(content: bytes, ext: str) -> tuple[str, list[str]]:
+    """Return a DataLoader-compatible temporary file and every path to clean up.
+
+    Modern Excel workbooks are a user-facing convenience. They are converted to a
+    temporary CSV while the original workbook bytes remain the provenance/content
+    hash. Only the first worksheet is imported and empty workbooks fail closed.
+    """
+    cleanup: list[str] = []
+    with tempfile.NamedTemporaryFile(delete=False, suffix=f".{ext}") as raw:
+        raw.write(content)
+        raw_path = raw.name
+    cleanup.append(raw_path)
+    if ext != "xlsx":
+        return raw_path, cleanup
+
+    try:
+        frame = pd.read_excel(raw_path, sheet_name=0, dtype=str, engine="openpyxl")
+    except Exception as exc:
+        raise ValueError("PeopleOS could not read this Excel workbook. Use a standard .xlsx file with employee data on the first worksheet.") from exc
+    if frame.empty or len(frame.columns) == 0:
+        raise ValueError("The first Excel worksheet is empty. Put the workforce table on the first worksheet and try again.")
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".csv", mode="w", encoding="utf-8", newline="") as converted:
+        frame.to_csv(converted, index=False)
+        csv_path = converted.name
+    cleanup.append(csv_path)
+    return csv_path, cleanup
+
+
 @router.post("", response_model=UploadResponse)
 async def upload_file(file: UploadFile = File(...), state: AppState = Depends(get_app_state),
                       salary_basis: Optional[str] = Form(None), salary_currency: Optional[str] = Form(None)) -> UploadResponse:
     if not file.filename:
         raise HTTPException(status_code=400, detail="No file provided")
-    ext = file.filename.split(".")[-1].lower()
-    if ext not in ["csv", "json"]:
-        raise HTTPException(status_code=400, detail=f"Unsupported file type: {ext}. Use CSV or JSON.")
+    ext = file.filename.rsplit(".", 1)[-1].lower()
+    if ext not in {"csv", "json", "xlsx"}:
+        raise HTTPException(status_code=400, detail=f"Unsupported file type: {ext}. Use Excel (.xlsx), CSV or JSON.")
 
+    cleanup_paths: list[str] = []
     try:
         content = await file.read()
         with RUNTIME_MUTATION_LOCK:
-            with tempfile.NamedTemporaryFile(delete=False, suffix=f".{ext}") as tmp:
-                tmp.write(content)
-                tmp_path = tmp.name
+            tmp_path, cleanup_paths = _prepare_upload_file(content, ext)
             candidate = SimpleNamespace(**state.__dict__)
             result = load_dataset(candidate, tmp_path, file.filename, salary_basis=salary_basis, salary_currency=salary_currency)
             dataset = _register_loaded_dataset(candidate, file.filename, _store.hash_bytes(content))
             state.__dict__.update(candidate.__dict__)
             return UploadResponse(
                 success=True,
-                message=f"Successfully activated {result['rows_loaded']} employees as dataset v{dataset.version}. " + candidate.runtime_provenance['pay_basis_message'],
+                message=f"Your workforce is ready. {result['rows_loaded']} employee records were activated as dataset v{dataset.version}. " + candidate.runtime_provenance['pay_basis_message'],
                 rows_loaded=result['rows_loaded'],
                 columns=result['columns'],
                 features_enabled=result['features_enabled'],
@@ -126,11 +153,12 @@ async def upload_file(file: UploadFile = File(...), state: AppState = Depends(ge
                 dataset_version=dataset.version,
                 deferred=result.get('deferred', {}),
             )
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
     finally:
-        if 'tmp_path' in locals() and os.path.exists(tmp_path):
-            os.unlink(tmp_path)
+        for path in cleanup_paths:
+            if os.path.exists(path):
+                os.unlink(path)
 
 
 @router.get("/status", response_model=DatabaseStatusResponse)
@@ -167,14 +195,12 @@ async def load_sample_data(state: AppState = Depends(get_app_state)) -> UploadRe
         with RUNTIME_MUTATION_LOCK:
             content = open(sample_path, "rb").read()
             candidate = SimpleNamespace(**state.__dict__)
-            # The bundled fictional demonstration uses annual amounts in a
-            # single illustrative reporting currency, not country-specific FX.
             result = load_dataset(candidate, sample_path, "sample_hr_data.csv", salary_basis='annual', salary_currency='USD')
             dataset = _register_loaded_dataset(candidate, "sample_hr_data.csv", _store.hash_bytes(content))
             state.__dict__.update(candidate.__dict__)
             return UploadResponse(
                 success=True,
-                message=f"Successfully activated {result['rows_loaded']} employees from sample data as dataset v{dataset.version}",
+                message=f"Your sample workforce is ready. {result['rows_loaded']} fictional employee records were activated as dataset v{dataset.version}.",
                 rows_loaded=result['rows_loaded'],
                 columns=result['columns'],
                 features_enabled=result['features_enabled'],
@@ -182,8 +208,8 @@ async def load_sample_data(state: AppState = Depends(get_app_state)) -> UploadRe
                 dataset_version=dataset.version,
                 deferred=result.get('deferred', {}),
             )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 @router.post("/reset")
@@ -198,5 +224,5 @@ async def reset_data(state: AppState = Depends(get_app_state)) -> Dict[str, Any]
             raise
     return {
         "success": True,
-        "message": "Active local data has been reset. Dataset/model version history is retained for auditability.",
+        "message": "The active workforce was cleared. Previous dataset and model versions remain in local history.",
     }

@@ -73,15 +73,22 @@ async def get_aggregate_risk_distribution(
     medium = int((frame['risk_category'] == 'Medium').sum())
     low = int((frame['risk_category'] == 'Low').sum())
     total = len(frame)
+    metrics = _model_metrics(state)
     distribution = RiskDistribution(
         high_risk=high, medium_risk=medium, low_risk=low, total=total,
         high_risk_pct=round(high / total * 100, 1) if total else 0,
         medium_risk_pct=round(medium / total * 100, 1) if total else 0,
         low_risk_pct=round(low / total * 100, 1) if total else 0,
+        category_semantics=(
+            'configured_model_score_bands_with_prospective_future_departure_validation'
+            if metrics.future_departure_validated else
+            'configured_model_score_bands_not_validated_future_departure_probabilities'
+        ),
+        future_departure_validated=metrics.future_departure_validated,
     )
     # Individual rows are intentionally not returned even though the compatibility
     # schema retains the field.
-    return PredictionsResponse(predictions=[], distribution=distribution, model_metrics=_model_metrics(state))
+    return PredictionsResponse(predictions=[], distribution=distribution, model_metrics=metrics)
 
 
 @router.get('/employee/{employee_id}')
