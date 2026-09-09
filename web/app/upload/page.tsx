@@ -23,7 +23,7 @@ export default function DataSourcesPage() {
   const hasData = Boolean(status?.has_data)
   const busy = uploadMutation.isPending || sampleMutation.isPending || resetMutation.isPending
   const onDrop = useCallback((files: File[]) => { if (files[0]) uploadMutation.mutate(files[0]) }, [uploadMutation])
-  const dropzone = useDropzone({ onDrop, accept: { 'text/csv': ['.csv'], 'application/json': ['.json'], 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'], 'application/vnd.ms-excel': ['.xls'] }, maxFiles: 1, disabled: statusLoading || statusError || busy })
+  const dropzone = useDropzone({ onDrop, accept: { 'text/csv': ['.csv'], 'application/json': ['.json'], 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'] }, maxFiles: 1, disabled: statusLoading || statusError || busy })
   const mutationError = uploadMutation.error || sampleMutation.error || resetMutation.error
 
   return <Page>
@@ -53,7 +53,7 @@ export default function DataSourcesPage() {
           <h2 className="mt-5 text-xl font-semibold">{dropzone.isDragActive ? 'Drop your workforce file here' : hasData ? 'Replace workforce data' : 'Add your workforce data'}</h2>
           <p className="mt-2 max-w-md text-sm leading-6 text-text-secondary">Excel, CSV or JSON. Use an ordinary HR export; PeopleOS maps familiar column names and validates the file before activation.</p>
           <Button type="button" className="mt-6" disabled={statusLoading || statusError || busy}><FileUp className="h-4 w-4" />Choose file</Button>
-          <div className="mt-4 text-xs text-text-muted">.xlsx · .xls · .csv · .json</div>
+          <div className="mt-4 text-xs text-text-muted">.xlsx · .csv · .json</div>
         </div>
       </Surface>
 
