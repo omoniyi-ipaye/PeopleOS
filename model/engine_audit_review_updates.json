@@ -11,10 +11,12 @@
     "src/analytics_engine.py": "3abb66cf09eaecd5c3de04ee9efb3414bb4dc78bc5eac9dda370a349f0825473",
     "src/fairness_engine.py": "2f5ed47d89f7003396e0f046d50ca2f39dcc268c090259c68af0be022af9d38d",
     "web/app/advisor/page.tsx": "7051e0433d8d1a3bd15fc63cf59c0899e4d8996bcccae93bb557346368b08c8e",
-    "web/app/employee-experience/page.tsx": "1cbe73ddf8d8af010e9383fe541441714afcff5886e43eab5854470875c89b62",
+    "web/app/employee-experience/page.tsx": "d5cc8370f5a3f5dffde4900e12680ba97bb5ebdb1a7fe3cc9ee85d57a2a56625",
     "web/app/platform/page.tsx": "99886b2ca9d893a5e0f76ec5c4d6730cc55b29c6c19c58b39dcc7ed7a896cac8",
+    "web/app/quality-of-hire/page.tsx": "d91ff4a13991ac1f93afb944a748bee81c658e5467adcc5262d735e3f7924147",
+    "web/app/retention-forecast/page.tsx": "d5e6fc71ff2dae0bb20e8aa46055712ed6b939cd2ab5d244c677b49b1ea6de33",
     "web/app/scenario-planner/page.tsx": "63581de0df548426be894bfe54077f4d2e8fbce1c005f7d1648e3c06306b7f37",
-    "web/app/workforce-health/page.tsx": "2266013f009f7deec385a30fe60b4ddc5b9ba26ce652dd21829f032b4ea9ffb3",
+    "web/app/workforce-health/page.tsx": "54ccc6acc3efc497020f5ffa25eef2c4561877252be089cbbf81ab9fbf8e1002",
     "web/components/advisor/investigation-result.tsx": "b17b2125c728f38ae7962d102159ad837982513bf702916ea8a27cfbc9e0343a",
     "web/components/sidebar.tsx": "2f9a3617c953fda2822f43478c70cadf7530d494e293b5ffd554f665d3461288"
   }
