@@ -100,26 +100,26 @@ def _clear_active_lifecycle(workspace_id: str = "local") -> None:
 def _prepare_upload_file(content: bytes, ext: str) -> tuple[str, list[str]]:
     """Return a DataLoader-compatible temporary file and every path to clean up.
 
-    Excel is a user-facing convenience. It is converted to a temporary CSV while
-    retaining the original uploaded bytes for provenance/content hashing. Only
-    the first worksheet is imported; empty workbooks fail closed.
+    Modern Excel workbooks are a user-facing convenience. They are converted to a
+    temporary CSV while the original workbook bytes remain the provenance/content
+    hash. Only the first worksheet is imported and empty workbooks fail closed.
     """
     cleanup: list[str] = []
     with tempfile.NamedTemporaryFile(delete=False, suffix=f".{ext}") as raw:
         raw.write(content)
         raw_path = raw.name
     cleanup.append(raw_path)
-    if ext not in {"xlsx", "xls"}:
+    if ext != "xlsx":
         return raw_path, cleanup
 
     try:
-        frame = pd.read_excel(raw_path, sheet_name=0, dtype=str)
+        frame = pd.read_excel(raw_path, sheet_name=0, dtype=str, engine="openpyxl")
     except Exception as exc:
         raise ValueError("PeopleOS could not read this Excel workbook. Use a standard .xlsx file with employee data on the first worksheet.") from exc
     if frame.empty or len(frame.columns) == 0:
         raise ValueError("The first Excel worksheet is empty. Put the workforce table on the first worksheet and try again.")
     with tempfile.NamedTemporaryFile(delete=False, suffix=".csv", mode="w", encoding="utf-8", newline="") as converted:
-        frame.to_csv(converted.name, index=False)
+        frame.to_csv(converted, index=False)
         csv_path = converted.name
     cleanup.append(csv_path)
     return csv_path, cleanup
@@ -131,8 +131,8 @@ async def upload_file(file: UploadFile = File(...), state: AppState = Depends(ge
     if not file.filename:
         raise HTTPException(status_code=400, detail="No file provided")
     ext = file.filename.rsplit(".", 1)[-1].lower()
-    if ext not in {"csv", "json", "xlsx", "xls"}:
-        raise HTTPException(status_code=400, detail=f"Unsupported file type: {ext}. Use Excel, CSV or JSON.")
+    if ext not in {"csv", "json", "xlsx"}:
+        raise HTTPException(status_code=400, detail=f"Unsupported file type: {ext}. Use Excel (.xlsx), CSV or JSON.")
 
     cleanup_paths: list[str] = []
     try:
