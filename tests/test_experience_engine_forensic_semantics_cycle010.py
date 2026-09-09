@@ -23,13 +23,20 @@ def base_frame(n: int = 40) -> pd.DataFrame:
 
 
 def test_decimal_score_band_boundaries_cover_every_measured_response_exactly_once():
-    df = base_frame(10)
+    # Ten observations per score band keeps this arithmetic test outside the
+    # privacy-suppression path while exercising every decimal boundary.
+    boundary_values = [0.0, 19.9, 20.0, 39.9, 40.0, 59.9, 60.0, 79.9, 80.0, 100.0]
+    scores = []
+    for value in boundary_values:
+        scores.extend([value] * 5)
+    df = base_frame(len(scores))
     engine = ExperienceEngine(df)
-    engine.df['_exi_score'] = pd.Series([0.0, 19.9, 20.0, 39.9, 40.0, 59.9, 60.0, 79.9, 80.0, 100.0])
-    engine.respondent_count = 10
+    engine.df['_exi_score'] = pd.Series(scores, index=engine.df.index)
+    engine.respondent_count = len(scores)
     result = engine.get_engagement_segments()
-    assert sum(int(row['count']) for row in result['segments']) == 10
-    assert [row['count'] for row in result['segments']] == [2, 2, 2, 2, 2]
+    assert result.get('suppression_applied') is False
+    assert sum(int(row['count']) for row in result['segments']) == len(scores)
+    assert [row['count'] for row in result['segments']] == [10, 10, 10, 10, 10]
 
 
 def test_case_insensitive_duplicate_signal_columns_fail_closed_independent_of_order():
@@ -52,7 +59,6 @@ def test_identifier_group_by_does_not_emit_sensitive_group_breakdown():
 def test_small_overall_low_score_cell_is_suppressed():
     df = base_frame(40)
     engine = ExperienceEngine(df)
-    # Controlled composite: only 4 people below threshold.
     engine.df['_exi_score'] = 70.0
     engine.df.loc[:3, '_exi_score'] = 10.0
     engine.respondent_count = 40
@@ -66,7 +72,6 @@ def test_small_overall_low_score_cell_is_suppressed():
 def test_score_band_small_cells_use_complementary_suppression():
     df = base_frame(40)
     engine = ExperienceEngine(df)
-    # 4 very-low, 6 low, 10 mid, 10 high, 10 very-high. Two small cells exist.
     engine.df['_exi_score'] = [10.0]*4 + [30.0]*6 + [50.0]*10 + [70.0]*10 + [90.0]*10
     engine.respondent_count = 40
     result = engine.get_engagement_segments()
@@ -76,15 +81,12 @@ def test_score_band_small_cells_use_complementary_suppression():
         assert rows[name].get('count') is None
         assert rows[name].get('percentage') is None
         assert rows[name].get('avg_exi') is None
-    # Supported cells remain available.
     assert rows['Mid score band']['count'] == 10
 
 
 def test_single_small_score_band_triggers_complementary_suppression_of_second_cell():
     df = base_frame(40)
     engine = ExperienceEngine(df)
-    # Only one naturally small cell; a second nonzero cell must also be hidden so
-    # the small value cannot be reconstructed from the respondent total.
     engine.df['_exi_score'] = [10.0]*4 + [50.0]*12 + [70.0]*12 + [90.0]*12
     engine.respondent_count = 40
     result = engine.get_engagement_segments()
