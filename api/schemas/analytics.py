@@ -76,10 +76,13 @@ class SalaryBand(BaseModel):
 
 
 class CorrelationData(BaseModel):
-    """Observed association with target; not a causal driver."""
+    """Pairwise Pearson association with explicit support; not a causal driver."""
     feature: str
     correlation: float
     abs_correlation: float
+    p_value: float
+    observations: int
+    metric_semantics: str = "pairwise_pearson_association_not_causal_effect"
 
 
 class HighRiskDepartment(BaseModel):
@@ -102,7 +105,8 @@ class DistributionsResponse(BaseModel):
 class CorrelationsResponse(BaseModel):
     correlations: List[CorrelationData]
     target_column: str
-    metric_semantics: str = "observational_association_not_causal_effect"
+    minimum_pairwise_observations: int = 10
+    metric_semantics: str = "pairwise_pearson_association_with_support_not_causal_effect"
 
 
 class HighRiskDepartmentsResponse(BaseModel):
