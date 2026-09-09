@@ -160,6 +160,17 @@ def test_correlation_below_minimum_support_is_omitted():
     assert 'Tenure' not in result.get('Feature', pd.Series(dtype=str)).tolist()
 
 
+def test_identifier_like_numeric_fields_are_not_correlation_features_or_targets():
+    df = frame(80)
+    df['ManagerID'] = np.arange(1000, 1080)
+    df['National_ID'] = np.arange(5000, 5080)
+    result = AnalyticsEngine(df).get_correlations('Attrition')
+    features = set(result.get('Feature', pd.Series(dtype=str)).tolist())
+    assert 'ManagerID' not in features
+    assert 'National_ID' not in features
+    assert AnalyticsEngine(df).get_correlations('ManagerID').empty
+
+
 def test_two_group_comparison_matches_welch_reference():
     df = frame(40)
     df['Attrition'] = 0
@@ -192,8 +203,15 @@ def test_group_comparison_uses_valid_measured_rows_for_minimum_support():
     df = frame(22)
     df['Attrition'] = 0
     df['Dept'] = ['A'] * 11 + ['B'] * 11
-    df.loc[0:1, 'Salary'] = np.nan  # A now has only 9 measured rows.
+    df.loc[0:1, 'Salary'] = np.nan
     assert AnalyticsEngine(df).compare_groups('Dept', 'Salary')['success'] is False
+
+
+def test_identifier_like_fields_are_rejected_as_group_test_measures_or_groups():
+    df = frame(40); df['Attrition'] = 0
+    df['ManagerID'] = np.arange(40)
+    assert AnalyticsEngine(df).compare_groups('Dept', 'ManagerID')['success'] is False
+    assert AnalyticsEngine(df).compare_groups('EmployeeID', 'Salary')['success'] is False
 
 
 def test_confidence_interval_matches_scipy_t_interval():
@@ -217,6 +235,11 @@ def test_confidence_interval_never_emits_nonfinite_bounds_for_extreme_finite_inp
     df['Salary'] = [1e308, 9e307] * 10
     result = AnalyticsEngine(df).get_confidence_interval('Salary')
     assert result is None or all(math.isfinite(float(x)) for x in result)
+
+
+def test_confidence_interval_rejects_identifier_like_measure():
+    df = frame(20); df['Attrition'] = 0; df['ManagerID'] = np.arange(20)
+    assert AnalyticsEngine(df).get_confidence_interval('ManagerID') is None
 
 
 @pytest.mark.parametrize('threshold', [-0.01, 1.01, float('nan'), float('inf'), -float('inf')])
