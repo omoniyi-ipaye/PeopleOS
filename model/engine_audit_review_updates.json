@@ -15,7 +15,7 @@
     "web/app/platform/page.tsx": "99886b2ca9d893a5e0f76ec5c4d6730cc55b29c6c19c58b39dcc7ed7a896cac8",
     "web/app/scenario-planner/page.tsx": "63581de0df548426be894bfe54077f4d2e8fbce1c005f7d1648e3c06306b7f37",
     "web/app/workforce-health/page.tsx": "2266013f009f7deec385a30fe60b4ddc5b9ba26ce652dd21829f032b4ea9ffb3",
-    "web/components/advisor/investigation-result.tsx": "ce2514aefa4e760b6392a0af80b5f6cf1f10f2e528934771ebebf7abc401ee5e",
+    "web/components/advisor/investigation-result.tsx": "b17b2125c728f38ae7962d102159ad837982513bf702916ea8a27cfbc9e0343a",
     "web/components/sidebar.tsx": "2f9a3617c953fda2822f43478c70cadf7530d494e293b5ffd554f665d3461288"
   }
 }
