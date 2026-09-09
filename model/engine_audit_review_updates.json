@@ -1,4 +1,21 @@
 {
   "review_context": "Incremental reviewed-file hashes after the deterministic evidence and pilot UX hardening pass. Entries override only paths already inventoried in model/engine_audit.json.",
-  "reviewed_file_sha256": {}
+  "reviewed_file_sha256": {
+    "api/routes/analytics.py": "0bb0409b1e003103a37fee14cf2cef6a208e1b7a120fe03cc2113f7b57633e7e",
+    "api/routes/fairness.py": "90d8d783d324e87749d09a9b06a4856570c7b656134d0c46fd42f7714bc8c39b",
+    "api/routes/predictions.py": "9610451bf5c856964b7b33dea52a1618bce2cbfbb7d679b6ec204ec886d85c21",
+    "api/schemas/predictions.py": "b9647b0346d3899d10293eeb6dbe7fed3b6329de6f8198af4c3ddf15581dc95a",
+    "src/agent/adapters.py": "d90e1b0e84b7a29d43f5f5d9b9f9500c13ed0cf960d16d7db9cc1f57cf0a8cb8",
+    "src/agent/people_tools.py": "5055f77404fb005ab2f33f0e183be7945eccb19de7f153d90abbad551cbda1a8",
+    "src/agent/planner.py": "634b00a55f3e9c05a36ca71677a060be2acc516be38cd016585d6bda55314868",
+    "src/analytics_engine.py": "3abb66cf09eaecd5c3de04ee9efb3414bb4dc78bc5eac9dda370a349f0825473",
+    "src/fairness_engine.py": "2f5ed47d89f7003396e0f046d50ca2f39dcc268c090259c68af0be022af9d38d",
+    "web/app/advisor/page.tsx": "7051e0433d8d1a3bd15fc63cf59c0899e4d8996bcccae93bb557346368b08c8e",
+    "web/app/employee-experience/page.tsx": "1cbe73ddf8d8af010e9383fe541441714afcff5886e43eab5854470875c89b62",
+    "web/app/platform/page.tsx": "99886b2ca9d893a5e0f76ec5c4d6730cc55b29c6c19c58b39dcc7ed7a896cac8",
+    "web/app/scenario-planner/page.tsx": "63581de0df548426be894bfe54077f4d2e8fbce1c005f7d1648e3c06306b7f37",
+    "web/app/workforce-health/page.tsx": "2266013f009f7deec385a30fe60b4ddc5b9ba26ce652dd21829f032b4ea9ffb3",
+    "web/components/advisor/investigation-result.tsx": "ce2514aefa4e760b6392a0af80b5f6cf1f10f2e528934771ebebf7abc401ee5e",
+    "web/components/sidebar.tsx": "2f9a3617c953fda2822f43478c70cadf7530d494e293b5ffd554f665d3461288"
+  }
 }
