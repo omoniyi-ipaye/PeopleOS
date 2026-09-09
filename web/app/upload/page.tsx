@@ -6,8 +6,8 @@ import { useDropzone } from 'react-dropzone'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api-client'
 import type { UploadStatus, UploadResponse } from '@/types/api'
-import { ArrowRight, CheckCircle2, Download, FileUp, Loader2, Sparkles, Trash2 } from 'lucide-react'
-import { Button, EmptyState, MetricCard, Page, PageHeader, SectionHeader, StateSummary, StatusBadge, Surface } from '@/components/ui'
+import { ArrowRight, CheckCircle2, Download, FileSpreadsheet, FileUp, Loader2, Sparkles, Trash2 } from 'lucide-react'
+import { Button, EmptyState, MetricCard, Page, PageHeader, StateSummary, Surface, TrustDisclosure } from '@/components/ui'
 
 export default function DataSourcesPage() {
   const queryClient = useQueryClient()
@@ -16,66 +16,65 @@ export default function DataSourcesPage() {
   const [currency, setCurrency] = useState('')
 
   const { data: status, isLoading: statusLoading, isError: statusError, refetch: retryStatus } = useQuery<UploadStatus>({ queryKey: ['upload', 'status'], queryFn: () => api.upload.getStatus() as Promise<UploadStatus> })
-  const uploadMutation = useMutation<UploadResponse, Error, File>({ mutationFn: (file) => api.upload.uploadFile(file, { annual: annualPay, currency }) as Promise<UploadResponse>, onSuccess: (data) => { setResult(data); setAnnualPay(false); setCurrency(''); void queryClient.resetQueries() } })
-  const sampleMutation = useMutation<UploadResponse, Error, void>({ mutationFn: () => api.upload.loadSample() as Promise<UploadResponse>, onSuccess: (data) => { setResult(data); void queryClient.resetQueries() } })
+  const uploadMutation = useMutation<UploadResponse, Error, File>({ mutationFn: file => api.upload.uploadFile(file, { annual: annualPay, currency }) as Promise<UploadResponse>, onSuccess: data => { setResult(data); setAnnualPay(false); setCurrency(''); void queryClient.resetQueries() } })
+  const sampleMutation = useMutation<UploadResponse, Error, void>({ mutationFn: () => api.upload.loadSample() as Promise<UploadResponse>, onSuccess: data => { setResult(data); void queryClient.resetQueries() } })
   const resetMutation = useMutation({ mutationFn: () => api.upload.reset(), onSuccess: () => { setResult(null); void queryClient.resetQueries() } })
 
   const hasData = Boolean(status?.has_data)
   const busy = uploadMutation.isPending || sampleMutation.isPending || resetMutation.isPending
   const onDrop = useCallback((files: File[]) => { if (files[0]) uploadMutation.mutate(files[0]) }, [uploadMutation])
-  const dropzone = useDropzone({ onDrop, accept: { 'text/csv': ['.csv'], 'application/json': ['.json'] }, maxFiles: 1, disabled: statusLoading || statusError || busy })
+  const dropzone = useDropzone({ onDrop, accept: { 'text/csv': ['.csv'], 'application/json': ['.json'], 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'], 'application/vnd.ms-excel': ['.xls'] }, maxFiles: 1, disabled: statusLoading || statusError || busy })
   const mutationError = uploadMutation.error || sampleMutation.error || resetMutation.error
 
   return <Page>
-    <PageHeader eyebrow="Govern · Data & Sources" title="Know exactly what data PeopleOS is using" description="Validate and activate workforce data without silently training a model. Dataset state, predictive readiness and optional text capability remain separate." />
+    <PageHeader eyebrow="Data" title={hasData ? 'Your workforce data' : 'Bring your workforce into PeopleOS'} description={hasData ? 'See what PeopleOS is using, replace it when needed, or return to your insights.' : 'Drop in an Excel, CSV or JSON export. PeopleOS will validate it before using any number in an analysis.'} />
 
-    {statusLoading ? <StateSummary title="Checking data source" description="Reading the active dataset lifecycle before enabling data actions." tone="info" /> : statusError ? <EmptyState title="Data source state is unavailable" description="PeopleOS could not verify which dataset is active. Retry before uploading, loading a sample or resetting data." action={<Button onClick={() => void retryStatus()}>Retry status check</Button>} /> : hasData ? <StateSummary title="Dataset active" description={`${Number.isFinite(status?.employee_count) ? status!.employee_count.toLocaleString() : 'An unavailable number of'} people are available for deterministic workforce analysis.`} tone="success" /> : <StateSummary title="No active dataset" description="Add a workforce dataset or use the sample to start the PeopleOS journey." tone="neutral" />}
-    {mutationError && <div role="alert"><StateSummary title="Data action failed" description={mutationError instanceof Error ? mutationError.message : 'The requested data action could not be completed.'} tone="warning" /></div>}
-    {hasData && status?.features_enabled?.compensation === false && <StateSummary title="Pay analysis needs confirmed units" description="Your employee population remains available. Reimport the source with annual pay and a shared currency declared below, or include PayPeriod and Currency columns. Until then, PeopleOS excludes pay amounts from analytical results." tone="info" />}
-    {hasData && status?.reporting_currency && <StateSummary title={`Reporting currency: ${status.reporting_currency}`} description="Pay amounts in this dataset are declared annual and use this shared currency. PeopleOS has not converted currencies or annualized the imported values." tone="info" />}
+    {statusLoading ? <StateSummary title="Checking your current data" description="PeopleOS is confirming the active workforce source." tone="info" /> : statusError ? <EmptyState title="Your data source could not be checked" description="Retry before adding or replacing workforce data." action={<Button onClick={() => void retryStatus()}>Retry</Button>} /> : null}
+    {mutationError && <div role="alert"><StateSummary title="We couldn't use that file" description={mutationError instanceof Error ? mutationError.message : 'Check the file and try again.'} tone="warning" /></div>}
 
-    <Surface padding="lg">
-      <SectionHeader title="Confirm pay units for this import" description="If your file already includes annual PayPeriod and one shared Currency, PeopleOS checks them automatically. Otherwise, confirm them here to enable pay analysis. Unconfirmed pay stays out of results while workforce counts remain available." />
-      <div className="mt-4 grid gap-4 sm:grid-cols-2">
-        <label className="flex items-start gap-3 text-sm"><input type="checkbox" checked={annualPay} disabled={busy} onChange={(event) => setAnnualPay(event.target.checked)} className="mt-1 h-4 w-4" /><span>I confirm all monetary pay values are annual amounts, including salaries, starting salaries, market references and band midpoints.</span></label>
-        <label className="text-sm">Shared reporting currency<input aria-label="Shared reporting currency" value={currency} disabled={busy} maxLength={3} onChange={(event) => setCurrency(event.target.value.toUpperCase())} placeholder="e.g. EUR" className="mt-2 block w-full rounded-lg border border-border bg-background p-3" /><span className="mt-1 block text-xs text-text-muted">Only confirm if every pay amount uses this currency. No automatic currency or pay-period conversion is applied.</span></label>
+    {hasData ? <>
+      <Surface padding="lg" className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+        <div><div className="flex items-center gap-2"><CheckCircle2 className="h-5 w-5 text-emerald-600" /><h2 className="text-lg font-semibold">Your workforce is ready</h2></div><p className="mt-2 text-sm text-text-secondary">{status?.employee_count?.toLocaleString() ?? 'Your'} employee records are available for analysis{status?.reporting_currency ? ` · pay reported in ${status.reporting_currency}` : ''}.</p></div>
+        <div className="flex flex-wrap gap-2"><Link href="/" className="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white">Open Home <ArrowRight className="h-4 w-4" /></Link><Link href="/advisor" className="inline-flex items-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm font-semibold">Ask PeopleOS</Link></div>
+      </Surface>
+      {status?.features_enabled?.compensation === false && <StateSummary title="Pay insights are currently off" description="Your workforce analysis still works. To enable pay insights, replace the file with annual pay in one shared currency, or confirm those units below when uploading." tone="info" />}
+    </> : <Surface padding="lg" className="overflow-hidden border-violet-200/70 bg-gradient-to-br from-white to-violet-50/40 dark:border-violet-500/20 dark:from-slate-950 dark:to-violet-500/[0.03]">
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-center">
+        <div><div className="text-xs font-bold uppercase tracking-[0.16em] text-violet-600 dark:text-violet-300">First time here?</div><h2 className="mt-2 text-2xl font-semibold tracking-tight">Try PeopleOS before adding anything.</h2><p className="mt-3 max-w-2xl text-sm leading-7 text-text-secondary">Load a fictional workforce and explore the full experience safely. Nothing from the sample represents a real person.</p><Button className="mt-5" disabled={busy || statusError} isLoading={sampleMutation.isPending} onClick={() => sampleMutation.mutate()}><Sparkles className="h-4 w-4" />Explore with sample data</Button></div>
+        <div className="rounded-2xl border border-violet-100 bg-white/80 p-5 dark:border-violet-500/20 dark:bg-slate-950/60"><div className="text-sm font-semibold">What you'll be able to do</div><div className="mt-3 space-y-2 text-sm text-text-secondary"><div>✓ See workforce patterns</div><div>✓ Ask natural-language questions</div><div>✓ Inspect evidence when you want it</div><div>✓ Explore scenarios without changing data</div></div></div>
       </div>
-    </Surface>
-
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
-      <Surface padding="none" className="overflow-hidden">
-        <div {...dropzone.getRootProps()} aria-disabled={statusLoading || statusError || busy} className={`flex min-h-[360px] cursor-pointer flex-col items-center justify-center p-8 text-center transition ${dropzone.isDragActive ? 'bg-accent/5' : 'hover:bg-background-secondary'}`}>
-          <input {...dropzone.getInputProps()} />
-          <div className="grid h-14 w-14 place-items-center rounded-2xl bg-accent/10 text-accent">{uploadMutation.isPending ? <Loader2 className="h-6 w-6 animate-spin" /> : <FileUp className="h-6 w-6" />}</div>
-          <h2 className="mt-5 text-xl font-semibold">{dropzone.isDragActive ? 'Drop the dataset here' : 'Add workforce data'}</h2>
-          <p className="mt-2 max-w-md text-sm leading-6 text-text-secondary">CSV or JSON. PeopleOS validates and activates the source without making model training an upload side effect.</p>
-          <Button type="button" className="mt-6" disabled={statusLoading || statusError || busy}>Browse files</Button>
-        </div>
-      </Surface>
-
-      <Surface padding="lg">
-        <SectionHeader title="Dataset lifecycle" description="The sequence stays explicit so readiness claims remain trustworthy." />
-        <div className="mt-5 space-y-4">
-          <Lifecycle number="1" title="Validate" detail="Check schema, row count, duplicates and missing values." active />
-          <Lifecycle number="2" title="Activate dataset" detail="Create a versioned source of truth for deterministic analysis." active />
-          <Lifecycle number="3" title="Analyse immediately" detail="Workforce Health and People Intelligence use aggregate evidence." active />
-          <Lifecycle number="4" title="Train only when needed" detail="Predictive modelling is a separate governed lifecycle." />
-        </div>
-      </Surface>
-    </div>
-
-    <section className="grid gap-4 md:grid-cols-3">
-      <Surface padding="md" className="flex items-center justify-between gap-4"><div><div className="font-semibold">Schema template</div><div className="text-xs text-text-muted">Review required and optional fields</div></div><Button variant="secondary" size="sm" onClick={() => api.upload.downloadTemplate()}><Download className="h-4 w-4" />Download</Button></Surface>
-      <Surface padding="md" className="flex items-center justify-between gap-4"><div><div className="font-semibold">Sample dataset</div><div className="text-xs text-text-muted">Explore the product safely</div></div><Button variant="secondary" size="sm" disabled={statusLoading || statusError || hasData || busy} isLoading={sampleMutation.isPending} onClick={() => sampleMutation.mutate()}><Sparkles className="h-4 w-4" />Load sample</Button></Surface>
-      <Surface padding="md" className="flex items-center justify-between gap-4"><div><div className="font-semibold">Runtime data</div><div className="text-xs text-text-muted">Lifecycle history remains auditable</div></div><Button variant="danger" size="sm" disabled={statusLoading || statusError || !hasData || busy} isLoading={resetMutation.isPending} onClick={() => resetMutation.mutate()}><Trash2 className="h-4 w-4" />Reset</Button></Surface>
-    </section>
-
-    {result && <Surface padding="lg">
-      <div className="flex items-start gap-4"><div className={`grid h-10 w-10 place-items-center rounded-xl ${result.success ? 'bg-success/10 text-success' : 'bg-danger/10 text-danger'}`}>{result.success ? <CheckCircle2 className="h-5 w-5" /> : <FileUp className="h-5 w-5" />}</div><div className="flex-1"><div className="flex flex-wrap items-center gap-2"><h2 className="font-semibold">{result.success ? 'Dataset activated' : 'Data could not be activated'}</h2><StatusBadge tone={result.success ? 'success' : 'danger'}>{result.success ? 'Active' : 'Failed'}</StatusBadge></div><p className="mt-2 text-sm leading-6 text-text-secondary">{result.message}</p>{result.success && <div className="mt-5 grid gap-3 sm:grid-cols-3"><MetricCard label="Available now" value="Workforce analytics" detail="Deterministic aggregate analysis" /><MetricCard label="Predictive inputs" value={result.features_enabled?.predictive ? 'Ready' : 'More data needed'} detail="Training remains separate" tone={result.features_enabled?.predictive ? 'success' : 'neutral'} /><MetricCard label="Text intelligence" value={result.features_enabled?.nlp ? 'Source present' : 'Optional'} detail="Advanced capability tier" tone={result.features_enabled?.nlp ? 'info' : 'neutral'} /></div>}{result.success && <Link href="/" className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-accent">Open Decision Cockpit <ArrowRight className="h-4 w-4" /></Link>}</div></div>
     </Surface>}
 
-    {!result && !hasData && <EmptyState title="PeopleOS needs a source of truth" description="A dataset is the prerequisite for every analytical claim. No data means no inferred workforce conclusion." />}
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(300px,0.8fr)]">
+      <Surface padding="none" className="overflow-hidden">
+        <div {...dropzone.getRootProps()} aria-disabled={statusLoading || statusError || busy} className={`flex min-h-[390px] cursor-pointer flex-col items-center justify-center p-8 text-center transition ${dropzone.isDragActive ? 'bg-violet-50 dark:bg-violet-500/[0.04]' : 'hover:bg-background-secondary'}`}>
+          <input {...dropzone.getInputProps()} />
+          <div className="grid h-16 w-16 place-items-center rounded-2xl bg-violet-50 text-violet-600 dark:bg-violet-500/10 dark:text-violet-300">{uploadMutation.isPending ? <Loader2 className="h-7 w-7 animate-spin" /> : <FileSpreadsheet className="h-7 w-7" />}</div>
+          <h2 className="mt-5 text-xl font-semibold">{dropzone.isDragActive ? 'Drop your workforce file here' : hasData ? 'Replace workforce data' : 'Add your workforce data'}</h2>
+          <p className="mt-2 max-w-md text-sm leading-6 text-text-secondary">Excel, CSV or JSON. Use an ordinary HR export; PeopleOS maps familiar column names and validates the file before activation.</p>
+          <Button type="button" className="mt-6" disabled={statusLoading || statusError || busy}><FileUp className="h-4 w-4" />Choose file</Button>
+          <div className="mt-4 text-xs text-text-muted">.xlsx · .xls · .csv · .json</div>
+        </div>
+      </Surface>
+
+      <div className="space-y-4">
+        <Surface padding="lg"><div className="text-sm font-semibold">PeopleOS checks before analysis</div><div className="mt-4 space-y-3 text-sm text-text-secondary"><div>1. Recognises familiar HR column names</div><div>2. Checks employee identifiers and data quality</div><div>3. Keeps unsupported measures unavailable instead of guessing</div><div>4. Activates the validated workforce as the source of truth</div></div></Surface>
+        <Surface padding="lg"><div className="text-sm font-semibold">Need a template?</div><p className="mt-2 text-sm leading-6 text-text-secondary">Use the PeopleOS template when your export does not contain enough recognisable fields.</p><Button variant="secondary" size="sm" className="mt-4" onClick={() => api.upload.downloadTemplate()}><Download className="h-4 w-4" />Download template</Button></Surface>
+      </div>
+    </div>
+
+    <TrustDisclosure title="Pay units" summary="Only needed for compensation insights">
+      <p>PeopleOS does not guess pay periods or convert currencies. If your file already includes annual PayPeriod/PayFrequency and one shared Currency, no action is needed.</p>
+      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        <label className="flex items-start gap-3 text-sm"><input type="checkbox" checked={annualPay} disabled={busy} onChange={event => setAnnualPay(event.target.checked)} className="mt-1 h-4 w-4" /><span>All monetary pay values in this file are annual amounts.</span></label>
+        <label className="text-sm">Shared reporting currency<input aria-label="Shared reporting currency" value={currency} disabled={busy} maxLength={3} onChange={event => setCurrency(event.target.value.toUpperCase())} placeholder="e.g. EUR" className="mt-2 block w-full rounded-lg border border-border bg-background p-3" /></label>
+      </div>
+    </TrustDisclosure>
+
+    {result && <Surface padding="lg">
+      <div className="flex items-start gap-4"><div className={`grid h-11 w-11 place-items-center rounded-xl ${result.success ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10' : 'bg-red-50 text-red-600'}`}>{result.success ? <CheckCircle2 className="h-5 w-5" /> : <FileUp className="h-5 w-5" />}</div><div className="flex-1"><h2 className="text-lg font-semibold">{result.success ? 'Your workforce is ready' : 'This file needs attention'}</h2><p className="mt-2 text-sm leading-6 text-text-secondary">{result.message}</p>{result.success && <div className="mt-5 grid gap-3 sm:grid-cols-3"><MetricCard label="Records ready" value={result.rows_loaded.toLocaleString()} detail="Validated workforce rows" /><MetricCard label="Workforce insights" value="Ready" detail="Available immediately" tone="success" /><MetricCard label="Predictive insights" value={result.features_enabled?.predictive ? 'Eligible to train' : 'Not needed'} detail="Separate optional step" tone="neutral" /></div>}{result.success && <Link href="/" className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-accent">Open my workforce <ArrowRight className="h-4 w-4" /></Link>}</div></div>
+    </Surface>}
+
+    {hasData && <div className="flex justify-end"><Button variant="danger" size="sm" disabled={statusLoading || statusError || busy} isLoading={resetMutation.isPending} onClick={() => resetMutation.mutate()}><Trash2 className="h-4 w-4" />Clear active workforce</Button></div>}
   </Page>
 }
-
-function Lifecycle({ number, title, detail, active }: { number: string; title: string; detail: string; active?: boolean }) { return <div className="flex gap-4"><div className={`grid h-9 w-9 shrink-0 place-items-center rounded-full text-sm font-semibold ${active ? 'bg-accent text-white' : 'bg-background-secondary text-text-muted'}`}>{number}</div><div><div className="font-semibold">{title}</div><div className="mt-1 text-sm leading-5 text-text-secondary">{detail}</div></div></div> }
