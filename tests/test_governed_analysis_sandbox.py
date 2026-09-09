@@ -2,7 +2,7 @@
 import pandas as pd
 import pytest
 
-from src.agent.analysis_sandbox import AnalysisSpec, GovernedAnalysisSandbox
+from src.agent.analysis_sandbox import AnalysisSpec, CohortFilter, GovernedAnalysisSandbox
 
 
 def frame():
@@ -13,8 +13,13 @@ def frame():
             'ManagerID': 'E000',
             'Dept': 'Engineering' if i < 15 else 'Sales',
             'Location': 'Madrid' if i % 2 else 'Barcelona',
+            'JobLevel': 'L3' if i % 3 else 'L4',
+            'JobTitle': 'Analyst' if i % 4 else 'Manager',
+            'Gender': 'Female' if i % 2 else 'Male',
             'Salary': 60000 + i * 1000,
+            'Age': 26 + (i % 10),
             'Tenure': 1 + (i % 5),
+            'LastRating': 3 + (i % 3),
             'Attrition': 1 if i in {12, 13, 14, 27, 28, 29} else 0,
         })
     return pd.DataFrame(rows)
@@ -25,7 +30,6 @@ def test_group_summary_is_deterministic_and_aggregate_only():
     assert result['available'] is True
     assert result['population'] == 'active'
     groups = {row['group']: row for row in result['output']['groups']}
-    # Departed rows are not part of active salary analysis.
     assert groups['Engineering']['eligible_count'] == 12
     assert groups['Sales']['eligible_count'] == 12
     assert groups['Engineering']['value'] == pytest.approx(65500)
@@ -36,6 +40,12 @@ def test_identifier_columns_cannot_be_requested_even_for_aggregates():
     sandbox = GovernedAnalysisSandbox(frame())
     with pytest.raises(ValueError, match='Identifier-like'):
         sandbox.run(AnalysisSpec(operation='group_summary', group_by='EmployeeID', statistic='count'))
+
+
+def test_identifier_columns_cannot_be_used_as_filters():
+    sandbox = GovernedAnalysisSandbox(frame())
+    with pytest.raises(ValueError, match='Identifier-like'):
+        sandbox.run(AnalysisSpec(operation='group_summary', group_by='Dept', statistic='count', filters=[CohortFilter(column='EmployeeID', operator='eq', value='E001')]))
 
 
 def test_small_groups_are_suppressed_instead_of_exposed():
@@ -76,3 +86,40 @@ def test_crosstab_suppresses_small_cells():
     assert result['available'] is True
     for cell in result['output']['cells']:
         assert cell['count'] is None or cell['count'] == 0 or cell['count'] >= 5
+
+
+def test_stacked_categorical_and_numeric_filters_define_exact_cohort():
+    spec = AnalysisSpec(
+        operation='group_summary',
+        group_by='JobLevel',
+        measure='Salary',
+        statistic='mean',
+        filters=[
+            CohortFilter(column='Dept', operator='eq', value='Engineering'),
+            CohortFilter(column='Location', operator='eq', value='Madrid'),
+            CohortFilter(column='Tenure', operator='lte', value=4),
+        ],
+    )
+    result = GovernedAnalysisSandbox(frame()).run(spec)
+    assert result['available'] is True
+    assert result['filter_context']['population_after_filters'] >= 5
+    assert result['filter_context']['excluded_by_filters'] > 0
+    assert all(row['eligible_count'] >= 5 for row in result['output']['groups'])
+    assert 'EmployeeID' not in str(result)
+
+
+def test_filtered_cohort_below_privacy_floor_is_unavailable():
+    spec = AnalysisSpec(
+        operation='group_summary',
+        group_by='Dept',
+        statistic='count',
+        filters=[
+            CohortFilter(column='Dept', operator='eq', value='Engineering'),
+            CohortFilter(column='Location', operator='eq', value='Madrid'),
+            CohortFilter(column='JobTitle', operator='eq', value='Manager'),
+            CohortFilter(column='Tenure', operator='lt', value=3),
+        ],
+    )
+    result = GovernedAnalysisSandbox(frame()).run(spec)
+    assert result['available'] is False
+    assert 'fewer than 5' in result['reason'] or 'No records match' in result['reason']
