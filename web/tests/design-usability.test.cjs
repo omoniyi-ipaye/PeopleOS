@@ -33,13 +33,14 @@ const response = {
     {result_id:'run2',tool_id:'experience',status:'blocked',summary:'Survey missing.',warnings:['Experience is unavailable.'],evidence:[]},
   ]},
 }
-test('investigation exposes actual tool outcomes, missing evidence and conflicts',()=>{
+test('investigation leads with a human answer while preserving inspectable evidence, gaps and tool outcomes',()=>{
  const html=render(InvestigationResult,{result:response,source:'workforce-a.csv · version 1'})
- assert.match(html,/Partial evidence/);assert.match(html,/No direct experience survey/);assert.match(html,/Two recorded measures disagree/)
- assert.match(html,/blocked/);assert.match(html,/e-active/);assert.match(html,/workforce-a.csv/);assert.match(html,/Employee IDs reconciled/)
- assert.match(html,/Tool evidence coverage<\/dt><dd[^>]*>Unavailable/)
- assert.doesNotMatch(html,/60%|Complete coverage/)
- assert.match(html,/<details><summary/)
+ assert.match(html,/PeopleOS answer/);assert.match(html,/Some evidence missing/);assert.match(html,/Two recorded measures disagree/)
+ assert.match(html,/Why you can trust this answer/);assert.match(html,/Important limitations/)
+ assert.match(html,/blocked/);assert.match(html,/e-active/);assert.match(html,/workforce-a.csv/)
+ assert.match(html,/Evidence quality/);assert.match(html,/Coverage/);assert.match(html,/Tools with evidence/)
+ assert.doesNotMatch(html,/Complete coverage/)
+ assert.match(html,/<details[^>]*>/)
 })
 test('missing evidence values cannot turn into measured zero',()=>{
  for(const value of [null,undefined,'',false]) assert.equal(evidenceClaim({claim:'Recorded attrition: unavailable',metric:'observed_attrition_share',value}), 'Recorded attrition: unavailable')
@@ -57,9 +58,9 @@ test('homepage uses captured live source identity and runtime model readiness',(
  assert.match(html,/workforce-a.csv/);assert.match(html,/Dataset snapshot verified/);assert.match(html,/>80<\/div>/)
  assert.doesNotMatch(html,/Predictive model active|Experimental predictive model available/)
 })
-test('advisor requires a verified source before accepting a question',()=>{
+test('advisor requires verified workforce data before accepting a question',()=>{
  const html=render(require('../app/advisor/page').default,{},[[['platform','status'],{data:{loaded:false},integrity:{status:'unavailable'}}]])
- assert.match(html,/Add a verified workforce dataset first/);assert.match(html,/Add workforce data/)
+ assert.match(html,/Add workforce data first/);assert.match(html,/Add workforce data/)
  assert.match(html,/<textarea[^>]*disabled/)
 })
 test('homepage connection failure is distinguishable from an empty installation',()=>{
@@ -72,23 +73,25 @@ test('homepage connection failure is distinguishable from an empty installation'
  } finally {client.clear()}
 })
 
-test('evidence ledger distinguishes tool execution coverage from measured population',()=>{
+test('evidence ledger separates investigation coverage from measured population coverage',()=>{
  const measured={...response,evidence:{...response.evidence,coverage_score:1,tool_results:[{...response.evidence.tool_results[0],evidence:[{...response.evidence.tool_results[0].evidence[0],metadata:{measured_count:1,eligible_count:100,excluded_count:99,population:'active_employees'}}]}]}}
  const html=render(InvestigationResult,{result:measured,source:'Incomplete measures'})
- assert.match(html,/Tool evidence coverage/);assert.match(html,/Measured: 1/);assert.match(html,/Eligible population: 100/);assert.match(html,/Excluded or missing: 99/)
+ assert.match(html,/Coverage/);assert.match(html,/Measured: 1/);assert.match(html,/Eligible: 100/);assert.match(html,/Excluded or missing: 99/)
 })
 
-test('navigation offers a native mobile dialog and only existing application destinations',()=>{
+test('navigation offers a native mobile dialog and only existing primary destinations',()=>{
  const html=render(require('../components/sidebar').Sidebar)
  assert.match(html,/aria-label="Open navigation"/)
  assert.match(html,/<dialog[^>]*aria-label="PeopleOS navigation"/)
  assert.match(html,/aria-label="Close navigation"/)
  assert.match(html,/md:flex/)
+ assert.match(html,/>Home<|aria-label="Home"/)
+ assert.match(html,/Ask PeopleOS/);assert.match(html,/Insights/);assert.match(html,/Plan/);assert.match(html,/Data/);assert.match(html,/Trust &amp; Privacy/)
  for(const match of html.matchAll(/href="([^"]+)"/g)) {
   const destination=match[1]
   assert.ok(fs.existsSync(path.join(__dirname,'../app',destination==='/' ? '' : destination,'page.tsx')), `Missing destination ${destination}`)
  }
- assert.doesNotMatch(html,/Saved Investigations|\/sessions/)
+ assert.doesNotMatch(html,/>Saved Investigations</)
 })
 test('header distinguishes historical source records from active employees and model metadata',()=>{
  const html=render(require('../components/header').Header,{},[[['platform','status'],{
