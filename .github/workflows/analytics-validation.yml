@@ -6,7 +6,7 @@ on:
     branches: [main]
   push:
     branches: [main]
-    paths: ['src/**', 'api/**', 'tests/**', 'scripts/benchmark_analytics.py', 'requirements*.txt', 'config.yaml', '.github/workflows/analytics-validation.yml']
+    paths: ['src/**', 'api/**', 'tests/**', 'scripts/**', 'requirements*.txt', 'config.yaml', '.github/workflows/analytics-validation.yml']
 
 permissions:
   contents: read
@@ -53,6 +53,8 @@ jobs:
           tests/test_predictive_release_contract.py tests/test_agent_language_contract.py
           tests/test_pay_confirmation.py
           tests/test_source_label_display.py tests/test_cloud_acceptance_contract.py
+      - name: Run independent arithmetic oracle harness
+        run: python scripts/engine_integrity_cycle007.py --output engine-integrity-cycle007.json
       - name: Verify public benchmarks and random-label controls
         run: python scripts/benchmark_analytics.py --output benchmark-results.json
       - name: Stress deterministic analytics with a fictional organization
@@ -65,6 +67,7 @@ jobs:
         with:
           name: analytics-benchmark-evidence
           path: |
+            engine-integrity-cycle007.json
             benchmark-results.json
             synthetic-stress-results.json
             live-acceptance-results/
