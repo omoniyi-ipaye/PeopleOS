@@ -110,4 +110,7 @@ class HighRiskDepartmentsResponse(BaseModel):
     threshold: float
     minimum_group_size: int = 10
     suppressed_department_count: int = 0
+    outcome_observations: int = 0
+    evidence_available: bool = True
+    unavailable_reason: Optional[str] = None
     threshold_semantics: str = "observed_attrition_share_screening_threshold"
