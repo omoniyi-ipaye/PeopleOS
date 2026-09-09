@@ -20,6 +20,10 @@ function pValue(value?: number) {
   return value < 0.001 ? 'p<0.001' : `p=${value.toFixed(3)}`
 }
 
+function askHref(question: string) {
+  return `/advisor?q=${encodeURIComponent(question)}`
+}
+
 export default function WorkforceHealthPage() {
   const { data: departmentData, isLoading, isError, error } = useQuery<DepartmentList>({ queryKey: ['analytics', 'departments'], queryFn: () => api.analytics.getDepartments() as Promise<DepartmentList> })
   const { data: summaryData } = useQuery<SummaryResponse>({ queryKey: ['analytics', 'summary'], queryFn: () => api.analytics.getSummary() as Promise<SummaryResponse> })
@@ -49,6 +53,18 @@ export default function WorkforceHealthPage() {
       <MetricCard label="Recorded attrition" value={overallAttrition == null ? 'Unavailable' : `${(overallAttrition * 100).toFixed(1)}%`} detail={summaryData?.attrition_known_count ? `${summaryData.attrition_known_count.toLocaleString()} known employee outcomes` : 'Known employee outcomes'} icon={HeartPulse} tone={overallAttrition == null ? 'neutral' : overallAttrition > .2 ? 'danger' : overallAttrition > .15 ? 'warning' : 'neutral'} />
       <MetricCard label="Areas to review" value={riskData?.evidence_available === false ? 'Unavailable' : riskData ? highRisk.length.toLocaleString() : 'Unavailable'} detail={riskData?.evidence_available === false ? 'More recorded outcomes are needed' : highRisk.length ? 'Above your configured review threshold' : 'No department exceeds the current threshold'} icon={AlertTriangle} tone={highRisk.length ? 'warning' : 'neutral'} />
     </section>
+
+    <Surface padding="md" className="border-violet-100/80 bg-violet-50/30 dark:border-violet-500/15 dark:bg-violet-500/[0.03]">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div><div className="text-sm font-semibold">Explore this workforce</div><div className="mt-1 text-xs text-text-secondary">Open another verified cut without building a report.</div></div>
+        <div className="flex flex-wrap gap-2">
+          <Link href={askHref('Headcount by department')} className="rounded-xl border border-border bg-surface px-3 py-2 text-xs font-semibold hover:border-violet-300 hover:text-violet-700 dark:hover:border-violet-500/40 dark:hover:text-violet-300">People by department</Link>
+          <Link href={askHref('Headcount by location')} className="rounded-xl border border-border bg-surface px-3 py-2 text-xs font-semibold hover:border-violet-300 hover:text-violet-700 dark:hover:border-violet-500/40 dark:hover:text-violet-300">People by location</Link>
+          <Link href={askHref('Recorded attrition share by department')} className="rounded-xl border border-border bg-surface px-3 py-2 text-xs font-semibold hover:border-violet-300 hover:text-violet-700 dark:hover:border-violet-500/40 dark:hover:text-violet-300">Attrition by department</Link>
+          <Link href={askHref('Average salary by department')} className="rounded-xl border border-border bg-surface px-3 py-2 text-xs font-semibold hover:border-violet-300 hover:text-violet-700 dark:hover:border-violet-500/40 dark:hover:text-violet-300">Pay by department</Link>
+        </div>
+      </div>
+    </Surface>
 
     {highRisk.length > 0 && <Surface padding="lg" className="border-amber-200/80 bg-amber-50/50 dark:border-amber-500/20 dark:bg-amber-500/[0.04]">
       <div className="text-xs font-bold uppercase tracking-[0.16em] text-amber-700 dark:text-amber-300">Worth a closer look</div>
