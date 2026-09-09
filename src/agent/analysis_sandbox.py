@@ -193,11 +193,35 @@ class GovernedAnalysisSandbox:
             mask = labels.str.casefold() == str(wanted).casefold()
             eligible = int(mask.sum())
             valid = values[mask].dropna()
-            if eligible < MIN_GROUP_SIZE or len(valid) < MIN_GROUP_SIZE:
+            measured = int(len(valid))
+            if eligible < MIN_GROUP_SIZE or measured < MIN_GROUP_SIZE:
                 return self._unavailable(spec, f'Each compared group needs at least {MIN_GROUP_SIZE} measured records.')
-            value = float(valid.median()) if spec.statistic == 'median' else float(valid.mean())
-            results.append({'group': str(wanted), 'value': value, 'measured_count': len(valid), 'eligible_count': eligible, 'excluded_count': eligible - len(valid)})
-        return self._result(spec, {'groups': results, 'difference_b_minus_a': results[1]['value'] - results[0]['value'], 'minimum_group_size': MIN_GROUP_SIZE}, len(frame))
+            if spec.statistic == 'count':
+                value = float(measured)
+            elif spec.statistic == 'mean':
+                value = float(valid.mean())
+            elif spec.statistic == 'median':
+                value = float(valid.median())
+            elif spec.statistic == 'sum':
+                value = float(valid.sum())
+            else:
+                unique = set(valid.unique().tolist())
+                if not unique <= {0, 1}:
+                    raise ValueError('rate requires a binary 0/1 measure')
+                value = float(valid.mean())
+            results.append({
+                'group': str(wanted), 'value': value, 'measured_count': measured,
+                'eligible_count': eligible, 'excluded_count': eligible - measured,
+            })
+        return self._result(
+            spec,
+            {
+                'groups': results,
+                'difference_b_minus_a': results[1]['value'] - results[0]['value'],
+                'minimum_group_size': MIN_GROUP_SIZE,
+            },
+            len(frame),
+        )
 
     def _correlation(self, frame: pd.DataFrame, spec: AnalysisSpec) -> dict[str, Any]:
         left = self._numeric(frame[spec.measure])
