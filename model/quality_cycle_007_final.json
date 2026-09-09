@@ -1,0 +1,107 @@
+{
+  "schema_version": 1,
+  "cycle_id": "PEOPLEOS-QUALITY-007",
+  "purpose": "Deep mathematical, semantic, reconciliation and metamorphic validation of PeopleOS calculations and governed downstream analysis.",
+  "baseline_branch": "main",
+  "verified_candidate": "22c9035fc08451558313603956ef46e88a8610ea",
+  "pull_request": 7,
+  "status": "verified_candidate_ready_to_merge",
+  "validation_layers": {
+    "analytical_regression_suite": {
+      "passed": 792,
+      "failed": 0,
+      "notes": "Includes known-answer, engine integrity, model validation, output integrity, snapshot recovery, People-team acceptance, enterprise controls, ML contracts and related analytical regression suites."
+    },
+    "independent_arithmetic_oracle": {
+      "passed": 16,
+      "total": 16,
+      "fixture": "controlled 24-employee source-row oracle",
+      "method": "Expected values calculated directly with plain Python arithmetic, independently of PeopleOS population and analytics helpers.",
+      "checks": [
+        "record count",
+        "active headcount",
+        "known outcomes",
+        "departure count",
+        "observed attrition share",
+        "salary observations",
+        "salary mean",
+        "department count",
+        "compensation headcount",
+        "compensation average salary",
+        "total payroll",
+        "department headcount reconciliation",
+        "department record reconciliation",
+        "department outcome reconciliation",
+        "governed Madrid salary sum",
+        "governed London salary sum"
+      ]
+    },
+    "synthetic_stress": {
+      "rows": 20000,
+      "passed": 34,
+      "total": 34,
+      "scope": "fictional known-answer software and load validation"
+    },
+    "live_api_acceptance": {
+      "passed": 96,
+      "total": 96,
+      "coverage": "Known-answer API results, compensation, department/team reconciliation, eNPS and survey coverage, scenario arithmetic, fairness, Kaplan-Meier survival, structure, succession, forecasting abstention, dataset switching/restoration and unavailable-capability semantics."
+    },
+    "public_benchmark_controls": {
+      "status": "passed",
+      "scope": "public mechanics and random-label controls, not prospective predictive certification"
+    }
+  },
+  "defects_discovered_by_cycle007": [
+    {
+      "id": "QC007-01",
+      "severity": "high",
+      "area": "governed_downstream_analysis",
+      "finding": "compare_groups accepted statistic=sum/count/rate but only implemented median explicitly and otherwise returned a mean, allowing a requested total to be mislabeled while returning an average.",
+      "evidence_before_fix": "Cycle 007 pre-fix CI expected Madrid salary sum 890000.0 but received mean 68461.53846153847.",
+      "correction": "compare_groups now implements count, mean, median, sum and binary rate explicitly, with measured/eligible/excluded support retained.",
+      "regression_contract": "tests/test_engine_integrity_cycle007.py"
+    },
+    {
+      "id": "QC007-02",
+      "severity": "high",
+      "area": "population_resolution",
+      "finding": "Conflicting records for the same employee at the same latest SnapshotDate were resolved according to source-row order.",
+      "evidence_before_fix": "Cycle 007 pre-fix CI selected Salary 160000 in one row order and 60000 in the reverse order.",
+      "correction": "Exact duplicate snapshot rows may collapse, while conflicting equal-timestamp rows fail closed as ambiguous source data instead of selecting an arbitrary current record.",
+      "regression_contract": "tests/test_engine_integrity_cycle007.py"
+    }
+  ],
+  "metamorphic_and_reconciliation_contracts": [
+    "department totals reconcile to authoritative workforce populations",
+    "weighted department attrition reconciles to overall observed attrition",
+    "distribution counts reconcile to their declared measured populations",
+    "AnalyticsEngine and CompensationEngine salary statistics reconcile",
+    "one active salary delta changes payroll by exactly the same delta",
+    "positive salary rescaling preserves scale-free dispersion metrics",
+    "unknown attrition cannot alter observed attrition share or silently become active",
+    "unique-record results are invariant to row order",
+    "historical rows cannot double-count current employee state",
+    "conflicting equal-timestamp snapshots fail closed",
+    "governed filtered summaries match manual pandas oracles",
+    "typed compare-group statistics preserve requested semantics",
+    "correlation is row-order and positive-affine invariant",
+    "governed analytical outputs serialize as strict JSON without NaN/Infinity",
+    "identifier-like fields remain blocked from downstream filters"
+  ],
+  "exact_head_workflows": {
+    "Analytics Validation": "success",
+    "Agent Foundation": "success",
+    "E2E User Journey": "success",
+    "People Team Browser Acceptance": "success",
+    "Release Security": "success",
+    "Local Ollama Acceptance": "success"
+  },
+  "evidence_artifact": {
+    "workflow_run_id": 34409658473,
+    "artifact_id": 10126808861,
+    "artifact_name": "analytics-benchmark-evidence",
+    "sha256": "bce940a2b0148c1e8c091459509475811748a5a7e190fdd19db9ec69c9456ed0"
+  },
+  "readiness_claim": "These results materially strengthen confidence in deterministic calculation and output integrity under controlled, synthetic and live-application tests. They do not prove universal correctness for every future dataset, organization-specific predictive validity, or absence of all possible defects."
+}
