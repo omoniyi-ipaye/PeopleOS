@@ -56,6 +56,7 @@ jobs:
           api/routes/succession.py
           api/routes/structural.py
           api/routes/causal.py
+          api/routes/desktop.py
 
       - name: Validate canonical system model
         run: python scripts/validate_system_model.py
@@ -78,3 +79,4 @@ jobs:
           tests/test_output_integrity.py
           tests/test_local_distribution.py
           tests/test_deterministic_evidence_contracts.py
+          tests/test_desktop_controls.py
