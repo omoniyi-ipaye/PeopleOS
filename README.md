@@ -8,6 +8,8 @@ Bring in workforce data, understand what matters, ask questions in normal People
 
 > **PeopleOS analyses. People decide.**
 
+PeopleOS is publicly available as **source-available software**. Non-commercial evaluation, learning, research and contribution are welcome under the repository license. **Commercial use requires the express written permission of Omoniyi Ipaye.** See [Commercial Use](COMMERCIAL_USE.md).
+
 ---
 
 ## Why PeopleOS
@@ -346,7 +348,7 @@ PeopleOS intentionally keeps deterministic analytics engines responsible for cal
 
 ## Verification
 
-The current `main` candidate passed the complete public-beta preparation validation matrix before merge:
+The public-beta engineering candidate passed the complete validation matrix before merge to `main`:
 
 - Agent Foundation
 - Frontend Modernization
@@ -363,11 +365,13 @@ CI is strong technical evidence. It is **not** a substitute for independent fres
 
 ---
 
-## Public beta status
+## Pilot status and feedback
 
-PeopleOS is currently a **reviewable public-beta candidate**, not a production certification.
+PeopleOS is engineering-ready for a **controlled public-beta pilot**. It is not a production certification.
 
 The current intended scope is local, single-user People analytics and governed investigation with fictional/test data first.
+
+If you try PeopleOS, please use the repository's **Pilot feedback** issue template for usability, trust, workflow or expectation feedback. Do not attach real employee or other sensitive personal data.
 
 Before broader production use, teams should still perform their own security, privacy, legal, data-governance and intended-use review.
 
@@ -375,14 +379,21 @@ See:
 
 - [Public Beta Guide](docs/PUBLIC_BETA_GUIDE.md)
 - [Public Beta Release Checklist](docs/releases/PUBLIC_BETA_CHECKLIST.md)
+- [Commercial Use](COMMERCIAL_USE.md)
 - [Security Policy](SECURITY.md)
+- [Bug report](.github/ISSUE_TEMPLATE/bug_report.md)
+- [Feature request](.github/ISSUE_TEMPLATE/feature_request.md)
+- [Pilot feedback](.github/ISSUE_TEMPLATE/pilot_feedback.md)
+- [Commercial use request](.github/ISSUE_TEMPLATE/commercial_use_request.md)
 
 ---
 
-## License
+## License and commercial use
 
 The repository's [`LICENSE`](LICENSE) file is authoritative.
 
-The current license text includes an additional commercial-use restriction. Unless that restriction is deliberately changed by the owner, PeopleOS should be described as **source-available rather than OSI open source**.
+PeopleOS is **source-available, not OSI open source**, because the license includes an additional commercial-use restriction.
 
-No license change is implied by this README.
+You must obtain **express written permission from Omoniyi Ipaye before using PeopleOS for a commercial purpose**. See [COMMERCIAL_USE.md](COMMERCIAL_USE.md) for the plain-language policy and request process.
+
+No commercial permission is implied by cloning, forking, modifying, evaluating or contributing to this repository.
