@@ -81,3 +81,4 @@ jobs:
           tests/test_deterministic_evidence_contracts.py
           tests/test_desktop_controls.py
           tests/test_governed_analysis_sandbox.py
+          tests/test_governed_agent_derived.py
