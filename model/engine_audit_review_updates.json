@@ -1,0 +1,4 @@
+{
+  "review_context": "Incremental reviewed-file hashes after the deterministic evidence and pilot UX hardening pass. Entries override only paths already inventoried in model/engine_audit.json.",
+  "reviewed_file_sha256": {}
+}
