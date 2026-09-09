@@ -9,9 +9,20 @@ import type { CorrelationsResponse, DepartmentList, HighRiskDepartmentsResponse 
 
 type CorrelationItem = { feature: string; correlation: number; abs_correlation: number; p_value?: number; observations?: number }
 type RiskResponse = HighRiskDepartmentsResponse & { evidence_available?: boolean; unavailable_reason?: string | null; outcome_observations?: number }
+type SummaryResponse = { observed_attrition_share?: number | null; attrition_known_count?: number; active_count?: number }
+
+function humanizeField(value: string) {
+  return value.replaceAll('_', ' ').replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/\b\w/g, char => char.toUpperCase())
+}
+
+function pValue(value?: number) {
+  if (value == null || !Number.isFinite(value)) return null
+  return value < 0.001 ? 'p<0.001' : `p=${value.toFixed(3)}`
+}
 
 export default function WorkforceHealthPage() {
   const { data: departmentData, isLoading, isError, error } = useQuery<DepartmentList>({ queryKey: ['analytics', 'departments'], queryFn: () => api.analytics.getDepartments() as Promise<DepartmentList> })
+  const { data: summaryData } = useQuery<SummaryResponse>({ queryKey: ['analytics', 'summary'], queryFn: () => api.analytics.getSummary() as Promise<SummaryResponse> })
   const { data: correlationData, isError: correlationError } = useQuery<CorrelationsResponse>({ queryKey: ['analytics', 'correlations'], queryFn: () => api.analytics.getCorrelations(10) as Promise<CorrelationsResponse> })
   const { data: riskData, isError: riskError } = useQuery<RiskResponse>({ queryKey: ['analytics', 'high-risk-departments'], queryFn: () => api.analytics.getHighRiskDepartments() as Promise<RiskResponse> })
 
@@ -23,8 +34,7 @@ export default function WorkforceHealthPage() {
   const highRisk = riskData?.departments ?? []
   const correlations = (correlationData?.correlations ?? []) as CorrelationItem[]
   const totalHeadcount = departments.reduce((sum, item) => sum + (item.headcount || 0), 0)
-  const observedDepartments = departments.filter(item => item.turnover_rate != null)
-  const avgAttritionShare = observedDepartments.length ? observedDepartments.reduce((sum, item) => sum + item.turnover_rate!, 0) / observedDepartments.length : null
+  const overallAttrition = typeof summaryData?.observed_attrition_share === 'number' ? summaryData.observed_attrition_share : null
   const largest = [...departments].sort((a, b) => b.headcount - a.headcount)[0]
 
   return <Page>
@@ -36,7 +46,7 @@ export default function WorkforceHealthPage() {
     <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <MetricCard label="Active people" value={departments.length ? totalHeadcount.toLocaleString() : 'Unavailable'} detail="Current active workforce represented" icon={Users} />
       <MetricCard label="Departments" value={departments.length ? departments.length.toLocaleString() : 'Unavailable'} detail={largest ? `${largest.dept} is the largest team` : 'Current structure'} icon={Target} />
-      <MetricCard label="Recorded attrition" value={avgAttritionShare == null ? 'Unavailable' : `${(avgAttritionShare * 100).toFixed(1)}%`} detail="Average department outcome share" icon={HeartPulse} tone={avgAttritionShare == null ? 'neutral' : avgAttritionShare > .2 ? 'danger' : avgAttritionShare > .15 ? 'warning' : 'neutral'} />
+      <MetricCard label="Recorded attrition" value={overallAttrition == null ? 'Unavailable' : `${(overallAttrition * 100).toFixed(1)}%`} detail={summaryData?.attrition_known_count ? `${summaryData.attrition_known_count.toLocaleString()} known employee outcomes` : 'Known employee outcomes'} icon={HeartPulse} tone={overallAttrition == null ? 'neutral' : overallAttrition > .2 ? 'danger' : overallAttrition > .15 ? 'warning' : 'neutral'} />
       <MetricCard label="Areas to review" value={riskData?.evidence_available === false ? 'Unavailable' : riskData ? highRisk.length.toLocaleString() : 'Unavailable'} detail={riskData?.evidence_available === false ? 'More recorded outcomes are needed' : highRisk.length ? 'Above your configured review threshold' : 'No department exceeds the current threshold'} icon={AlertTriangle} tone={highRisk.length ? 'warning' : 'neutral'} />
     </section>
 
@@ -50,21 +60,21 @@ export default function WorkforceHealthPage() {
       <Surface padding="lg">
         <SectionHeader title="Department picture" description="A clean comparison of the workforce measures available now." />
         <div className="mt-5 overflow-x-auto">
-          <table className="w-full min-w-[720px] text-sm">
-            <thead><tr className="border-b border-border text-left text-[11px] uppercase tracking-wider text-text-muted"><th className="py-3 pr-4">Department</th><th className="px-4 py-3 text-right">People</th><th className="px-4 py-3 text-right">Recorded attrition</th><th className="px-4 py-3 text-right">Avg tenure</th><th className="py-3 pl-4 text-right">Avg rating</th></tr></thead>
-            <tbody>{departments.map((dept) => <tr key={dept.dept} className="border-b border-border last:border-0"><td className="py-3 pr-4 font-medium">{dept.dept}</td><td className="px-4 py-3 text-right">{dept.headcount}</td><td className="px-4 py-3 text-right"><StatusBadge tone={(dept.turnover_rate ?? 0) > .2 ? 'danger' : (dept.turnover_rate ?? 0) > .15 ? 'warning' : 'neutral'}>{dept.turnover_rate == null ? '—' : `${(dept.turnover_rate * 100).toFixed(1)}%`}</StatusBadge></td><td className="px-4 py-3 text-right">{dept.avg_tenure == null ? '—' : `${dept.avg_tenure.toFixed(1)}y`}</td><td className="py-3 pl-4 text-right">{dept.avg_rating == null ? '—' : dept.avg_rating.toFixed(2)}</td></tr>)}</tbody>
+          <table className="w-full min-w-[640px] text-sm">
+            <thead><tr className="border-b border-border text-left text-[11px] uppercase tracking-wider text-text-muted"><th className="py-3 pr-3">Department</th><th className="px-3 py-3 text-right">People</th><th className="px-3 py-3 text-right">Recorded attrition</th><th className="px-3 py-3 text-right">Avg tenure</th><th className="py-3 pl-3 text-right">Avg rating</th></tr></thead>
+            <tbody>{departments.map((dept) => <tr key={dept.dept} className="border-b border-border last:border-0"><td className="py-3 pr-3 font-medium">{dept.dept}</td><td className="px-3 py-3 text-right">{dept.headcount}</td><td className="px-3 py-3 text-right"><StatusBadge tone={(dept.turnover_rate ?? 0) > .2 ? 'danger' : (dept.turnover_rate ?? 0) > .15 ? 'warning' : 'neutral'}>{dept.turnover_rate == null ? '—' : `${(dept.turnover_rate * 100).toFixed(1)}%`}</StatusBadge></td><td className="px-3 py-3 text-right">{dept.avg_tenure == null ? '—' : `${dept.avg_tenure.toFixed(1)}y`}</td><td className="py-3 pl-3 text-right">{dept.avg_rating == null ? '—' : dept.avg_rating.toFixed(2)}</td></tr>)}</tbody>
           </table>
         </div>
       </Surface>
 
       <Surface padding="lg">
-        <SectionHeader title="Related patterns" description="Relationships in your data that may be worth investigating further." />
-        <div className="mt-5 space-y-2">{correlations.length ? correlations.slice(0, 8).map((item) => <div key={item.feature} className="rounded-xl border border-border px-4 py-3"><div className="flex items-center justify-between gap-4"><div className="font-medium">{item.feature}</div><StatusBadge tone={Math.abs(item.correlation) >= .4 ? 'info' : 'neutral'}>r={item.correlation.toFixed(2)}</StatusBadge></div>{item.observations != null && <div className="mt-1 text-xs text-text-muted">{item.observations.toLocaleString()} paired observations{item.p_value != null ? ` · p=${item.p_value.toFixed(3)}` : ''}</div>}</div>) : <EmptyState title="No reliable related patterns available" description="PeopleOS needs enough valid paired measurements before showing a relationship." />}</div>
+        <SectionHeader title="Related patterns" description="Relationships in recorded outcomes that may be worth investigating further." />
+        <div className="mt-5 space-y-2">{correlations.length ? correlations.slice(0, 8).map((item) => <div key={item.feature} className="rounded-xl border border-border px-4 py-3"><div className="flex items-center justify-between gap-4"><div className="font-medium">{humanizeField(item.feature)}</div><StatusBadge tone={Math.abs(item.correlation) >= .4 ? 'info' : 'neutral'}>r={item.correlation.toFixed(2)}</StatusBadge></div>{item.observations != null && <div className="mt-1 text-xs text-text-muted">{item.observations.toLocaleString()} paired observations{pValue(item.p_value) ? ` · ${pValue(item.p_value)}` : ''}</div>}</div>) : <EmptyState title="No reliable related patterns available" description="PeopleOS needs enough valid paired measurements before showing a relationship." />}</div>
       </Surface>
     </div>
 
     <TrustDisclosure title="How to read these numbers" summary="Calculated from your current dataset">
-      <div className="space-y-2"><p><strong>Recorded attrition</strong> is the share of employee records marked as departed. It is not automatically an annual turnover rate.</p><p><strong>Related patterns</strong> are pairwise statistical associations. They do not prove that one factor caused another.</p><p>PeopleOS keeps small or unsupported results unavailable rather than turning missing evidence into zero.</p></div>
+      <div className="space-y-2"><p><strong>Recorded attrition</strong> is the workforce-wide share of known employee outcomes marked as departed. It is not automatically an annual turnover rate.</p><p><strong>Department shares</strong> are shown separately so different team sizes do not change the overall workforce metric above.</p><p><strong>Related patterns</strong> are pairwise statistical associations. They do not prove that one factor caused another.</p><p>PeopleOS keeps small or unsupported results unavailable rather than turning missing evidence into zero.</p></div>
     </TrustDisclosure>
 
     <Surface padding="md" className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
