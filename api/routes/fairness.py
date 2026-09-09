@@ -21,6 +21,8 @@ class FourFifthsResult(BaseModel):
     ratio: float | None
     passes_rule: bool | None
     status: str
+    group_size: int | None = None
+    suppressed_group_count: int = 0
     metric_semantics: str = "favorable_retained_share_screening_not_compliance_determination"
 
 
@@ -30,6 +32,7 @@ class FairnessAnalysisResponse(BaseModel):
     overall_status: str
     recommendations: List[str]
     warnings: List[str]
+    interpretation_boundary: str = "Fairness metrics are descriptive screening signals, not legal, causal, or bias determinations."
 
 
 def require_fairness(state: AppState = Depends(get_app_state)) -> AppState:
@@ -50,63 +53,50 @@ def require_fairness(state: AppState = Depends(get_app_state)) -> AppState:
     return state
 
 
+def _four_fifths_row(row) -> FourFifthsResult:
+    passes = json_safe(row['passes_4_5_rule'])
+    return FourFifthsResult(
+        attribute=row['attribute'],
+        group=str(row['group']),
+        selection_rate=float(row['favorable_rate']),
+        reference_rate=float(row['reference_favorable_rate']),
+        ratio=json_safe(row['adverse_impact_ratio']),
+        passes_rule=passes,
+        status='Unavailable' if passes is None else ('No screening signal' if passes else 'Screening signal'),
+        group_size=int(row['count']) if row.get('count') is not None else None,
+        suppressed_group_count=int(row.get('suppressed_group_count', 0) or 0),
+    )
+
+
 @router.get("/four-fifths", response_model=List[FourFifthsResult])
 async def get_four_fifths_analysis(
     state: AppState = Depends(require_fairness)
 ) -> List[FourFifthsResult]:
-    """
-    Get descriptive favorable-outcome ratio screening; no compliance determination.
-    """
+    """Get descriptive favorable-outcome ratio screening; no compliance determination."""
     analysis_df = state.fairness_engine.calculate_four_fifths_rule('Attrition', favorable=False)
-
     if analysis_df.empty:
         return []
-
-    results = []
-    for _, row in analysis_df.iterrows():
-        results.append(FourFifthsResult(
-            attribute=row['attribute'],
-            group=str(row['group']),
-            selection_rate=float(row['favorable_rate']),
-            reference_rate=float(row['reference_favorable_rate']),
-            ratio=json_safe(row['adverse_impact_ratio']),
-            passes_rule=json_safe(row['passes_4_5_rule']),
-            status='Unavailable' if json_safe(row['passes_4_5_rule']) is None else ('No screening signal' if row['passes_4_5_rule'] else 'Screening signal')
-        ))
-
-    return results
+    return [_four_fifths_row(row) for _, row in analysis_df.iterrows()]
 
 
 @router.get("/analysis", response_model=FairnessAnalysisResponse)
 async def get_fairness_analysis(
     state: AppState = Depends(require_fairness)
 ) -> FairnessAnalysisResponse:
-    """
-    Get full fairness analysis including four-fifths rule and recommendations.
-    """
+    """Get full fairness screening with explicit interpretation limits."""
     summary = state.fairness_engine.get_fairness_summary('Attrition')
-
-    # Get four-fifths results
     four_fifths_df = state.fairness_engine.calculate_four_fifths_rule('Attrition', favorable=False)
-    four_fifths = []
-
-    if not four_fifths_df.empty:
-        for _, row in four_fifths_df.iterrows():
-            four_fifths.append(FourFifthsResult(
-                attribute=row['attribute'],
-                group=str(row['group']),
-                selection_rate=float(row['favorable_rate']),
-                reference_rate=float(row['reference_favorable_rate']),
-                ratio=json_safe(row['adverse_impact_ratio']),
-                passes_rule=json_safe(row['passes_4_5_rule']),
-                status='Unavailable' if json_safe(row['passes_4_5_rule']) is None else ('No screening signal' if row['passes_4_5_rule'] else 'Screening signal')
-            ))
+    four_fifths = [_four_fifths_row(row) for _, row in four_fifths_df.iterrows()] if not four_fifths_df.empty else []
 
     return FairnessAnalysisResponse(
         four_fifths=four_fifths,
         overall_status=summary.get('overall_status', 'Unknown'),
         recommendations=summary.get('recommendations', []),
-        warnings=summary.get('issues_found', [])
+        warnings=summary.get('issues_found', []),
+        interpretation_boundary=summary.get(
+            'interpretation_boundary',
+            'Fairness metrics are descriptive screening signals, not legal, causal, or bias determinations.',
+        ),
     )
 
 
@@ -114,23 +104,43 @@ async def get_fairness_analysis(
 async def get_demographic_parity(
     state: AppState = Depends(require_fairness)
 ) -> Dict[str, Any]:
-    """
-    Get demographic parity analysis across protected attributes.
+    """Get observed outcome-rate disparity screening across eligible groups.
+
+    The historical `parity_ratio` field is retained for client compatibility. Its
+    authoritative meaning is `outcome_rate_ratio_to_overall`: group observed
+    attrition rate divided by the overall known-outcome attrition rate. It is not
+    the four-fifths favorable-outcome ratio and is not a fairness determination.
     """
     parity_df = state.fairness_engine.calculate_demographic_parity('Attrition')
 
     if parity_df.empty:
-        return {'results': [], 'message': 'No demographic parity data available'}
+        return {
+            'results': [],
+            'message': 'No eligible outcome-disparity data available; absence of results is not evidence of parity.',
+            'metric_semantics': 'observed_attrition_rate_disparity_not_fairness_determination',
+        }
 
     results = []
     for _, row in parity_df.iterrows():
+        ratio = json_safe(row.get('outcome_rate_ratio_to_overall', row.get('parity_ratio')))
         results.append({
             'attribute': row['attribute'],
+            'dimension_type': row.get('dimension_type'),
             'group': str(row['group']),
             'rate': float(row['rate']),
             'count': int(row['count']),
-            'disparity': float(row['disparity']),
-            'parity_ratio': json_safe(row['parity_ratio'])
+            'disparity': json_safe(row.get('disparity')),
+            'outcome_rate_ratio_to_overall': ratio,
+            'parity_ratio': ratio,
+            'overall_known_outcome_count': int(row.get('overall_known_outcome_count', 0) or 0),
+            'attribute_observed_count': int(row.get('attribute_observed_count', 0) or 0),
+            'attribute_coverage': json_safe(row.get('attribute_coverage')),
+            'suppressed_group_count': int(row.get('suppressed_group_count', 0) or 0),
+            'metric_semantics': 'observed_attrition_rate_disparity_not_fairness_determination',
         })
 
-    return {'results': results}
+    return {
+        'results': results,
+        'metric_semantics': 'observed_attrition_rate_disparity_not_fairness_determination',
+        'interpretation_boundary': 'Use favorable-outcome four-fifths results for that specific screening ratio; neither endpoint establishes discrimination, fairness, or causation.',
+    }
