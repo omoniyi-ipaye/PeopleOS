@@ -93,6 +93,8 @@ function humanAnswer(result: AgentAnswer, items: EvidenceItem[]) {
       : `PeopleOS can't answer this reliably from the current data.`
   }
 
+  if (result.tools_used.includes('workforce.derived_analysis')) return result.answer
+
   const direct = directAnswer(result.question, items)
   if (direct) return direct
 
