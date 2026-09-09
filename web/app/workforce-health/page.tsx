@@ -8,11 +8,12 @@ import { Activity, AlertTriangle, ArrowRight, HeartPulse, Target, Users } from '
 import type { CorrelationsResponse, DepartmentList, HighRiskDepartmentsResponse } from '@/types/api'
 
 type CorrelationItem = { feature: string; correlation: number; abs_correlation: number; p_value?: number; observations?: number }
+type RiskResponse = HighRiskDepartmentsResponse & { evidence_available?: boolean; unavailable_reason?: string | null; outcome_observations?: number }
 
 export default function WorkforceHealthPage() {
   const { data: departmentData, isLoading, isError, error } = useQuery<DepartmentList>({ queryKey: ['analytics', 'departments'], queryFn: () => api.analytics.getDepartments() as Promise<DepartmentList> })
   const { data: correlationData, isError: correlationError } = useQuery<CorrelationsResponse>({ queryKey: ['analytics', 'correlations'], queryFn: () => api.analytics.getCorrelations(10) as Promise<CorrelationsResponse> })
-  const { data: riskData, isError: riskError } = useQuery<HighRiskDepartmentsResponse>({ queryKey: ['analytics', 'high-risk-departments'], queryFn: () => api.analytics.getHighRiskDepartments() as Promise<HighRiskDepartmentsResponse> })
+  const { data: riskData, isError: riskError } = useQuery<RiskResponse>({ queryKey: ['analytics', 'high-risk-departments'], queryFn: () => api.analytics.getHighRiskDepartments() as Promise<RiskResponse> })
 
   const header = <PageHeader eyebrow="Insights · Workforce" title="What is happening across your workforce?" description="See the clearest current workforce patterns first, then open the calculation details only when you need them." />
   if (isLoading) return <Page>{header}<StateSummary title="Preparing workforce insights" description="Reading your current workforce and department patterns." tone="info" /></Page>
