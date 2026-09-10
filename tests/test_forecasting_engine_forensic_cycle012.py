@@ -54,6 +54,7 @@ def test_any_invalid_snapshot_date_fails_closed_instead_of_silently_shrinking_hi
 
 def test_same_month_uses_latest_observed_census_independent_of_row_order():
     frame=monthly_history()
+    frame.loc[frame.SnapshotDate.eq('2024-06-30'),'SnapshotDate']='2024-06-15'
     extra=pd.DataFrame({
         'EmployeeID':[f'X{i}' for i in range(25)],
         'SnapshotDate':['2024-06-30']*25,
