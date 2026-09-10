@@ -11,7 +11,7 @@ import warnings
 import numpy as np
 import pandas as pd
 
-from src.population import active_population
+from src.population import active_population, normalize_attrition
 
 
 class ForecastingEngine:
@@ -20,12 +20,7 @@ class ForecastingEngine:
 
     @staticmethod
     def _source_timestamp(value: Any) -> pd.Timestamp:
-        """Parse a source census timestamp while preserving its calendar date.
-
-        SnapshotDate is a census label, not an instant to be rebucketed into UTC.
-        Removing timezone information without conversion preserves the month that
-        the source system explicitly assigned to the census.
-        """
+        """Parse a source census timestamp while preserving its calendar date."""
         try:
             value = pd.Timestamp(value)
         except (TypeError, ValueError, OverflowError):
@@ -43,6 +38,11 @@ class ForecastingEngine:
             return {'success': False, 'reason': 'Only monthly workforce forecasts are supported'}
         if metric not in ('headcount', 'salary', 'Salary', 'avg_salary'):
             return {'success': False, 'reason': 'Only active headcount and mean salary are supported; turnover requires dated exit events and exposure denominators.'}
+        if 'EmployeeID' not in self.history_df.columns:
+            return {'success': False, 'reason': 'Historical workforce censuses require EmployeeID for population reconciliation.'}
+        ids = self.history_df['EmployeeID'].astype('string')
+        if ids.isna().any() or ids.str.strip().eq('').any():
+            return {'success': False, 'reason': 'Historical workforce censuses require a nonempty EmployeeID on every row.'}
         if metric != 'headcount':
             from src.platform.runtime_loader import pay_basis_is_confirmed
             if not pay_basis_is_confirmed(self.history_df):
@@ -69,6 +69,17 @@ class ForecastingEngine:
             for month, month_frame in frame.groupby('_source_month', sort=True):
                 latest = month_frame['_source_snapshot'].max()
                 census = month_frame[month_frame['_source_snapshot'] == latest].drop(columns=['_source_snapshot', '_source_month'])
+                if 'Attrition' in census.columns:
+                    status = normalize_attrition(census['Attrition'])
+                    unknown_status = int(status.isna().sum())
+                    if unknown_status:
+                        return {
+                            'success': False,
+                            'reason': (
+                                f'Active-status coverage is incomplete for {month}: {unknown_status} census rows have unknown Attrition/status. '
+                                'Forecasting will not treat unknown status as absence from headcount.'
+                            ),
+                        }
                 current = active_population(census)
                 if metric == 'headcount':
                     value = float(len(current))
@@ -90,7 +101,7 @@ class ForecastingEngine:
                     return {'success': False, 'reason': 'Salary is unavailable'}
                 observations[month] = value
                 observation_coverage[month] = {'active_population': int(len(current)), 'measured_population': int(measured)}
-        except ValueError as exc:
+        except (ValueError, KeyError) as exc:
             return {'success': False, 'reason': f'Historical census is ambiguous: {exc}'}
 
         series = pd.Series(observations, dtype=float).sort_index()
@@ -105,17 +116,12 @@ class ForecastingEngine:
         model_mae: float | None = None
         use_model = False
 
-        # A constant history is exactly represented by the last-observation
-        # baseline; fitting Holt-Winters adds no information and can emit divide-
-        # by-zero diagnostics from a zero residual sum of squares.
         if series.nunique(dropna=False) > 1:
             from statsmodels.tsa.holtwinters import ExponentialSmoothing
             trend = 'add' if len(train) >= 12 else None
 
             def fit(values: pd.Series):
-                return ExponentialSmoothing(
-                    values.to_numpy(dtype=float), trend=trend, initialization_method='estimated'
-                ).fit()
+                return ExponentialSmoothing(values.to_numpy(dtype=float), trend=trend, initialization_method='estimated').fit()
 
             try:
                 with warnings.catch_warnings():
@@ -159,12 +165,7 @@ class ForecastingEngine:
             ],
             'forecast': [{'date': d.to_timestamp(how='end').strftime('%Y-%m-%d'), 'value': float(v)} for d, v in zip(dates, forecast)],
             'model': 'exponential_smoothing' if use_model else 'last_observation_baseline',
-            'validation': {
-                'months': 3,
-                'model_mae': model_mae,
-                'naive_mae': naive_mae,
-                'scope': 'last_three_observed_months_used_for_model_selection',
-            },
+            'validation': {'months': 3, 'model_mae': model_mae, 'naive_mae': naive_mae, 'scope': 'last_three_observed_months_used_for_model_selection'},
             'uncertainty': 'Prediction intervals have not been estimated.',
             'semantics': 'monthly_active_workforce_extrapolation_not_causal_forecast',
             'assumptions': ['Each source date must be a complete workforce census; partial exports invalidate comparisons.'],
