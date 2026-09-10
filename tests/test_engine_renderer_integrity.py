@@ -115,14 +115,13 @@ def test_structural_reporting_lines_need_no_optional_columns_and_exclude_self_li
     assert not spans['ManagerID'].eq('unknown').any()
 
 
-def test_experience_lifecycle_missing_responses_are_nullable_and_associations_need_pairs():
+def test_experience_lifecycle_missing_responses_are_suppressed_and_associations_need_pairs():
     from src.experience_engine import ExperienceEngine
     frame=workforce(12);frame['Pulse_Score']=[1.,5.]+[np.nan]*10;frame['Tenure']=[.2,.3]+[5.]*10
     engine=ExperienceEngine(frame)
     assert engine.identify_experience_drivers()['drivers']==[]
     stages=engine.get_lifecycle_experience()['stages']
-    veteran=next(row for row in stages if row['stage']=='Veteran')
-    assert veteran['avg_exi'] is None and veteran['respondent_count']==0
+    assert not any(row['stage']=='Veteran' for row in stages)
     assert not engine.get_employee_exi('E2')['available']
 
 
@@ -210,7 +209,7 @@ def test_perfect_onboarding_is_not_described_as_low_and_driver_pairs_are_require
     engine=SentimentEngine(workforce(),enps,onboarding)
     assert engine.get_enps_drivers()['drivers']==[]
     assert engine.get_onboarding_health()['recommendations']==[]
-    assert engine.detect_early_warnings()['warnings']==[]  # No dated survey evidence.
+    assert engine.detect_early_warnings()['warnings']==[]
 
 
 def test_forecast_fractional_horizon_and_scenario_missing_scope_rejected():
@@ -298,7 +297,6 @@ def test_scenario_elasticity_uses_proportional_changes_not_percentage_points():
     engine=ScenarioEngine(workforce(100))
     engine.scenario_config=dict(engine.scenario_config,assumed_baseline_turnover=.2,assumed_compensation_elasticity=.5)
     result=engine.simulate_compensation_change('percentage',{'scope':'all'},10)
-    # .5 elasticity * .10 proportional raise * .20 assumed baseline = .01 rate change.
     assert result.turnover_change==1.0
     assert result.projected_turnover_rate==19.0
     assert result.cost_impact.total_cost==1000

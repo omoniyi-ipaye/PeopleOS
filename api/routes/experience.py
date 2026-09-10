@@ -58,7 +58,6 @@ def _safe_index(state: AppState, group_by: Optional[str] = None) -> ExperienceIn
     if not _has_measured_signals(state):
         return _unavailable_index(state)
     raw = state.experience_engine.calculate_experience_index(group_by=group_by)
-    # Configured 0-100 composite, not an external benchmark or validated universal scale.
     raw["benchmark"] = None
     if raw.get("available"):
         raw["interpretation"] = "Configured weighted composite of available measured experience signals. Interpret together with signal coverage and component definitions."
@@ -73,7 +72,6 @@ def _safe_drivers(state: AppState) -> DriversResponse:
     raw = state.experience_engine.identify_experience_drivers()
     if not raw.get("available", False):
         return DriversResponse(**raw)
-    # These are correlations with the composite, not causal drivers.
     raw["recommendations"] = [
         "Treat these as observed associations with the configured experience composite. Validate direction, confounding and stability before changing policy or manager practice."
     ]
@@ -86,7 +84,7 @@ def _safe_segments(state: AppState) -> SegmentsResponse:
     raw = state.experience_engine.get_engagement_segments()
     if raw.get("available", False):
         raw["recommendations"] = [
-            "Segments are configured score bands for aggregate monitoring; they are not diagnoses of individual engagement."
+            "Segments are configured score bands for aggregate monitoring; they are not diagnoses of individual engagement. Suppressed cells must not be reconstructed from totals."
         ]
     return SegmentsResponse(**raw)
 
@@ -108,13 +106,14 @@ def _safe_at_risk(state: AppState, threshold: Optional[float] = None) -> AtRiskR
     raw = state.experience_engine.get_at_risk_employees(threshold=threshold, limit=1000)
     if not raw.get("available", False):
         return AtRiskResponse(**raw)
-    # Aggregate-only product boundary: never expose employee-level score/risk lists.
     return AtRiskResponse(
         available=True,
         total_at_risk=raw.get("total_at_risk"),
         threshold_used=raw.get("threshold_used"),
         employees=None,
         by_department=raw.get("by_department"),
+        suppressed=bool(raw.get("suppressed", False)),
+        metric_semantics=raw.get("metric_semantics"),
     )
 
 
@@ -134,7 +133,7 @@ async def get_experience_analysis(state: AppState = Depends(require_experience))
                 overall_exi=None,
                 health_indicator="Unavailable",
                 total_employees=len(state.raw_df) if state.raw_df is not None else 0,
-                at_risk_count=0,
+                at_risk_count=None,
                 signals_available=signals.total_signals,
                 total_warnings=1,
                 total_recommendations=1,
@@ -160,7 +159,7 @@ async def get_experience_analysis(state: AppState = Depends(require_experience))
             overall_exi=index.overall_exi,
             health_indicator=segments.health_indicator or "Measured",
             total_employees=index.total_employees or 0,
-            at_risk_count=at_risk.total_at_risk or 0,
+            at_risk_count=None if at_risk.suppressed else at_risk.total_at_risk,
             signals_available=signals.total_signals,
             total_warnings=0,
             total_recommendations=1,
@@ -221,7 +220,6 @@ async def get_experience_trends(
     period: str = Query(default="month", description="Requested trend period"),
     state: AppState = Depends(require_experience),
 ):
-    # A single current snapshot cannot support a time-series trend claim.
     return {
         "available": False,
         "current_exi": _safe_index(state).overall_exi if _has_measured_signals(state) else None,

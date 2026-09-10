@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "cycle": "PEOPLEOS-QUALITY-010",
+  "engine": "ExperienceEngine",
+  "status": "verified_candidate",
+  "verified_code_candidate": "6f21d1587461e9403f1d8a81f3abba16ea5e4a2e",
+  "scope": "forensic mathematical, semantic, privacy, rendering, stress, regression, live-API, browser, packaging and local-model validation",
+  "confirmed_findings_fixed": [
+    "undersized experience cohorts were not consistently suppressed",
+    "numeric identifier-like fields could enter experience association analysis",
+    "low-score thresholds accepted invalid/non-finite domains",
+    "result limits accepted invalid/non-integer domains",
+    "aggregate analysis exposed employee-level low-score/risk records",
+    "manager-level experience ranking remained available at the engine boundary",
+    "diagnostic-style score labels implied unsupported engagement diagnosis",
+    "lifecycle outputs exposed undersized measured cohorts",
+    "integer-style score bands left gaps for decimal composite values",
+    "case-insensitive duplicate signal columns produced order-dependent semantics",
+    "small overall low-score cells were disclosive",
+    "small score-band cells lacked primary suppression",
+    "single suppressed score bands could be reconstructed without complementary suppression",
+    "small lifecycle low-score cells were disclosive",
+    "suppressed aggregate values could be coerced to fabricated zero at the API summary boundary",
+    "frontend numeric formatting crashed on correctly suppressed null values",
+    "frontend lower-band summaries could imply precision when component cells were suppressed",
+    "legacy regression contracts required individual ranking, manager ranking, diagnostic labels or disclosive small cells"
+  ],
+  "final_contracts": {
+    "experience_forensic": {"passed": 27, "total": 27},
+    "experience_stress_250k": {"passed": 14, "total": 14, "rows": 250000},
+    "broad_regression": {"passed": 840, "total": 840},
+    "independent_arithmetic_oracle": {"passed": 16, "total": 16},
+    "analytics_stress_250k": {"passed": 11, "total": 11, "rows": 250000},
+    "public_benchmark_controls": {"passed": 9, "total": 9},
+    "whole_product_synthetic_stress": {"passed": 34, "total": 34, "rows": 20000},
+    "live_api_known_answers": {"passed": 96, "total": 96},
+    "browser_acceptance": {"passed": 22, "total": 22, "note": "first attempt had a known transient desktop upload wait; unchanged rerun passed"}
+  },
+  "privacy_and_semantic_guarantees": [
+    "experience outputs are aggregate-first and individual experience-risk lists are not exposed",
+    "manager experience ranking is disabled",
+    "identifier-like columns are excluded from experience association analysis",
+    "score bands use continuous non-overlapping intervals and neutral descriptive labels",
+    "undersized measured cohorts and low-score cells fail closed",
+    "complementary suppression prevents reconstructing a single hidden score-band cell from totals",
+    "suppressed values remain null/explicitly suppressed through engine, schema, API and frontend and are never fabricated as zero",
+    "experience associations are labelled observational rather than causal",
+    "missing or invalid survey responses are excluded rather than replaced with HRIS proxy sentiment"
+  ],
+  "workflow_evidence": {
+    "experience_engine_forensic": {"run_id": 34454958923, "run_number": 26, "conclusion": "success"},
+    "analytics_validation": {"run_id": 34454958956, "run_number": 179, "conclusion": "success", "artifact_id": 10143171001},
+    "agent_foundation": {"run_id": 34454958918, "run_number": 546, "conclusion": "success"},
+    "frontend_modernization": {"run_id": 34454958903, "run_number": 323, "conclusion": "success"},
+    "release_security": {"run_id": 34454958953, "run_number": 167, "conclusion": "success"},
+    "e2e_user_journey": {"run_id": 34454958980, "run_number": 337, "conclusion": "success"},
+    "people_team_browser_acceptance": {"run_id": 34454958906, "run_number": 171, "conclusion": "success_after_unchanged_failed-job_rerun"},
+    "local_desktop_build": {"run_id": 34454958947, "run_number": 165, "conclusion": "success", "platforms": ["macos-arm64", "linux-x64", "windows-x64"]},
+    "local_ollama_acceptance": {"run_id": 34454958930, "run_number": 146, "conclusion": "success"}
+  },
+  "experience_stress_artifact": {
+    "artifact_id": 10143085430,
+    "sha256": "5860e7c23ed9771f52932e45c6fdfb898ecdf61e7d53148fab842061f25ec377"
+  },
+  "analytics_evidence_artifact": {
+    "artifact_id": 10143171001,
+    "sha256": "cd3c81a7548b4093944e10257429876356b8f26c28e9d87774f38e59f1c79c0a"
+  },
+  "merge_rule": "This evidence record is documentation-only. Merge only after the evidence-only PR head reproduces the required workflow gates successfully."
+}

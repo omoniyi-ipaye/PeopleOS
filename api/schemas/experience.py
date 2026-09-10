@@ -1,93 +1,87 @@
-"""
-Pydantic schemas for Employee Experience API endpoints.
-"""
+"""Pydantic schemas for governed Employee Experience API endpoints."""
+
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
-from typing import Optional, List, Dict, Any
 
 
 class ExperienceComponents(BaseModel):
-    """Breakdown of EXI score components."""
-    enps: Optional[float] = Field(None, description="eNPS contribution (0-100)")
-    onboarding: Optional[float] = Field(None, description="Onboarding score contribution")
-    pulse: Optional[float] = Field(None, description="Pulse survey contribution")
-    manager: Optional[float] = Field(None, description="Manager satisfaction contribution")
-    engagement: Optional[float] = Field(None, description="Engagement score contribution")
-    work_life: Optional[float] = Field(None, description="Work-life balance contribution")
-    career: Optional[float] = Field(None, description="Career growth contribution")
-    derived: Optional[bool] = Field(None, description="True if EXI was derived from patterns")
-    weights_used: Optional[Dict[str, float]] = Field(None, description="Weights applied")
+    enps: Optional[float] = None
+    onboarding: Optional[float] = None
+    pulse: Optional[float] = None
+    manager: Optional[float] = None
+    engagement: Optional[float] = None
+    work_life: Optional[float] = None
+    career: Optional[float] = None
+    derived: Optional[bool] = None
+    weights_used: Optional[Dict[str, float]] = None
 
 
 class GroupExperience(BaseModel):
-    """Experience metrics for a group (department, location, etc.)."""
     group: str
-    exi: float = Field(..., description="Average EXI for group")
-    count: int = Field(..., description="Number of employees in group")
+    exi: float
+    count: int
     interpretation: str
 
 
 class ExperienceIndexResponse(BaseModel):
-    """Response for experience index calculation."""
     available: bool
     reason: Optional[str] = None
-    overall_exi: Optional[float] = Field(None, description="Overall EXI score (0-100)")
-    exi_std: Optional[float] = Field(None, description="Standard deviation of EXI")
-    exi_median: Optional[float] = Field(None, description="Median EXI score")
+    overall_exi: Optional[float] = None
+    exi_std: Optional[float] = None
+    exi_median: Optional[float] = None
     total_employees: Optional[int] = None
     respondent_count: Optional[int] = None
     response_coverage: Optional[float] = None
-    signals_available: Optional[int] = Field(None, description="Number of experience signals")
+    signals_available: Optional[int] = None
     interpretation: Optional[str] = None
-    benchmark: Optional[str] = Field(None, description="Above/Below average")
+    benchmark: Optional[str] = None
     by_group: Optional[List[GroupExperience]] = None
 
 
 class EmployeeExperienceResponse(BaseModel):
-    """Experience details for a single employee."""
     available: bool
     reason: Optional[str] = None
     EmployeeID: Optional[str] = None
-    exi_score: Optional[float] = Field(None, description="Employee's EXI score (0-100)")
-    segment: Optional[str] = Field(None, description="Engagement segment")
+    exi_score: Optional[float] = None
+    segment: Optional[str] = None
     interpretation: Optional[str] = None
     dept: Optional[str] = None
     components: Optional[ExperienceComponents] = None
 
 
 class EngagementSegment(BaseModel):
-    """Engagement segment with statistics."""
-    segment: str = Field(..., description="Segment name (Thriving, Content, etc.)")
-    count: int = Field(..., description="Number of employees")
-    percentage: float = Field(..., description="Percentage of workforce")
-    avg_exi: Optional[float] = Field(None, description="Average EXI among measured respondents")
-    exi_range: str = Field(..., description="EXI score range for segment")
+    """Configured score band; suppressed cells carry no reconstructable value."""
+    segment: str
+    count: Optional[int] = None
+    percentage: Optional[float] = None
+    avg_exi: Optional[float] = None
+    exi_range: str
+    suppressed: bool = False
 
 
 class SegmentsResponse(BaseModel):
-    """Response for engagement segmentation."""
     available: bool
     reason: Optional[str] = None
     segments: Optional[List[EngagementSegment]] = None
     total_employees: Optional[int] = None
-    health_indicator: Optional[str] = Field(None, description="Healthy, Moderate, At Risk")
+    health_indicator: Optional[str] = None
     thriving_percentage: Optional[float] = None
     at_risk_percentage: Optional[float] = None
     recommendations: Optional[List[str]] = None
+    suppression_applied: bool = False
 
 
 class ExperienceDriver(BaseModel):
-    """Factor that drives experience scores."""
     sample_size: int = 0
     metric_semantics: str = "observational_association_excluding_index_components"
-    factor: str = Field(..., description="Factor/column name")
-    correlation: float = Field(..., description="Correlation with EXI")
-    impact: str = Field(..., description="High, Medium, or Low")
-    direction: str = Field(..., description="Positive or Negative")
+    factor: str
+    correlation: float
+    impact: str
+    direction: str
 
 
 class DriversResponse(BaseModel):
-    """Response for experience drivers analysis."""
     available: bool
     reason: Optional[str] = None
     drivers: Optional[List[ExperienceDriver]] = None
@@ -97,43 +91,41 @@ class DriversResponse(BaseModel):
 
 
 class AtRiskExperience(BaseModel):
-    """Employee at risk due to low experience."""
     EmployeeID: str
     Dept: Optional[str] = None
-    current_exi: float = Field(..., description="Current EXI score")
-    segment: str = Field(..., description="Current segment")
+    current_exi: float
+    segment: str
     tenure: Optional[float] = None
     risk_factors: List[str] = Field(default_factory=list)
     recommended_actions: List[str] = Field(default_factory=list)
 
 
 class AtRiskByDepartment(BaseModel):
-    """At-risk count by department."""
     department: str
     at_risk_count: int
 
 
 class AtRiskResponse(BaseModel):
-    """Response for at-risk employees."""
     available: bool
     reason: Optional[str] = None
     total_at_risk: Optional[int] = None
     threshold_used: Optional[float] = None
     employees: Optional[List[AtRiskExperience]] = None
     by_department: Optional[List[AtRiskByDepartment]] = None
+    suppressed: bool = False
+    metric_semantics: Optional[str] = None
 
 
 class LifecycleStage(BaseModel):
-    """Experience metrics for a lifecycle stage."""
-    stage: str = Field(..., description="New Hire, Ramping, Established, Veteran")
+    stage: str
     count: int
     avg_exi: Optional[float] = None
     respondent_count: int = 0
-    at_risk_count: int
+    at_risk_count: Optional[int] = None
+    at_risk_suppressed: bool = False
 
 
 class LifecycleResponse(BaseModel):
-    """Response for lifecycle experience analysis."""
     available: bool
     reason: Optional[str] = None
     stages: Optional[List[LifecycleStage]] = None
@@ -142,7 +134,6 @@ class LifecycleResponse(BaseModel):
 
 
 class ManagerStats(BaseModel):
-    """Manager's team experience statistics."""
     ManagerID: str
     team_size: int
     avg_team_exi: float
@@ -151,7 +142,6 @@ class ManagerStats(BaseModel):
 
 
 class ManagerImpactResponse(BaseModel):
-    """Response for manager impact analysis."""
     available: bool
     reason: Optional[str] = None
     managers_analyzed: Optional[int] = None
@@ -163,7 +153,6 @@ class ManagerImpactResponse(BaseModel):
 
 
 class SignalsResponse(BaseModel):
-    """Response for available experience signals."""
     has_enps: bool = False
     has_onboarding: bool = False
     has_pulse: bool = False
@@ -172,23 +161,21 @@ class SignalsResponse(BaseModel):
     has_work_life: bool = False
     has_career_growth: bool = False
     total_signals: int = 0
-    coverage_percentage: float = Field(0, description="% employees with any signal")
+    coverage_percentage: float = 0
     recommendations: List[str] = Field(default_factory=list)
 
 
 class ExperienceSummary(BaseModel):
-    """Summary of experience analysis."""
     overall_exi: Optional[float] = None
     health_indicator: str = "Unknown"
     total_employees: int = 0
-    at_risk_count: int = 0
+    at_risk_count: Optional[int] = None
     signals_available: int = 0
     total_warnings: int = 0
     total_recommendations: int = 0
 
 
 class ExperienceAnalysisResponse(BaseModel):
-    """Full experience analysis response."""
     experience_index: ExperienceIndexResponse
     segments: SegmentsResponse
     drivers: DriversResponse
