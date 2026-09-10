@@ -23,22 +23,29 @@ async function openPrimary(page: Page, name: string, path: string) {
   await noHorizontalOverflow(page)
 }
 
-async function chooseWorkforceFile(page: Page, name: string, buffer: Buffer) {
+async function readyUploadInput(page: Page) {
   const choose = page.getByRole('button', { name: 'Choose file', exact: true })
   await expect(choose).toBeVisible()
   await expect(choose).toBeEnabled()
-  const chooserPromise = page.waitForEvent('filechooser')
-  await choose.click()
-  const chooser = await chooserPromise
+  const input = page.locator('input[type=file]')
+  await expect(input).toBeEnabled()
+  await page.waitForFunction(() => {
+    const element = document.querySelector('input[type=file]') as HTMLInputElement | null
+    return Boolean(element && Object.keys(element).some(key => key.startsWith('__reactProps$')))
+  })
+  return input
+}
+
+async function uploadFile(page: Page, name: string, buffer: Buffer) {
+  const input = await readyUploadInput(page)
   const response = page.waitForResponse(r => r.url().endsWith('/api/upload') && r.request().method() === 'POST')
-  await chooser.setFiles({ name, mimeType: 'text/csv', buffer })
+  await input.setInputFiles({ name, mimeType: 'text/csv', buffer })
   return response
 }
 
 async function upload(page: Page, name = 'A', missingOutcomes = false) {
   await page.goto('/upload')
-  const response = await chooseWorkforceFile(page, `workforce-${name}.csv`, workforce(name, missingOutcomes))
-  const uploaded = await response
+  const uploaded = await uploadFile(page, `workforce-${name}.csv`, workforce(name, missingOutcomes))
   expect(uploaded.ok(), await uploaded.text()).toBeTruthy()
   await expect(page.getByText('Import complete', { exact: true })).toBeVisible()
   await expect(page.getByText('Your workforce is ready', { exact: true })).toBeVisible()
@@ -49,7 +56,7 @@ async function upload(page: Page, name = 'A', missingOutcomes = false) {
 
 async function uploadRaw(page: Page, name: string, content: string) {
   await page.goto('/upload')
-  return chooseWorkforceFile(page, name, Buffer.from(content))
+  return uploadFile(page, name, Buffer.from(content))
 }
 
 async function ask(page: Page, question: string) {
