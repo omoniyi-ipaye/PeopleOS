@@ -117,8 +117,6 @@ def test_equalized_odds_small_outcome_class_counts_are_not_disclosed_or_reconstr
     result = FairnessEngine(frame, pred).calculate_equalized_odds("Attrition")
     female = result[(result.attribute == "Gender") & (result.group == "Female")].iloc[0]
     assert female.tpr is None or pd.isna(female.tpr)
-    # When either outcome class is below the support floor, neither class count
-    # may be exposed alongside the total because the small class is reconstructable.
     assert female.positive_n is None or pd.isna(female.positive_n)
     assert female.negative_n is None or pd.isna(female.negative_n)
     assert bool(female.get("class_counts_suppressed", False)) is True
@@ -144,6 +142,24 @@ def test_demographic_parity_outputs_are_finite_json_or_null():
     frame = workforce(40)
     result = FairnessEngine(frame).calculate_demographic_parity("Attrition")
     json.dumps(result.to_dict("records"), allow_nan=False)
+
+
+def test_demographic_parity_does_not_reveal_suppressed_group_size_by_subtraction():
+    frame = workforce(29)
+    frame["Gender"] = ["Female"] * 9 + ["Male"] * 20
+    result = FairnessEngine(frame).calculate_demographic_parity("Attrition")
+    male = result[(result.attribute == "Gender") & (result.group == "Male")].iloc[0]
+    assert int(male.suppressed_group_count) == 1
+    assert male.attribute_observed_count is None or pd.isna(male.attribute_observed_count)
+    assert male.attribute_coverage is None or pd.isna(male.attribute_coverage)
+
+
+def test_summary_cannot_claim_no_material_disparity_when_protected_groups_are_suppressed():
+    frame = workforce(49)
+    frame["Gender"] = ["Small"] * 9 + ["Female"] * 20 + ["Male"] * 20
+    frame["Attrition"] = 0
+    result = FairnessEngine(frame).get_fairness_summary("Attrition")
+    assert result["overall_status"] == "Insufficient evidence"
 
 
 def test_engine_does_not_mutate_source_frame():
