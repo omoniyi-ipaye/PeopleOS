@@ -72,10 +72,13 @@ def test_experience_invalid_signals_remain_unavailable():
 
 
 def test_experience_fractional_band_boundaries_count_every_respondent():
-    frame = rows(10)
-    frame['Pulse_Score'] = [1.79, 2.59, 3.39, 4.19, 5] * 2
+    # Keep every configured score band above the privacy support floor so this
+    # remains a pure decimal-boundary/reconciliation oracle.
+    frame = rows(50)
+    frame['Pulse_Score'] = [1.79, 2.59, 3.39, 4.19, 5] * 10
     result = ExperienceEngine(frame).get_engagement_segments()
-    assert sum(s['count'] for s in result['segments']) == 10
+    assert result.get('suppression_applied') is False
+    assert sum(int(s['count']) for s in result['segments']) == 50
 
 
 def test_undefined_fairness_ratio_is_not_a_clean_bill_of_health():
