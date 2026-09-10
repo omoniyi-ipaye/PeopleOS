@@ -40,8 +40,9 @@ def test_equalized_odds_requires_support_per_outcome_class():
     engine = FairnessEngine(frame, predictions)
     result = engine.calculate_equalized_odds("Attrition")
     row = result[result["attribute"] == "Gender"].iloc[0]
-    assert row["positive_n"] == 1
-    assert row["negative_n"] == 19
+    assert pd.isna(row["positive_n"])
+    assert pd.isna(row["negative_n"])
+    assert bool(row["class_counts_suppressed"]) is True
     assert pd.isna(row["tpr"])
     assert row["tpr_available"] == False
     assert row["fpr_available"] == True
