@@ -1,0 +1,39 @@
+{
+  "cycle": "011",
+  "engine": "FairnessEngine",
+  "status": "forensically_reviewed",
+  "verified_behavioral_candidate": "f110b80427d6530aff690ef4c374f3066e5b5d0d",
+  "scope": "Observed outcome-disparity screening, four-fifths favorable-outcome ratios, predictive disparity screening, equalized-odds support/privacy, configuration validation, population alignment, and downstream integrity.",
+  "confirmed_findings_fixed": [
+    "Prediction fairness previously accepted partial current-employee coverage.",
+    "Prediction fairness previously accepted stale or extra employee IDs.",
+    "Prediction fairness could remain available with no complete valid finite probability population.",
+    "Equalized-odds output exposed reconstructable small outcome-class counts.",
+    "Malformed minimum-group-size configuration did not fail closed consistently.",
+    "Demographic-parity totals could reconstruct a suppressed protected-group size by subtraction.",
+    "Summary status could claim no material disparity while protected-group evidence was suppressed.",
+    "A stale deterministic-evidence regression contract expected disclosure of an unsupported one-person class and was migrated to the governed suppression contract."
+  ],
+  "forensic_contracts": {"passed": 20, "total": 20},
+  "stress": {
+    "rows": 250000,
+    "checks_passed": 9,
+    "checks_total": 9,
+    "artifact_id": 10144160182,
+    "artifact_sha256": "0e626efdd20f66dbaf7d750fad4b7d3d23837a0a8a84223acfc92922b01e004c"
+  },
+  "cross_product_validation": {
+    "analytics_validation": "success",
+    "agent_foundation": "success",
+    "e2e_user_journey": "success",
+    "people_team_browser_acceptance": "success",
+    "release_security": "success",
+    "local_ollama_acceptance": "success"
+  },
+  "interpretation_boundary": "Fairness outputs are descriptive screening signals, not legal, causal, discrimination, compliance, or bias determinations. Suppressed evidence prevents a no-disparity conclusion.",
+  "remaining_scientific_limits": [
+    "Intersectional support and uncertainty still require organization-specific validation.",
+    "Selection bias and outcome-definition validity are not established by synthetic tests.",
+    "Predictive fairness metrics do not establish future-horizon calibration or legal fairness."
+  ]
+}
