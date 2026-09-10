@@ -1,0 +1,36 @@
+name: ForecastingEngine Forensic Validation
+
+on:
+  pull_request:
+    paths:
+      - 'src/forecasting_engine.py'
+      - 'tests/test_forecasting_engine_forensic_cycle012.py'
+      - 'scripts/stress_forecasting_engine_cycle012.py'
+      - '.github/workflows/forecasting-engine-forensic.yml'
+      - 'model/engine_audit_review_updates.json'
+      - 'model/quality_cycle_012_forecasting_engine_final.json'
+  workflow_dispatch:
+
+jobs:
+  forensic:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install ForecastingEngine dependencies
+        run: python -m pip install pandas==2.1.4 numpy==1.26.3 pytest==9.0.3 statsmodels==0.14.6 scipy==1.15.3 pyyaml==6.0.1
+      - name: Run ForecastingEngine forensic contracts
+        run: pytest -q tests/test_forecasting_engine_forensic_cycle012.py
+      - name: Run ForecastingEngine stress harness
+        if: success()
+        run: python scripts/stress_forecasting_engine_cycle012.py --rows-per-month 10000 --months 24 --output forecasting-engine-cycle012-stress.json
+      - name: Preserve ForecastingEngine forensic evidence
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: forecasting-engine-cycle012-evidence
+          path: forecasting-engine-cycle012-stress.json
+          retention-days: 90
