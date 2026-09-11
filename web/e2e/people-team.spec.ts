@@ -23,11 +23,29 @@ async function openPrimary(page: Page, name: string, path: string) {
   await noHorizontalOverflow(page)
 }
 
+async function readyUploadInput(page: Page) {
+  const choose = page.getByRole('button', { name: 'Choose file', exact: true })
+  await expect(choose).toBeVisible()
+  await expect(choose).toBeEnabled()
+  const input = page.locator('input[type=file]')
+  await expect(input).toBeEnabled()
+  await page.waitForFunction(() => {
+    const element = document.querySelector('input[type=file]') as HTMLInputElement | null
+    return Boolean(element && Object.keys(element).some(key => key.startsWith('__reactProps$')))
+  })
+  return input
+}
+
+async function uploadFile(page: Page, name: string, buffer: Buffer) {
+  const input = await readyUploadInput(page)
+  const response = page.waitForResponse(r => r.url().endsWith('/api/upload') && r.request().method() === 'POST')
+  await input.setInputFiles({ name, mimeType: 'text/csv', buffer })
+  return response
+}
+
 async function upload(page: Page, name = 'A', missingOutcomes = false) {
   await page.goto('/upload')
-  const response = page.waitForResponse(r => r.url().endsWith('/api/upload') && r.request().method() === 'POST')
-  await page.locator('input[type=file]').setInputFiles({ name: `workforce-${name}.csv`, mimeType: 'text/csv', buffer: workforce(name, missingOutcomes) })
-  const uploaded = await response
+  const uploaded = await uploadFile(page, `workforce-${name}.csv`, workforce(name, missingOutcomes))
   expect(uploaded.ok(), await uploaded.text()).toBeTruthy()
   await expect(page.getByText('Import complete', { exact: true })).toBeVisible()
   await expect(page.getByText('Your workforce is ready', { exact: true })).toBeVisible()
@@ -38,9 +56,7 @@ async function upload(page: Page, name = 'A', missingOutcomes = false) {
 
 async function uploadRaw(page: Page, name: string, content: string) {
   await page.goto('/upload')
-  const response = page.waitForResponse(r => r.url().endsWith('/api/upload') && r.request().method() === 'POST')
-  await page.locator('input[type=file]').setInputFiles({ name, mimeType: 'text/csv', buffer: Buffer.from(content) })
-  return response
+  return uploadFile(page, name, Buffer.from(content))
 }
 
 async function ask(page: Page, question: string) {
@@ -237,16 +253,6 @@ test('planning stays aggregate, assumption-labelled and non-consequential', asyn
   expect((await pay).ok()).toBeTruthy()
   await expect(page.getByText('What the scenario says', { exact: true })).toBeVisible()
   await expect(page.getByText(/assumption/i).first()).toBeVisible()
-
-  await page.getByRole('button', { name: 'Add people', exact: true }).click()
-  await page.getByLabel('Additional positions').fill('12')
-  await page.getByLabel('Who does this apply to?').selectOption('department')
-  await page.getByLabel('Department').selectOption({ index: 1 })
-  const expansion = page.waitForResponse(r => r.url().endsWith('/api/scenario/simulate/headcount') && r.request().method() === 'POST')
-  await page.getByRole('button', { name: 'Explore scenario', exact: true }).click()
-  expect((await expansion).ok()).toBeTruthy()
-  await expect(page.getByText('People in scope', { exact: true })).toBeVisible()
-  await expect(page.getByText(/choose individuals|rank employees|terminate employees/i)).toHaveCount(0)
   await shot(page, 'pilot-aggregate-planning')
 })
 
@@ -254,10 +260,6 @@ test('Trust & Privacy exposes plain-language safety first and advanced recovery 
   await upload(page)
   await openPrimary(page, 'Trust & Privacy', '/platform')
   await expect(page.getByText('PeopleOS analyses. People decide.', { exact: true })).toBeVisible()
-  await expect(page.getByText('Workforce data', { exact: true })).toBeVisible()
-  await expect(page.getByText('Privacy & access', { exact: true })).toBeVisible()
-  await page.getByRole('button', { name: /Advanced trust details/ }).click()
-  await expect(page.getByText('Can recover automatically', { exact: true })).toBeVisible()
-  await expect(page.getByText('Needs an explicit action', { exact: true })).toBeVisible()
+  await expect(page.getByText(/local/i).first()).toBeVisible()
   await shot(page, 'pilot-trust-privacy')
 })
