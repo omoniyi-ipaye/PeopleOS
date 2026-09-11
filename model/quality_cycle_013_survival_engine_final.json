@@ -1,0 +1,51 @@
+{
+  "cycle": "013",
+  "engine": "SurvivalEngine",
+  "status": "forensically_reviewed",
+  "verified_behavioral_candidate": "ce8e083b13bf54eb61a88d04107d765293043495",
+  "scope": "Kaplan-Meier cohort survival, restricted mean survival time, segmented survival, Cox proportional hazards, hazard curves, cohort filters, population/exclusion accounting, event/censor support, privacy suppression, numerical stability, and aggregate-only governance.",
+  "confirmed_findings_fixed": [
+    "Invalid minimum-sample configuration values were weakly coerced, accepted, or could raise low-level exceptions instead of failing closed.",
+    "Invalid durations and unknown outcomes were excluded without structured analysis-population and coverage accounting.",
+    "All-unknown outcome data could degrade to a generic insufficient-sample message instead of explicitly reporting unavailable event/censor classification.",
+    "Identifier-like or unapproved survival segmentation was not explicitly rejected at the engine boundary.",
+    "Segmented survival could expose cohorts with event or censor cells below the privacy support floor.",
+    "Cohort insights could expose exact attrition counts and rates when one outcome cell was below the privacy support floor.",
+    "Boolean/string/non-finite cohort duration filters could pass numeric validation or behave as numbers.",
+    "Cox covariate normalization could overflow on extreme-but-finite values.",
+    "Overall Kaplan-Meier estimates could remain available with unsupported event or censor cells.",
+    "Duplicate configured Cox covariates were not deduplicated and could break model construction.",
+    "Cox stability checks enforced event support but not censor support.",
+    "Cox results did not consistently expose the complete-case model population, excluded covariate rows, and coverage.",
+    "Kaplan-Meier tail at-risk counts below five could reveal small remaining cells and are now explicitly suppressed.",
+    "Internal aggregate summary fields are now suppression-aware and cannot reintroduce unsupported event counts or rates."
+  ],
+  "forensic_contracts": {"passed": 33, "total": 33},
+  "stress": {
+    "rows": 250000,
+    "tenure_resolution": "monthly",
+    "checks_passed": 13,
+    "checks_total": 13,
+    "artifact_id": 10179385696,
+    "artifact_sha256": "e7f13f8566447f0820d6d045be880f4e64fa2ba7488ddd7a06dab5bb107a31c3"
+  },
+  "reviewed_source_sha256": "9d750cd55f2d4feee0afbcbac5966d8e05ce74858054d10060d7315757ef5dc7",
+  "cross_product_validation": {
+    "survival_engine_forensic_validation": "success",
+    "forecasting_engine_forensic_validation": "success",
+    "fairness_engine_forensic_validation": "success",
+    "analytics_validation": "success",
+    "agent_foundation": "success",
+    "e2e_user_journey": "success",
+    "people_team_browser_acceptance": "success",
+    "release_security": "success",
+    "local_ollama_acceptance": "success"
+  },
+  "interpretation_boundary": "Survival outputs are cohort-level estimates from employment origin. They are not individual next-period attrition probabilities, causal effects, or employment-action recommendations. Cox concordance is in-sample model-fit context rather than prospective predictive validation.",
+  "remaining_scientific_limits": [
+    "PeopleOS cannot infer from the table alone that Tenure is truly time-to-exit for leavers and censoring time for retained employees; source-system semantics must be validated.",
+    "Kaplan-Meier validity depends on censoring assumptions that synthetic tests cannot establish for a real organization.",
+    "Cox proportional-hazards screening can flag assumption concerns but does not establish causal validity or absence of unmeasured confounding.",
+    "Prospective organization-specific validation remains required before stronger predictive claims."
+  ]
+}
