@@ -1,0 +1,44 @@
+{
+  "cycle": "012",
+  "engine": "ForecastingEngine",
+  "status": "forensically_reviewed",
+  "verified_behavioral_candidate": "2302240e917203ec30abc126c3e2f51a114f8b48",
+  "scope": "Observed monthly active-workforce headcount and mean-salary extrapolation, census identity/status integrity, source calendar-month semantics, pay comparability, model selection, finite output, and fail-closed history validation.",
+  "confirmed_findings_fixed": [
+    "Invalid or missing historical SnapshotDate values were silently dropped, allowing incomplete censuses to remain forecastable.",
+    "Conflicting employee records within the same selected census could raise an uncaught exception instead of returning a governed unavailable result.",
+    "Timezone conversion could move a source census into the previous calendar month and corrupt the monthly series.",
+    "Salary forecasts could compare months with incomplete or shifting measured-salary coverage.",
+    "Headcount forecasts could proceed without EmployeeID identity reconciliation and could fail with a low-level KeyError.",
+    "Unknown employment/attrition status rows could silently disappear from monthly active headcount and create false workforce trends.",
+    "Constant historical series unnecessarily invoked Holt-Winters and emitted numerical divide-by-zero diagnostics instead of deterministically using the last-observation baseline.",
+    "The isolated forensic workflow initially omitted a transitive Pydantic dependency; the workflow was corrected without changing engine semantics.",
+    "A same-month latest-census challenge fixture initially used the same date as the existing census; the fixture was corrected to test the intended contract."
+  ],
+  "forensic_contracts": {"passed": 21, "total": 21},
+  "stress": {
+    "source_rows": 242760,
+    "months": 24,
+    "rows_per_month_start": 10000,
+    "checks_passed": 11,
+    "checks_total": 11,
+    "artifact_id": 10153716930,
+    "artifact_sha256": "9e322d319ea0ab41c73883617cce0d58b3c0bb2a12d187d7db78c2e875174fd5"
+  },
+  "cross_product_validation": {
+    "forecasting_engine_forensic_validation": "success",
+    "fairness_engine_forensic_validation": "success",
+    "analytics_validation": "success",
+    "agent_foundation": "success",
+    "e2e_user_journey": "success",
+    "people_team_browser_acceptance": "success",
+    "release_security": "success",
+    "local_ollama_acceptance": "success"
+  },
+  "interpretation_boundary": "Forecasts are descriptive extrapolations from complete observed monthly censuses. They are not causal predictions, staffing recommendations, or guarantees. No prediction interval is claimed unless independently implemented and validated.",
+  "remaining_scientific_limits": [
+    "A complete census cannot be proven from row contents alone; source-system export completeness remains an organizational data-governance assumption.",
+    "Forecast validity under structural breaks, reorganizations, acquisitions, policy changes, and macro shocks requires real prospective validation.",
+    "Model-selection validation uses only the last three observed months and does not establish long-horizon calibration."
+  ]
+}
