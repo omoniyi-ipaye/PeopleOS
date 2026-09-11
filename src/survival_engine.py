@@ -106,6 +106,7 @@ class SurvivalEngine:
         configured = self.config.get('survival', {}).get('cox_covariates', [])
         if not isinstance(configured, list) or any(not isinstance(c, str) for c in configured):
             raise SurvivalEngineError('Cox covariates must be configured as a list of column names')
+        configured = list(dict.fromkeys(configured))
         self.available_covariates = [
             c for c in configured
             if c in self.df and c not in exclude and pd.api.types.is_numeric_dtype(self.df[c])
@@ -161,6 +162,15 @@ class SurvivalEngine:
             return {'available': False, 'reason': 'No known Attrition outcomes remain for event/censoring classification', 'population': population}
         if len(self.df) < self.min_sample_size:
             return {'available': False, 'reason': f'Insufficient sample size ({len(self.df)} < {self.min_sample_size})', 'population': population}
+        events = int(self.df['Attrition'].sum())
+        censored = int(len(self.df) - events)
+        if events < MIN_PRIVACY_CELL or censored < MIN_PRIVACY_CELL:
+            return {
+                'available': False,
+                'reason': 'Insufficient event/censor support for a privacy-safe cohort survival estimate',
+                'population': population,
+                'outcome_counts_suppressed': True,
+            }
         try:
             overall = self._km_result(self.df, 'Overall')
             results: Dict[str, Any] = {
@@ -180,9 +190,9 @@ class SurvivalEngine:
                     return results
                 suppressed = 0
                 for segment, group in self.df.groupby(segment_by, observed=True, dropna=False):
-                    events = int(group['Attrition'].sum())
-                    censored = int(len(group) - events)
-                    if len(group) < 10 or events < MIN_PRIVACY_CELL or censored < MIN_PRIVACY_CELL:
+                    segment_events = int(group['Attrition'].sum())
+                    segment_censored = int(len(group) - segment_events)
+                    if len(group) < 10 or segment_events < MIN_PRIVACY_CELL or segment_censored < MIN_PRIVACY_CELL:
                         suppressed += 1
                         continue
                     segment_result = self._km_result(group, str(segment))
@@ -190,7 +200,7 @@ class SurvivalEngine:
                         'segment_name': str(segment),
                         'median_survival_months': segment_result['median_survival_months'],
                         'sample_size': len(group),
-                        'events': events,
+                        'events': segment_events,
                         'survival_function': [
                             {'time_months': p['time_months'], 'survival_probability': p['survival_probability']}
                             for p in segment_result['survival_function']
@@ -234,8 +244,21 @@ class SurvivalEngine:
             return {'available': False, 'reason': 'lifelines library not installed'}
 
         raw = self.df[['Tenure', 'Attrition'] + self.available_covariates].copy().replace([np.inf, -np.inf], np.nan).dropna()
-        if len(raw) < MIN_SAMPLE_FOR_COX or int(raw['Attrition'].sum()) < MIN_EVENTS_FOR_MODEL:
-            return {'available': False, 'reason': 'Insufficient rows/events for stable Cox estimation'}
+        cox_population = {
+            'survival_analysis_population': int(len(self.df)),
+            'cox_model_population': int(len(raw)),
+            'excluded_missing_covariates': int(len(self.df) - len(raw)),
+            'coverage': float(len(raw) / len(self.df)) if len(self.df) else 0.0,
+            'population_semantics': 'survival_analysis_rows_with_complete_configured_cox_covariates',
+        }
+        cox_events = int(raw['Attrition'].sum()) if len(raw) else 0
+        cox_censored = int(len(raw) - cox_events)
+        if len(raw) < MIN_SAMPLE_FOR_COX or cox_events < MIN_EVENTS_FOR_MODEL or cox_censored < MIN_EVENTS_FOR_MODEL:
+            return {
+                'available': False,
+                'reason': 'Insufficient rows or event/censor support for stable Cox estimation',
+                'population': cox_population,
+            }
         cox = raw[['Tenure', 'Attrition']].copy()
         norm_cols: list[str] = []
         for col in self.available_covariates:
@@ -245,7 +268,11 @@ class SurvivalEngine:
                 cox[name] = normalized
                 norm_cols.append(name)
         if not norm_cols:
-            return {'available': False, 'reason': 'No variable covariates remain after stable normalization'}
+            return {
+                'available': False,
+                'reason': 'No variable covariates remain after stable normalization',
+                'population': cox_population,
+            }
         try:
             from lifelines.exceptions import ConvergenceWarning
             import warnings as pywarnings
@@ -261,7 +288,11 @@ class SurvivalEngine:
                 required = [row['coef'], row['exp(coef)'], row['p'], row['exp(coef) lower 95%'], row['exp(coef) upper 95%']]
                 if not all(_finite_number(v) for v in required):
                     self.cox_fitted, self.cox_model = False, None
-                    return {'available': False, 'reason': 'Cox model produced non-finite coefficient evidence and was withheld'}
+                    return {
+                        'available': False,
+                        'reason': 'Cox model produced non-finite coefficient evidence and was withheld',
+                        'population': cox_population,
+                    }
                 hr = float(row['exp(coef)'])
                 p_value = float(row['p'])
                 delta = abs(hr - 1) * 100
@@ -282,7 +313,11 @@ class SurvivalEngine:
                 }
             metric_values = [cph.concordance_index_, cph.log_likelihood_, cph.AIC_partial_]
             if not all(_finite_number(v) for v in metric_values):
-                return {'available': False, 'reason': 'Cox model produced non-finite model-fit evidence and was withheld'}
+                return {
+                    'available': False,
+                    'reason': 'Cox model produced non-finite model-fit evidence and was withheld',
+                    'population': cox_population,
+                }
             violated = [
                 idx.replace('_norm', '')
                 for idx, p in ph_test.summary['p'].items()
@@ -297,12 +332,14 @@ class SurvivalEngine:
             return {
                 'available': True,
                 'coefficients': coefficients,
+                'population': cox_population,
                 'model_metrics': {
                     'concordance_index': round(float(cph.concordance_index_), 3),
                     'log_likelihood': round(float(cph.log_likelihood_), 2),
                     'aic': round(float(cph.AIC_partial_), 2),
                     'sample_size': len(cox),
-                    'events': int(cox['Attrition'].sum()),
+                    'events': cox_events,
+                    'censored': cox_censored,
                     'quality_interpretation': (
                         f'In-sample concordance is {cph.concordance_index_:.2f}. This is model-fit context, not held-out predictive validation.'
                     ),
@@ -316,7 +353,11 @@ class SurvivalEngine:
             logger.warning('Cox model fitting unavailable: %s', exc)
             self.cox_fitted = False
             self.cox_model = None
-            return {'available': False, 'reason': f'Cox model could not be fit safely ({type(exc).__name__})'}
+            return {
+                'available': False,
+                'reason': f'Cox model could not be fit safely ({type(exc).__name__})',
+                'population': cox_population,
+            }
 
     def get_hazard_over_time(self) -> Dict[str, Any]:
         if not self.cox_fitted or self.cox_model is None:
