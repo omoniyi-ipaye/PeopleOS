@@ -2,8 +2,9 @@
   "cycle": "013",
   "engine": "SurvivalEngine",
   "status": "forensically_reviewed",
-  "verified_behavioral_candidate": "ce8e083b13bf54eb61a88d04107d765293043495",
-  "scope": "Kaplan-Meier cohort survival, restricted mean survival time, segmented survival, Cox proportional hazards, hazard curves, cohort filters, population/exclusion accounting, event/censor support, privacy suppression, numerical stability, and aggregate-only governance.",
+  "verified_behavioral_candidate": "c0921a19058f33a3c2ba984352a65d91af4ee69a",
+  "validated_candidate_head": "c0921a19058f33a3c2ba984352a65d91af4ee69a",
+  "scope": "Kaplan-Meier cohort survival, restricted mean survival time, segmented survival, Cox proportional hazards, hazard curves, cohort filters, population/exclusion accounting, event/censor support, privacy suppression, numerical stability, governed Cox covariates, convergence safety, aggregate-only governance, and browser-level dataset integrity.",
   "confirmed_findings_fixed": [
     "Invalid minimum-sample configuration values were weakly coerced, accepted, or could raise low-level exceptions instead of failing closed.",
     "Invalid durations and unknown outcomes were excluded without structured analysis-population and coverage accounting.",
@@ -18,18 +19,22 @@
     "Cox stability checks enforced event support but not censor support.",
     "Cox results did not consistently expose the complete-case model population, excluded covariate rows, and coverage.",
     "Kaplan-Meier tail at-risk counts below five could reveal small remaining cells and are now explicitly suppressed.",
-    "Internal aggregate summary fields are now suppression-aware and cannot reintroduce unsupported event counts or rates."
+    "Internal aggregate summary fields are now suppression-aware and cannot reintroduce unsupported event counts or rates.",
+    "Configured arbitrary numeric columns could enter Cox estimation unless individually blocklisted; Cox covariates are now restricted to an explicit governed allowlist and unknown columns fail closed.",
+    "Cox convergence warnings were previously suppressed; any convergence warning now withholds the model as unstable.",
+    "Browser acceptance upload helpers could race dataset-status loading; file replacement now waits for the upload control to become enabled while preserving all data-integrity assertions.",
+    "Browser evidence inspection now opens the evidence ledger before asserting evidence-row visibility, preserving the user-facing trust contract without relying on hidden DOM content."
   ],
-  "forensic_contracts": {"passed": 33, "total": 33},
+  "forensic_contracts": {"passed": 34, "total": 34},
   "stress": {
     "rows": 250000,
     "tenure_resolution": "monthly",
     "checks_passed": 13,
     "checks_total": 13,
-    "artifact_id": 10179385696,
-    "artifact_sha256": "e7f13f8566447f0820d6d045be880f4e64fa2ba7488ddd7a06dab5bb107a31c3"
+    "artifact_id": 10293690263,
+    "artifact_sha256": "ccef77101fc275784a693de5f3c7a6c32ffb8646728e01719031e5121d786a62"
   },
-  "reviewed_source_sha256": "9d750cd55f2d4feee0afbcbac5966d8e05ce74858054d10060d7315757ef5dc7",
+  "reviewed_source_sha256": "91188cb84ec781567fb03bf8aa6019c4da0218a941ed95eea141b9e1bd64e84d",
   "cross_product_validation": {
     "survival_engine_forensic_validation": "success",
     "forecasting_engine_forensic_validation": "success",
@@ -38,6 +43,7 @@
     "agent_foundation": "success",
     "e2e_user_journey": "success",
     "people_team_browser_acceptance": "success",
+    "frontend_modernization": "success",
     "release_security": "success",
     "local_ollama_acceptance": "success"
   },
