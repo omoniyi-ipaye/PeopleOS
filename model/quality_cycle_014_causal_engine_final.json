@@ -1,0 +1,30 @@
+{
+  "cycle": "014",
+  "engine": "CausalEngine",
+  "status": "forensically_reviewed",
+  "verified_behavioral_candidate": "46a5065d99d7bf6f231bce65fe70e9782d551d06",
+  "scope": "causal-effect availability boundary, intervention recommendations, adversarial treatment/outcome names, privacy leakage, source immutability, dataset invariance, numerical/output integrity, and fail-closed causal semantics",
+  "forensic_contracts": {"passed": 13, "total": 13},
+  "reviewed_source_sha256": "5d1539449101223f775951c238addf12dd4e6f2ff865847324a26ae553e87425",
+  "confirmed_findings": [
+    "No new engine defect was confirmed: the existing engine correctly refuses to estimate intervention effects without a validated identification design.",
+    "No correlation fallback, fixed confidence interval, probability-like causal claim, or intervention recommendation is emitted.",
+    "Adversarial, identifier-like and sensitive field names are not reflected into the result and cannot enable a causal estimate.",
+    "Causal calls do not mutate source data and the engine snapshot is isolated from later source-frame mutation.",
+    "Results remain deliberately dataset-invariant because no causal effect is claimed from observational employee snapshots."
+  ],
+  "cross_product_validation": {
+    "causal_engine_forensic_validation": "success",
+    "analytics_validation": "success",
+    "agent_foundation": "success",
+    "e2e_user_journey": "success",
+    "people_team_browser_acceptance": "success",
+    "release_security": "success"
+  },
+  "interpretation_boundary": "PeopleOS does not estimate or recommend causal interventions from ordinary employee snapshot data. Association evidence must not be relabeled as a treatment effect.",
+  "remaining_scientific_limits": [
+    "A future causal implementation requires a pre-specified identification strategy, treatment timing, pre-treatment covariates, overlap/positivity diagnostics and sensitivity analysis.",
+    "Organization-specific causal validation and domain review are required before any intervention-effect estimate can become available.",
+    "This cycle verifies safe unavailability; it does not establish that a causal model exists or is valid."
+  ]
+}
