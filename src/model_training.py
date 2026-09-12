@@ -22,9 +22,6 @@ from src.population import normalize_attrition, resolve_current_population
 from src.preprocessor import Preprocessor
 
 
-# Deliberately closed: adding an HR-export column must not silently change the
-# statistical question. These are supported canonical measurements, not evidence
-# that a customer's measurements were recorded before departure.
 SUPPORTED_ATTRITION_PREDICTORS = frozenset({
     'Dept', 'Tenure', 'Salary', 'LastRating', 'Age', 'Gender', 'JobTitle',
     'YearsInCurrentRole', 'YearsSinceLastPromotion', 'Education', 'Location',
@@ -73,15 +70,24 @@ class RawFeatures(BaseEstimator, TransformerMixin):
         return self
 
     def transform(self, X):
-        return self.preprocessor_.transform(X, target_column='Attrition')[self.columns_]
+        transformed = self.preprocessor_.transform(X, target_column='Attrition')[self.columns_]
+        values = transformed.to_numpy(dtype=float)
+        if not np.isfinite(values).all():
+            raise MLEngineError('Predictive preprocessing produced non-finite features')
+        return transformed
 
 
 def _prepare_raw(df):
+    if not isinstance(df, pd.DataFrame) or df.empty:
+        raise MLEngineError('Predictive training requires a non-empty workforce DataFrame')
     if not df.columns.is_unique:
         raise MLEngineError('Predictive inputs require unique column names')
     current, _ = resolve_current_population(df)
     if 'EmployeeID' not in current or current['EmployeeID'].isna().any():
         raise MLEngineError('Predictive training requires non-missing employee identifiers')
+    identifiers = current['EmployeeID'].astype(str)
+    if identifiers.duplicated().any():
+        raise MLEngineError('Predictive training requires one current row per employee')
     if 'Attrition' not in current:
         raise MLEngineError('Predictive training requires an Attrition outcome')
     target = normalize_attrition(current['Attrition'])
@@ -113,7 +119,6 @@ def binary_metrics(y_true, probabilities, training_prevalence):
     fp = int(((y == 0) & (predicted == 1)).sum())
     brier = float(brier_score_loss(y, p))
     baseline = float(np.mean((y - training_prevalence) ** 2))
-    # Equal-width ECE, weighted by the number of observations in each bin.
     bins = np.minimum((p * 10).astype(int), 9)
     calibration = []
     for index in range(10):
@@ -153,7 +158,6 @@ def train_attrition_model(df: pd.DataFrame) -> TrainedModelArtifact:
                                          stratify=target, random_state=engine.random_seed)
     raw_train, raw_test = raw.iloc[train_idx].copy(), raw.iloc[test_idx].copy()
     y_train, y_test = target.iloc[train_idx], target.iloc[test_idx]
-    # Target never enters transformer input, including during model selection.
     X_train, X_test = raw_train.drop(columns='Attrition'), raw_test.drop(columns='Attrition')
     folds = StratifiedKFold(n_splits=min(3, int(y_train.value_counts().min())),
                            shuffle=True, random_state=engine.random_seed)
@@ -182,7 +186,12 @@ def train_attrition_model(df: pd.DataFrame) -> TrainedModelArtifact:
         searches[name] = search
     best_name = max(searches, key=lambda name: searches[name].best_score_)
     best = searches[best_name].best_estimator_
-    metrics = binary_metrics(y_test, best.predict_proba(X_test)[:, 1], float(y_train.mean()))
+    probabilities = np.asarray(best.predict_proba(X_test), dtype=float)
+    classes = np.asarray(best.named_steps['model'].classes_)
+    positive = np.flatnonzero(classes == 1)
+    if len(positive) != 1 or probabilities.shape != (len(X_test), len(classes)):
+        raise MLEngineError('Selected model does not expose a valid binary attrition probability')
+    metrics = binary_metrics(y_test, probabilities[:, int(positive[0])], float(y_train.mean()))
     metrics.update({
         'predictor_contract': best.named_steps['features'].predictor_contract_,
         'best_model': best_name, 'candidate_cv_average_precision': {n: float(s.best_score_) for n, s in searches.items()},
@@ -213,16 +222,23 @@ def train_attrition_model(df: pd.DataFrame) -> TrainedModelArtifact:
     metrics['reliability'] = 'Retrospective only' if evaluation['passed'] else 'Insufficient validation'
     metrics['validation_checks'] = evaluation['checks']
     if not evaluation['passed']:
-        warnings.append('Model did not meet the minimum retrospective evaluation gate; activation is blocked.')
+        warnings.append('Model did not meet the minimum retrospective evaluation gate; activation and direct scoring are blocked.')
     metrics['warnings'] = warnings
     engine.model = best.named_steps['model']
     engine.preprocessor = best.named_steps['features'].preprocessor_
     engine.feature_names = best.named_steps['features'].columns_
     engine.best_model_name = best_name
-    engine.is_trained = True
+    # A fitted estimator is not automatically an eligible scoring artifact. Only a
+    # model that passes the explicit retrospective gate is marked scoreable. This
+    # still does not imply prospective future-departure validation.
+    engine.is_trained = bool(evaluation['passed'])
     metrics['feature_count'] = len(engine.feature_names)
     if hasattr(engine.model, 'feature_importances_'):
-        metrics['feature_importances'] = dict(zip(engine.feature_names, engine.model.feature_importances_.tolist()))
-    engine._prepare_shap(best.named_steps['features'].transform(X_train))
+        importances = np.asarray(engine.model.feature_importances_, dtype=float)
+        if importances.shape != (len(engine.feature_names),) or not np.isfinite(importances).all():
+            raise MLEngineError('Feature importance output does not align with the trained feature contract')
+        metrics['feature_importances'] = dict(zip(engine.feature_names, importances.tolist()))
+    if engine.is_trained:
+        engine._prepare_shap(best.named_steps['features'].transform(X_train))
     return TrainedModelArtifact(engine, metrics, raw_train['EmployeeID'].astype(str).tolist(),
                                 raw_test['EmployeeID'].astype(str).tolist())
