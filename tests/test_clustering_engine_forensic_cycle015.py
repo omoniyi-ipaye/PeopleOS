@@ -12,7 +12,7 @@ from src.clustering_engine import ClusteringEngine
 
 def workforce(n: int = 80) -> pd.DataFrame:
     rng = np.random.default_rng(15015)
-    frame = pd.DataFrame({
+    return pd.DataFrame({
         'EmployeeID': [f'E{i:04d}' for i in range(n)],
         'Attrition': [0] * n,
         'Salary': np.r_[rng.normal(50000, 2000, n // 2), rng.normal(100000, 2000, n - n // 2)],
@@ -21,7 +21,6 @@ def workforce(n: int = 80) -> pd.DataFrame:
         'Age': rng.integers(24, 60, n),
         'Dept': ['People'] * (n // 4) + ['Engineering'] * (n - n // 4),
     })
-    return frame
 
 
 def test_training_output_is_aggregate_only_and_does_not_expose_employee_ids():
@@ -33,14 +32,19 @@ def test_training_output_is_aggregate_only_and_does_not_expose_employee_ids():
     assert 'EmployeeID' not in payload
 
 
-def test_employee_cluster_membership_is_disabled_at_engine_boundary():
+def test_internal_assignments_have_neutral_ids_not_persona_or_risk_names():
     engine = ClusteringEngine(workforce())
     assert engine.train(n_clusters=2, auto_tune=False)['success']
-    assert engine.get_employee_clusters().empty
+    assignments = engine.get_employee_clusters()
+    assert len(assignments) == engine.results['population']['analysis_population']
+    assert assignments['Cluster_Name'].str.fullmatch(r'Cluster \d+').all()
+    assert not assignments['Cluster_Name'].str.contains('risk|high|low|persona', case=False, regex=True).any()
 
 
 def test_small_clusters_are_suppressed_from_aggregate_outputs():
     frame = workforce(40)
+    frame['LastRating'] = 4.0
+    frame['Age'] = 35
     frame.loc[:2, 'Salary'] = 1_000_000
     frame.loc[:2, 'Tenure'] = 30
     result = ClusteringEngine(frame).train(n_clusters=3, auto_tune=False)
@@ -106,9 +110,8 @@ def test_invalid_cluster_counts_fail_closed():
         assert result['success'] is False
 
 
-def test_auto_tune_never_selects_cluster_count_that_creates_publishable_small_cells():
-    frame = workforce(35)
-    result = ClusteringEngine(frame).train(auto_tune=True)
+def test_auto_tune_never_publishes_small_cluster_cells():
+    result = ClusteringEngine(workforce(35)).train(auto_tune=True)
     assert result['success']
     assert all(int(v) >= 5 for v in result['cluster_counts'].values())
 
@@ -127,6 +130,9 @@ def test_feature_set_cannot_include_identifiers_even_if_numeric():
 def test_failure_reason_does_not_echo_sensitive_values():
     frame = workforce(12)
     frame['Salary'] = np.nan
+    frame['Tenure'] = np.nan
+    frame['LastRating'] = np.nan
+    frame['Age'] = np.nan
     frame['NationalID'] = [f'SECRET-{i}' for i in range(len(frame))]
     result = ClusteringEngine(frame).train()
     assert result['success'] is False
