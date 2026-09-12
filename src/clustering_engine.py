@@ -1,266 +1,222 @@
-"""
-Clustering Engine module for PeopleOS.
+"""Privacy-governed aggregate clustering for PeopleOS.
 
-Provides unsupervised learning capabilities to segment employees into groups
-based on their attributes (Salary, Tenure, Performance, etc.).
+Clustering is exploratory cohort structure, not an employee risk score, persona,
+or stable taxonomy. Cluster IDs are arbitrary labels from an unsupervised fit.
+Publishable engine results are aggregate-only; individual assignments remain an
+internal diagnostic surface and are not exposed by the governed product API.
 """
 
-from typing import List, Dict, Any, Optional
-import pandas as pd
+from __future__ import annotations
+
+from typing import Any, Dict, List, Optional
+
 import numpy as np
+import pandas as pd
 from sklearn.cluster import KMeans
-from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import silhouette_score
+from sklearn.preprocessing import StandardScaler
 
 from src.logger import get_logger
 from src.population import active_population
 
 logger = get_logger('clustering_engine')
+MIN_CLUSTER_SAMPLE = 10
+MIN_PRIVACY_CELL = 5
+CANDIDATE_FEATURES = [
+    'Salary', 'Tenure', 'LastRating', 'Age',
+    'YearsInCurrentRole', 'YearsSinceLastPromotion',
+    'CompaRatio', 'EngagementScore', 'Pulse_Score', 'InterviewScore',
+]
+
 
 class ClusteringEngine:
-    """
-    Engine for grouping employees into clusters using Unsupervised Learning.
-    
-    Uses K-Means clustering to find natural groupings in the data.
-    """
-    
+    """Aggregate-only K-Means exploration over the current active workforce."""
+
     def __init__(self, df: pd.DataFrame):
-        """
-        Initialize the Clustering Engine.
-        
-        Args:
-            df: DataFrame containing employee data.
-        """
-        self.df = active_population(df)
+        self.df = active_population(df).copy(deep=True)
+        self._source_population_size = len(self.df)
         self.model: Optional[KMeans] = None
         self.scaler = StandardScaler()
         self.feature_cols: List[str] = []
         self.cluster_labels: Optional[np.ndarray] = None
         self.results: Dict[str, Any] = {}
+        self.training_frame = pd.DataFrame()
+
     def _prepare_data(self) -> pd.DataFrame:
-        """
-        Select and preprocess features for clustering.
-        Pivoting to Active Employees Only: Personas should represent current staff.
-        
-        Returns:
-            DataFrame with scaled features.
-        """
-        if 'Attrition' in self.df.columns:
-            active_df = self.df[self.df['Attrition'] == 0]
-        else:
-            active_df = self.df
-            
-        # Potential features for clustering
-        candidate_cols = [
-            'Salary', 'Tenure', 'LastRating', 'Age', 
-            'YearsInCurrentRole', 'YearsSinceLastPromotion', 
-            'CompaRatio', 'EngagementScore', 'Pulse_Score',
-            'InterviewScore'
-        ]
-        
-        # Select available numeric columns
         self.feature_cols = [
-            col for col in candidate_cols 
-            if col in active_df.columns and pd.api.types.is_numeric_dtype(active_df[col])
+            col for col in CANDIDATE_FEATURES
+            if col in self.df.columns and pd.api.types.is_numeric_dtype(self.df[col])
         ]
-        
         if not self.feature_cols:
-            raise ValueError("No suitable numeric columns found for clustering.")
-            
-        # Drop rows with NaNs in feature columns for training
-        X = active_df[self.feature_cols].replace([np.inf, -np.inf], np.nan).dropna()
-        
-        if X.empty:
-            raise ValueError("No data remaining after dropping NaNs.")
-            
-        return X
+            raise ValueError('No approved numeric clustering features are available')
+        frame = self.df[self.feature_cols].apply(pd.to_numeric, errors='coerce')
+        frame = frame.replace([np.inf, -np.inf], np.nan).dropna()
+        if frame.empty:
+            raise ValueError('No complete finite rows remain for clustering')
+        return frame
+
+    @staticmethod
+    def _stable_scale(frame: pd.DataFrame) -> np.ndarray:
+        """Scale finite values without overflowing on extreme-but-finite magnitudes."""
+        normalized = pd.DataFrame(index=frame.index)
+        for col in frame.columns:
+            values = frame[col].to_numpy(dtype=float)
+            scale = float(np.max(np.abs(values))) if len(values) else 0.0
+            if not np.isfinite(scale):
+                raise ValueError('Clustering feature magnitude is not finite')
+            normalized[col] = values if scale == 0 else values / scale
+        scaled = StandardScaler().fit_transform(normalized)
+        if not np.isfinite(scaled).all():
+            raise ValueError('Clustering normalization produced non-finite values')
+        return scaled
+
+    @staticmethod
+    def _stable_mean(series: pd.Series) -> float:
+        values = pd.to_numeric(series, errors='coerce').to_numpy(dtype=float)
+        if len(values) == 0 or not np.isfinite(values).all():
+            raise ValueError('Cluster summary contains non-finite values')
+        scale = float(np.max(np.abs(values)))
+        if scale == 0:
+            return 0.0
+        value = float(np.mean(values / scale) * scale)
+        if not np.isfinite(value):
+            raise ValueError('Cluster summary mean is non-finite')
+        return value
+
+    @staticmethod
+    def _python(value: Any) -> Any:
+        if isinstance(value, dict):
+            return {str(k): ClusteringEngine._python(v) for k, v in value.items()}
+        if isinstance(value, (list, tuple, np.ndarray)):
+            return [ClusteringEngine._python(v) for v in value]
+        if isinstance(value, (np.integer,)):
+            return int(value)
+        if isinstance(value, (np.floating,)):
+            value = float(value)
+        if isinstance(value, float) and not np.isfinite(value):
+            return None
+        if pd.isna(value):
+            return None
+        return value
+
+    def _population_metadata(self, analysis_population: int) -> Dict[str, Any]:
+        source = int(self._source_population_size)
+        return {
+            'source_population': source,
+            'analysis_population': int(analysis_population),
+            'excluded_missing_or_nonfinite_features': int(source - analysis_population),
+            'coverage': float(analysis_population / source) if source else 0.0,
+            'population_semantics': 'current_active_employees_with_complete_finite_approved_clustering_features',
+        }
 
     def train(self, n_clusters: int = 3, auto_tune: bool = True) -> Dict[str, Any]:
-        """
-        Train the clustering model.
-        
-        Args:
-            n_clusters: Number of clusters to create (if auto_tune is False).
-            auto_tune: If True, automatically finds optimal n_clusters using Silhouette Score.
-            
-        Returns:
-            Dictionary with clustering results.
-        """
         self.results, self.model, self.cluster_labels = {}, None, None
+        self.training_frame = pd.DataFrame()
         try:
             X = self._prepare_data()
-            if len(X) < 10:
-                logger.warning("Insufficient data for clustering (need <10 rows).")
-                return {'success': False, 'reason': 'Insufficient data'}
-                
+            population = self._population_metadata(len(X))
+            if len(X) < MIN_CLUSTER_SAMPLE:
+                return {'success': False, 'reason': f'Insufficient complete-case rows for clustering ({len(X)} < {MIN_CLUSTER_SAMPLE})', 'population': population}
+
             distinct = len(X.drop_duplicates())
             if distinct < 2:
-                return {'success': False, 'reason': 'At least two distinct observations are required'}
-            if not auto_tune and (not isinstance(n_clusters, int) or isinstance(n_clusters, bool) or not 2 <= n_clusters <= min(distinct, len(X) - 1)):
-                return {'success': False, 'reason': 'Cluster count must fit distinct observations'}
-            self.training_frame = self.df.loc[X.index]
-            X_scaled = self.scaler.fit_transform(X)
-            
-            best_n = n_clusters
-            best_score = -1.0
-            best_model = None
-            
+                return {'success': False, 'reason': 'At least two distinct observations are required', 'population': population}
+            if not auto_tune and (
+                isinstance(n_clusters, (bool, np.bool_))
+                or not isinstance(n_clusters, (int, np.integer))
+                or not 2 <= int(n_clusters) <= min(distinct, len(X) - 1)
+            ):
+                return {'success': False, 'reason': 'Cluster count must be an integer compatible with the analysis population', 'population': population}
+
+            self.training_frame = self.df.loc[X.index].copy()
+            X_scaled = self._stable_scale(X)
+
+            best_n = int(n_clusters) if isinstance(n_clusters, (int, np.integer)) and not isinstance(n_clusters, (bool, np.bool_)) else 3
+            best_score: Optional[float] = None
+            best_model: Optional[KMeans] = None
+
             if auto_tune:
-                # Try 2 to 6 clusters
                 max_k = min(6, distinct, len(X) - 1)
+                candidates: list[tuple[float, int, KMeans]] = []
                 for k in range(2, max_k + 1):
                     model = KMeans(n_clusters=k, random_state=42, n_init='auto')
                     labels = model.fit_predict(X_scaled)
-                    score = silhouette_score(X_scaled, labels)
-                    
-                    if score > best_score:
-                        best_score = score
-                        best_n = k
-                        best_model = model
+                    score = float(silhouette_score(X_scaled, labels))
+                    if np.isfinite(score):
+                        candidates.append((score, k, model))
+                if not candidates:
+                    return {'success': False, 'reason': 'No stable clustering candidate could be fit', 'population': population}
+                publishable = [item for item in candidates if np.bincount(item[2].labels_, minlength=item[1]).min() >= MIN_PRIVACY_CELL]
+                best_score, best_n, best_model = max(publishable or candidates, key=lambda item: item[0])
             else:
-                best_model = KMeans(n_clusters=n_clusters, random_state=42, n_init='auto')
+                best_model = KMeans(n_clusters=int(n_clusters), random_state=42, n_init='auto')
                 best_model.fit(X_scaled)
-                
+
+            if best_model is None:
+                return {'success': False, 'reason': 'No clustering model could be fit safely', 'population': population}
+
+            labels = best_model.predict(X_scaled)
+            if len(labels) != len(X):
+                return {'success': False, 'reason': 'Cluster assignment count does not reconcile to the analysis population', 'population': population}
+
             self.model = best_model
-            
-            # Predict labels for the full dataset (handling NaNs by skipping or filling?)
-            # For simplicity, we only label rows we trained on (dropped NaNs)
-            # A more robust approach would impute NaNs.
-            self.cluster_labels = self.model.predict(X_scaled)
-            
-            # Identify valid employee IDs for these clusters
-            # We need to map back to original DataFrame index
-            valid_indices = X.index
+            self.cluster_labels = labels
+            labeled = self.training_frame.copy()
+            labeled['Cluster'] = labels
+            raw_counts = labeled['Cluster'].value_counts().sort_index()
+            publishable_ids = [int(cluster_id) for cluster_id, count in raw_counts.items() if int(count) >= MIN_PRIVACY_CELL]
+            suppressed_ids = [int(cluster_id) for cluster_id, count in raw_counts.items() if int(count) < MIN_PRIVACY_CELL]
+            suppressed_rows = int(sum(int(raw_counts.loc[cluster_id]) for cluster_id in suppressed_ids))
 
-            # Add cluster labels to a copy of the original dataframe to get departments
-            df_labeled = self.df.loc[valid_indices].copy()
-            df_labeled['Cluster'] = self.cluster_labels
+            cluster_counts = {str(cluster_id): int(raw_counts.loc[cluster_id]) for cluster_id in publishable_ids}
+            feature_summary: Dict[str, Dict[str, float]] = {}
+            top_departments: Dict[str, Dict[str, int]] = {}
+            for cluster_id in publishable_ids:
+                group = labeled[labeled['Cluster'] == cluster_id]
+                feature_summary[str(cluster_id)] = {
+                    col: self._stable_mean(group[col]) for col in self.feature_cols
+                }
+                if 'Dept' in group.columns:
+                    counts = group['Dept'].astype('string').fillna('Unknown').value_counts()
+                    top_departments[str(cluster_id)] = {
+                        str(name): int(count) for name, count in counts.items()
+                        if int(count) >= MIN_PRIVACY_CELL
+                    }
 
-            # Cluster counts
-            cluster_counts = df_labeled['Cluster'].value_counts().to_dict()
-
-            # Generate cluster summaries
-            feature_summary = df_labeled.groupby('Cluster')[self.feature_cols].mean()
-
-            # Top departments per cluster
-            top_depts = {}
-            if 'Dept' in df_labeled.columns:
-                for cluster_id in range(best_n):
-                    depts = df_labeled[df_labeled['Cluster'] == cluster_id]['Dept'].value_counts().head(3).to_dict()
-                    top_depts[cluster_id] = depts
-
-            # Generate persona names/descriptions
-            cluster_descriptions = self._generate_cluster_descriptions(feature_summary)
-
-            def _to_python_types(obj):
-                """Recursively convert numpy types to native Python types."""
-                if isinstance(obj, dict):
-                    return {str(k) if isinstance(k, (np.integer, np.floating)) else k: _to_python_types(v) for k, v in obj.items()}
-                elif isinstance(obj, (list, tuple, np.ndarray)):
-                    return [_to_python_types(item) for item in obj]
-                elif isinstance(obj, (np.integer, np.int32, np.int64)):
-                    return int(obj)
-                elif isinstance(obj, (np.floating, np.float32, np.float64)):
-                    return float(obj)
-                elif pd.isna(obj):
-                    return None
-                return obj
-
-            self.results = _to_python_types({
+            result = {
                 'success': True,
-                'n_clusters': best_n,
-                'silhouette_score': best_score if auto_tune else None,
-                'feature_summary': feature_summary.to_dict(),
+                'n_clusters': int(best_n),
+                'silhouette_score': float(best_score) if best_score is not None else None,
+                'feature_summary': feature_summary,
                 'cluster_counts': cluster_counts,
-                'top_departments': top_depts,
-                'cluster_descriptions': cluster_descriptions,
-                'labels': {str(self.df.loc[idx]['EmployeeID']): int(label) for idx, label in zip(valid_indices, self.cluster_labels)},
-                'excluded_count': len(self.df) - len(valid_indices)
-            })
-            
-            return self.results
-            
-        except Exception as e:
-            logger.error(f"Clustering training failed: {e}")
-            return {'success': False, 'reason': str(e)}
-
-    def _generate_cluster_descriptions(self, summary: pd.DataFrame) -> Dict[int, str]:
-        """
-        Generate human-readable names for clusters based on their centroids.
-        
-        Args:
-            summary: DataFrame of cluster means.
-            
-        Returns:
-            Dict mapping cluster ID -> Description string.
-        """
-        descriptions = {}
-        global_means = self.training_frame[self.feature_cols].mean()
-        
-        for cluster_id, row in summary.iterrows():
-            traits = []
-            
-            # Identify defining traits - calculate z-score for each column correctly
-            sorted_traits = []
-            for col in self.feature_cols:
-                col_mean = global_means[col]
-                col_std = self.training_frame[col].std()
-                z_score = (row[col] - col_mean) / col_std if col_std > 0 else 0
-                if abs(z_score) > 0.4:
-                    sorted_traits.append((col, z_score))
-            
-            # Sort by absolute impact
-            sorted_traits.sort(key=lambda x: abs(x[1]), reverse=True)
-            
-            # Map technical names to friendly names
-            COLUMN_NAME_MAPPING = {
-                'YearsSinceLastPromotion': 'Stagnation',
-                'Pulse_Score': 'Engagement',
-                'LastRating': 'Performance',
-                'CompaRatio': 'Compensation Level',
-                'JobLevel': 'Seniority',
-                'PriorExperienceYears': 'Experience',
-                'ManagerChangeCount': 'Stability',
-                'InterviewScore': 'Interview Quality',
-                'Training_Hours': 'Upskilling',
-                'Overtime_Hours': 'Workload',
-                'Sick_Leaf_Days': 'Health Checks',
-                'Remote_Days_Ratio': 'Remote Work',
-                'Team_Size': 'Team Scale',
-                'Salary': 'Compensation'
+                'top_departments': top_departments,
+                'suppressed_cluster_count': len(suppressed_ids),
+                'suppressed_row_count': suppressed_rows,
+                'minimum_privacy_cell': MIN_PRIVACY_CELL,
+                'population': population,
+                'features_used': list(self.feature_cols),
+                'cluster_semantics': 'unsupervised_group_ids_are_arbitrary_and_not_stable_personas_or_risk_levels',
+                'interpretation_boundary': 'Clusters are exploratory aggregate geometry only; they are not employee risk categories, causal groups, or stable personas.',
             }
-
-            traits = []
-            for col, z in sorted_traits[:3]:
-                prefix = "High" if z > 0 else "Low"
-                friendly_name = col
-                traits.append(f"{prefix} {friendly_name}")
-            
-            # Construct description
-            if not traits:
-                desc = "Average Profile"
-            else:
-                desc = ", ".join(traits)
-                
-            descriptions[cluster_id] = desc
-            
-        return descriptions
+            import json
+            json.dumps(result, allow_nan=False)
+            self.results = self._python(result)
+            return self.results
+        except Exception as exc:
+            logger.exception('Clustering training failed')
+            self.results, self.model, self.cluster_labels = {}, None, None
+            self.training_frame = pd.DataFrame()
+            return {'success': False, 'reason': f'Clustering could not be fit safely ({type(exc).__name__})'}
 
     def get_employee_clusters(self) -> pd.DataFrame:
-        """
-        Get DataFrame with EmployeeID and their assigned Cluster.
-        
-        Returns:
-            DataFrame with 'EmployeeID', 'Cluster', 'Cluster_Name'
-        """
-        if not self.results or not self.results.get('success'):
-            return pd.DataFrame()
-            
-        labels_map = self.results['labels']
-        descriptions = self.results['cluster_descriptions']
-        
-        # Create result DF
-        result_df = pd.DataFrame({'EmployeeID': list(labels_map), 'Cluster': list(labels_map.values())})
-        result_df['Cluster_Name'] = result_df['Cluster'].map(lambda value: descriptions.get(str(value), descriptions.get(value)))
-        
-        return result_df
+        """Internal diagnostic assignments; governed API routes never expose this."""
+        if self.cluster_labels is None or self.training_frame.empty or len(self.cluster_labels) != len(self.training_frame):
+            return pd.DataFrame(columns=['EmployeeID', 'Cluster', 'Cluster_Name'])
+        if 'EmployeeID' not in self.training_frame.columns:
+            return pd.DataFrame(columns=['EmployeeID', 'Cluster', 'Cluster_Name'])
+        result = pd.DataFrame({
+            'EmployeeID': self.training_frame['EmployeeID'].astype(str).tolist(),
+            'Cluster': [int(value) for value in self.cluster_labels],
+        })
+        result['Cluster_Name'] = result['Cluster'].map(lambda value: f'Cluster {value}')
+        return result
