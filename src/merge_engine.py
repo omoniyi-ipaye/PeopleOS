@@ -22,8 +22,6 @@ from src.population import resolve_current_population
 
 logger = get_logger('merge_engine')
 
-# This list mirrors the governed employee fields supported by Database.upsert_employees.
-# Unknown upload columns must never silently become merge-preview or persistence fields.
 GOVERNED_PERSISTED_FIELDS = (
     'Dept', 'Tenure', 'Salary', 'LastRating', 'Age', 'Attrition', 'Gender',
     'JobTitle', 'Location', 'Country', 'HireDate', 'ManagerID',
@@ -49,8 +47,6 @@ NUMERIC_FIELDS = {
     'CompaRatio', 'PriorExperienceYears', 'ManagerChangeCount',
 }
 
-# The field name may be surfaced to an authorized HR operator so they know what
-# changed, but individual before/after values are deliberately suppressed.
 REDACTED_PREVIEW_FIELDS = {
     'Gender', 'HireDate', 'ManagerID', 'InterviewScore', 'AssessmentScore',
     'InterviewScore_Technical', 'InterviewScore_Cultural',
@@ -89,8 +85,6 @@ def _json_safe_scalar(value: Any) -> Any:
 
 @dataclass
 class FieldChange:
-    """A governed field change safe for an HR merge preview."""
-
     field_name: str
     old_value: Any
     new_value: Any
@@ -107,8 +101,6 @@ class FieldChange:
 
 @dataclass
 class EmployeeChange:
-    """Changes for one employee in the authorized merge workflow."""
-
     employee_id: str
     change_type: str
     changes: List[FieldChange] = field(default_factory=list)
@@ -161,8 +153,6 @@ class MergeResult:
 class MergeEngine:
     """Preview and execute governed employee-record merges."""
 
-    # Kept for compatibility with older callers/tests; the actual governed field
-    # contract is GOV​​ERNED_PERSISTED_FIELDS above.
     COMPARE_FIELDS = [
         ('Dept', 'dept'), ('Tenure', 'tenure'), ('Salary', 'salary'),
         ('LastRating', 'last_rating'), ('Age', 'age'), ('Attrition', 'attrition'),
@@ -221,9 +211,7 @@ class MergeEngine:
 
     def _detect_changes(self, existing: pd.Series, new: pd.Series) -> List[FieldChange]:
         changes: list[FieldChange] = []
-        for field_name in GOV​​ERNED_PERSISTED_FIELDS:
-            # Missing/blank fields do not mean "erase the known value". Explicit
-            # field clearing needs its own future contract rather than ambiguity.
+        for field_name in GOVERNED_PERSISTED_FIELDS:
             if not self._incoming_has_value(new, field_name):
                 continue
             old_value = existing.get(field_name)
@@ -247,8 +235,7 @@ class MergeEngine:
 
         existing = self.db.get_all_employees()
         existing_map = {
-            str(row['EmployeeID']): row
-            for _, row in existing.iterrows()
+            str(row['EmployeeID']): row for _, row in existing.iterrows()
         } if not existing.empty and 'EmployeeID' in existing else {}
 
         for _, row in frame.iterrows():
@@ -272,25 +259,21 @@ class MergeEngine:
         output: Dict[str, Any] = {'EmployeeID': str(row['EmployeeID'])}
         if 'SnapshotDate' in row.index and pd.notna(row.get('SnapshotDate')):
             output['SnapshotDate'] = row.get('SnapshotDate')
-        for field_name in GOV​​ERNED_PERSISTED_FIELDS:
+        for field_name in GOVERNED_PERSISTED_FIELDS:
             incoming_present = field_name in row.index
             incoming_value = row.get(field_name) if incoming_present else None
             try:
                 incoming_missing = (not incoming_present) or bool(pd.isna(incoming_value))
             except (TypeError, ValueError):
                 incoming_missing = not incoming_present
-            if incoming_missing:
-                output[field_name] = existing.get(field_name)
-            else:
-                output[field_name] = incoming_value
+            output[field_name] = existing.get(field_name) if incoming_missing else incoming_value
         return output
 
     def _write_frame(self, frame: pd.DataFrame, changed_ids: set[str], existing: pd.DataFrame) -> pd.DataFrame:
         if frame.empty or not changed_ids:
             return pd.DataFrame(columns=['EmployeeID'])
         existing_map = {
-            str(row['EmployeeID']): row
-            for _, row in existing.iterrows()
+            str(row['EmployeeID']): row for _, row in existing.iterrows()
         } if not existing.empty and 'EmployeeID' in existing else {}
         rows: list[Dict[str, Any]] = []
         for _, row in frame.iterrows():
@@ -303,7 +286,7 @@ class MergeEngine:
                 payload: Dict[str, Any] = {'EmployeeID': employee_id}
                 if 'SnapshotDate' in row.index and pd.notna(row.get('SnapshotDate')):
                     payload['SnapshotDate'] = row.get('SnapshotDate')
-                for field_name in GOV​​ERNED_PERSISTED_FIELDS:
+                for field_name in GOVERNED_PERSISTED_FIELDS:
                     if field_name in row.index:
                         payload[field_name] = row.get(field_name)
                 rows.append(payload)
