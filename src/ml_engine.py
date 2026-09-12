@@ -394,18 +394,34 @@ class MLEngine:
         return X
 
     def predict_risk(self, X: pd.DataFrame) -> np.ndarray:
-        """Internal scoring primitive used by governed aggregate runtime surfaces."""
+        """Internal scoring primitive used by governed aggregate runtime surfaces.
+
+        Training requires both outcome classes. For compatibility with a previously
+        serialized or externally supplied estimator, inference also handles a model
+        whose ``classes_`` contains only 0 or only 1 without inventing the missing
+        class probability: an all-0 classifier has attrition probability 0 and an
+        all-1 classifier has attrition probability 1.
+        """
         X = self._validated_scoring_frame(X)
         probabilities = np.asarray(self.model.predict_proba(X), dtype=float)
         classes = np.asarray(getattr(self.model, 'classes_', []))
+        class_values = classes.tolist() if classes.ndim == 1 else []
+        valid_classes = (
+            classes.ndim == 1
+            and 1 <= len(classes) <= 2
+            and len(set(class_values)) == len(class_values)
+            and set(class_values).issubset({0, 1})
+        )
         if (
-            classes.ndim != 1 or set(classes.tolist()) != {0, 1}
+            not valid_classes
             or probabilities.shape != (len(X), len(classes))
             or not np.isfinite(probabilities).all()
             or (probabilities < 0).any() or (probabilities > 1).any()
             or not np.allclose(probabilities.sum(axis=1), 1.0, rtol=1e-7, atol=1e-9)
         ):
             raise MLEngineError('Expected finite binary attrition probabilities')
+        if len(classes) == 1:
+            return np.ones(len(X), dtype=float) if int(classes[0]) == 1 else np.zeros(len(X), dtype=float)
         positive = np.flatnonzero(classes == 1)
         if len(positive) != 1:
             raise MLEngineError('Expected exactly one positive attrition class')
