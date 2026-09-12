@@ -133,10 +133,26 @@ def test_cohort_numeric_filter_domain_is_strict():
     assert engine.generate_cohort_insights({'tenure_min':4,'tenure_max':2})['cohort_size']==0
 
 
-def test_cox_uses_only_configured_non_identifier_covariates(monkeypatch):
-    monkeypatch.setattr(survival_module,'load_config',lambda: {'survival':{'min_sample_size':30,'cox_covariates':['Age','LastRating','ManagerID','EmployeeID']}})
-    engine=SurvivalEngine(workforce(100))
+def test_cox_uses_only_explicitly_allowlisted_covariates(monkeypatch):
+    data=workforce(100)
+    data['NumericEmployeeKey']=np.arange(len(data))
+    monkeypatch.setattr(survival_module,'load_config',lambda: {'survival':{'min_sample_size':30,'cox_covariates':['Age','LastRating','ManagerID','EmployeeID','NumericEmployeeKey']}})
+    engine=SurvivalEngine(data)
     assert set(engine.available_covariates)=={'Age','LastRating'}
+
+
+def test_cox_convergence_warning_fails_closed(monkeypatch):
+    monkeypatch.setattr(survival_module,'load_config',lambda: {'survival':{'min_sample_size':30,'cox_covariates':['Age']}})
+    from lifelines import CoxPHFitter
+    from lifelines.exceptions import ConvergenceWarning
+    original_fit=CoxPHFitter.fit
+    def warning_fit(self,*args,**kwargs):
+        warnings.warn('forced convergence warning',ConvergenceWarning)
+        return original_fit(self,*args,**kwargs)
+    monkeypatch.setattr(CoxPHFitter,'fit',warning_fit)
+    result=SurvivalEngine(workforce(120)).fit_cox_proportional_hazards()
+    assert result['available'] is False
+    assert 'convergence' in result['reason'].lower()
 
 
 def test_cox_extreme_finite_covariates_never_emit_nonfinite_output(monkeypatch):
