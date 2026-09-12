@@ -25,8 +25,10 @@ async function openPrimary(page: Page, name: string, path: string) {
 
 async function upload(page: Page, name = 'A', missingOutcomes = false) {
   await page.goto('/upload')
+  const input = page.locator('input[type=file]')
+  await expect(input).toBeEnabled({ timeout: 30_000 })
   const response = page.waitForResponse(r => r.url().endsWith('/api/upload') && r.request().method() === 'POST')
-  await page.locator('input[type=file]').setInputFiles({ name: `workforce-${name}.csv`, mimeType: 'text/csv', buffer: workforce(name, missingOutcomes) })
+  await input.setInputFiles({ name: `workforce-${name}.csv`, mimeType: 'text/csv', buffer: workforce(name, missingOutcomes) })
   const uploaded = await response
   expect(uploaded.ok(), await uploaded.text()).toBeTruthy()
   await expect(page.getByText('Import complete', { exact: true })).toBeVisible()
@@ -38,8 +40,10 @@ async function upload(page: Page, name = 'A', missingOutcomes = false) {
 
 async function uploadRaw(page: Page, name: string, content: string) {
   await page.goto('/upload')
+  const input = page.locator('input[type=file]')
+  await expect(input).toBeEnabled({ timeout: 30_000 })
   const response = page.waitForResponse(r => r.url().endsWith('/api/upload') && r.request().method() === 'POST')
-  await page.locator('input[type=file]').setInputFiles({ name, mimeType: 'text/csv', buffer: Buffer.from(content) })
+  await input.setInputFiles({ name, mimeType: 'text/csv', buffer: Buffer.from(content) })
   return response
 }
 

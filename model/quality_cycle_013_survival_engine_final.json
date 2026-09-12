@@ -1,0 +1,57 @@
+{
+  "cycle": "013",
+  "engine": "SurvivalEngine",
+  "status": "forensically_reviewed",
+  "verified_behavioral_candidate": "c0921a19058f33a3c2ba984352a65d91af4ee69a",
+  "validated_candidate_head": "c0921a19058f33a3c2ba984352a65d91af4ee69a",
+  "scope": "Kaplan-Meier cohort survival, restricted mean survival time, segmented survival, Cox proportional hazards, hazard curves, cohort filters, population/exclusion accounting, event/censor support, privacy suppression, numerical stability, governed Cox covariates, convergence safety, aggregate-only governance, and browser-level dataset integrity.",
+  "confirmed_findings_fixed": [
+    "Invalid minimum-sample configuration values were weakly coerced, accepted, or could raise low-level exceptions instead of failing closed.",
+    "Invalid durations and unknown outcomes were excluded without structured analysis-population and coverage accounting.",
+    "All-unknown outcome data could degrade to a generic insufficient-sample message instead of explicitly reporting unavailable event/censor classification.",
+    "Identifier-like or unapproved survival segmentation was not explicitly rejected at the engine boundary.",
+    "Segmented survival could expose cohorts with event or censor cells below the privacy support floor.",
+    "Cohort insights could expose exact attrition counts and rates when one outcome cell was below the privacy support floor.",
+    "Boolean/string/non-finite cohort duration filters could pass numeric validation or behave as numbers.",
+    "Cox covariate normalization could overflow on extreme-but-finite values.",
+    "Overall Kaplan-Meier estimates could remain available with unsupported event or censor cells.",
+    "Duplicate configured Cox covariates were not deduplicated and could break model construction.",
+    "Cox stability checks enforced event support but not censor support.",
+    "Cox results did not consistently expose the complete-case model population, excluded covariate rows, and coverage.",
+    "Kaplan-Meier tail at-risk counts below five could reveal small remaining cells and are now explicitly suppressed.",
+    "Internal aggregate summary fields are now suppression-aware and cannot reintroduce unsupported event counts or rates.",
+    "Configured arbitrary numeric columns could enter Cox estimation unless individually blocklisted; Cox covariates are now restricted to an explicit governed allowlist and unknown columns fail closed.",
+    "Cox convergence warnings were previously suppressed; any convergence warning now withholds the model as unstable.",
+    "Browser acceptance upload helpers could race dataset-status loading; file replacement now waits for the upload control to become enabled while preserving all data-integrity assertions.",
+    "Browser evidence inspection now opens the evidence ledger before asserting evidence-row visibility, preserving the user-facing trust contract without relying on hidden DOM content."
+  ],
+  "forensic_contracts": {"passed": 34, "total": 34},
+  "stress": {
+    "rows": 250000,
+    "tenure_resolution": "monthly",
+    "checks_passed": 13,
+    "checks_total": 13,
+    "artifact_id": 10293690263,
+    "artifact_sha256": "ccef77101fc275784a693de5f3c7a6c32ffb8646728e01719031e5121d786a62"
+  },
+  "reviewed_source_sha256": "91188cb84ec781567fb03bf8aa6019c4da0218a941ed95eea141b9e1bd64e84d",
+  "cross_product_validation": {
+    "survival_engine_forensic_validation": "success",
+    "forecasting_engine_forensic_validation": "success",
+    "fairness_engine_forensic_validation": "success",
+    "analytics_validation": "success",
+    "agent_foundation": "success",
+    "e2e_user_journey": "success",
+    "people_team_browser_acceptance": "success",
+    "frontend_modernization": "success",
+    "release_security": "success",
+    "local_ollama_acceptance": "success"
+  },
+  "interpretation_boundary": "Survival outputs are cohort-level estimates from employment origin. They are not individual next-period attrition probabilities, causal effects, or employment-action recommendations. Cox concordance is in-sample model-fit context rather than prospective predictive validation.",
+  "remaining_scientific_limits": [
+    "PeopleOS cannot infer from the table alone that Tenure is truly time-to-exit for leavers and censoring time for retained employees; source-system semantics must be validated.",
+    "Kaplan-Meier validity depends on censoring assumptions that synthetic tests cannot establish for a real organization.",
+    "Cox proportional-hazards screening can flag assumption concerns but does not establish causal validity or absence of unmeasured confounding.",
+    "Prospective organization-specific validation remains required before stronger predictive claims."
+  ]
+}
