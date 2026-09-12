@@ -24,6 +24,9 @@ MIN_SAMPLE_FOR_COX = 50
 MIN_EVENTS_FOR_MODEL = 10
 MIN_PRIVACY_CELL = 5
 SAFE_SEGMENT_DIMENSIONS = {'Dept', 'Location', 'JobLevel'}
+SAFE_COX_COVARIATES = {
+    'Salary', 'YearsSinceLastPromotion', 'YearsInCurrentRole', 'LastRating', 'Age', 'CompaRatio',
+}
 
 
 class SurvivalEngineError(Exception):
@@ -109,7 +112,7 @@ class SurvivalEngine:
         configured = list(dict.fromkeys(configured))
         self.available_covariates = [
             c for c in configured
-            if c in self.df and c not in exclude and pd.api.types.is_numeric_dtype(self.df[c])
+            if c in self.df and c in SAFE_COX_COVARIATES and c not in exclude and pd.api.types.is_numeric_dtype(self.df[c])
         ]
         if self.has_attrition and int(self.df['Attrition'].sum()) < MIN_EVENTS_FOR_MODEL:
             self.warnings.append(f'Only {int(self.df["Attrition"].sum())} observed attrition events; Cox estimates may be unstable.')
@@ -276,11 +279,19 @@ class SurvivalEngine:
         try:
             from lifelines.exceptions import ConvergenceWarning
             import warnings as pywarnings
-            with pywarnings.catch_warnings():
-                pywarnings.simplefilter('ignore', ConvergenceWarning)
+            with pywarnings.catch_warnings(record=True) as convergence_warnings:
+                pywarnings.simplefilter('always', ConvergenceWarning)
                 cph = CoxPHFitter()
                 cph.fit(cox[['Tenure', 'Attrition'] + norm_cols], duration_col='Tenure', event_col='Attrition')
-                ph_test = proportional_hazard_test(cph, cox[['Tenure', 'Attrition'] + norm_cols], time_transform='rank')
+            if any(isinstance(item.message, ConvergenceWarning) for item in convergence_warnings):
+                return {
+                    'available': False,
+                    'reason': 'Cox model emitted a convergence warning and was withheld as unstable',
+                    'population': cox_population,
+                }
+            ph_test = proportional_hazard_test(
+                cph, cox[['Tenure', 'Attrition'] + norm_cols], time_transform='rank'
+            )
             coefficients: Dict[str, Any] = {}
             for norm_col in norm_cols:
                 row = cph.summary.loc[norm_col]
