@@ -40,8 +40,10 @@ async function upload(page: Page, name = 'A', missingOutcomes = false) {
 
 async function uploadRaw(page: Page, name: string, content: string) {
   await page.goto('/upload')
+  const input = page.locator('input[type=file]')
+  await expect(input).toBeEnabled({ timeout: 30_000 })
   const response = page.waitForResponse(r => r.url().endsWith('/api/upload') && r.request().method() === 'POST')
-  await page.locator('input[type=file]').setInputFiles({ name, mimeType: 'text/csv', buffer: Buffer.from(content) })
+  await input.setInputFiles({ name, mimeType: 'text/csv', buffer: Buffer.from(content) })
   return response
 }
 
@@ -149,6 +151,7 @@ test('Ask PeopleOS stays simple while evidence and raw verification remain inspe
 
   await page.locator('summary').filter({ hasText: 'Why you can trust this answer' }).click()
   await expect(page.getByText('Evidence quality', { exact: true })).toBeVisible()
+  await page.locator('summary').filter({ hasText: 'Evidence ledger' }).click()
   await expect(page.getByText('Current active employee count: 80', { exact: true })).toBeVisible()
   await page.locator('summary').filter({ hasText: 'Technical details' }).click()
   await page.locator('summary').filter({ hasText: 'Raw verified response' }).click()
