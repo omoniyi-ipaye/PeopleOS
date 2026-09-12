@@ -25,8 +25,10 @@ async function openPrimary(page: Page, name: string, path: string) {
 
 async function upload(page: Page, name = 'A', missingOutcomes = false) {
   await page.goto('/upload')
+  const input = page.locator('input[type=file]')
+  await expect(input).toBeEnabled({ timeout: 30_000 })
   const response = page.waitForResponse(r => r.url().endsWith('/api/upload') && r.request().method() === 'POST')
-  await page.locator('input[type=file]').setInputFiles({ name: `workforce-${name}.csv`, mimeType: 'text/csv', buffer: workforce(name, missingOutcomes) })
+  await input.setInputFiles({ name: `workforce-${name}.csv`, mimeType: 'text/csv', buffer: workforce(name, missingOutcomes) })
   const uploaded = await response
   expect(uploaded.ok(), await uploaded.text()).toBeTruthy()
   await expect(page.getByText('Import complete', { exact: true })).toBeVisible()
@@ -147,7 +149,6 @@ test('Ask PeopleOS stays simple while evidence and raw verification remain inspe
 
   await page.locator('summary').filter({ hasText: 'Why you can trust this answer' }).click()
   await expect(page.getByText('Evidence quality', { exact: true })).toBeVisible()
-  await page.locator('summary').filter({ hasText: 'Evidence ledger' }).click()
   await expect(page.getByText('Current active employee count: 80', { exact: true })).toBeVisible()
   await page.locator('summary').filter({ hasText: 'Technical details' }).click()
   await page.locator('summary').filter({ hasText: 'Raw verified response' }).click()
