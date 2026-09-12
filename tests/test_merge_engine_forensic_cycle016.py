@@ -97,6 +97,19 @@ def test_supported_field_outside_legacy_compare_list_is_persisted(engine, db):
     assert stored.loc['E001', 'JobTitle'] == 'Senior Partner'
 
 
+def test_omitted_optional_fields_do_not_erase_existing_values(engine, db):
+    frame = workforce()
+    db.upsert_employees(frame, 'initial.csv')
+    changed = frame[['EmployeeID', 'Dept', 'Tenure', 'Salary', 'LastRating', 'Age', 'Attrition']].copy()
+    changed.loc[0, 'Salary'] = 82000.0
+    result = engine.execute_merge(changed, 'partial.csv')
+    assert result.updated == 1
+    stored = db.get_all_employees().set_index('EmployeeID')
+    assert stored.loc['E001', 'JobTitle'] == 'Partner'
+    assert stored.loc['E001', 'ManagerID'] == 'M001'
+    assert stored.loc['E001', 'Location'] == 'Madrid'
+
+
 def test_preview_does_not_mutate_source(engine, db):
     frame = workforce()
     db.upsert_employees(frame, 'initial.csv')
