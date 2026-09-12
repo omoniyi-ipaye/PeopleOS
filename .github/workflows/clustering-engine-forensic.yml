@@ -23,6 +23,6 @@ jobs:
       - name: Record ClusteringEngine source digest
         run: sha256sum src/clustering_engine.py
       - name: Install ClusteringEngine dependencies
-        run: python -m pip install pandas==2.1.4 numpy==1.26.3 pytest==9.0.3 scikit-learn==1.5.2
+        run: python -m pip install pandas==2.1.4 numpy==1.26.3 pytest==9.0.3 scikit-learn==1.5.2 pyyaml==6.0.1
       - name: Run ClusteringEngine forensic contracts
         run: pytest -q tests/test_clustering_engine_forensic_cycle015.py
