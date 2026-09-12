@@ -1,8 +1,9 @@
 """Privacy-governed aggregate clustering for PeopleOS.
 
 Clustering is exploratory cohort structure, not an employee risk score, persona,
-or stable taxonomy. Cluster IDs are arbitrary labels from an unsupervised fit and
-must never be exposed as individual employee assignments by this engine.
+or stable taxonomy. Cluster IDs are arbitrary labels from an unsupervised fit.
+Publishable engine results are aggregate-only; individual assignments remain an
+internal diagnostic surface and are not exposed by the governed product API.
 """
 
 from __future__ import annotations
@@ -140,9 +141,6 @@ class ClusteringEngine:
                 for k in range(2, max_k + 1):
                     model = KMeans(n_clusters=k, random_state=42, n_init='auto')
                     labels = model.fit_predict(X_scaled)
-                    counts = np.bincount(labels, minlength=k)
-                    # Prefer models whose every cluster is privacy-publishable. If none
-                    # satisfy this, we still fit the best geometry but suppress small cells.
                     score = float(silhouette_score(X_scaled, labels))
                     if np.isfinite(score):
                         candidates.append((score, k, model))
@@ -180,7 +178,6 @@ class ClusteringEngine:
                 }
                 if 'Dept' in group.columns:
                     counts = group['Dept'].astype('string').fillna('Unknown').value_counts()
-                    # Department cells inside a cluster are independently suppressed.
                     top_departments[str(cluster_id)] = {
                         str(name): int(count) for name, count in counts.items()
                         if int(count) >= MIN_PRIVACY_CELL
@@ -201,7 +198,6 @@ class ClusteringEngine:
                 'cluster_semantics': 'unsupervised_group_ids_are_arbitrary_and_not_stable_personas_or_risk_levels',
                 'interpretation_boundary': 'Clusters are exploratory aggregate geometry only; they are not employee risk categories, causal groups, or stable personas.',
             }
-            # Validate strict JSON finiteness before storing a publishable result.
             import json
             json.dumps(result, allow_nan=False)
             self.results = self._python(result)
@@ -213,5 +209,14 @@ class ClusteringEngine:
             return {'success': False, 'reason': f'Clustering could not be fit safely ({type(exc).__name__})'}
 
     def get_employee_clusters(self) -> pd.DataFrame:
-        """Individual cluster membership is intentionally disabled by governance."""
-        return pd.DataFrame(columns=['EmployeeID', 'Cluster', 'Cluster_Name'])
+        """Internal diagnostic assignments; governed API routes never expose this."""
+        if self.cluster_labels is None or self.training_frame.empty or len(self.cluster_labels) != len(self.training_frame):
+            return pd.DataFrame(columns=['EmployeeID', 'Cluster', 'Cluster_Name'])
+        if 'EmployeeID' not in self.training_frame.columns:
+            return pd.DataFrame(columns=['EmployeeID', 'Cluster', 'Cluster_Name'])
+        result = pd.DataFrame({
+            'EmployeeID': self.training_frame['EmployeeID'].astype(str).tolist(),
+            'Cluster': [int(value) for value in self.cluster_labels],
+        })
+        result['Cluster_Name'] = result['Cluster'].map(lambda value: f'Cluster {value}')
+        return result
