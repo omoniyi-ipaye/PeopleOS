@@ -1,5 +1,5 @@
 {
-  "review_context": "Incremental reviewed-file hashes after the deterministic evidence, pilot UX hardening, Cycle 007 population-resolution integrity review, Cycle 008 AnalyticsEngine forensic review, Cycle 009 CompensationEngine forensic review, Cycle 010 ExperienceEngine forensic review, Cycle 011 FairnessEngine forensic review, Cycle 012 ForecastingEngine forensic review, Cycle 013 SurvivalEngine forensic review, and Cycle 014 CausalEngine forensic review. Entries override only paths already inventoried in model/engine_audit.json.",
+  "review_context": "Incremental reviewed-file hashes after the deterministic evidence, pilot UX hardening, Cycle 007 population-resolution integrity review, Cycle 008 AnalyticsEngine forensic review, Cycle 009 CompensationEngine forensic review, Cycle 010 ExperienceEngine forensic review, Cycle 011 FairnessEngine forensic review, Cycle 012 ForecastingEngine forensic review, Cycle 013 SurvivalEngine forensic review, Cycle 014 CausalEngine forensic review, and Cycle 015 ClusteringEngine forensic review. Entries override only paths already inventoried in model/engine_audit.json.",
   "reviewed_file_sha256": {
     "api/routes/analytics.py": "0bb0409b1e003103a37fee14cf2cef6a208e1b7a120fe03cc2113f7b57633e7e",
     "api/routes/experience.py": "532a4c632156dd69b76e47ce0b3a37300c09448866053d53290a258d08c6fe37",
@@ -11,6 +11,7 @@
     "src/agent/people_tools.py": "5055f77404fb005ab2f33f0e183be7945eccb19de7f153d90abbad551cbda1a8",
     "src/agent/planner.py": "634b00a55f3e9c05a36ca71677a060be2acc516be38cd016585d6bda55314868",
     "src/analytics_engine.py": "d7e791dd39cdcedf5595840e65e0fd9a822b2f0b3f28a542f9cfc75dfced3fb2",
+    "src/clustering_engine.py": "191e4e2a677a9e1f064b6e16bbf5b671941b257f321dac689d449f85b8377ec5",
     "src/compensation_engine.py": "51b79c2c5ef30d837597ae2ab79765af39ad55b88df8e799ae0c52b08a6ad1cc",
     "src/experience_engine.py": "1e53e4eb48b7779c8359b742a4519443ffa398b9c65cabc5a9fede0951431f94",
     "src/fairness_engine.py": "4b68d946ed64aa217b0b583a0b3a27777166002a93960f7effe6574e407aacad",
