@@ -297,7 +297,7 @@ test('the owner can set, lock and unlock the local PeopleOS installation', async
 
   await expect(page.getByText('App lock is ready', { exact: true })).toBeVisible()
   await page.getByLabel('Lock app', { exact: true }).click()
-  await expect(page.getByRole('heading', { name: 'PeopleOS is locked', exact: true })).toBeVisible()
+  await expect(page.getByText('PeopleOS is locked', { exact: true })).toBeVisible()
   await page.getByLabel('Owner PIN', { exact: true }).fill('123456')
   await page.getByRole('button', { name: 'Unlock PeopleOS', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'PeopleOS settings', exact: true })).toBeVisible()
