@@ -88,7 +88,7 @@ npm run dev -- --hostname 127.0.0.1
 
 Open [PeopleOS](http://127.0.0.1:3000). The UI development proxy expects the API on port 8000. [API health](http://127.0.0.1:8000/api/health) and [API documentation](http://127.0.0.1:8000/docs) help diagnose startup problems. Stop each process with Ctrl+C when finished.
 
-For optional embeddings/search, `python -m pip install -r requirements-advanced.txt` installs the advanced tier, including core. Optional local synthesis requires a separately installed and running Ollama server and a compatible model. Deterministic investigation summaries remain available without it; installing an LLM is not a prerequisite for this walkthrough.
+For optional embeddings/search, `python -m pip install -r requirements-advanced.txt` installs the advanced tier, including core. After activation, open `/search` and choose **Prepare semantic search**. The pinned model is loaded on demand and the FAISS index remains process-memory only, so prepare it again after an API restart or dataset activation. Optional local synthesis requires a separately installed and running Ollama server and a compatible model. Deterministic investigation summaries remain available without it; installing an LLM is not a prerequisite for this walkthrough.
 
 ## First run with fictional data
 

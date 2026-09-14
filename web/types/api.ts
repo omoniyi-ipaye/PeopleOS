@@ -233,8 +233,11 @@ export interface SearchResult {
 
 export interface SearchStatus {
     available: boolean
+    state?: string
+    backend_available?: boolean
+    can_prepare?: boolean
     reason?: string
-    indexed_records: number
+    indexed_records?: number
     embedding_dimension?: number
     index_dataset_id?: string | null
 }

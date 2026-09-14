@@ -163,6 +163,7 @@ export const api = {
       fetchAPI(`/api/search?query=${encodeURIComponent(query)}&top_k=${topK}`, {
         method: 'POST',
       }),
+    prepare: () => fetchAPI('/api/search/prepare', { method: 'POST' }),
     getStatus: () => fetchAPI('/api/search/status'),
   },
 

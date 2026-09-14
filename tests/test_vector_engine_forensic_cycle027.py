@@ -277,3 +277,51 @@ def test_search_api_preserves_no_store_boundary_for_sensitive_results():
         response = client.post('/api/search?query=python')
     assert response.status_code == 200
     assert response.headers['cache-control'] == 'no-store'
+
+
+def test_search_prepare_binds_current_snapshot_and_keeps_worker_ids_out_of_index(monkeypatch):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from api.routes import search as search_routes
+
+    source = frame()
+    current = provenance(source)
+    captured = {}
+
+    class FakeVectorEngine:
+        dimension = 3
+
+        def __init__(self):
+            self.metadata = []
+            self.index_provenance = None
+
+        def build_index(self, texts, metadata, *, provenance):
+            captured['texts'] = texts
+            captured['metadata'] = metadata
+            self.metadata = list(metadata)
+            self.index_provenance = dict(provenance)
+
+        def is_initialized(self):
+            return bool(self.metadata)
+
+        def matches_provenance(self, value):
+            return self.index_provenance == value
+
+    state = state_for(source, None, current)
+    app = FastAPI()
+    app.dependency_overrides[search_routes.get_app_state] = lambda: state
+    app.include_router(search_routes.router)
+    # The isolated route test does not install the production identity
+    # middleware; the full enterprise controls matrix covers that boundary.
+    monkeypatch.setattr(search_routes, 'require_permission', lambda request, permission: None)
+    monkeypatch.setattr(search_routes, '_new_vector_engine', FakeVectorEngine)
+    with TestClient(app) as client:
+        response = client.post('/api/search/prepare')
+        status = client.get('/api/search/status')
+    assert response.status_code == 200, response.text
+    assert status.status_code == 200, status.text
+    assert response.json()['available'] is True
+    assert response.json()['indexed_records'] == len(captured['texts'])
+    assert status.json()['state'] == 'ready'
+    assert all('EmployeeID' not in item for item in captured['metadata'])
+    assert state.vector_engine.matches_provenance(current)

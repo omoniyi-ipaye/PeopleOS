@@ -247,6 +247,12 @@ The default runtime intentionally excludes the heavy transformer/GPU/vector-sear
 pip install -r requirements-advanced.txt
 ```
 
+After activating a dataset that contains nonempty `PerformanceText`, open
+`/search` and choose **Prepare semantic search**. PeopleOS loads the pinned
+embedding model on demand and keeps the FAISS index in process memory, bound to
+the exact active dataset snapshot. Re-prepare it after restarting the API or
+activating a different dataset; no second database is created.
+
 ### Optional local AI
 
 Install Ollama and pull a compatible model, for example:

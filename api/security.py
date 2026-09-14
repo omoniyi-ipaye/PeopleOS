@@ -39,6 +39,7 @@ _MUTATION_PERMISSIONS = (
     ('DELETE', r'/api/scenario/[^/]+', 'investigate'),
     ('POST', r'/api/(?:intelligence/investigate|advisor/ask)', 'investigate'),
     ('POST', r'/api/search', 'sensitive.read'),
+    ('POST', r'/api/search/prepare', 'sensitive.read'),
     ('POST', r'/api/model-lab/optimize', 'model.train'),
     ('POST', r'/api/platform/workspaces', 'workspace.write'),
     ('POST', r'/api/platform/workspaces/[^/]+/datasets/current', 'dataset.write'),
