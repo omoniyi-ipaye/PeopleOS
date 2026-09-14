@@ -16,9 +16,9 @@ export default function DataSourcesPage() {
   const [currency, setCurrency] = useState('')
 
   const { data: status, isLoading: statusLoading, isError: statusError, refetch: retryStatus } = useQuery<UploadStatus>({ queryKey: ['upload', 'status'], queryFn: () => api.upload.getStatus() as Promise<UploadStatus> })
-  const uploadMutation = useMutation<UploadResponse, Error, File>({ mutationFn: file => api.upload.uploadFile(file, { annual: annualPay, currency }) as Promise<UploadResponse>, onSuccess: data => { setResult(data); setAnnualPay(false); setCurrency(''); void queryClient.resetQueries() } })
-  const sampleMutation = useMutation<UploadResponse, Error, void>({ mutationFn: () => api.upload.loadSample() as Promise<UploadResponse>, onSuccess: data => { setResult(data); void queryClient.resetQueries() } })
-  const resetMutation = useMutation({ mutationFn: () => api.upload.reset(), onSuccess: () => { setResult(null); void queryClient.resetQueries() } })
+  const uploadMutation = useMutation<UploadResponse, Error, File>({ mutationFn: file => api.upload.uploadFile(file, { annual: annualPay, currency }) as Promise<UploadResponse>, onSuccess: data => { setResult(data); setAnnualPay(false); setCurrency(''); void queryClient.invalidateQueries() } })
+  const sampleMutation = useMutation<UploadResponse, Error, void>({ mutationFn: () => api.upload.loadSample() as Promise<UploadResponse>, onSuccess: data => { setResult(data); void queryClient.invalidateQueries() } })
+  const resetMutation = useMutation({ mutationFn: () => api.upload.reset(), onSuccess: () => { setResult(null); void queryClient.invalidateQueries() } })
 
   const hasData = Boolean(status?.has_data)
   const busy = uploadMutation.isPending || sampleMutation.isPending || resetMutation.isPending

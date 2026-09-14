@@ -39,7 +39,7 @@
     "ui/components.py": "70b3dce43f1f914a0f2b9b4d45c46405ce96fa82393f6ef7559ae01ce0fa39b6",
     "web/app/advisor/page.tsx": "a68b783eb6f89710e414938df63ac9fd8373ea14f80821d8772f1fccc6cceca6",
     "web/app/employee-experience/page.tsx": "c79dfa9572a717e0c5c8950d990f584a1218e8bea598eb78fd4f5d8738c88cef",
-    "web/app/page.tsx": "6dfa1a7490256d32b1cff15c5c38fb839172c9b01a86a9a712e0e64241749df4",
+    "web/app/page.tsx": "65cb2b118c58e69ba842254cd49baaca13c10dc4564581284a0c60cd8f13aa58",
     "web/components/header.tsx": "3d43f6fb158a9e7db8973ccfed5825148dfdc302e5e07a9c89ba5f4354859a75",
     "web/lib/api-client.ts": "c6abb4e35b21faa7c5e0152177043a9a3cfe00411507a323dd468aafab893972",
     "web/app/platform/page.tsx": "99886b2ca9d893a5e0f76ec5c4d6730cc55b29c6c19c58b39dcc7ed7a896cac8",
