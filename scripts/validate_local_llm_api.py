@@ -29,14 +29,21 @@ def run(report):
     from src.utils import load_config
     config = load_config()['ollama']
     report['configuration'] = config
-    if urlparse(config['host']).hostname not in {'localhost', '127.0.0.1', '::1'} or config['model'].endswith('-cloud'):
+    model_tag = config['model'].rsplit('/', 1)[-1]
+    if urlparse(config['host']).hostname not in {'localhost', '127.0.0.1', '::1'} or model_tag.endswith((':cloud', '-cloud')):
         raise RuntimeError('Only loopback installed local models are accepted')
     with urlopen(config['host'] + '/api/version', timeout=5) as response:
         report['runtime_version'] = json.load(response)
     from api.main import app
     from api.runtime_registry import get_local_state
+    from src.platform.ai_runtime import AIPreferencesStore
     # Only the fictional CSV generator is shared; no cloud transport is created.
     from scripts.validate_cloud_llm import fictional_roster
+    # The product defaults to deterministic mode until the owner opts in.
+    # Exercise that same explicit preference boundary before loading the
+    # production runtime instead of treating an installed model as implicit
+    # consent.
+    AIPreferencesStore().update(enabled=True, model=config['model'])
     sock = socket.socket()
     sock.bind(('127.0.0.1', 0))
     port = sock.getsockname()[1]
