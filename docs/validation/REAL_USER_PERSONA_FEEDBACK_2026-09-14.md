@@ -135,3 +135,11 @@ Second-round disposition: all findings from the first live walkthrough were eith
 - Production web build: passed.
 - Owner app-lock tests: 8 passed.
 - Lint: 0 errors; existing repository warnings remain.
+
+### Third live round
+
+The final browser sweep repeated the owner, analyst, and Finance paths against the running local app. The Finance path exposed one additional responsive presentation issue: the long net-impact value was ellipsized in the narrow fourth metric card even though the underlying result was available.
+
+Severity: P2 readability issue.
+
+Remediation: added a scoped readable-value treatment to the scenario net-impact card so the amount wraps instead of being truncated, while leaving the compact truncation behavior for ordinary metric cards unchanged. The browser check was repeated after the hot reload and the full amount remained visible.

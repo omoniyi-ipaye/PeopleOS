@@ -23,6 +23,7 @@ export function MetricCard({
   icon,
   tone = 'neutral',
   status,
+  valueClassName,
 }: {
   label: string
   value: ReactNode
@@ -30,6 +31,7 @@ export function MetricCard({
   icon?: IconSlot
   tone?: SemanticTone
   status?: ReactNode
+  valueClassName?: string
 }) {
   return (
     <Surface padding="compact" className="min-w-0">
@@ -38,7 +40,7 @@ export function MetricCard({
         {status}
       </div>
       <div className="mt-4 text-xs font-semibold text-slate-500 dark:text-slate-400">{label}</div>
-      <div className="mt-1 truncate text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">{value}</div>
+      <div className={cn('mt-1 text-2xl font-semibold tracking-tight text-slate-950 dark:text-white', valueClassName ?? 'truncate')}>{value}</div>
       {detail && <div className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">{detail}</div>}
     </Surface>
   )

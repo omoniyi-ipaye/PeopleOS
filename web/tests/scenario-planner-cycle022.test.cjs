@@ -19,4 +19,5 @@ test('scenario planner exposes bounded aggregate inputs and cost timing', () => 
   assert.match(source, /simple payback/)
   assert.match(source, /monetary amounts in/)
   assert.match(source, /reporting_currency/)
+  assert.match(source, /valueClassName="whitespace-normal break-words text-xl leading-tight"/)
 })

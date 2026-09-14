@@ -101,7 +101,7 @@ export default function ScenarioPlannerPage() {
             <MetricCard label="People in scope" value={result.affected_employees.toLocaleString()} detail={result.affected_departments.length ? result.affected_departments.join(', ') : 'Configured scope'} icon={Users} />
             <MetricCard label="Starting assumption" value={`${result.baseline_turnover_rate.toFixed(1)}%`} detail="Baseline used in the scenario" icon={Target} />
             <MetricCard label="Modeled outcome" value={`${result.projected_turnover_rate.toFixed(1)}%`} detail="Result under the current assumptions" icon={BarChart3} />
-            <MetricCard label={reportingCurrency ? `Modeled net impact (${reportingCurrency})` : 'Modeled net impact'} value={money(result.cost_impact.net_impact)} detail={result.roi_estimate == null ? 'ROI unavailable' : `Modeled ROI ${result.roi_estimate.toFixed(1)}%`} icon={DollarSign} tone={result.cost_impact.net_impact >= 0 ? 'success' : 'warning'} />
+            <MetricCard label={reportingCurrency ? `Modeled net impact (${reportingCurrency})` : 'Modeled net impact'} value={money(result.cost_impact.net_impact)} valueClassName="whitespace-normal break-words text-xl leading-tight" detail={result.roi_estimate == null ? 'ROI unavailable' : `Modeled ROI ${result.roi_estimate.toFixed(1)}%`} icon={DollarSign} tone={result.cost_impact.net_impact >= 0 ? 'success' : 'warning'} />
           </section>
 
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(300px,0.9fr)]">
