@@ -79,7 +79,8 @@ test('first-run setup stays focused and can prepare the fictional sample', async
   expect((await response).ok()).toBeTruthy()
 
   await expect(page.getByRole('heading', { name: 'What deserves your attention?', exact: true })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Open navigation', exact: true })).toHaveCount(1)
+  const navigationToggle = test.info().project.name === 'chromium-mobile' ? 'Open navigation' : 'Collapse navigation'
+  await expect(page.getByRole('button', { name: navigationToggle, exact: true })).toBeVisible()
   await metric(page, 'Active workforce', '662')
   await noHorizontalOverflow(page)
 })
