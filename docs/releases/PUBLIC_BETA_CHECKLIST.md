@@ -6,6 +6,14 @@ Baseline before public-beta hardening: `ae986ef5be780790a798871d5a20fb6d2e95f343
 Verified public-beta candidate: `90f1958708a78481b8931893076f14c076be92a1`.
 Merged to `main`: `a300db48b2fe6d11076ed14fcdd891d170316764` via PR #6.
 
+## Current launch candidate
+
+The current engineering launch candidate is commit `5cf477dec5e9a6a4dd6561323f4a6bb80c19c642` on PR #18 (`quality/cycle-017-ml-engine-forensic`). It remains a draft pull request and has not been merged or published.
+
+Exact-head remote CI passed all 24 workflows for this candidate, including the complete desktop/mobile People Team Browser Acceptance journey, all engine-forensic workflows, VectorEngine, Analytics Validation, Release Security, Local Ollama Acceptance, E2E User Journey and the Windows x64, macOS Apple Silicon and Linux x64 desktop package/smoke jobs.
+
+Local verification also passed the full Python suite (`1,202 passed`, `33 warnings`, `6 subtests`), the app-lock/API and audit checks, frontend typecheck, lint with zero errors, production build and the real Sentence Transformers + FAISS vector benchmark (`13/13` synthetic acceptance checks).
+
 ## Intended release scope
 
 Local, single-user descriptive People analytics and evidence-backed investigations for People Operations and HR teams. Start with fictional sample data. PeopleOS shows source populations, exclusions, units, validation state and limitations. Predictive outputs remain behind explicit evaluation/activation controls and no prospective organization-specific predictive accuracy is claimed.
@@ -20,6 +28,9 @@ Local, single-user descriptive People analytics and evidence-backed investigatio
 - [x] Local Desktop Build passed for Windows x64, macOS ARM64 and Linux x64 build/smoke/restart/archive paths.
 - [x] Release Security passed across the validated frontend and Python dependency profiles.
 - [x] Local Ollama Acceptance passed on the verified candidate.
+- [x] All engine-forensic review workflows passed on the current exact-head candidate.
+- [x] Local owner app-lock setup, fail-closed lock screen, unlock, PIN change and PIN removal are covered by API/unit and browser acceptance tests.
+- [x] Real vector benchmark executed with the pinned multilingual embedding model and FAISS; results remain synthetic acceptance evidence, not a public relevance claim.
 - [x] README updated to the current People-team product positioning.
 - [x] Commercial-use policy documented and a request template added.
 - [x] Pilot feedback template added.
@@ -49,12 +60,15 @@ The following are now engineering-ready for a controlled pilot:
 ## Human / owner-controlled items still open
 
 - [ ] Independent fresh-user installation and usability walkthrough on target machines.
+- [ ] Review and merge PR #18 after the exact-head evidence and owner review are accepted.
+- [ ] Configure the documented `main` branch protection/ruleset; this requires repository-administration access.
 - [ ] Capture pilot outcomes and recurring friction using the pilot feedback template.
 - [ ] Decide whether Windows code signing and macOS notarization are required before broad public distribution.
 - [ ] Choose a version/tag and final public release notes when publication is authorized.
 - [ ] Review release archives, checksums and third-party/model notices before publishing binaries.
 - [ ] Explicitly authorize creation of a GitHub Release / public binary distribution.
 - [ ] Perform organization-specific prospective predictive validation before making stronger intended-use predictive claims.
+- [ ] Complete approved relevance/accuracy holdouts, load/concurrency, isolation, retention and independent review before making public semantic-search, NLP or predictive claims.
 
 ## Distribution limitations
 
