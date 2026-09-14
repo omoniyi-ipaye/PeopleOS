@@ -6,6 +6,7 @@ Model-agnostic design allows any Ollama-compatible model.
 """
 
 import json
+import inspect
 from typing import Any
 
 from src.logger import get_logger
@@ -28,6 +29,45 @@ class LLMClientError(Exception):
     pass
 
 
+class _OllamaTransport:
+    """Keep the pinned Ollama client compatible with thinking-capable models."""
+
+    def __init__(self, client: Any, host: str):
+        self._client = client
+        self._host = host
+        self._native_think = self._supports_think(client)
+        self._legacy_native_client = type(client).__module__.startswith('ollama.')
+
+    @staticmethod
+    def _supports_think(client: Any) -> bool:
+        try:
+            return 'think' in inspect.signature(client.generate).parameters
+        except (TypeError, ValueError, AttributeError):
+            return False
+
+    def generate(self, *args: Any, **kwargs: Any) -> Any:
+        if self._legacy_native_client and not self._native_think:
+            model = kwargs.get('model') or (args[0] if args else '')
+            prompt = kwargs.get('prompt') or (args[1] if len(args) > 1 else '')
+            if kwargs.get('stream'):
+                raise LLMClientError('Streaming is not supported by the legacy local Ollama compatibility path')
+            from src.platform.ai_runtime import generate_ollama
+
+            return generate_ollama(
+                self._host,
+                model,
+                prompt,
+                options=kwargs.get('options'),
+                response_format=kwargs.get('format'),
+            )
+        if self._native_think:
+            kwargs = {'think': False, **kwargs}
+        return self._client.generate(*args, **kwargs)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._client, name)
+
+
 class LLMClient:
     """
     Client for interacting with local Ollama LLM.
@@ -35,7 +75,7 @@ class LLMClient:
     Model-agnostic design - works with any Ollama model.
     """
     
-    def __init__(self):
+    def __init__(self, *, respect_preferences: bool = False):
         """Initialize the LLM Client with configuration."""
         self.config = load_config()
         self.ollama_config = self.config.get('ollama', {})
@@ -47,6 +87,20 @@ class LLMClient:
         self.is_available = False
         self.model_digest = None
         self.unavailable_reason = None
+        self.provider = 'ollama'
+        self.enabled = True
+        if respect_preferences:
+            from src.platform.ai_runtime import AIPreferencesStore
+
+            preferences = AIPreferencesStore().get()
+            self.provider = preferences['provider']
+            self.enabled = bool(preferences['enabled'] and self.provider == 'ollama')
+            self.host = preferences['ollama_host']
+            self.model = preferences['ollama_model']
+            if not self.enabled:
+                self.client = None
+                self.unavailable_reason = 'Local AI is disabled in PeopleOS settings'
+                return
         self._check_availability()
     
     def _check_availability(self) -> None:
@@ -56,9 +110,9 @@ class LLMClient:
         try:
             import ollama
             # Create client with configured host
-            self.client = ollama.Client(host=self.host, timeout=self.timeout)
+            transport = ollama.Client(host=self.host, timeout=self.timeout)
             # Server reachability does not establish that the requested model exists.
-            listing = self.client.list()
+            listing = transport.list()
             models = listing.get('models', []) if isinstance(listing, dict) else listing.models
             requested = self.model if ':' in self.model.rsplit('/', 1)[-1] else self.model + ':latest'
             installed = None
@@ -72,6 +126,7 @@ class LLMClient:
             if installed is None:
                 raise LLMClientError(f"Configured model {self.model} is not installed")
             self.model_digest = installed.get('digest') if isinstance(installed, dict) else getattr(installed, 'digest', None)
+            self.client = _OllamaTransport(transport, self.host)
             self.unavailable_reason = None
             self.is_available = True
             logger.info(f"Ollama available at {self.host} with model {self.model}")
@@ -364,6 +419,8 @@ Provide your analysis:"""
             "model": self.model,
             "host": self.host,
             "available": self.is_available,
+            "provider": self.provider,
+            "enabled": self.enabled,
             "model_digest": self.model_digest,
             "unavailable_reason": self.unavailable_reason,
         }

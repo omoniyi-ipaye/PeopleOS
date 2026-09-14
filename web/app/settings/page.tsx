@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api-client'
 import { AppLockSetup } from '@/components/app-lock'
+import { AISetup } from '@/components/ai-setup'
 import { Button, EmptyState, MetricCard, Page, PageHeader, SectionHeader, StateSummary, StatusBadge, Surface, TrustDisclosure } from '@/components/ui'
 import { Activity, Brain, Database, ExternalLink, Power, RefreshCw, Server, ShieldCheck } from 'lucide-react'
 
@@ -60,6 +61,8 @@ export default function SettingsPage() {
     </Surface>}
 
     <AppLockSetup context="settings" />
+
+    <AISetup context="settings" />
 
     <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <MetricCard label="PeopleOS app" value={appHealthy ? 'Ready' : health.data?.status ?? 'Needs attention'} detail="Local application status" icon={Server} tone={appHealthy ? 'success' : 'warning'} />

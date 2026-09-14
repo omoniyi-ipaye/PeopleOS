@@ -1,3 +1,5 @@
+import type { LLMStatus } from '@/types/api'
+
 /**
  * API client for PeopleOS FastAPI backend
  */
@@ -175,6 +177,22 @@ export const api = {
       fetchAPI(`/api/advisor/ask?question=${encodeURIComponent(question)}`, {
         method: 'POST',
       }),
+  },
+
+  // Optional local AI setup endpoints
+  llm: {
+    getStatus: () => fetchAPI<LLMStatus>('/api/llm/status'),
+    configure: (request: { provider: 'none' | 'ollama'; enabled: boolean; model?: string }) =>
+      fetchAPI<LLMStatus>('/api/llm/configure', {
+        method: 'POST',
+        body: JSON.stringify(request),
+      }),
+    setup: (model?: string) =>
+      fetchAPI<LLMStatus>('/api/llm/setup', {
+        method: 'POST',
+        body: JSON.stringify(model ? { model } : {}),
+      }),
+    test: () => fetchAPI<{ passed: boolean; model: string; response: string; elapsed_ms: number }>('/api/llm/test', { method: 'POST' }),
   },
 
   // NLP endpoints

@@ -68,7 +68,6 @@ def _initialize_read_only_engines(state) -> None:
     from src.insight_interpreter import InsightInterpreter
     from src.nlp_engine import NLPEngine
     from src.quality_of_hire_engine import QualityOfHireEngine
-    from src.safe_llm_client import SafeLLMClient as LLMClient
     from src.scenario_engine import ScenarioEngine
     from src.sentiment_engine import SentimentEngine
     from src.structural_engine import StructuralEngine
@@ -94,16 +93,25 @@ def _initialize_read_only_engines(state) -> None:
     state.team_dynamics_engine = safe(lambda: TeamDynamicsEngine(raw), 'TeamDynamicsEngine')
     state.vector_engine = None
 
-    try:
-        state.llm_client = LLMClient()
-        if state.llm_client.is_available:
-            state.features_enabled['llm'] = True
-        state.nlp_engine = NLPEngine(state.llm_client)
-        state.insight_interpreter = InsightInterpreter(state.llm_client)
-    except Exception as exc:
-        logger.warning('Local LLM initialization degraded: %s', exc)
+    from src.platform.ai_runtime import AIPreferencesStore
+
+    preferences = AIPreferencesStore().get()
+    if preferences['provider'] == 'ollama' and preferences['enabled']:
+        try:
+            from src.safe_llm_client import SafeLLMClient
+
+            state.llm_client = SafeLLMClient(respect_preferences=True)
+            state.features_enabled['llm'] = bool(state.llm_client.is_available)
+            state.nlp_engine = NLPEngine(state.llm_client)
+            state.insight_interpreter = InsightInterpreter(state.llm_client)
+        except Exception as exc:
+            logger.warning('Local LLM initialization degraded: %s', exc)
+            state.llm_client = None
+            state.nlp_engine = NLPEngine(None)
+            state.insight_interpreter = InsightInterpreter()
+    else:
         state.llm_client = None
-        state.nlp_engine = None
+        state.nlp_engine = NLPEngine(None)
         state.insight_interpreter = InsightInterpreter()
 
     state.survival_engine = safe(lambda: SurvivalEngine(raw), 'SurvivalEngine') if {'Tenure', 'Attrition'}.issubset(raw.columns) else None

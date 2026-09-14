@@ -109,9 +109,9 @@ class _GuardedOllamaClient:
 class SafeLLMClient(LLMClient):
     """Legacy-compatible LLMClient with a transport-level safety boundary."""
 
-    def __init__(self):
+    def __init__(self, *, respect_preferences: bool = False):
         self.policy = HRAdvicePolicy()
-        super().__init__()
+        super().__init__(respect_preferences=respect_preferences)
         if self.client is not None:
             self.client = _GuardedOllamaClient(self.client, self.policy)
 

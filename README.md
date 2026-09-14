@@ -255,12 +255,17 @@ activating a different dataset; no second database is created.
 
 ### Optional local AI
 
-Install Ollama and pull a compatible model, for example:
+The first-run screen and **Settings** include an owner-controlled local AI card. Leave it off for deterministic mode, or choose **Set up automatically** to let PeopleOS check Ollama, start its local service, download one selected model when needed and run a no-workforce-data readiness test. Cloud-tagged Ollama models are not accepted by this local path.
+
+The same setup can be run explicitly from a terminal:
 
 ```bash
-ollama serve
-ollama pull gemma3
+venv/bin/python scripts/setup_local_llm.py
 ```
+
+Pass `--model MODEL_NAME` to choose a local model. The script persists the owner preference and refreshes a running PeopleOS API when it is available; otherwise restart the API after it completes. If Ollama is not installed, use the [official Ollama download](https://ollama.com/download) and run setup again. The model is not bundled with PeopleOS and can require several gigabytes of disk space.
+
+WebLLM is a different, experimental browser-side approach. It downloads a compatible model into the browser and runs inference through WebGPU. PeopleOS does not use it as the primary governed advisor because browser support, model caching and workforce-data boundaries vary; the current UI explains the option without routing employee records into it.
 
 ### Run the backend
 

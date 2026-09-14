@@ -248,6 +248,35 @@ export interface AdvisorStatus {
     model?: string
 }
 
+export interface InstalledLLMModel {
+    name: string
+    digest?: string | null
+    size?: number | null
+    remote?: boolean
+}
+
+export interface LLMStatus {
+    provider: 'none' | 'ollama'
+    enabled: boolean
+    ready: boolean
+    ollama_installed: boolean
+    ollama_running: boolean
+    ollama_binary?: string | null
+    host: string
+    selected_model: string
+    selected_model_installed: boolean
+    selected_model_digest?: string | null
+    installed_models: InstalledLLMModel[]
+    recommended_model: string
+    reason?: string | null
+    download_guide: string
+    setup_state: 'idle' | 'starting' | 'pulling' | 'testing' | 'ready' | 'error' | string
+    setup_progress: number
+    setup_message?: string | null
+    setup_error_code?: string | null
+    setup_model?: string | null
+}
+
 export interface AdvisorSummary {
     summary: string
     key_insights: string[]
