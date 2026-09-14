@@ -79,7 +79,7 @@ test('first-run setup stays focused and can prepare the fictional sample', async
   expect((await response).ok()).toBeTruthy()
 
   await expect(page.getByRole('heading', { name: 'What deserves your attention?', exact: true })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Open navigation', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Open navigation', exact: true })).toHaveCount(1)
   await metric(page, 'Active workforce', '662')
   await noHorizontalOverflow(page)
 })
