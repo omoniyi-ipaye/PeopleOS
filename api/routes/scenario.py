@@ -62,6 +62,10 @@ def require_scenario(state: AppState = Depends(get_app_state)) -> AppState:
             raise HTTPException(status_code=400, detail="No data loaded. Please upload a file first.")
     if state.scenario_engine is None:
         raise HTTPException(status_code=400, detail="Scenario planning is unavailable for the current dataset.")
+    try:
+        snapshot_provenance(state)
+    except IntegrityError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     return state
 
 
@@ -130,13 +134,16 @@ def _convert_result(result, state=None) -> ScenarioResultResponse:
         computed_at=result.computed_at,
         engines_used=result.engines_used,
         data_sources=result.data_sources,
+        cost_semantics=result.cost_semantics,
     )
     if state is not None:
         provenance = snapshot_provenance(state)
         response.provenance = provenance
         _cache(state)[result.scenario_id] = {**asdict(result), 'provenance': provenance}
         # Bounded local session history; activation clears it.
-        while len(state.scenario_cache) > 100:
+        configured_limit = getattr(state, 'config', {}).get('scenario', {}).get('max_scenarios_saved', 100)
+        max_scenarios = max(1, int(configured_limit))
+        while len(state.scenario_cache) > max_scenarios:
             del state.scenario_cache[next(iter(state.scenario_cache))]
     return response
 
@@ -275,6 +282,7 @@ async def get_scenario(scenario_id: str, state: AppState = Depends(require_scena
         computed_at=item["computed_at"],
         engines_used=item.get("engines_used", []),
         data_sources=item.get("data_sources", []),
+        cost_semantics=item.get("cost_semantics", {}),
     )
 
 

@@ -93,6 +93,13 @@ test('navigation offers a native mobile dialog and only existing primary destina
  }
  assert.doesNotMatch(html,/>Saved Investigations</)
 })
+test('empty root route uses a focused setup shell without application navigation',()=>{
+ const {isSetupRoute}=require('../components/app-shell')
+ assert.equal(isSetupRoute('/',undefined),true)
+ assert.equal(isSetupRoute('/',{data:{loaded:false}}),true)
+ assert.equal(isSetupRoute('/',{data:{loaded:true}}),false)
+ assert.equal(isSetupRoute('/upload',{data:{loaded:false}}),false)
+})
 test('header distinguishes historical source records from active employees and model metadata',()=>{
  const html=render(require('../components/header').Header,{},[[['platform','status'],{
   data:{loaded:true,row_count:240},integrity:{snapshot:{source_rows:240,active_rows:80}},workspace:{active_model:true},capabilities:{predictive_model:false},

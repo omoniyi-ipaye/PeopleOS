@@ -112,9 +112,9 @@ const GLOSSARY_TERMS: GlossaryTerm[] = [
   },
   {
     term: 'Stagnation Index',
-    definition: 'How long an employee has been in their current role compared to typical tenure, indicating potential flight risk or disengagement.',
+    definition: 'The recorded years in a current role divided by recorded tenure. Valid values are descriptive role-duration ratios; missing or impossible durations remain unavailable and do not indicate flight risk, disengagement, performance, or promotion readiness.',
     category: 'performance',
-    example: 'A stagnation index of 1.5 means 50% longer than average in the same role.'
+    example: 'A valid index of 0.8 means the recorded current-role duration is 80% of the recorded tenure.'
   },
   {
     term: 'Quality of Hire',
@@ -131,7 +131,7 @@ const GLOSSARY_TERMS: GlossaryTerm[] = [
   },
   {
     term: 'Span of Control',
-    definition: 'The number of direct reports a manager has.',
+    definition: 'The number of recorded direct reports linked to a manager in the current workforce snapshot. Thresholds are structural workload prompts, not evidence of burnout, manager effectiveness, team health, or causal organizational impact.',
     category: 'metrics',
     example: 'A span of control of 8 means the manager has 8 direct reports.'
   },

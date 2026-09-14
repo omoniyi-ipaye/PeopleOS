@@ -8,7 +8,7 @@ import { BarChart3, DollarSign, GitBranch, Play, Target, Users } from 'lucide-re
 
 type ScenarioType = 'compensation' | 'headcount'
 interface ScenarioResult {
-  provenance?: {generation: string; dataset_version?: number; source_name?: string}
+  provenance?: {generation: string; dataset_id?: string; current_fingerprint?: string; dataset_version?: number; source_name?: string}
   available: boolean
   scenario_name: string
   scenario_type: string
@@ -28,6 +28,7 @@ interface ScenarioResult {
   alternative_actions: string[]
   data_sources: string[]
   engines_used: string[]
+  cost_semantics?: {summary?: string[]; payback_available?: boolean; decision_boundary?: string}
 }
 
 function money(value: number) {
@@ -50,13 +51,21 @@ export default function ScenarioPlannerPage() {
   const departments: string[] = (departmentsData as { departments?: Array<{ dept: string }> })?.departments?.map(item => item.dept) ?? []
   const compensation = useMutation({ mutationFn: () => api.scenario.simulateCompensation({ adjustment_type: 'percentage', target: { scope: targetScope, department: targetScope === 'department' ? targetDept : undefined }, adjustment_value: adjustmentValue, time_horizon_months: 12 }), onSuccess: data => setResult(data as ScenarioResult) })
   const headcount = useMutation({ mutationFn: () => api.scenario.simulateHeadcount({ change_type: 'expansion', target: { scope: targetScope, department: targetScope === 'department' ? targetDept : undefined }, change_count: changeCount, selection_criteria: 'performance' }), onSuccess: data => setResult(data as ScenarioResult) })
-  const { data: status } = useQuery({ queryKey: ['platform', 'status'], queryFn: () => api.getStatus() as Promise<{integrity?: {snapshot?: {generation?: string}}}> })
+  const { data: status } = useQuery({ queryKey: ['platform', 'status'], queryFn: () => api.getStatus() as Promise<{integrity?: {snapshot?: {generation?: string; dataset_id?: string; current_fingerprint?: string}}}> })
 
-  const result = storedResult?.provenance?.generation === status?.integrity?.snapshot?.generation ? storedResult : null
-  const staleResult = Boolean(storedResult && storedResult.provenance?.generation !== status?.integrity?.snapshot?.generation)
+  const snapshot = status?.integrity?.snapshot
+  const resultMatchesSnapshot = Boolean(
+    storedResult?.provenance?.generation &&
+    snapshot?.generation &&
+    storedResult.provenance.generation === snapshot.generation &&
+    storedResult.provenance.dataset_id === snapshot.dataset_id &&
+    storedResult.provenance.current_fingerprint === snapshot.current_fingerprint,
+  )
+  const result = resultMatchesSnapshot ? storedResult : null
+  const staleResult = Boolean(storedResult && !resultMatchesSnapshot)
   const loading = compensation.isPending || headcount.isPending
   const failure = compensation.error || headcount.error
-  const inputValid = type === 'compensation' ? Number.isFinite(adjustmentValue) && adjustmentValue >= -100 && adjustmentValue <= 100 : Number.isInteger(changeCount) && changeCount >= 1 && changeCount <= 100000
+  const inputValid = type === 'compensation' ? Number.isFinite(adjustmentValue) && adjustmentValue >= 0 && adjustmentValue <= 100 : Number.isInteger(changeCount) && changeCount >= 1 && changeCount <= 100000
   const run = () => { compensation.reset(); headcount.reset(); setResult(null); if (type === 'compensation') compensation.mutate(); else headcount.mutate() }
 
   return <Page>
@@ -75,7 +84,7 @@ export default function ScenarioPlannerPage() {
           </div>
 
           <div className="mt-6 space-y-5">
-            {type === 'compensation' && <Input label="Pay change (%)" type="number" min={-100} max={100} step="0.1" value={adjustmentValue} onChange={event => { setResult(null); setAdjustmentValue(Number(event.target.value)) }} error={Number.isFinite(adjustmentValue) && adjustmentValue >= -100 && adjustmentValue <= 100 ? undefined : 'Enter a value from -100% to 100%.'} helperText="Use a positive value for an increase and a negative value for a decrease." />}
+            {type === 'compensation' && <Input label="Pay change (%)" type="number" min={0} max={100} step="0.1" value={adjustmentValue} onChange={event => { setResult(null); setAdjustmentValue(Number(event.target.value)) }} error={Number.isFinite(adjustmentValue) && adjustmentValue >= 0 && adjustmentValue <= 100 ? undefined : 'Enter a value from 0% to 100%.'} helperText="PeopleOS models pay increases here; pay reductions and employee actions are outside this exploratory planner." />}
             {type === 'headcount' && <Input label="Additional positions" type="number" min={1} max={100000} step="1" value={changeCount} onChange={event => { setResult(null); setChangeCount(Number(event.target.value)) }} error={Number.isInteger(changeCount) && changeCount >= 1 && changeCount <= 100000 ? undefined : 'Enter a whole number from 1 to 100,000.'} helperText="PeopleOS models aggregate expansion only; person-level selection for reductions is outside this planner." />}
 
             <div><label htmlFor="scenario-scope" className="mb-2 block text-sm font-medium">Who does this apply to?</label><select id="scenario-scope" value={targetScope} onChange={event => { setResult(null); setTargetScope(event.target.value as 'all' | 'department') }} className="h-10 w-full rounded-xl border border-border bg-surface px-3 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30"><option value="all">Whole workforce</option><option value="department">One department</option></select></div>
@@ -96,12 +105,12 @@ export default function ScenarioPlannerPage() {
           </section>
 
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(300px,0.9fr)]">
-            <Surface padding="lg"><SectionHeader title="What the scenario says" description="A concise interpretation of the modeled result." /><div className="mt-5"><StatusBadge tone="info">Exploratory</StatusBadge><p className="mt-4 text-sm leading-7 text-text-secondary">{result.recommendation}</p><div className="mt-5 grid grid-cols-2 gap-3"><div className="rounded-xl border border-border p-4"><div className="text-xl font-semibold">{money(result.cost_impact.total_cost)}</div><div className="text-xs text-text-muted">modeled cost</div></div><div className="rounded-xl border border-border p-4"><div className="text-xl font-semibold">{money(result.cost_impact.total_benefit)}</div><div className="text-xs text-text-muted">modeled benefit</div></div></div></div></Surface>
+            <Surface padding="lg"><SectionHeader title="What the scenario says" description="A concise interpretation of the modeled result." /><div className="mt-5"><StatusBadge tone="info">Exploratory</StatusBadge><p className="mt-4 text-sm leading-7 text-text-secondary">{result.recommendation}</p><div className="mt-5 grid grid-cols-2 gap-3"><div className="rounded-xl border border-border p-4"><div className="text-xl font-semibold">{money(result.cost_impact.total_cost)}</div><div className="text-xs text-text-muted">modeled cost</div></div><div className="rounded-xl border border-border p-4"><div className="text-xl font-semibold">{money(result.cost_impact.total_benefit)}</div><div className="text-xs text-text-muted">modeled benefit</div></div><div className="rounded-xl border border-border p-4"><div className="text-xl font-semibold">{result.payback_months == null ? 'Unavailable' : `${result.payback_months} mo`}</div><div className="text-xs text-text-muted">simple payback</div></div></div></div></Surface>
             <Surface padding="lg"><SectionHeader title="Things to pressure-test" description="What a People or Finance owner should validate before using this scenario." /><div className="mt-5 space-y-3">{result.risks.slice(0, 4).map(item => <div key={item} className="rounded-xl border border-border p-3 text-sm leading-6 text-text-secondary">{item}</div>)}</div></Surface>
           </div>
 
           <TrustDisclosure title="How this scenario was modeled" summary={`${result.simulation.n_iterations.toLocaleString()} assumption draws`}>
-            <p>Scenario results are deterministic calculations over configured assumptions and your current workforce data. They are not causal forecasts or guarantees.</p><div className="mt-3"><div className="font-semibold text-slate-700 dark:text-slate-200">Assumptions used</div><ul className="mt-1 space-y-1">{result.assumptions.slice(0, 8).map(item => <li key={item}>• {item}</li>)}</ul></div><p className="mt-3">{(result.simulation.roi_positive_probability * 100).toFixed(0)}% of configured simulation draws produced positive modeled ROI. This is not an empirical probability that the investment will succeed.</p>
+            <p>Scenario results are deterministic calculations over configured assumptions and your current workforce data. They are not causal forecasts or guarantees.</p><div className="mt-3"><div className="font-semibold text-slate-700 dark:text-slate-200">Cost timing</div><ul className="mt-1 space-y-1">{(result.cost_semantics?.summary ?? []).map(item => <li key={item}>• {item}</li>)}</ul></div><div className="mt-3"><div className="font-semibold text-slate-700 dark:text-slate-200">Assumptions used</div><ul className="mt-1 space-y-1">{result.assumptions.slice(0, 8).map(item => <li key={item}>• {item}</li>)}</ul></div><p className="mt-3">{(result.simulation.roi_positive_probability * 100).toFixed(0)}% of configured simulation draws produced positive modeled ROI. This is a configured draw share, not an empirical probability that the investment will succeed.</p>
           </TrustDisclosure>
         </>}
       </div>

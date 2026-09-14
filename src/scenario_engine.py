@@ -17,7 +17,7 @@ DATA-DRIVEN APPROACH:
 import pandas as pd
 import numpy as np
 from typing import Dict, Any, List, Optional, Tuple, TYPE_CHECKING
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 from datetime import datetime
 import uuid
 
@@ -105,6 +105,7 @@ class ScenarioResult:
     computed_at: str
     engines_used: List[str]
     data_sources: List[str]  # Track what data was used
+    cost_semantics: Dict[str, Any] = field(default_factory=dict)
 
 
 class ScenarioEngine:
@@ -411,6 +412,18 @@ class ScenarioEngine:
         """
         return 'Exploratory', 0.5
 
+    @staticmethod
+    def _simple_payback_months(one_off_cost: float, annual_recurring_benefit: float) -> Optional[int]:
+        """Return simple payback only for a one-off cost and positive recurring benefit."""
+        if (
+            not np.isfinite(one_off_cost)
+            or not np.isfinite(annual_recurring_benefit)
+            or one_off_cost <= 0
+            or annual_recurring_benefit <= 0
+        ):
+            return None
+        return int(np.ceil(one_off_cost / (annual_recurring_benefit / 12)))
+
     # =========================================================================
     # COMPENSATION SCENARIOS
     # =========================================================================
@@ -495,10 +508,11 @@ class ScenarioEngine:
             baseline_outcome=baseline_turnover
         )
 
-        # ROI and payback
+        # ROI is an arithmetic comparison only. The recurring salary cost and
+        # avoided replacement cost do not have a supported realization schedule,
+        # so this scenario cannot report a defensible payback period.
         roi = safe_divide(cost_impact.net_impact, cost_impact.total_cost, 0) * 100
-        monthly_benefit = replacement_savings / time_horizon_months
-        payback = int(safe_divide(cost_impact.total_cost, monthly_benefit, 999))
+        payback = None
 
         # Confidence - adjust based on data quality
         conf_level, conf_score = self._get_confidence_level(n_affected)
@@ -511,22 +525,20 @@ class ScenarioEngine:
         elif method_used == "industry_estimate":
             conf_score = max(0.3, conf_score - 0.2)
 
-        # Generate recommendation
-        if roi > 50:
-            recommendation = "Strongly recommended - high ROI expected"
-        elif roi > 0:
-            recommendation = "Recommended - positive ROI expected"
-        elif roi > -20:
-            recommendation = "Consider carefully - marginal impact"
-        else:
-            recommendation = "Not recommended - negative ROI expected"
+        # Keep direct/legacy consumers exploratory too. The modeled ROI is not
+        # a decision rule and must not become an automatic recommendation.
+        recommendation = "Compare this modeled scenario with alternatives and validate assumptions before action."
 
         # Build assumptions list based on method used
         assumptions = [
             f"Assumed baseline rate for this scenario horizon: {baseline_turnover*100:.1f}% (configured, not observed turnover)",
             f"Replacement cost: {self.replacement_cost_mult}x annual salary",
             f"Assumed response elasticity: {self.scenario_config.get('assumed_compensation_elasticity', 0.0)} proportional rate change per proportional pay change; reduction capped at 50% of baseline",
-            f"Time horizon: {time_horizon_months} months"
+            f"Time horizon: {time_horizon_months} months",
+            "Salary change is a recurring cost over the horizon; avoided replacement cost is a one-off modeled benefit with no timing schedule.",
+            "Payback is unavailable because recurring pay cost and one-off avoided replacement cost are not linked by a supported cash-flow schedule.",
+            "Monte Carlo draw shares reflect configured uncertainty, not empirical probabilities of future outcomes.",
+            "Aggregate exploratory planning only; no employee-level selection or workforce action is produced.",
         ]
 
         if method_used == "data_driven_elasticity":
@@ -565,7 +577,7 @@ class ScenarioEngine:
             simulation=mc_result,
             cost_impact=cost_impact,
             roi_estimate=round(roi, 1),
-            payback_months=payback if payback < 120 else None,
+            payback_months=payback,
             confidence_level=conf_level,
             confidence_score=conf_score,
             assumptions=assumptions,
@@ -582,7 +594,16 @@ class ScenarioEngine:
             ],
             computed_at=datetime.now().isoformat(),
             engines_used=self.available_engines,
-            data_sources=self.data_sources
+            data_sources=self.data_sources,
+            cost_semantics={
+                'summary': [
+                    'Recurring cost: salary change over the selected horizon.',
+                    'One-off modeled benefit: avoided replacement cost.',
+                    'Payback: unavailable without a supported cash-flow schedule.',
+                ],
+                'payback_available': False,
+                'decision_boundary': 'Aggregate exploratory planning only; no employee-level selection or workforce action.',
+            }
         )
 
     # =========================================================================
@@ -633,17 +654,10 @@ class ScenarioEngine:
         avg_salary = self._mean_salary(affected_df)
 
         if change_type == 'reduction':
-            # Sort by selection criteria to identify who would be affected
-            if selection_criteria == 'performance' and 'LastRating' in affected_df.columns:
-                affected_df = affected_df.sort_values('LastRating')
-            elif selection_criteria == 'tenure' and 'Tenure' in affected_df.columns:
-                affected_df = affected_df.sort_values('Tenure')
-            elif selection_criteria == 'cost' and 'Salary' in affected_df.columns:
-                affected_df = affected_df.sort_values('Salary', ascending=False)
-
-            # Cost savings
-            impacted = affected_df.head(n_change)
-            salary_savings = impacted['Salary'].sum() if 'Salary' in impacted.columns else n_change * avg_salary
+            # This compatibility helper must not select or rank people. Use a
+            # cohort mean for aggregate arithmetic; the governed API rejects
+            # reduction requests before reaching this legacy method.
+            salary_savings = n_change * avg_salary
             severance_cost = salary_savings * 0.25  # Assume 3 months severance
 
             cost_impact = CostImpact(
@@ -710,25 +724,27 @@ class ScenarioEngine:
             simulation=mc_result,
             cost_impact=cost_impact,
             roi_estimate=round(safe_divide(cost_impact.net_impact, abs(cost_impact.total_cost), 0) * 100, 1),
-            payback_months=(int(np.ceil(cost_impact.total_cost / (cost_impact.total_benefit / 12)))
-                            if change_type == 'reduction' and cost_impact.total_benefit > 0 else None),
+            payback_months=(self._simple_payback_months(cost_impact.total_cost, cost_impact.total_benefit)
+                            if change_type == 'reduction' else None),
             confidence_level=conf_level,
             confidence_score=conf_score,
             assumptions=[
                 f"Average salary: {avg_salary:,.0f} in the source reporting currency (annual)",
-                f"Selection criteria: {selection_criteria}",
+                "Aggregate cohort arithmetic only; no employee ranking or selection is performed.",
+                f"Requested selection criteria ({selection_criteria}) is ignored by the aggregate compatibility helper.",
                 "Financial results are fixed assumption arithmetic; financial uncertainty has not been estimated.",
                 ("Simple payback divides one-off severance by monthly salary savings; assumes immediate savings and excludes unmodeled effects."
                  if change_type == 'reduction' else
                  "Expansion payback is unavailable: this annual cost/benefit scenario does not model a multi-period cash-flow schedule."),
-                "Severance: 3 months salary" if change_type == 'reduction' else "Ramp time: 6 months"
+                "Severance: 3 months salary" if change_type == 'reduction' else "Ramp time: 6 months",
+                "Monte Carlo draw shares reflect configured uncertainty, not empirical probabilities of future outcomes.",
             ],
             risks=[
                 "Knowledge loss from departures" if change_type == 'reduction' else "Quality of new hires",
                 "Team morale impact",
                 "Market conditions for hiring" if change_type == 'expansion' else "Legal/compliance risks"
             ],
-            recommendation="Proceed with caution" if change_type == 'reduction' else "Evaluate hiring timeline",
+            recommendation="Compare this modeled scenario with alternatives and validate assumptions before action.",
             alternative_actions=[
                 "Attrition-based reduction" if change_type == 'reduction' else "Contract-to-hire approach",
                 "Redeployment options",
@@ -736,7 +752,28 @@ class ScenarioEngine:
             ],
             computed_at=datetime.now().isoformat(),
             engines_used=self.available_engines,
-            data_sources=self.data_sources
+            data_sources=self.data_sources,
+            cost_semantics=(
+                {
+                    'summary': [
+                        'One-off cost: modeled severance at three months of aggregate cohort salary.',
+                        'Recurring benefit: annualized salary savings from the modeled count.',
+                        'Payback: one-off severance divided by monthly salary savings.',
+                    ],
+                    'payback_available': True,
+                    'decision_boundary': 'Aggregate exploratory planning only; no employee-level selection or workforce action.',
+                }
+                if change_type == 'reduction' else
+                {
+                    'summary': [
+                        'One-off costs: hiring and training assumptions.',
+                        'Recurring cost: annual salary for added positions.',
+                        'Payback: unavailable because no multi-period cash-flow schedule is modeled.',
+                    ],
+                    'payback_available': False,
+                    'decision_boundary': 'Aggregate exploratory planning only; no employee-level selection or workforce action.',
+                }
+            )
         )
 
     # =========================================================================

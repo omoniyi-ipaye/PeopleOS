@@ -112,6 +112,10 @@ class ScenarioResultResponse(BaseModel):
     computed_at: str = Field(..., description="ISO timestamp of computation")
     engines_used: List[str] = Field(default_factory=list, description="Engines used for prediction")
     data_sources: List[str] = Field(default_factory=list, description="Data sources used for predictions")
+    cost_semantics: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Explicit one-off, recurring, payback and decision-boundary semantics",
+    )
 
 
 class ScenarioComparisonRequest(BaseModel):

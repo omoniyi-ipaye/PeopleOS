@@ -79,7 +79,7 @@ test('scenario inputs expose bounded numeric contracts and bound select labels',
     [['analytics','departments'], {departments:[{dept:'Very long department name used to validate wrapping behavior'}]}],
     [['platform','status'], {integrity:{snapshot:{generation:'g1'}}}],
   ])
-  assert.match(html, /min="-100" max="100" step="0\.1"/)
+  assert.match(html, /min="0" max="100" step="0\.1"/)
   assert.match(html, /for="scenario-scope"/)
   assert.match(html, /id="scenario-scope"/)
 })

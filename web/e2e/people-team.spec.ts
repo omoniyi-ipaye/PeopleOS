@@ -68,6 +68,22 @@ test.beforeEach(async ({ request }) => {
   expect(reset.ok()).toBeTruthy()
 })
 
+test('first-run setup stays focused and can prepare the fictional sample', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.getByRole('heading', { name: 'Start with your workforce, or explore first.' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Open navigation', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('banner', { name: 'PeopleOS context' })).toHaveCount(0)
+
+  const response = page.waitForResponse(r => r.url().endsWith('/api/upload/load-sample') && r.request().method() === 'POST')
+  await page.getByRole('button', { name: 'Explore with sample data', exact: true }).click()
+  expect((await response).ok()).toBeTruthy()
+
+  await expect(page.getByRole('heading', { name: 'What deserves your attention?', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Open navigation', exact: true })).toBeVisible()
+  await metric(page, 'Active workforce', '662')
+  await noHorizontalOverflow(page)
+})
+
 test('first-time People user can add data and get deterministic known answers', async ({ page }) => {
   await page.goto('/upload')
   await expect(page.getByRole('heading', { name: 'Bring your workforce into PeopleOS' })).toBeVisible()

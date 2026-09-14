@@ -6,6 +6,8 @@ Includes sentiment analysis, skill extraction, topic modeling, and AI summaries.
 """
 
 import json
+from math import isfinite
+from numbers import Real
 import re
 from typing import Any, Optional
 
@@ -39,12 +41,54 @@ class NLPEngine:
         self.llm_client = llm_client
         self.config = load_config()
         self.nlp_config = self.config.get('nlp', {})
-        self.batch_size = self.nlp_config.get('batch_size', 10)
-        self.max_review_length = self.nlp_config.get('max_review_length', 500)
-        self.topics_count = self.nlp_config.get('topics_count', 5)
+        self.batch_size = self._config_int('batch_size', 10, minimum=1, maximum=100)
+        self.max_review_length = self._config_int('max_review_length', 500, minimum=1, maximum=10_000)
+        self.topics_count = self._config_int('topics_count', 5, minimum=1, maximum=20)
         self.is_available = llm_client.is_available if llm_client else False
+        self._last_sentiment_input_count = 0
+        self._last_sentiment_observed_count = 0
+        self._last_sentiment_unprocessed_count = 0
 
         logger.info(f"NLPEngine initialized. LLM available: {self.is_available}")
+
+    def _config_int(self, name: str, default: int, *, minimum: int, maximum: int) -> int:
+        """Require bounded integer configuration before any model call is possible."""
+        value = self.nlp_config.get(name, default)
+        if isinstance(value, bool) or not isinstance(value, int) or not minimum <= value <= maximum:
+            raise NLPEngineError(
+                f"NLP configuration {name} must be an integer from {minimum} to {maximum}"
+            )
+        return value
+
+    @staticmethod
+    def _empty_skills(reason: str | None = None, review_observations: int = 0) -> dict:
+        """Return a schema-compatible, explicitly bounded skill result."""
+        result = {
+            'technical_skills': [],
+            'soft_skills': [],
+            'skill_counts': {},
+            'skill_count_semantics': 'source_review_presence_count',
+            'review_observations': review_observations,
+        }
+        if reason:
+            result.update({'status': 'unavailable', 'unavailable_reason': reason})
+        return result
+
+    @staticmethod
+    def _review_frame(df: pd.DataFrame) -> pd.DataFrame:
+        """Select one governed review per nonempty, valid employee identity."""
+        if not {'EmployeeID', 'PerformanceText'}.issubset(df.columns):
+            return pd.DataFrame(columns=['EmployeeID', 'PerformanceText'])
+        reviews = df[['EmployeeID', 'PerformanceText']].copy(deep=True)
+        ids = reviews['EmployeeID']
+        valid_ids = ids.notna() & ids.astype(str).str.strip().ne('')
+        valid_text = reviews['PerformanceText'].fillna('').astype(str).str.strip().ne('')
+        reviews = reviews.loc[valid_ids & valid_text].copy()
+        reviews['EmployeeID'] = reviews['EmployeeID'].astype(str)
+        # Duplicate identities make row-level model output ambiguous; refuse inference.
+        if reviews['EmployeeID'].duplicated().any():
+            return pd.DataFrame(columns=['EmployeeID', 'PerformanceText'])
+        return reviews
 
     def _truncate_text(self, text: str) -> str:
         """Truncate text to max length and scrub PII."""
@@ -106,20 +150,25 @@ class NLPEngine:
         Returns:
             DataFrame with EmployeeID, sentiment_score, sentiment_label columns.
         """
+        self._last_sentiment_input_count = 0
+        self._last_sentiment_observed_count = 0
+        self._last_sentiment_unprocessed_count = 0
         if 'PerformanceText' not in df.columns:
             logger.warning("PerformanceText column not found")
             return pd.DataFrame(columns=['EmployeeID', 'sentiment_score', 'sentiment_label'])
 
         results = []
+        reviews = self._review_frame(df)
+        self._last_sentiment_input_count = len(reviews)
 
         if not self.is_available:
             logger.warning("Sentiment analysis skipped: LLM unavailable")
+            self._last_sentiment_unprocessed_count = len(reviews)
             return pd.DataFrame(columns=['EmployeeID', 'sentiment_score', 'sentiment_label'])
         
         # Use LLM for sentiment analysis
-        df = df[df['PerformanceText'].fillna('').astype(str).str.strip().ne('')].drop_duplicates('EmployeeID')
-        texts = df['PerformanceText'].fillna('').tolist()
-        employee_ids = df['EmployeeID'].tolist()
+        texts = reviews['PerformanceText'].tolist()
+        employee_ids = reviews['EmployeeID'].tolist()
 
         for i in range(0, len(texts), self.batch_size):
             batch_texts = texts[i:i+self.batch_size]
@@ -133,6 +182,8 @@ class NLPEngine:
                 # Failed inference is missing evidence, never neutral sentiment.
                 continue
 
+        self._last_sentiment_observed_count = len(results)
+        self._last_sentiment_unprocessed_count = len(employee_ids) - len(results)
         return pd.DataFrame(results, columns=['EmployeeID', 'sentiment_score', 'sentiment_label'])
 
 
@@ -161,13 +212,17 @@ class NLPEngine:
                         raise NLPEngineError('Sentiment rows must be objects')
                     eid = str(item.get('EmployeeID'))
                     score = item.get('sentiment_score')
-                    if eid not in allowed or eid in seen or not isinstance(score, (float, int)) or not 0 <= score <= 1:
+                    if (eid not in allowed or eid in seen or isinstance(score, bool) or
+                            not isinstance(score, Real) or not isfinite(float(score)) or
+                            not 0 <= score <= 1):
                         raise NLPEngineError('Sentiment response has invalid identity or score')
                     expected_label = 'Positive' if score > .6 else 'Negative' if score < .4 else 'Neutral'
-                    if isinstance(score, bool) or item.get('sentiment_label') != expected_label:
+                    if item.get('sentiment_label') != expected_label:
                         raise NLPEngineError('Sentiment label is invalid')
                     seen.add(eid)
                     valid.append(item)
+                if seen != allowed:
+                    raise NLPEngineError('Sentiment response must cover every requested review exactly once')
                 return valid
             else:
                 raise NLPEngineError("Failed to parse LLM sentiment response")
@@ -210,15 +265,17 @@ Rules:
             Dictionary with technical_skills, soft_skills, and skill_counts.
         """
         if 'PerformanceText' not in df.columns:
-            return {'technical_skills': [], 'soft_skills': [], 'skill_counts': {}}
+            return self._empty_skills('PerformanceText column not found')
 
+        reviews = self._review_frame(df)
         if not self.is_available:
             logger.warning("Skill extraction skipped: LLM unavailable")
-            return {'technical_skills': [], 'soft_skills': [], 'skill_counts': {}}
+            return self._empty_skills('LLM unavailable', len(reviews))
 
         # Sample texts for skill extraction
-        df = df[df['PerformanceText'].fillna('').astype(str).str.strip().ne('')].drop_duplicates('EmployeeID')
-        texts = df['PerformanceText'].fillna('').tolist()
+        texts = reviews['PerformanceText'].tolist()
+        if not texts:
+            return self._empty_skills('No valid review rows', 0)
         sample_size = min(50, len(texts))
         sample_texts = texts[:sample_size]
 
@@ -242,11 +299,22 @@ Rules:
                     skills = parsed.get(category, [])
                     if not isinstance(skills, list) or any(not isinstance(skill, str) or not skill.strip() for skill in skills):
                         raise NLPEngineError('Skill categories require lists of nonempty strings')
-                    parsed[category] = list(dict.fromkeys(skill.strip() for skill in skills))
+                    normalized = list(dict.fromkeys(skill.strip() for skill in skills))
+                    if len(normalized) > 15:
+                        raise NLPEngineError('Skill response exceeds the 15-skill category limit')
+                    if any(not self._skill_is_grounded(skill, texts) for skill in normalized):
+                        raise NLPEngineError('Skill response contains a skill not literally supported by source review text')
+                    parsed[category] = normalized
                 # Count skill occurrences across all texts
                 skill_counts = self._count_skills_in_texts(texts, parsed)
-                parsed['skill_counts'] = skill_counts
-                return parsed
+                return {
+                    'technical_skills': parsed['technical_skills'],
+                    'soft_skills': parsed['soft_skills'],
+                    'skill_counts': skill_counts,
+                    'skill_count_semantics': 'source_review_presence_count',
+                    'review_observations': len(texts),
+                    'status': 'available',
+                }
             else:
                 raise NLPEngineError("Failed to parse LLM skill extraction response")
 
@@ -277,7 +345,7 @@ Rules:
 - Return ONLY the JSON object, no other text."""
 
     def _count_skills_in_texts(self, texts: list, skills_dict: dict) -> dict:
-        """Count occurrences of each skill across all texts."""
+        """Count source reviews containing each skill, not unverified token frequency."""
         all_skills = (
             skills_dict.get('technical_skills', []) +
             skills_dict.get('soft_skills', [])
@@ -293,6 +361,12 @@ Rules:
 
         return counts
 
+    @staticmethod
+    def _skill_is_grounded(skill: str, texts: list[str]) -> bool:
+        """Require a literal, case-insensitive source mention before returning a skill."""
+        pattern = r'(?<!\w)' + re.escape(skill.lower()) + r'(?!\w)'
+        return any(re.search(pattern, str(text).lower()) for text in texts)
+
     def extract_topics(self, df: pd.DataFrame) -> list:
         """
         Extract dominant topics from performance reviews.
@@ -306,12 +380,14 @@ Rules:
         if 'PerformanceText' not in df.columns:
             return []
 
+        reviews = self._review_frame(df)
         if not self.is_available:
             logger.warning("Topic extraction skipped: LLM unavailable")
             return []
 
-        df = df[df['PerformanceText'].fillna('').astype(str).str.strip().ne('')].drop_duplicates('EmployeeID')
-        texts = df['PerformanceText'].fillna('').tolist()
+        texts = reviews['PerformanceText'].tolist()
+        if not texts:
+            return []
         sample_size = min(50, len(texts))
         sample_texts = texts[:sample_size]
 
@@ -334,16 +410,22 @@ Rules:
             if not isinstance(topics, list):
                 raise NLPEngineError('Topic response must be a list')
             valid = []
+            seen_names = set()
             for topic in topics:
                 if not isinstance(topic, dict) or any(not isinstance(topic.get(key), str) or not topic[key].strip() for key in ('name', 'description')):
                     raise NLPEngineError('Topics require a name and description')
                 if topic.get('sentiment') not in {'Positive', 'Neutral', 'Negative', 'Mixed'}:
                     raise NLPEngineError('Topic sentiment label is invalid')
+                normalized_name = topic['name'].strip().casefold()
+                if normalized_name in seen_names:
+                    raise NLPEngineError('Topic response contains duplicate theme names')
+                seen_names.add(normalized_name)
                 # An LLM estimate is not a counted share of source reviews.
                 valid.append({'name': topic['name'], 'description': topic['description'],
                               'sentiment': topic['sentiment'], 'prevalence': None,
                               'measurement_semantics': 'generated_theme_not_measured_prevalence',
-                              'sample_size': sample_size})
+                              'sample_size': sample_size,
+                              'sample_scope': 'first_50_nonempty_unique_employee_reviews'})
             return valid[:self.topics_count]
 
         except Exception as e:
@@ -365,15 +447,14 @@ Return a JSON array of topics:
   {{
     "name": "Theme Name",
     "description": "Brief description of this theme",
-    "prevalence": "25%",
-    "sentiment": "Positive"
+  "sentiment": "Positive"
   }}
 ]
 
 Rules:
 - Identify organizational themes, not individual issues
 - Each theme should appear in multiple reviews
-- Include approximate prevalence percentage
+- Do not estimate prevalence or coverage; prevalence is unavailable without a labeled review corpus and full-population counting.
 - Return ONLY the JSON array, no other text."""
 
     def generate_employee_summary(self, employee_data: dict) -> str:
@@ -405,6 +486,7 @@ Rules:
                 'negative_pct': 0,
                 'sentiment_observations': 0,
                 'excluded_sentiment_rows': int(len(sentiment_df)),
+                'unprocessed_sentiment_rows': self._last_sentiment_unprocessed_count,
             }
         score = pd.to_numeric(sentiment_df['sentiment_score'], errors='coerce')
         expected = score.map(lambda value: 'Positive' if value > .6 else 'Negative' if value < .4 else 'Neutral')
@@ -426,6 +508,7 @@ Rules:
             'negative_pct': round((negative / total) * 100, 1) if total > 0 else 0,
             'sentiment_observations': total,
             'excluded_sentiment_rows': int(len(sentiment_df) - total),
+            'unprocessed_sentiment_rows': self._last_sentiment_unprocessed_count,
         }
 
     def get_sentiment_by_department(self, df: pd.DataFrame, sentiment_df: pd.DataFrame) -> pd.DataFrame:
@@ -491,11 +574,15 @@ Rules:
             'sentiment_by_dept': pd.DataFrame(),
             'skills': {},
             'topics': [],
-            'nlp_available': self.is_available
+            'nlp_available': self.is_available,
+            'analysis_status': 'unavailable' if not self.is_available else 'available',
+            'component_status': {},
         }
 
         if 'PerformanceText' not in df.columns:
             logger.warning("PerformanceText column not found - NLP processing skipped")
+            results['analysis_status'] = 'unavailable'
+            results['unavailable_reason'] = 'PerformanceText column not found'
             return results
 
         try:
@@ -505,16 +592,38 @@ Rules:
             results['sentiment'] = sentiment_df
             results['sentiment_summary'] = self.get_sentiment_summary(sentiment_df)
             results['sentiment_by_dept'] = self.get_sentiment_by_department(df, sentiment_df)
+            results['component_status']['sentiment'] = {
+                'status': 'available' if self._last_sentiment_input_count > 0 and self._last_sentiment_unprocessed_count == 0 else 'partial' if len(sentiment_df) else 'unavailable',
+                'input_observations': self._last_sentiment_input_count,
+                'observations': len(sentiment_df),
+                'unprocessed_observations': self._last_sentiment_unprocessed_count,
+            }
 
             # Skill extraction
             logger.info("Extracting skills...")
-            results['skills'] = self.extract_skills(df)
+            try:
+                results['skills'] = self.extract_skills(df)
+                results['component_status']['skills'] = {'status': results['skills'].get('status', 'available')}
+            except NLPEngineError as exc:
+                logger.warning("Skill extraction unavailable: %s", exc)
+                results['skills'] = self._empty_skills('Model output failed source-grounding validation', len(self._review_frame(df)))
+                results['component_status']['skills'] = {'status': 'unavailable'}
 
             # Topic extraction
             logger.info("Extracting topics...")
-            results['topics'] = self.extract_topics(df)
+            try:
+                results['topics'] = self.extract_topics(df)
+                results['component_status']['topics'] = {'status': 'available' if results['topics'] else 'unavailable'}
+            except NLPEngineError as exc:
+                logger.warning("Topic extraction unavailable: %s", exc)
+                results['topics'] = []
+                results['component_status']['topics'] = {'status': 'unavailable'}
+
+            component_states = [item['status'] for item in results['component_status'].values()]
+            results['analysis_status'] = 'available' if component_states and all(state == 'available' for state in component_states) else 'partial' if any(state in {'available', 'partial'} for state in component_states) else 'unavailable'
 
             logger.info("NLP processing complete")
+            return results
 
         except Exception as e:
             logger.error(f"NLP processing failed: {str(e)}")

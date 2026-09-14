@@ -3,7 +3,7 @@
 from typing import List, Dict, Any, Optional
 
 from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, ValidationError
 
 from src.platform.provenance import IntegrityError, snapshot_provenance
 from src.platform.runtime_lock import RUNTIME_MUTATION_LOCK
@@ -21,6 +21,9 @@ class SentimentSummary(BaseModel):
     positive_pct: float
     neutral_pct: float
     negative_pct: float
+    sentiment_observations: int = 0
+    excluded_sentiment_rows: int = 0
+    unprocessed_sentiment_rows: int = 0
 
 
 class TopicInfo(BaseModel):
@@ -30,6 +33,7 @@ class TopicInfo(BaseModel):
     prevalence: Optional[str] = None
     measurement_semantics: str = "generated_theme_not_measured_prevalence"
     sample_size: Optional[int] = None
+    sample_scope: Optional[str] = None
     sentiment: Optional[str] = None
     count: Optional[int] = None
 
@@ -41,6 +45,9 @@ class NLPAnalysisResponse(BaseModel):
     topics: List[TopicInfo]
     skills: Dict[str, Any]
     nlp_available: bool
+    analysis_status: str = 'unavailable'
+    component_status: Dict[str, Any] = Field(default_factory=dict)
+    unavailable_reason: Optional[str] = None
 
 
 def require_nlp(state: AppState = Depends(get_app_state)) -> AppState:
@@ -74,7 +81,14 @@ def get_nlp_analysis(
             if 'PerformanceText' not in state.raw_df.columns:
                 raise HTTPException(status_code=400, detail='No PerformanceText column found in dataset')
             if state.nlp_results is not None and state.nlp_results.get('provenance') == provenance:
-                return NLPAnalysisResponse(**state.nlp_results)
+                try:
+                    return NLPAnalysisResponse(**state.nlp_results)
+                except ValidationError as exc:
+                    state.nlp_results = None
+                    raise HTTPException(
+                        status_code=409,
+                        detail='Cached NLP analysis failed integrity validation. Retry the analysis.',
+                    ) from exc
             engine = state.nlp_engine
             if engine is None:
                 raise HTTPException(status_code=503, detail='NLP engine not initialized')
@@ -83,16 +97,30 @@ def get_nlp_analysis(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     # Inference may take minutes; it must not block dataset/reset mutations.
-    analysis = engine.process_all(source)
+    try:
+        analysis = engine.process_all(source)
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail='NLP analysis unavailable; no result was cached.') from exc
+    if not isinstance(analysis, dict):
+        raise HTTPException(status_code=503, detail='NLP analysis returned no governed result; no result was cached.')
     try:
         with RUNTIME_MUTATION_LOCK:
             if snapshot_provenance(state) != provenance:
                 raise IntegrityError('Dataset changed while text analysis was running. Retry the analysis.')
-            response = NLPAnalysisResponse(
-                provenance=provenance,
-                sentiment_summary=analysis['sentiment_summary'], topics=analysis['topics'],
-                skills=analysis['skills'], nlp_available=analysis['nlp_available'],
-            )
+            try:
+                response = NLPAnalysisResponse(
+                    provenance=provenance,
+                    sentiment_summary=analysis['sentiment_summary'], topics=analysis['topics'],
+                    skills=analysis['skills'], nlp_available=analysis['nlp_available'],
+                    analysis_status=analysis.get('analysis_status', 'available' if analysis['nlp_available'] else 'unavailable'),
+                    component_status=analysis.get('component_status', {}),
+                    unavailable_reason=analysis.get('unavailable_reason'),
+                )
+            except (KeyError, TypeError, ValidationError) as exc:
+                raise HTTPException(
+                    status_code=503,
+                    detail='NLP analysis failed governed schema validation; no result was cached.',
+                ) from exc
             state.nlp_results = response.model_dump()
             return response
     except IntegrityError as exc:

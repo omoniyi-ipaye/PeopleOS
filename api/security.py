@@ -22,7 +22,12 @@ _LOCAL_URL_HOSTS = _LOOPBACK_HOSTS | {"testserver"}
 _PUBLIC_PATHS = {"/", "/api/health"}
 _ALLOWED_REMOTE_ROLES = {"admin", "analyst", "viewer"}
 _SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
-_DEV_ORIGINS = {"http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:3001"}
+_DEV_ORIGINS = {
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:3001",
+    "http://127.0.0.1:3001",
+}
 # Explicit method/path mappings cover legacy writes as well as the control plane.
 # New mutation routes fail closed for remote roles until assigned a permission.
 _MUTATION_PERMISSIONS = (

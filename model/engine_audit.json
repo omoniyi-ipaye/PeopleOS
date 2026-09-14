@@ -481,11 +481,13 @@
       ],
       "review_status": "reviewed_with_limits",
       "findings": [
-        "Unavailable backtest stays unavailable in UI; removed zero accuracy and one-click accuracy claims. Feature diagnostics are labeled heuristic."
+        "Unavailable backtest stays unavailable in UI; removed zero accuracy and one-click accuracy claims. Feature diagnostics are labeled heuristic.",
+        "Cycle 018 binds diagnostics to the active runtime model and verified dataset snapshot, fails closed on incompatible or non-finite evidence, treats insufficient observations explicitly, and permits review-only actions with no automatic pruning or promised accuracy lift."
       ],
       "verification": [
         "tests/test_extended_integrity.py",
-        "tests/test_model_validation.py"
+        "tests/test_model_validation.py",
+        "tests/test_model_lab_engine_forensic_cycle018.py"
       ],
       "renderers": [
         "web/components/advisor/model-lab.tsx"
@@ -515,10 +517,12 @@
       "python_consumers": [],
       "review_status": "reviewed_with_limits",
       "findings": [
-        "Removed department-clique edges and proxy influence/isolation rankings from engine as well as API. Reporting structure remains a separate measured structural metric."
+        "Removed department-clique edges and proxy influence/isolation rankings from engine as well as API. Reporting structure remains a separate measured structural metric.",
+        "Cycle 019 confirms that unavailable engine and API paths disclose no employee rankings or identifiers, preserve source immutability, and cannot be reopened through deprecated endpoint parameters."
       ],
       "verification": [
-        "tests/test_engine_renderer_integrity.py"
+        "tests/test_engine_renderer_integrity.py",
+        "tests/test_network_engine_forensic_cycle019.py"
       ],
       "renderers": [],
       "remaining_validation": [
@@ -764,7 +768,8 @@
         "Impossible/missing role durations stay unavailable. Reporting spans exclude self/dangling links and work without optional role columns. Removed numeric burnout proxy; API handles nonfinite summaries."
       ],
       "verification": [
-        "tests/test_engine_renderer_integrity.py"
+        "tests/test_engine_renderer_integrity.py",
+        "tests/test_structural_engine_forensic_cycle024.py"
       ],
       "renderers": [
         "web/app/advisor/page.tsx",
@@ -950,7 +955,9 @@
       ],
       "methods": [
         "build_index",
+        "clear_index",
         "is_initialized",
+        "matches_provenance",
         "search"
       ],
       "python_consumers": [
@@ -966,7 +973,8 @@
         "Prior finite-vector, metadata alignment, empty/failed rebuild and failure-status tests retained. Legacy search display now labels similarity index instead of percent match."
       ],
       "verification": [
-        "tests/test_extended_integrity.py"
+        "tests/test_extended_integrity.py",
+        "tests/test_vector_engine_forensic_cycle027.py"
       ],
       "renderers": [
         "web/app/search/page.tsx",

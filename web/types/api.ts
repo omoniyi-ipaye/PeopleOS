@@ -217,19 +217,26 @@ export interface FeatureImportance {
 
 export interface SearchResult {
     results: {
-        employee_id: string
         dept: string
         text: string
         similarity_score: number
         squared_l2_distance?: number | null
         score_semantics?: string
     }[]
+    provenance: {
+        workspace_id?: string | null
+        dataset_id?: string | null
+        generation?: string | null
+        current_fingerprint?: string | null
+    }
 }
 
 export interface SearchStatus {
     available: boolean
     reason?: string
     indexed_records: number
+    embedding_dimension?: number
+    index_dataset_id?: string | null
 }
 
 export interface AdvisorStatus {
@@ -387,12 +394,40 @@ export interface SurvivalAnalysisResult {
 export interface SourceEffectiveness {
     HireSource: string
     hire_count: number
+    total_hires?: number
     pct_of_total: number
     avg_performance: number | null
+    performance_recorded_observations?: number
+    performance_observations?: number
+    performance_coverage?: number
+    performance_window_observations?: number
+    performance_window_coverage?: number
+    performance_maturity?: string
     retention_rate_pct: number | null
-    high_performer_rate: number
-    quality_score: number
-    grade: 'A' | 'B' | 'C' | 'D' | 'F'
+    retention_recorded_observations?: number
+    retention_eligible_hires?: number | null
+    retention_observations?: number
+    retention_recorded_coverage?: number
+    retention_coverage?: number
+    retention_maturity?: string
+    high_performer_rate: number | null
+    quality_score: number | null
+    grade: 'A' | 'B' | 'C' | 'D' | 'F' | 'Unavailable'
+    quality_components?: string[]
+    quality_weights?: Record<string, number>
+    effective_quality_weights?: Record<string, number>
+    configured_quality_weights?: Record<string, number>
+    excluded_quality_components?: string[]
+    component_observations?: Record<string, number>
+    component_coverage?: Record<string, number>
+    minimum_component_observations?: number
+    quality_unavailable_reason?: string | null
+    quality_semantics?: string
+    quality_claim?: string
+    quality_comparison_status?: string
+    quality_comparison_basis?: string
+    role_mix?: Record<string, Record<string, number>>
+    role_mix_columns?: string[]
     recommendation?: string
 }
 
@@ -419,6 +454,18 @@ export interface QoHCorrelationsResult {
     best_predictors?: PreHireCorrelation[]
     non_predictors?: PreHireCorrelation[]
     recommendations?: string[]
+    outcome_observations?: number
+    outcome_recorded_observations?: number
+    outcome_maturity?: string
+    measurement_gaps?: Array<{
+        predictor: string
+        display_name: string
+        paired_observations: number
+        predictor_observations: number
+        outcome_observations: number
+        minimum_paired_observations: number
+        reason: string
+    }>
 }
 
 export interface NewHireRisk {
@@ -450,6 +497,7 @@ export interface QualityOfHireAnalysisResult {
     new_hire_risks: NewHireRisk[]
     summary: {
         total_employees: number
+        total_hires?: number
         sources_analyzed: number
         prehire_signals_count: number
         new_hires_at_risk: number
@@ -458,6 +506,20 @@ export interface QualityOfHireAnalysisResult {
         has_hire_source?: boolean
         has_interview_scores?: boolean
         has_assessment?: boolean
+        best_source_semantics?: string
+        performance_recorded_observations?: number
+        performance_observations?: number
+        performance_coverage?: number
+        performance_window_coverage?: number
+        retention_recorded_observations?: number
+        retention_observations?: number
+        retention_recorded_coverage?: number
+        retention_coverage?: number
+        performance_maturity?: string
+        retention_maturity?: string
+        performance_window_months?: number
+        retention_window_months?: number
+        role_mix_columns?: string[]
     }
     recommendations: string[]
     warnings: string[]

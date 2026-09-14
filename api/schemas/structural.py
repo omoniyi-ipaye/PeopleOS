@@ -7,12 +7,12 @@ from typing import Optional, List, Dict, Any
 
 
 class StagnationEmployee(BaseModel):
-    """Stagnation metrics for an individual employee."""
+    """Legacy row shape; role-duration screening is not an employee risk score."""
     EmployeeID: str
     Tenure: float
     YearsInCurrentRole: float
     StagnationIndex: float
-    StagnationCategory: str  # Critical, Warning, Monitor, Healthy, Too Early
+    StagnationCategory: str  # descriptive threshold label, not a performance finding
     Dept: Optional[str] = None
     JobTitle: Optional[str] = None
     JobLevel: Optional[int] = None
@@ -50,11 +50,11 @@ class StagnationHotspotsResponse(BaseModel):
 
 
 class ManagerSpan(BaseModel):
-    """Span of control metrics for a manager."""
+    """Legacy row shape; reporting span is not burnout or manager effectiveness."""
     ManagerID: str
     DirectReports: int
     SpanCategory: str  # Under-Leveraged, Optimal, Stretched, Overloaded, Critical
-    BurnoutRiskScore: int  # 0-100
+    BurnoutRiskScore: Optional[int] = None  # retired; retained only for legacy payload compatibility
     Dept: Optional[str] = None
     JobTitle: Optional[str] = None
     JobLevel: Optional[int] = None
@@ -114,7 +114,7 @@ class EquityAuditResult(BaseModel):
     reference_group: str
     group_statistics: List[Dict[str, Any]]
     gaps: List[PromotionGap]
-    p_value: float
+    p_value: Optional[float] = None
     significant_gap: bool
     finding: str
 
@@ -138,7 +138,7 @@ class PromotionEquityResponse(BaseModel):
 
 
 class PromotionBottleneck(BaseModel):
-    """Promotion bottleneck in the organization."""
+    """Aggregate promotion-wait comparison, not promotion readiness."""
     type: str  # department, job_level
     name: str
     avg_years_since_promotion: float
@@ -148,7 +148,7 @@ class PromotionBottleneck(BaseModel):
 
 
 class BottleneckEmployee(BaseModel):
-    """Employee waiting longest for promotion."""
+    """Legacy row shape; never exposed by governed structural routes."""
     EmployeeID: str
     Dept: Optional[str] = None
     JobLevel: Optional[int] = None
