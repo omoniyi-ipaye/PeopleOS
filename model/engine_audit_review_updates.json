@@ -40,6 +40,7 @@
     "web/app/advisor/page.tsx": "a68b783eb6f89710e414938df63ac9fd8373ea14f80821d8772f1fccc6cceca6",
     "web/app/employee-experience/page.tsx": "c79dfa9572a717e0c5c8950d990f584a1218e8bea598eb78fd4f5d8738c88cef",
     "web/app/page.tsx": "b1560ba276e337b91b304970304e549f83aff6b2fff10ddbd36e38c9508e222f",
+    "web/app/providers.tsx": "d6e975306d64c66716fbc3954ee7b326257568469e323a6d73c9a1ce398ca396",
     "web/components/header.tsx": "3d43f6fb158a9e7db8973ccfed5825148dfdc302e5e07a9c89ba5f4354859a75",
     "web/lib/api-client.ts": "c6abb4e35b21faa7c5e0152177043a9a3cfe00411507a323dd468aafab893972",
     "web/app/platform/page.tsx": "99886b2ca9d893a5e0f76ec5c4d6730cc55b29c6c19c58b39dcc7ed7a896cac8",
