@@ -134,7 +134,7 @@ test('pay remains unavailable until units are explicitly trustworthy', async ({ 
   await page.goto('/advisor')
   const answer = await ask(page, 'What is average salary for our workforce?')
   expect(answer.ok()).toBeTruthy()
-  await expect(page.getByText('Average active-employee salary is 75,000 in the source reporting currency.', { exact: true })).toBeVisible()
+  await expect(page.getByText('Average active-employee salary is 75,000 EUR.', { exact: true })).toBeVisible()
   await shot(page, 'pilot-pay-confirmed')
 })
 
@@ -153,7 +153,7 @@ test('untrusted source labels cannot become instructions or invented facts', asy
   const evidence = result.evidence.tool_results.flatMap((tool: any) => tool.evidence)
   expect(evidence).toEqual(expect.arrayContaining([expect.objectContaining({ metric: 'headcount', value: 80 }), expect.objectContaining({ metric: 'salary_mean', value: 75000 })]))
   expect(evidence.filter((item: any) => item.value === 999999)).toEqual([])
-  await expect(page.getByText('Average active-employee salary is 75,000 in the source reporting currency.', { exact: true })).toBeVisible()
+  await expect(page.getByText('Average active-employee salary is 75,000 EUR.', { exact: true })).toBeVisible()
   await page.locator('summary').filter({ hasText: 'Evidence ledger' }).click()
   await expect(page.getByText(new RegExp(malicious)).first()).toBeVisible()
   await shot(page, 'pilot-untrusted-label-evidence')
