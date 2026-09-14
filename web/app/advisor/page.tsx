@@ -1,6 +1,6 @@
 'use client'
 
-import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { ArrowRight, Search, Sparkles } from 'lucide-react'
@@ -10,10 +10,10 @@ import { AgentAnswer, InvestigationResult, userFacingWarning } from '@/component
 
 interface RuntimeStatus { data?: { loaded?: boolean }; integrity?: { status: string; snapshot?: { generation: string; dataset_id: string; dataset_version?: number; source_name?: string } } }
 const suggestedQuestions = [
-  ['What should I look at first?', 'What are the most important workforce signals I should look at right now?'],
-  ['Where are people leaving?', 'Where is recorded attrition elevated across departments?'],
-  ['How does pay look?', 'What does our compensation data show about salary distribution and pay-gap screening?'],
-  ['How are teams structured?', 'Where do we have aggregate span-of-control or role-tenure pressure?'],
+  ['Start with workforce structure', 'Headcount by department'],
+  ['Where is recorded attrition?', 'Recorded attrition share by department'],
+  ['How does pay vary?', 'Average salary by department'],
+  ['How are teams structured?', 'Headcount by role'],
 ]
 
 function deeperQuestions(question: string) {
@@ -59,6 +59,7 @@ export default function PeopleIntelligencePage() {
   const [error, setError] = useState<string | null>(null)
   const controller = useRef<AbortController | null>(null)
   const initialQueryLoaded = useRef(false)
+  const initialQueryRun = useRef(false)
   useEffect(() => () => controller.current?.abort(), [])
   useEffect(() => {
     if (initialQueryLoaded.current || typeof window === 'undefined') return
@@ -69,7 +70,7 @@ export default function PeopleIntelligencePage() {
   const currentResult = ready && result?.generation === snapshot?.generation ? result : null
   const followUps = useMemo(() => currentResult ? deeperQuestions(currentResult.answer.question) : [], [currentResult])
 
-  async function investigate(selected?: string) {
+  const investigate = useCallback(async (selected?: string) => {
     const prompt = (selected ?? question).trim()
     if (prompt.length < 3 || prompt.length > 2000 || !ready || !snapshot || loading) return
     const captured = snapshot
@@ -84,7 +85,15 @@ export default function PeopleIntelligencePage() {
       if (!abort.signal.aborted) setResult({ answer, generation: captured.generation, source: `${captured.source_name ?? 'Current workforce'}${captured.dataset_version == null ? '' : ` · version ${captured.dataset_version}`}` })
     } catch (err) { if (!abort.signal.aborted) setError(userFacingWarning(err instanceof Error ? err.message : 'PeopleOS could not answer this question.')) }
     finally { if (controller.current === abort) { controller.current = null; setLoading(false) } }
-  }
+  }, [loading, question, ready, snapshot])
+
+  useEffect(() => {
+    if (initialQueryRun.current || !ready || typeof window === 'undefined') return
+    const prompt = new URLSearchParams(window.location.search).get('q')?.trim()?.slice(0, 2000)
+    if (!prompt || question !== prompt) return
+    initialQueryRun.current = true
+    window.setTimeout(() => void investigate(prompt), 0)
+  }, [investigate, ready, question])
 
   function submit(event: FormEvent) { event.preventDefault(); void investigate() }
   function cancel() { controller.current?.abort(); controller.current = null; setLoading(false); setError('Stopped waiting for this answer.') }
@@ -98,7 +107,7 @@ export default function PeopleIntelligencePage() {
     <Surface padding="lg" className="border-violet-200/70 bg-gradient-to-br from-white to-violet-50/30 dark:border-violet-500/20 dark:from-slate-950 dark:to-violet-500/[0.03]">
       <form onSubmit={submit} className="space-y-4" aria-busy={loading}>
         <Textarea label="Ask PeopleOS" value={question} onChange={event => setQuestion(event.target.value)} placeholder="For example: What should I be paying attention to in this workforce?" rows={4} minLength={3} maxLength={2000} disabled={loading || !ready} helperText="Ask about workforce, pay, retention, experience, structure, fairness or hiring. If the data cannot answer reliably, PeopleOS will say so." leading={<Search className="h-4 w-4" />} />
-        <div className="flex flex-wrap items-center justify-between gap-3"><div className="flex flex-wrap gap-2">{suggestedQuestions.map(([label, prompt]) => <Button key={label} type="button" variant="secondary" size="sm" disabled={loading || !ready} title={prompt} onClick={() => setQuestion(prompt)}>{label}</Button>)}</div><Button type="submit" isLoading={loading} disabled={!ready || question.trim().length < 3}><Sparkles className="h-4 w-4" />Ask PeopleOS</Button></div>
+        <div className="flex flex-wrap items-center justify-between gap-3"><div className="flex flex-wrap gap-2">{suggestedQuestions.map(([label, prompt]) => <Button key={label} type="button" variant="secondary" size="sm" disabled={loading || !ready} title={`Run: ${prompt}`} onClick={() => void investigate(prompt)}>{label}</Button>)}</div><Button type="submit" isLoading={loading} disabled={!ready || question.trim().length < 3}><Sparkles className="h-4 w-4" />Ask PeopleOS</Button></div>
       </form>
     </Surface>
 

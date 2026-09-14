@@ -17,4 +17,6 @@ test('scenario planner exposes bounded aggregate inputs and cost timing', () => 
   assert.match(source, /Cost timing/)
   assert.match(source, /configured draw share, not an empirical probability/)
   assert.match(source, /simple payback/)
+  assert.match(source, /monetary amounts in/)
+  assert.match(source, /reporting_currency/)
 })

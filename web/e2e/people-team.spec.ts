@@ -96,6 +96,21 @@ test('first-time People user can add data and get deterministic known answers', 
   await shot(page, 'pilot-known-answer-home')
 })
 
+test('starter questions and insight links lead directly to supported answers', async ({ page }) => {
+  await upload(page)
+  await page.goto('/advisor')
+  const starter = page.waitForResponse(r => r.url().endsWith('/api/intelligence/investigate') && r.request().method() === 'POST')
+  await page.getByRole('button', { name: 'Where is recorded attrition?', exact: true }).click()
+  expect((await starter).ok()).toBeTruthy()
+  await expect(page.getByText('Supported by your data', { exact: true })).toBeVisible()
+
+  await page.goto('/workforce-health')
+  const linked = page.waitForResponse(r => r.url().endsWith('/api/intelligence/investigate') && r.request().method() === 'POST')
+  await page.getByRole('link', { name: 'Attrition by department', exact: true }).click()
+  expect((await linked).ok()).toBeTruthy()
+  await expect(page.getByRole('heading', { name: 'Recorded attrition share by department', exact: true })).toBeVisible()
+})
+
 test('pay remains unavailable until units are explicitly trustworthy', async ({ page, request }) => {
   const undeclared = workforce().toString().split('\n').map(line => line.split(',').slice(0,-2).join(',')).join('\n')
   const first = await uploadRaw(page, 'pay-without-units.csv', undeclared)

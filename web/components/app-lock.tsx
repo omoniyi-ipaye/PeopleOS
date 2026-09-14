@@ -58,6 +58,9 @@ export function AppLockSetup({ context = 'setup' }: { context?: 'setup' | 'setti
       setValidationError(null)
     },
   })
+  const pinLengthHint = pin.length > 0 && pin.length < 6 ? `${pin.length}/6 digits entered` : 'Use exactly six digits.'
+  const currentPinLengthHint = currentPin.length > 0 && currentPin.length < 6 ? `${currentPin.length}/6 digits entered` : undefined
+  const confirmationError = confirmation.length === 6 && pin !== confirmation ? 'PIN entries do not match.' : undefined
 
   if (status.isLoading) return null
   if (status.isError) return <Surface tone="warning" padding="compact"><div role="alert" className="text-sm text-red-700 dark:text-red-300">PeopleOS could not check the local app-lock state.</div></Surface>
@@ -79,7 +82,7 @@ export function AppLockSetup({ context = 'setup' }: { context?: 'setup' | 'setti
           setValidationError(null)
           change.mutate()
         }} className="mt-4 grid gap-4 sm:grid-cols-3" noValidate>
-          <Input id="current-owner-pin" label="Current owner PIN" type="password" inputMode="numeric" autoComplete="current-password" maxLength={6} value={currentPin} onChange={event => setCurrentPin(event.target.value.replace(/\D/g, '').slice(0, 6))} error={validationError ?? undefined} />
+          <Input id="current-owner-pin" label="Current owner PIN" type="password" inputMode="numeric" autoComplete="current-password" maxLength={6} value={currentPin} onChange={event => setCurrentPin(event.target.value.replace(/\D/g, '').slice(0, 6))} error={validationError ?? undefined} helperText={currentPinLengthHint} />
           <Input id="new-owner-pin" label="New owner PIN" type="password" inputMode="numeric" autoComplete="new-password" maxLength={6} value={nextPin} onChange={event => setNextPin(event.target.value.replace(/\D/g, '').slice(0, 6))} />
           <Input id="new-owner-pin-confirmation" label="Confirm new PIN" type="password" inputMode="numeric" autoComplete="new-password" maxLength={6} value={nextConfirmation} onChange={event => setNextConfirmation(event.target.value.replace(/\D/g, '').slice(0, 6))} />
           <div className="flex flex-wrap items-center gap-3 sm:col-span-3"><Button type="submit" variant="secondary" disabled={change.isPending} isLoading={change.isPending}><LockKeyhole className="h-4 w-4" />Change PIN</Button><Button type="button" variant="ghost" disabled={disable.isPending} isLoading={disable.isPending} onClick={() => {
@@ -104,9 +107,9 @@ export function AppLockSetup({ context = 'setup' }: { context?: 'setup' | 'setti
     <SectionHeader title={context === 'setup' ? 'Protect this installation' : 'App lock'} description="Optional local protection for the owner of this PeopleOS installation." />
     <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.7fr)]">
       <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2" noValidate>
-        <Input id="owner-pin" label="Six-digit owner PIN" type="password" inputMode="numeric" autoComplete="new-password" maxLength={6} pattern="[0-9]{6}" value={pin} onChange={event => setPin(event.target.value.replace(/\D/g, '').slice(0, 6))} error={validationError ?? undefined} />
-        <Input id="owner-pin-confirmation" label="Confirm PIN" type="password" inputMode="numeric" autoComplete="new-password" maxLength={6} pattern="[0-9]{6}" value={confirmation} onChange={event => setConfirmation(event.target.value.replace(/\D/g, '').slice(0, 6))} />
-        <div className="flex flex-wrap items-center gap-3 sm:col-span-2"><Button type="submit" disabled={setup.isPending} isLoading={setup.isPending}><LockKeyhole className="h-4 w-4" />Set owner lock</Button>{setup.isError && <span role="alert" className="text-xs text-red-600 dark:text-red-300">{errorMessage(setup.error, 'The owner PIN could not be saved.')}</span>}</div>
+        <Input id="owner-pin" label="Six-digit owner PIN" type="password" inputMode="numeric" autoComplete="new-password" maxLength={6} pattern="[0-9]{6}" value={pin} onChange={event => setPin(event.target.value.replace(/\D/g, '').slice(0, 6))} error={validationError ?? undefined} helperText={pinLengthHint} />
+        <Input id="owner-pin-confirmation" label="Confirm PIN" type="password" inputMode="numeric" autoComplete="new-password" maxLength={6} pattern="[0-9]{6}" value={confirmation} onChange={event => setConfirmation(event.target.value.replace(/\D/g, '').slice(0, 6))} error={confirmationError} helperText="Re-enter the same six digits." />
+        <div className="flex flex-wrap items-center gap-3 sm:col-span-2"><Button type="submit" disabled={setup.isPending || !/^\d{6}$/.test(pin) || pin !== confirmation} isLoading={setup.isPending}><LockKeyhole className="h-4 w-4" />Set owner lock</Button>{setup.isError && <span role="alert" className="text-xs text-red-600 dark:text-red-300">{errorMessage(setup.error, 'The owner PIN could not be saved.')}</span>}</div>
       </form>
       <div className="rounded-2xl border border-slate-200/80 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.03]"><div className="flex items-start gap-3"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-violet-600 dark:text-violet-300" /><p className="text-xs leading-5 text-slate-600 dark:text-slate-400">The PIN is stored as a one-way hash in local app configuration. It is a local unattended-session lock, not a replacement for your computer login or full-disk encryption.</p></div><StatusBadge tone="neutral" className="mt-3">Owner only · local</StatusBadge></div>
     </div>
