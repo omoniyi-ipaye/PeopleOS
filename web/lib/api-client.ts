@@ -22,6 +22,16 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> 
 }
 
 export const api = {
+  // Local owner app lock
+  appLock: {
+    getStatus: () => fetchAPI<{ enabled: boolean; locked: boolean }>('/api/app-lock/status'),
+    setup: (pin: string) => fetchAPI<{ enabled: boolean; locked: boolean }>('/api/app-lock/setup', { method: 'POST', body: JSON.stringify({ pin }) }),
+    lock: () => fetchAPI<{ enabled: boolean; locked: boolean }>('/api/app-lock/lock', { method: 'POST' }),
+    unlock: (pin: string) => fetchAPI<{ enabled: boolean; locked: boolean }>('/api/app-lock/unlock', { method: 'POST', body: JSON.stringify({ pin }) }),
+    change: (currentPin: string, newPin: string) => fetchAPI<{ enabled: boolean; locked: boolean }>('/api/app-lock/change', { method: 'POST', body: JSON.stringify({ current_pin: currentPin, new_pin: newPin }) }),
+    disable: (pin: string) => fetchAPI<{ enabled: boolean; locked: boolean }>('/api/app-lock/disable', { method: 'POST', body: JSON.stringify({ pin }) }),
+  },
+
   // Upload endpoints
   upload: {
     uploadFile: async (file: File, pay?: { annual: boolean; currency: string }) => {

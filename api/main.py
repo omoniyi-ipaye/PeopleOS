@@ -37,6 +37,7 @@ from api.routes.network import router as network_router
 from api.routes.intelligence import router as intelligence_router
 from api.routes.platform import router as platform_router
 from api.routes.desktop import router as desktop_router
+from api.routes.app_lock import router as app_lock_router
 from api.dependencies import get_app_state
 from api.runtime_registry import get_local_state, get_workspace_state
 from api.security import local_first_access_guard
@@ -117,6 +118,7 @@ app.include_router(network_router)
 app.include_router(intelligence_router)
 app.include_router(platform_router)
 app.include_router(desktop_router)
+app.include_router(app_lock_router)
 
 
 @app.get("/")

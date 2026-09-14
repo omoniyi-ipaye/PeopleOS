@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api-client'
+import { AppLockSetup } from '@/components/app-lock'
 import { Button, EmptyState, MetricCard, Page, PageHeader, SectionHeader, StateSummary, StatusBadge, Surface, TrustDisclosure } from '@/components/ui'
 import { Activity, Brain, Database, ExternalLink, Power, RefreshCw, Server, ShieldCheck } from 'lucide-react'
 
@@ -57,6 +58,8 @@ export default function SettingsPage() {
       {desktopAction === 'restart' && <p className="mt-4 text-sm text-text-secondary">PeopleOS is restarting and will reopen when it is ready.</p>}
       {desktopAction === 'quit' && <p className="mt-4 text-sm text-text-secondary">PeopleOS is closing. You can close this browser tab.</p>}
     </Surface>}
+
+    <AppLockSetup context="settings" />
 
     <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <MetricCard label="PeopleOS app" value={appHealthy ? 'Ready' : health.data?.status ?? 'Needs attention'} detail="Local application status" icon={Server} tone={appHealthy ? 'success' : 'warning'} />

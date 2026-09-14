@@ -282,3 +282,23 @@ test('Trust & Privacy exposes plain-language safety first and advanced recovery 
   await expect(page.getByText('Needs an explicit action', { exact: true })).toBeVisible()
   await shot(page, 'pilot-trust-privacy')
 })
+
+test('the owner can set, lock and unlock the local PeopleOS installation', async ({ page }) => {
+  await upload(page)
+  await openPrimary(page, 'Settings', '/settings')
+  await expect(page.getByRole('heading', { name: 'PeopleOS settings', exact: true })).toBeVisible()
+
+  const setupField = page.getByLabel('Six-digit owner PIN', { exact: true })
+  if (await setupField.isVisible()) {
+    await setupField.fill('123456')
+    await page.getByLabel('Confirm PIN', { exact: true }).fill('123456')
+    await page.getByRole('button', { name: 'Set owner lock', exact: true }).click()
+  }
+
+  await expect(page.getByText('App lock is ready', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Lock app', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'PeopleOS is locked', exact: true })).toBeVisible()
+  await page.getByLabel('Owner PIN', { exact: true }).fill('123456')
+  await page.getByRole('button', { name: 'Unlock PeopleOS', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'PeopleOS settings', exact: true })).toBeVisible()
+})
