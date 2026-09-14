@@ -27,7 +27,10 @@ export default function DecisionCockpitPage() {
   const { data: departmentData } = useQuery<DepartmentList>({ queryKey: ['analytics', 'departments'], queryFn: () => api.analytics.getDepartments() as Promise<DepartmentList>, enabled: hasData })
   const sample = useMutation({
     mutationFn: () => api.upload.loadSample(),
-    onSuccess: async () => { await queryClient.invalidateQueries() },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['platform', 'status'] })
+      void queryClient.invalidateQueries({ queryKey: ['analytics'] })
+    },
   })
 
   if (statusLoading) return <div className="grid min-h-[65vh] place-items-center"><div className="text-center"><div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-2xl bg-violet-100 text-violet-600 dark:bg-violet-500/10 dark:text-violet-300"><Sparkles className="h-6 w-6 animate-pulse" /></div><div className="font-medium text-slate-700 dark:text-slate-200">Preparing PeopleOS…</div></div></div>
