@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -70,7 +71,10 @@ def _require_local_owner(request: Request) -> None:
 @router.get("/status", response_model=LLMStatus)
 async def get_llm_status(request: Request) -> LLMStatus:
     require_permission(request, "sensitive.read")
-    return LLMStatus.model_validate(local_llm_status())
+    # Ollama discovery uses a synchronous loopback HTTP client. Keep a slow or
+    # stopping local model from blocking every other FastAPI request.
+    status = await asyncio.to_thread(local_llm_status)
+    return LLMStatus.model_validate(status)
 
 
 @router.post("/configure", response_model=LLMStatus)
@@ -80,39 +84,48 @@ async def configure_llm(
     state: AppState = Depends(get_app_state),
 ) -> LLMStatus:
     _require_local_owner(request)
-    with RUNTIME_MUTATION_LOCK:
-        try:
+
+    def apply_configuration() -> None:
+        with RUNTIME_MUTATION_LOCK:
             AIPreferencesStore().update(
                 enabled=payload.enabled,
                 model=payload.model,
                 provider=payload.provider,
             )
             refresh_llm_state(state)
-        except (LocalLLMSetupError, RuntimeError) as exc:
-            raise HTTPException(status_code=409, detail=str(exc)) from exc
-    return LLMStatus.model_validate(local_llm_status())
+
+    try:
+        await asyncio.to_thread(apply_configuration)
+    except (LocalLLMSetupError, RuntimeError) as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return LLMStatus.model_validate(await asyncio.to_thread(local_llm_status))
 
 
 @router.post("/setup", response_model=LLMStatus)
 async def setup_llm(payload: LLMSetupRequest, request: Request) -> LLMStatus:
     _require_local_owner(request)
-    current = local_llm_status()
+    current = await asyncio.to_thread(local_llm_status)
     selected = payload.model or current["recommended_model"]
     try:
-        local_llm_setup.start(selected)
+        await asyncio.to_thread(local_llm_setup.start, selected)
     except (LocalLLMSetupError, RuntimeError) as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
-    return LLMStatus.model_validate(local_llm_status())
+    return LLMStatus.model_validate(await asyncio.to_thread(local_llm_status))
 
 
 @router.post("/test")
 async def test_llm(request: Request) -> dict[str, Any]:
     _require_local_owner(request)
-    current = local_llm_status()
+    current = await asyncio.to_thread(local_llm_status)
     if not current["ready"]:
         raise HTTPException(status_code=409, detail=current["reason"] or "Local AI is not ready.")
     try:
-        result = test_ollama_model(current["host"], current["selected_model"])
+        # Model generation is intentionally synchronous in the compatibility
+        # transport. Run it outside the event loop so health, navigation and
+        # lock requests remain responsive while the smoke test runs.
+        result = await asyncio.to_thread(
+            test_ollama_model, current["host"], current["selected_model"]
+        )
     except LocalLLMSetupError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     return {"passed": bool(result["passed"]), **result}

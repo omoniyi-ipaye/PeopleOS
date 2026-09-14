@@ -47,6 +47,8 @@ class WorkforceSummaryTool:
                     excluded = stats.get(f'{column}_excluded_count')
                     metadata.update(population='current active employees', measured_count=measured,
                                     eligible_count=stats.get('headcount'), excluded_count=excluded)
+                    if metric == 'salary_mean':
+                        metadata['reporting_currency'] = (getattr(self.state, 'runtime_provenance', None) or {}).get('reporting_currency')
                     if excluded:
                         warnings.append(f'{label} uses {measured} of {stats.get("headcount")} active employees; {excluded} missing or invalid measurements were excluded.')
                     elif value is None:
@@ -241,6 +243,7 @@ class CompensationEquityTool:
                                     'department': dept,
                                     'measured_count': headcount,
                                     'eligible_count': headcount,
+                                    'reporting_currency': (getattr(self.state, 'runtime_provenance', None) or {}).get('reporting_currency'),
                                     'confidence_basis': 'deterministic_descriptive_metric',
                                     'not_adjusted_pay_equity': True,
                                     'custom_dispersion_score_not_used_as_agent_evidence': True,
@@ -260,6 +263,7 @@ class CompensationEquityTool:
                     confidence=1.0,
                     dataset_version=context.dataset_version,
                     metadata={
+                        'reporting_currency': (getattr(self.state, 'runtime_provenance', None) or {}).get('reporting_currency'),
                         'p_value': gap.get('p_value'),
                         'male_n': gap.get('male_n'),
                         'female_n': gap.get('female_n'),

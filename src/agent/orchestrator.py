@@ -65,6 +65,7 @@ class PeopleIntelligenceAgent:
         workspace_id: Optional[str] = None,
         dataset_version: Optional[str] = None,
         model_version: Optional[str] = None,
+        record_audit: bool = True,
     ) -> AgentAnswer:
         request_id = f"pia_{uuid4().hex}"
         plan = self.planner.plan(question)
@@ -160,23 +161,24 @@ class PeopleIntelligenceAgent:
             warnings=warnings,
         )
 
-        try:
-            self.audit.record(
-                request_id=request_id,
-                question=question,
-                status=status,
-                confidence=response.confidence,
-                tools_used=plan.tool_ids,
-                tool_results=results,
-                model=model,
-                policy_id=self.policy.policy_id,
-                policy_blocked=policy_blocked,
-                workspace_id=workspace_id,
-                dataset_version=dataset_version,
-                actor_id=actor_id,
-            )
-        except Exception as exc:
-            response.warnings.append(f"Audit record could not be written: {exc}")
+        if record_audit:
+            try:
+                self.audit.record(
+                    request_id=request_id,
+                    question=question,
+                    status=status,
+                    confidence=response.confidence,
+                    tools_used=plan.tool_ids,
+                    tool_results=results,
+                    model=model,
+                    policy_id=self.policy.policy_id,
+                    policy_blocked=policy_blocked,
+                    workspace_id=workspace_id,
+                    dataset_version=dataset_version,
+                    actor_id=actor_id,
+                )
+            except Exception as exc:
+                response.warnings.append(f"Audit record could not be written: {exc}")
 
         return response
 

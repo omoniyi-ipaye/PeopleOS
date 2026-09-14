@@ -239,7 +239,25 @@ class ScenarioEngine:
         values = pd.to_numeric(frame['Salary'], errors='coerce')
         if values.empty or not (np.isfinite(values) & (values > 0)).all():
             raise ScenarioEngineError('Resolve missing, nonfinite or nonpositive annual salaries before financial simulation')
-        return float(values.mean())
+        array = values.to_numpy(dtype=float)
+        scale = float(np.max(np.abs(array)))
+        if not np.isfinite(scale) or scale <= 0:
+            raise ScenarioEngineError('Salary magnitude exceeds the finite reporting range')
+        mean = float(np.mean(array / scale) * scale)
+        if not np.isfinite(mean):
+            raise ScenarioEngineError('Salary magnitude exceeds the finite reporting range')
+        return mean
+
+    @staticmethod
+    def _require_finite(values: Dict[str, Any], context: str) -> None:
+        """Fail closed before a non-finite number can reach a scenario response."""
+        for name, value in values.items():
+            try:
+                numeric = float(value)
+            except (TypeError, ValueError, OverflowError) as exc:
+                raise ScenarioEngineError(f'{context} produced an invalid {name}; no result was generated') from exc
+            if not np.isfinite(numeric):
+                raise ScenarioEngineError(f'{context} exceeded the finite reporting range for {name}; no result was generated')
 
     def _filter_employees(self, target: Dict[str, Any]) -> pd.DataFrame:
         """
@@ -334,11 +352,26 @@ class ScenarioEngine:
         Returns:
             MonteCarloResult with distribution data
         """
+        self._require_finite(
+            {
+                'base_outcome': base_outcome,
+                'outcome_std': outcome_std,
+                'cost_per_outcome': cost_per_outcome,
+                'intervention_cost': intervention_cost,
+                **({'baseline_outcome': baseline_outcome} if baseline_outcome is not None else {}),
+                **({'fixed_benefit': fixed_benefit} if fixed_benefit is not None else {}),
+            },
+            'Monte Carlo scenario calculation',
+        )
+        if outcome_std < 0 or not isinstance(n_affected, (int, np.integer)) or isinstance(n_affected, bool) or n_affected < 0:
+            raise ScenarioEngineError('Monte Carlo scenario inputs are outside their supported bounds')
         rng = np.random.default_rng(self.random_seed)
 
         # Simulate outcomes
         outcomes = rng.normal(base_outcome, outcome_std, self.n_simulations)
         outcomes = np.clip(outcomes, 0, 1)  # Bound between 0-100%
+        if not np.isfinite(outcomes).all():
+            raise ScenarioEngineError('Monte Carlo outcome distribution was non-finite; no result was generated')
 
         # Simulate costs
         cost_impacts = []
@@ -362,6 +395,8 @@ class ScenarioEngine:
 
         cost_impacts = np.array(cost_impacts)
         rois = np.array(rois)
+        if not np.isfinite(cost_impacts).all() or not np.isfinite(rois).all():
+            raise ScenarioEngineError('Monte Carlo financial distribution was non-finite; no result was generated')
 
         # Calculate percentiles
         outcome_percentiles = {
@@ -373,6 +408,8 @@ class ScenarioEngine:
             f'p{int(p*100)}': float(np.percentile(cost_impacts, p*100))
             for p in self.confidence_intervals
         }
+        if not all(np.isfinite(value) for value in (*outcome_percentiles.values(), *cost_percentiles.values())):
+            raise ScenarioEngineError('Monte Carlo percentile output was non-finite; no result was generated')
 
         # Histogram
         hist_counts, hist_bins = np.histogram(outcomes, bins=20)
@@ -386,6 +423,20 @@ class ScenarioEngine:
         else:
             converged = True
             convergence_iter = len(rolling_means)
+
+        self._require_finite(
+            {
+                'outcome_mean': np.mean(outcomes),
+                'outcome_std': np.std(outcomes),
+                'outcome_median': np.median(outcomes),
+                'cost_impact_mean': np.mean(cost_impacts),
+                'cost_impact_std': np.std(cost_impacts),
+                'roi_mean': np.mean(rois),
+                'roi_std': np.std(rois),
+                'roi_positive_probability': (np.array(rois) > 0).mean(),
+            },
+            'Monte Carlo scenario summary',
+        )
 
         return MonteCarloResult(
             n_iterations=self.n_simulations,
@@ -449,8 +500,13 @@ class ScenarioEngine:
         Returns:
             ScenarioResult with predictions based on your data
         """
+        try:
+            adjustment_value = float(adjustment_value)
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise ScenarioEngineError('Require a 1–60 month horizon and finite nonnegative raise') from exc
         if not isinstance(time_horizon_months, int) or isinstance(time_horizon_months, bool) or not 1 <= time_horizon_months <= 60 or not np.isfinite(adjustment_value) or adjustment_value < 0:
             raise ScenarioEngineError('Require a 1–60 month horizon and finite nonnegative raise')
+        adjustment_label = format(adjustment_value, 'g')
         scenario_id = str(uuid.uuid4())[:8]
         affected_df = self._filter_employees(target)
         n_affected = len(affected_df)
@@ -497,6 +553,7 @@ class ScenarioEngine:
             total_benefit=replacement_savings,
             net_impact=replacement_savings - total_salary_increase * time_horizon_months / 12
         )
+        self._require_finite(vars(cost_impact), 'Compensation scenario financial calculation')
 
         # Monte Carlo simulation - use data-driven uncertainty
         mc_result = self._run_monte_carlo(
@@ -512,6 +569,7 @@ class ScenarioEngine:
         # avoided replacement cost do not have a supported realization schedule,
         # so this scenario cannot report a defensible payback period.
         roi = safe_divide(cost_impact.net_impact, cost_impact.total_cost, 0) * 100
+        self._require_finite({'roi': roi, 'projected_turnover': projected_turnover, 'turnover_reduction': turnover_reduction}, 'Compensation scenario calculation')
         payback = None
 
         # Confidence - adjust based on data quality
@@ -558,8 +616,8 @@ class ScenarioEngine:
 
         return ScenarioResult(
             scenario_id=scenario_id,
-            scenario_name=(f"{adjustment_value}% raise" if adjustment_type in {'percentage', 'market_adjustment'}
-                           else f"{adjustment_value} annual salary-unit increase per employee")
+            scenario_name=(f"{adjustment_label}% raise" if adjustment_type in {'percentage', 'market_adjustment'}
+                           else f"{adjustment_label} annual salary-unit increase per employee")
                           + f" for {target.get('department', 'selected group')}",
             scenario_type='compensation',
             input_parameters={
@@ -642,6 +700,12 @@ class ScenarioEngine:
         if change_count is not None:
             n_change = change_count
         elif change_percentage is not None:
+            try:
+                change_percentage = float(change_percentage)
+            except (TypeError, ValueError, OverflowError) as exc:
+                raise ScenarioEngineError('Change percentage must be a finite positive number') from exc
+            if not np.isfinite(change_percentage) or change_percentage <= 0:
+                raise ScenarioEngineError('Change percentage must be a finite positive number')
             n_change = int(n_current * change_percentage / 100)
         else:
             raise ScenarioEngineError("Must specify change_count or change_percentage")
@@ -687,6 +751,8 @@ class ScenarioEngine:
 
             turnover_change = 0
             projected_turnover = self._get_baseline_turnover()
+
+        self._require_finite(vars(cost_impact), 'Headcount scenario financial calculation')
 
         # Monte Carlo
         mc_result = self._run_monte_carlo(

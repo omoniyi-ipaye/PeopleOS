@@ -18,6 +18,9 @@ from src.utils import load_config
 
 logger = get_logger('nlp_engine')
 
+_REVIEW_SAMPLE_SIZE = 10
+_REVIEW_SAMPLE_SCOPE = f'first_{_REVIEW_SAMPLE_SIZE}_nonempty_unique_employee_reviews'
+
 
 class NLPEngineError(Exception):
     """Custom exception for NLP engine errors."""
@@ -48,6 +51,7 @@ class NLPEngine:
         self._last_sentiment_input_count = 0
         self._last_sentiment_observed_count = 0
         self._last_sentiment_unprocessed_count = 0
+        self._last_sentiment_excluded_count = 0
 
         logger.info(f"NLPEngine initialized. LLM available: {self.is_available}")
 
@@ -153,6 +157,7 @@ class NLPEngine:
         self._last_sentiment_input_count = 0
         self._last_sentiment_observed_count = 0
         self._last_sentiment_unprocessed_count = 0
+        self._last_sentiment_excluded_count = 0
         if 'PerformanceText' not in df.columns:
             logger.warning("PerformanceText column not found")
             return pd.DataFrame(columns=['EmployeeID', 'sentiment_score', 'sentiment_label'])
@@ -166,6 +171,13 @@ class NLPEngine:
             self._last_sentiment_unprocessed_count = len(reviews)
             return pd.DataFrame(columns=['EmployeeID', 'sentiment_score', 'sentiment_label'])
         
+        # Keep the optional local-model path bounded for interactive use. All
+        # review-model paths use the same small exploratory sample rather than
+        # starting one model call per review in a large workforce upload.
+        if len(reviews) > _REVIEW_SAMPLE_SIZE:
+            self._last_sentiment_excluded_count = len(reviews) - _REVIEW_SAMPLE_SIZE
+            reviews = reviews.head(_REVIEW_SAMPLE_SIZE).copy()
+
         # Use LLM for sentiment analysis
         texts = reviews['PerformanceText'].tolist()
         employee_ids = reviews['EmployeeID'].tolist()
@@ -183,7 +195,7 @@ class NLPEngine:
                 continue
 
         self._last_sentiment_observed_count = len(results)
-        self._last_sentiment_unprocessed_count = len(employee_ids) - len(results)
+        self._last_sentiment_unprocessed_count = self._last_sentiment_excluded_count + len(employee_ids) - len(results)
         return pd.DataFrame(results, columns=['EmployeeID', 'sentiment_score', 'sentiment_label'])
 
 
@@ -276,7 +288,7 @@ Rules:
         texts = reviews['PerformanceText'].tolist()
         if not texts:
             return self._empty_skills('No valid review rows', 0)
-        sample_size = min(50, len(texts))
+        sample_size = min(_REVIEW_SAMPLE_SIZE, len(texts))
         sample_texts = texts[:sample_size]
 
         prompt = self._build_skill_extraction_prompt(sample_texts)
@@ -388,7 +400,7 @@ Rules:
         texts = reviews['PerformanceText'].tolist()
         if not texts:
             return []
-        sample_size = min(50, len(texts))
+        sample_size = min(_REVIEW_SAMPLE_SIZE, len(texts))
         sample_texts = texts[:sample_size]
 
         prompt = self._build_topic_extraction_prompt(sample_texts)
@@ -425,7 +437,7 @@ Rules:
                               'sentiment': topic['sentiment'], 'prevalence': None,
                               'measurement_semantics': 'generated_theme_not_measured_prevalence',
                               'sample_size': sample_size,
-                              'sample_scope': 'first_50_nonempty_unique_employee_reviews'})
+                              'sample_scope': _REVIEW_SAMPLE_SCOPE})
             return valid[:self.topics_count]
 
         except Exception as e:
@@ -597,27 +609,38 @@ Rules:
                 'input_observations': self._last_sentiment_input_count,
                 'observations': len(sentiment_df),
                 'unprocessed_observations': self._last_sentiment_unprocessed_count,
+                'sample_size': min(self._last_sentiment_input_count, _REVIEW_SAMPLE_SIZE),
+                'excluded_observations': self._last_sentiment_excluded_count,
+                'sample_scope': _REVIEW_SAMPLE_SCOPE if self._last_sentiment_excluded_count else 'all_nonempty_unique_employee_reviews',
             }
 
-            # Skill extraction
-            logger.info("Extracting skills...")
-            try:
-                results['skills'] = self.extract_skills(df)
-                results['component_status']['skills'] = {'status': results['skills'].get('status', 'available')}
-            except NLPEngineError as exc:
-                logger.warning("Skill extraction unavailable: %s", exc)
-                results['skills'] = self._empty_skills('Model output failed source-grounding validation', len(self._review_frame(df)))
-                results['component_status']['skills'] = {'status': 'unavailable'}
+            if len(sentiment_df):
+                # Skill and topic extraction are also sampled. If sentiment
+                # produced no governed rows, avoid spending more model time
+                # on follow-on calls that cannot produce a trustworthy result.
+                logger.info("Extracting skills...")
+                try:
+                    results['skills'] = self.extract_skills(df)
+                    results['component_status']['skills'] = {'status': results['skills'].get('status', 'available'), 'sample_size': min(len(self._review_frame(df)), _REVIEW_SAMPLE_SIZE)}
+                except NLPEngineError as exc:
+                    logger.warning("Skill extraction unavailable: %s", exc)
+                    results['skills'] = self._empty_skills('Model output failed source-grounding validation', len(self._review_frame(df)))
+                    results['component_status']['skills'] = {'status': 'unavailable', 'sample_size': min(len(self._review_frame(df)), _REVIEW_SAMPLE_SIZE)}
 
-            # Topic extraction
-            logger.info("Extracting topics...")
-            try:
-                results['topics'] = self.extract_topics(df)
-                results['component_status']['topics'] = {'status': 'available' if results['topics'] else 'unavailable'}
-            except NLPEngineError as exc:
-                logger.warning("Topic extraction unavailable: %s", exc)
+                logger.info("Extracting topics...")
+                try:
+                    results['topics'] = self.extract_topics(df)
+                    results['component_status']['topics'] = {'status': 'available' if results['topics'] else 'unavailable', 'sample_size': min(len(self._review_frame(df)), _REVIEW_SAMPLE_SIZE)}
+                except NLPEngineError as exc:
+                    logger.warning("Topic extraction unavailable: %s", exc)
+                    results['topics'] = []
+                    results['component_status']['topics'] = {'status': 'unavailable', 'sample_size': min(len(self._review_frame(df)), _REVIEW_SAMPLE_SIZE)}
+            else:
+                reason = 'Skipped because sentiment inference returned no governed rows.'
+                results['skills'] = self._empty_skills(reason, len(self._review_frame(df)))
                 results['topics'] = []
-                results['component_status']['topics'] = {'status': 'unavailable'}
+                results['component_status']['skills'] = {'status': 'unavailable', 'unavailable_reason': reason}
+                results['component_status']['topics'] = {'status': 'unavailable', 'unavailable_reason': reason}
 
             component_states = [item['status'] for item in results['component_status'].values()]
             results['analysis_status'] = 'available' if component_states and all(state == 'available' for state in component_states) else 'partial' if any(state in {'available', 'partial'} for state in component_states) else 'unavailable'

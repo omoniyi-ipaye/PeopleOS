@@ -74,7 +74,7 @@ export default function SettingsPage() {
     <Surface padding="lg">
       <SectionHeader title="What your current data supports" description="PeopleOS only enables analysis when the required data is present and usable." />
       <div className="mt-5 flex flex-wrap gap-2">
-        {Object.keys(features).length ? Object.entries(features).map(([key, enabled]) => <StatusBadge key={key} tone={enabled ? 'success' : 'neutral'}>{key.replaceAll('_', ' ')} · {enabled ? 'ready' : 'not available'}</StatusBadge>) : <span className="text-sm text-text-secondary">Add workforce data to see available analysis areas.</span>}
+        {Object.keys(features).length ? Object.entries(features).map(([key, enabled]) => <StatusBadge key={key} tone={enabled ? 'success' : 'neutral'}>{key.replaceAll('_', ' ')} · {enabled ? 'ready' : 'not available'}</StatusBadge>) : <span className="text-sm text-text-secondary">{hasData ? 'Checking which analysis areas this workforce supports…' : 'Add workforce data to see available analysis areas.'}</span>}
       </div>
     </Surface>
 

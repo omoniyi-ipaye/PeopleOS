@@ -32,9 +32,10 @@ class LLMClientError(Exception):
 class _OllamaTransport:
     """Keep the pinned Ollama client compatible with thinking-capable models."""
 
-    def __init__(self, client: Any, host: str):
+    def __init__(self, client: Any, host: str, timeout: float):
         self._client = client
         self._host = host
+        self._timeout = timeout
         self._native_think = self._supports_think(client)
         self._legacy_native_client = type(client).__module__.startswith('ollama.')
 
@@ -59,6 +60,7 @@ class _OllamaTransport:
                 prompt,
                 options=kwargs.get('options'),
                 response_format=kwargs.get('format'),
+                timeout=self._timeout,
             )
         if self._native_think:
             kwargs = {'think': False, **kwargs}
@@ -126,7 +128,7 @@ class LLMClient:
             if installed is None:
                 raise LLMClientError(f"Configured model {self.model} is not installed")
             self.model_digest = installed.get('digest') if isinstance(installed, dict) else getattr(installed, 'digest', None)
-            self.client = _OllamaTransport(transport, self.host)
+            self.client = _OllamaTransport(transport, self.host, self.timeout)
             self.unavailable_reason = None
             self.is_available = True
             logger.info(f"Ollama available at {self.host} with model {self.model}")

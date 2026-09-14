@@ -628,6 +628,41 @@ class StructuralEngine:
         # Generate overall findings
         significant_gaps = [r for r in audit_results if r.get('significant_gap')]
 
+        if not audit_results:
+            return {
+                'available': False,
+                'reason': (
+                    'Insufficient comparison evidence: no protected attribute has at least two groups '
+                    f'with {min_group_size} valid promotion-duration observations.'
+                ),
+                'audit_results': [],
+                'significant_gaps': [],
+                'summary': {
+                    'employees_analyzed': len(analysis_df),
+                    'attributes_tested': 0,
+                    'significant_gaps_found': 0,
+                },
+                'recommendations': [
+                    'Collect comparable promotion-duration observations across at least two supported groups before interpreting group differences.'
+                ],
+                'methodology': (
+                    "Unadjusted comparison of years since last promotion; no control variables "
+                    "or multiple-testing correction. This is not time to next promotion. "
+                    f"Exploratory significance threshold p < {significance_level}."
+                ),
+                'data_quality': {
+                    **self._get_data_quality(),
+                    'promotion_analysis_population': int(len(analysis_df)),
+                    'promotion_analysis_coverage': round(len(analysis_df) / len(self.df), 4) if len(self.df) else 0.0,
+                },
+                'metric_semantics': 'observational_promotion_velocity_screening_not_promotion_readiness_or_causal_discrimination_finding',
+                'scientific_limits': [
+                    'No comparison was performed because minimum support was not met; this is not evidence of no group difference.',
+                    'Years since last promotion is a current-state duration, not time to next promotion or promotion readiness.',
+                    'Unadjusted group differences do not establish discrimination, causality or organizational health.',
+                ],
+            }
+
         recommendations = []
         if significant_gaps:
             for gap in significant_gaps:

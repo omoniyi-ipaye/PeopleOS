@@ -114,6 +114,17 @@ class EvidencePlanner:
             )
             return InvestigationPlan(tool_ids=[], rationale="request blocked at the agent boundary", limitations=[limitation], supported=False)
 
+        if re.search(r"\bmy\s+(?:team|department|direct\s+reports?)\b", q):
+            return InvestigationPlan(
+                tool_ids=[],
+                rationale="manager-specific scope is not available in the local aggregate runtime",
+                limitations=[
+                    "PeopleOS cannot identify your personal team or direct reports in this local owner workspace; use a named aggregate department or team question instead."
+                ],
+                supported=False,
+                must_abstain=True,
+            )
+
         # A negated domain is not an instruction to run that domain's tools.
         # This avoids an unavailable optional tool turning a valid request into
         # an apparently failed investigation.
@@ -141,7 +152,7 @@ class EvidencePlanner:
         if any(term in routing_q for term in ["department", "team", "function", "hotspot"]):
             add("workforce.department_risk", "department-level evidence requested")
 
-        if any(term in routing_q for term in ["salary", "pay", "compensation", "equity", "equal pay", "gender gap"]):
+        if any(term in routing_q for term in ["salary", "pay", "compensation", "equity", "equal pay", "gender gap", "pay gap"]):
             add("workforce.compensation_equity", "compensation/equity evidence requested")
 
         if any(term in routing_q for term in ["fairness", "bias", "disparity", "protected group", "adverse impact"]):
@@ -182,12 +193,14 @@ class EvidencePlanner:
             must_abstain = True
         if "turnover" in q:
             limitations.append("Observed attrition share is not a period turnover rate; exposure and dated departures are required for period turnover.")
-        if re.search(r"\b(?:for|in|within|among|excluding|except|between)\s+(?:the\s+)?(?:[a-z]+\s+){0,2}(?:department|team|function)\b", q) or any(term in q for term in ["engineering", "sales", "marketing", "operations"]):
+        if re.search(r"\b(?:for|in|within|among|excluding|except|between)\s+(?!(?:each|every|all|per)\b)(?:the\s+)?(?:[a-z]+\s+){0,2}(?:department|team|function)\b", q) or any(term in q for term in ["engineering", "sales", "marketing", "operations"]):
             limitations.append("This plan returns workforce-wide and available department aggregates; it does not filter the dataset to a named team.")
             must_abstain = True
         required_metrics = ["headcount"] if headcount_requested else []
         if observed_attrition_metric:
             required_metrics.append("observed_attrition_share")
+        if re.search(r"\b(?:gender|sex)\b[^?.;]*\bpay\s+gap\b|\bpay\s+gap\b[^?.;]*\b(?:gender|sex)\b", q):
+            required_metrics.append("unadjusted_gender_pay_gap_pct")
         for terms, metric in [
             (["headcount", "how many employees", "employee count"], "headcount"),
             (["average salary", "mean salary"], "salary_mean"),
@@ -227,7 +240,7 @@ class EvidencePlanner:
         # A generic workforce keyword is not evidence that an arbitrary metric
         # or population restriction has been implemented. Until typed filters are
         # available, treat unfamiliar summary-query terms conservatively.
-        summary_words = set("what is are was were the our my a an and of for in about tell me show give please can you do we have how many employees employee people workforce staff members work here large big size current currently active total headcount count number average mean age salary tenure performance rating overview summary statistics company organization organisation now today just not analyze analyse attrition departure observed recorded share percentage".split())
+        summary_words = set("what is are was were the our my a an and of for in about tell me show give please can you do we have how many employees employee people workforce staff members work here large big size current currently active total headcount count number average mean age salary tenure performance rating overview summary statistics company organization organisation now today just not analyze analyse attrition departure observed recorded share percentage each per there look like".split())
         summary_words.update({"q1", "q2", "q3", "q4"})
         tokens = set(re.findall(r"[a-z]+[0-9]*", routing_q))
         # Every meaningful word must belong to the supported aggregate question
@@ -280,7 +293,12 @@ class EvidencePlanner:
         ):
             limitations.append("The requested population scope is not applied; these tools provide whole-workforce evidence and cannot answer a filtered or grouped request.")
             must_abstain = True
-        if re.search(r"\b(women|men|female|male|nonbinary|part.time|full.time|contractors?|remote|onsite)\b|\b(in|within|among)\s+(?!our\b|the workforce\b|the company\b|the organization\b)\w+", q):
+        if re.search(
+            r"\b(women|men|female|male|nonbinary|part.time|full.time|contractors?|remote|onsite)\b|"
+            r"\b(in|within|among)\s+(?!our\b|the workforce\b|the company\b|the organization\b|"
+            r"each\b|every\b|all\b|per\b)\w+",
+            q,
+        ):
             limitations.append("Requested subgroup filters are not applied by this investigation; aggregate evidence must not be interpreted as that subgroup's result.")
             must_abstain = True
         if re.search(r"\b(absenteeism|absence|absences|overtime|vacancies|vacancy|recruitment|productivity)\b", q):

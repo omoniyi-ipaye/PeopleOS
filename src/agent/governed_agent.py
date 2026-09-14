@@ -19,11 +19,13 @@ class GovernedPeopleIntelligenceAgent(PeopleIntelligenceAgent):
         self.derived_tool = GovernedDerivedAnalysisTool(state)
 
     def investigate(self, question: str, *, actor_id: Optional[str] = None, workspace_id: Optional[str] = None,
-                    dataset_version: Optional[str] = None, model_version: Optional[str] = None) -> AgentAnswer:
+                    dataset_version: Optional[str] = None, model_version: Optional[str] = None,
+                    record_audit: bool = True) -> AgentAnswer:
         spec = plan_derived_analysis(question)
         if spec is None:
             return super().investigate(question, actor_id=actor_id, workspace_id=workspace_id,
-                                       dataset_version=dataset_version, model_version=model_version)
+                                       dataset_version=dataset_version, model_version=model_version,
+                                       record_audit=record_audit)
 
         request_id = f"pia_{uuid4().hex}"
         context = ToolContext(request_id=request_id, actor_id=actor_id, workspace_id=workspace_id,
@@ -35,7 +37,10 @@ class GovernedPeopleIntelligenceAgent(PeopleIntelligenceAgent):
 
         if result.status == ToolResultStatus.SUCCESS and result.evidence:
             bundle.sufficiency = EvidenceSufficiency.SUFFICIENT
-            answer = self._render_derived_answer(spec.model_dump(), result.evidence[0].value)
+            reporting_currency = (getattr(self.state, 'runtime_provenance', None) or {}).get('reporting_currency')
+            answer = self._render_derived_answer(
+                spec.model_dump(), result.evidence[0].value, reporting_currency=reporting_currency
+            )
             status = 'complete'
         else:
             bundle.sufficiency = EvidenceSufficiency.INSUFFICIENT
@@ -54,17 +59,20 @@ class GovernedPeopleIntelligenceAgent(PeopleIntelligenceAgent):
         response = AgentAnswer(request_id=request_id, question=question, answer=answer, status=status,
                                confidence=float(bundle.overall_confidence or (1.0 if status == 'complete' else 0.0)),
                                tools_used=[self.derived_tool.tool_id], model=None, evidence=bundle, warnings=warnings)
-        try:
-            self.audit.record(request_id=request_id, question=question, status=status, confidence=response.confidence,
-                              tools_used=response.tools_used, tool_results=[result], model=None,
-                              policy_id=self.policy.policy_id, policy_blocked=False, workspace_id=workspace_id,
-                              dataset_version=dataset_version, actor_id=actor_id)
-        except Exception as exc:
-            response.warnings.append(f"Audit record could not be written: {exc}")
+        if record_audit:
+            try:
+                self.audit.record(request_id=request_id, question=question, status=status, confidence=response.confidence,
+                                  tools_used=response.tools_used, tool_results=[result], model=None,
+                                  policy_id=self.policy.policy_id, policy_blocked=False, workspace_id=workspace_id,
+                                  dataset_version=dataset_version, actor_id=actor_id)
+            except Exception as exc:
+                response.warnings.append(f"Audit record could not be written: {exc}")
         return response
 
     @staticmethod
-    def _render_derived_answer(spec: dict[str, Any], output: dict[str, Any]) -> str:
+    def _render_derived_answer(
+        spec: dict[str, Any], output: dict[str, Any], *, reporting_currency: Optional[str] = None
+    ) -> str:
         operation = spec['operation']; statistic = spec.get('statistic', 'count')
         measure = spec.get('measure'); group = spec.get('group_by')
 
@@ -76,7 +84,9 @@ class GovernedPeopleIntelligenceAgent(PeopleIntelligenceAgent):
 
         def value_text(value: float) -> str:
             if statistic == 'rate': return f"{value:.1%}"
-            if measure == 'Salary' or statistic == 'sum': return f"{value:,.0f}"
+            if measure == 'Salary' or statistic == 'sum':
+                currency_suffix = f" {reporting_currency.strip()}" if measure == 'Salary' and isinstance(reporting_currency, str) and reporting_currency.strip() else ''
+                return f"{value:,.0f}{currency_suffix}"
             if statistic == 'count': return f"{int(round(value)):,}"
             return f"{value:.2f}"
 
@@ -94,7 +104,8 @@ class GovernedPeopleIntelligenceAgent(PeopleIntelligenceAgent):
             parts = [f"{row['group']}: {value_text(float(row['value']))} (n={row['measured_count']})" for row in rows[:8]]
             suppressed = int(output.get('suppressed_groups', 0) or 0)
             suffix = f" {suppressed} smaller group{'s were' if suppressed != 1 else ' was'} hidden because there was not enough support." if suppressed else ''
-            return cohort + f"{descriptor.capitalize()} by {label(group)} — " + '; '.join(parts) + '.' + suffix
+            caveat = ' This is recorded attrition share among known outcomes, not a period turnover rate.' if statistic == 'rate' and measure == 'Attrition' else ''
+            return cohort + f"{descriptor.capitalize()} by {label(group)} — " + '; '.join(parts) + '.' + suffix + caveat
 
         if operation == 'compare_groups':
             rows = output.get('groups', [])

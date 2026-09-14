@@ -98,6 +98,20 @@ def test_sentiment_success_preserves_exact_ids_and_observation_counts():
     assert engine.get_sentiment_summary(result)['unprocessed_sentiment_rows'] == 0
 
 
+def test_large_sentiment_population_is_bounded_and_disclosed():
+    engine = engine_for([
+        {'EmployeeID': f'E{i}', 'sentiment_score': 0.9, 'sentiment_label': 'Positive'}
+        for i in range(10)
+    ])
+    result = engine.analyze_sentiment(reviews(800))
+    summary = engine.get_sentiment_summary(result)
+
+    assert len(result) == 10
+    assert engine._last_sentiment_input_count == 800
+    assert engine._last_sentiment_excluded_count == 790
+    assert summary['unprocessed_sentiment_rows'] == 790
+
+
 def test_skill_output_is_bounded_and_must_be_literal_source_evidence():
     source = reviews(1)
     hallucinated = engine_for({'technical_skills': ['Python', 'Java'], 'soft_skills': []})
@@ -128,8 +142,8 @@ def test_topics_ignore_model_prevalence_and_disclose_sampling_scope():
     topic = engine.extract_topics(reviews(60))[0]
     assert topic['prevalence'] is None
     assert topic['measurement_semantics'] == 'generated_theme_not_measured_prevalence'
-    assert topic['sample_size'] == 50
-    assert topic['sample_scope'] == 'first_50_nonempty_unique_employee_reviews'
+    assert topic['sample_size'] == 10
+    assert topic['sample_scope'] == 'first_10_nonempty_unique_employee_reviews'
     assert routes.TopicInfo(**topic).prevalence is None
 
 
@@ -221,7 +235,7 @@ def test_nlp_api_exposes_provenance_and_component_status_without_prevalence_clai
         'topics': [{
             'name': 'Support', 'description': 'Team support', 'prevalence': None,
             'measurement_semantics': 'generated_theme_not_measured_prevalence',
-            'sample_size': 2, 'sample_scope': 'first_50_nonempty_unique_employee_reviews',
+            'sample_size': 2, 'sample_scope': 'first_10_nonempty_unique_employee_reviews',
         }],
         'skills': {'technical_skills': [], 'soft_skills': [], 'skill_counts': {}},
         'nlp_available': True, 'analysis_status': 'partial',
@@ -238,5 +252,5 @@ def test_nlp_api_exposes_provenance_and_component_status_without_prevalence_clai
     assert payload['analysis_status'] == 'partial'
     assert payload['sentiment_summary']['unprocessed_sentiment_rows'] == 2
     assert payload['topics'][0]['prevalence'] is None
-    assert payload['topics'][0]['sample_scope'] == 'first_50_nonempty_unique_employee_reviews'
+    assert payload['topics'][0]['sample_scope'] == 'first_10_nonempty_unique_employee_reviews'
     assert state.nlp_results['provenance'] == payload['provenance']

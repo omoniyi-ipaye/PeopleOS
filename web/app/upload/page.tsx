@@ -48,7 +48,7 @@ export default function DataSourcesPage() {
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(300px,0.8fr)]">
       <Surface padding="none" className="overflow-hidden">
         <div {...dropzone.getRootProps()} aria-disabled={statusLoading || statusError || busy} className={`flex min-h-[390px] cursor-pointer flex-col items-center justify-center p-8 text-center transition ${dropzone.isDragActive ? 'bg-violet-50 dark:bg-violet-500/[0.04]' : 'hover:bg-background-secondary'}`}>
-          <input {...dropzone.getInputProps()} />
+          <input {...dropzone.getInputProps({ 'aria-label': 'Choose workforce data file' })} />
           <div className="grid h-16 w-16 place-items-center rounded-2xl bg-violet-50 text-violet-600 dark:bg-violet-500/10 dark:text-violet-300">{uploadMutation.isPending ? <Loader2 className="h-7 w-7 animate-spin" /> : <FileSpreadsheet className="h-7 w-7" />}</div>
           <h2 className="mt-5 text-xl font-semibold">{dropzone.isDragActive ? 'Drop your workforce file here' : hasData ? 'Replace workforce data' : 'Add your workforce data'}</h2>
           <p className="mt-2 max-w-md text-sm leading-6 text-text-secondary">Excel, CSV or JSON. Use an ordinary HR export; PeopleOS maps familiar column names and validates the file before activation.</p>

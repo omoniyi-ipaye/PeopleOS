@@ -263,9 +263,15 @@ class QualityOfHireEngine:
         results = []
         quality_weights = self._quality_comparison_weights()
         configured_weights = self._configured_quality_weights()
+        sources = (
+            df['HireSource'].astype('string').str.strip().replace('', pd.NA).fillna('Unknown')
+        )
 
-        for source in df['HireSource'].unique():
-            source_df = df[df['HireSource'] == source]
+        for source in sources.unique():
+            # Missing source provenance is a real cohort, not an empty
+            # category. Keeping it visible prevents sources_analyzed and
+            # percentages from silently dropping rows from the denominator.
+            source_df = df.loc[sources == source].copy()
             n = len(source_df)
 
             if n < MIN_SAMPLE_FOR_SOURCE:

@@ -33,7 +33,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   if (appLock.isError) {
-    return <main className="grid min-h-screen place-items-center bg-slate-50 px-4 dark:bg-slate-950"><div role="alert" className="max-w-md rounded-2xl border border-amber-200 bg-white p-6 text-center text-sm text-amber-800 dark:border-amber-500/20 dark:bg-slate-900 dark:text-amber-200">PeopleOS could not verify its local lock state. The app is unavailable until the local configuration can be checked safely.</div></main>
+    return <main className="grid min-h-screen place-items-center bg-slate-50 px-4 dark:bg-slate-950"><div role="alert" className="max-w-md rounded-2xl border border-amber-200 bg-white p-6 text-center text-sm text-amber-800 dark:border-amber-500/20 dark:bg-slate-900 dark:text-amber-200"><p>PeopleOS could not verify its local lock state. The app is unavailable until the local configuration can be checked safely.</p><button type="button" onClick={() => void appLock.refetch()} className="mt-4 rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-100">Retry connection</button></div></main>
   }
 
   if (appLock.data?.locked) {

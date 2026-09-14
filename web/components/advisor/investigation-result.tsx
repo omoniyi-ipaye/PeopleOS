@@ -32,7 +32,11 @@ export function evidenceClaim(item: EvidenceItem) {
   const label = item.claim.split(':', 1)[0]
   if (['observed_attrition_share', 'department_observed_attrition_share', 'mean_risk_score'].includes(item.metric ?? '')) return `${label}: ${(value * 100).toFixed(1)}%`
   if (['model_f1', 'model_roc_auc'].includes(item.metric ?? '')) return `${label}: ${value.toFixed(3)}`
-  if (item.metric === 'salary_mean') return `${label}: ${Math.round(value).toLocaleString()}`
+  if (item.metric === 'salary_mean') {
+    const currency = typeof item.metadata?.reporting_currency === 'string' ? item.metadata.reporting_currency : ''
+    return `${label}: ${Math.round(value).toLocaleString()}${currency ? ` ${currency}` : ''}`
+  }
+  if (item.metric === 'unadjusted_gender_pay_gap_pct') return `${label}: ${value.toFixed(1)}% (unadjusted descriptive comparison; not a legal or causal equity determination)`
   if (item.metric === 'tenure_mean') return `${label}: ${value.toFixed(1)} years`
   if (item.metric === 'age_mean') return `${label}: ${value.toFixed(1)} years`
   if (item.metric === 'lastrating_mean') return `${label}: ${value.toFixed(1)}/5`
@@ -51,6 +55,7 @@ function requestedMetric(question: string) {
   if (/\b(headcount|how many|employee count|workforce size|staff count)\b/.test(q)) return ['active_count', 'headcount']
   if (/\b(attrition|departure)\b/.test(q) && /\b(share|percentage|rate)\b/.test(q)) return ['observed_attrition_share']
   if (/\b(average|mean)\b/.test(q) && /\b(salary|pay|compensation)\b/.test(q)) return ['salary_mean']
+  if (/\b(?:gender|sex)\b[^?.;]*\bpay\s+gap\b|\bpay\s+gap\b[^?.;]*\b(?:gender|sex)\b/.test(q)) return ['unadjusted_gender_pay_gap_pct']
   if (/\b(average|mean)\b/.test(q) && /\btenure\b/.test(q)) return ['tenure_mean']
   if (/\b(average|mean)\b/.test(q) && /\bage\b/.test(q)) return ['age_mean']
   if (/\b(average|mean)\b/.test(q) && /\b(rating|performance rating)\b/.test(q)) return ['lastrating_mean']
@@ -70,8 +75,12 @@ function directAnswer(question: string, items: EvidenceItem[]) {
       return `Your current active workforce is ${Math.round(value).toLocaleString()} people.`
     case 'observed_attrition_share':
       return `Recorded attrition share is ${(value * 100).toFixed(1)}%. This is the share of known employee outcomes marked as departed, not automatically a period turnover rate.`
-    case 'salary_mean':
-      return `Average active-employee salary is ${Math.round(value).toLocaleString()} in the source reporting currency.`
+    case 'salary_mean': {
+      const currency = typeof item.metadata?.reporting_currency === 'string' ? item.metadata.reporting_currency : 'the source reporting currency'
+      return `Average active-employee salary is ${Math.round(value).toLocaleString()} ${currency}.`
+    }
+    case 'unadjusted_gender_pay_gap_pct':
+      return `The unadjusted gender pay gap is ${value.toFixed(1)}%. This is a descriptive comparison, not a legal, causal or adjusted equity determination.`
     case 'tenure_mean':
       return `Average active-employee tenure is ${value.toFixed(1)} years.`
     case 'age_mean':

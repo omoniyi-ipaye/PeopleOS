@@ -50,7 +50,7 @@ function deeperQuestions(question: string) {
 }
 
 export default function PeopleIntelligencePage() {
-  const status = useQuery<RuntimeStatus>({ queryKey: ['platform', 'status'], queryFn: () => api.getStatus() as Promise<RuntimeStatus> })
+  const status = useQuery<RuntimeStatus>({ queryKey: ['platform', 'status'], queryFn: () => api.getStatus() as Promise<RuntimeStatus>, refetchOnMount: 'always' })
   const snapshot = status.data?.integrity?.snapshot
   const ready = !status.isError && status.data?.data?.loaded && status.data.integrity?.status === 'verified' && Boolean(snapshot)
   const [question, setQuestion] = useState('')
@@ -65,7 +65,9 @@ export default function PeopleIntelligencePage() {
     if (initialQueryLoaded.current || typeof window === 'undefined') return
     initialQueryLoaded.current = true
     const prompt = new URLSearchParams(window.location.search).get('q')?.trim()
-    if (prompt) setQuestion(prompt.slice(0, 2000))
+    if (!prompt) return
+    const timer = window.setTimeout(() => setQuestion(prompt.slice(0, 2000)), 0)
+    return () => window.clearTimeout(timer)
   }, [])
   const currentResult = ready && result?.generation === snapshot?.generation ? result : null
   const followUps = useMemo(() => currentResult ? deeperQuestions(currentResult.answer.question) : [], [currentResult])
@@ -73,19 +75,27 @@ export default function PeopleIntelligencePage() {
   const investigate = useCallback(async (selected?: string) => {
     const prompt = (selected ?? question).trim()
     if (prompt.length < 3 || prompt.length > 2000 || !ready || !snapshot || loading) return
-    const captured = snapshot
     const abort = new AbortController()
     controller.current = abort
-    setQuestion(prompt); setLoading(true); setError(null); setResult(null)
+    setQuestion(prompt)
+    window.history.replaceState(null, '', `/advisor?q=${encodeURIComponent(prompt)}`)
+    setLoading(true); setError(null); setResult(null)
     try {
-      const response = await fetch('/api/intelligence/investigate', { method: 'POST', signal: abort.signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: prompt, dataset_version: captured.dataset_id }) })
-      if (!response.ok) { const body = await response.json().catch(() => ({})); throw new Error(typeof body.detail === 'string' ? body.detail : 'PeopleOS could not answer that question. Try asking it another way.') }
-      if (response.headers.get('X-PeopleOS-Snapshot') !== captured.generation) throw new Error('Your workforce data changed while PeopleOS was analysing it. Ask the question again to use the latest data.')
-      const answer: AgentAnswer = await response.json()
+      // A local backend restart can create a fresh runtime generation while
+      // React Query still holds the previous status response. Refresh just
+      // before the investigation so a valid answer is not mistaken for stale
+      // data; the server-side snapshot guard still rejects a real mid-request
+      // dataset/model change.
+      const refreshed = await status.refetch()
+      const captured = refreshed.data?.integrity?.snapshot
+      if (refreshed.isError || !captured || refreshed.data?.data?.loaded !== true || refreshed.data.integrity?.status !== 'verified') {
+        throw new Error('PeopleOS could not verify the current workforce snapshot. Refresh the connection and retry.')
+      }
+      const answer = await api.intelligence.investigate({ question: prompt, dataset_version: captured.dataset_id }, abort.signal) as AgentAnswer
       if (!abort.signal.aborted) setResult({ answer, generation: captured.generation, source: `${captured.source_name ?? 'Current workforce'}${captured.dataset_version == null ? '' : ` · version ${captured.dataset_version}`}` })
     } catch (err) { if (!abort.signal.aborted) setError(userFacingWarning(err instanceof Error ? err.message : 'PeopleOS could not answer this question.')) }
     finally { if (controller.current === abort) { controller.current = null; setLoading(false) } }
-  }, [loading, question, ready, snapshot])
+  }, [loading, question, ready, snapshot, status])
 
   useEffect(() => {
     if (initialQueryRun.current || !ready || typeof window === 'undefined') return

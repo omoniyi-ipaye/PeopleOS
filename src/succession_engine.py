@@ -39,9 +39,23 @@ class SuccessionEngine:
         self.df = clean_team_frame(active_population(df))
         if 'Dept' in self.df:
             self.df['Dept'] = self.df['Dept'].astype('string').str.strip().replace('', pd.NA).fillna('Unknown')
-        self.risk_scores = risk_scores
-        if risk_scores is not None and risk_scores['EmployeeID'].duplicated().any():
-            raise SuccessionEngineError('Risk scores must have unique employee identifiers')
+        self.risk_scores = risk_scores.copy() if isinstance(risk_scores, pd.DataFrame) else risk_scores
+        if risk_scores is not None:
+            if not isinstance(risk_scores, pd.DataFrame):
+                raise SuccessionEngineError('Risk scores must be provided as a DataFrame')
+            if 'EmployeeID' not in risk_scores.columns:
+                raise SuccessionEngineError('Risk scores require an EmployeeID column')
+            if risk_scores['EmployeeID'].isna().any() or risk_scores['EmployeeID'].astype(str).str.strip().eq('').any():
+                raise SuccessionEngineError('Risk scores require a nonempty EmployeeID on every row')
+            if risk_scores['EmployeeID'].duplicated().any():
+                raise SuccessionEngineError('Risk scores must have unique employee identifiers')
+            if 'risk_score' not in risk_scores.columns:
+                raise SuccessionEngineError('Risk scores require a risk_score column')
+            parsed_scores = pd.to_numeric(self.risk_scores['risk_score'], errors='coerce')
+            valid_scores = parsed_scores.notna() & np.isfinite(parsed_scores) & parsed_scores.between(0, 1)
+            self.risk_scores['risk_score'] = parsed_scores.where(valid_scores)
+            if 'risk_category' in self.risk_scores.columns:
+                self.risk_scores.loc[~valid_scores, 'risk_category'] = 'Unknown'
         self.config = load_config()
         self.succ_config = self.config.get('succession', {})
 

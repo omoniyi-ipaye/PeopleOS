@@ -4,23 +4,47 @@ import type { LLMStatus } from '@/types/api'
  * API client for PeopleOS FastAPI backend
  */
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || ''
+// The development rewrite is convenient for short requests, but its proxy
+// lifetime is shorter than a cold local-model inference. Talk directly to the
+// loopback API during local development so the browser can observe the full
+// bounded response. Packaged/production builds retain same-origin routing.
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'development' ? 'http://127.0.0.1:8000' : '')
+const DEFAULT_API_TIMEOUT_MS = 15_000
+const LONG_RUNNING_API_TIMEOUT_MS = 180_000
 
-async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE}${endpoint}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...options?.headers,
-    },
-    ...options,
-  })
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: 'Request failed' }))
-    throw new Error(error.detail || `API error: ${response.status}`)
+async function fetchAPI<T>(endpoint: string, options?: RequestInit, timeoutMs = DEFAULT_API_TIMEOUT_MS): Promise<T> {
+  const controller = new AbortController()
+  const timeout = window.setTimeout(() => controller.abort(), timeoutMs)
+  const externalSignal = options?.signal
+  const abortFromExternal = () => controller.abort()
+  if (externalSignal) {
+    if (externalSignal.aborted) controller.abort()
+    else externalSignal.addEventListener('abort', abortFromExternal, { once: true })
   }
+  try {
+    const response = await fetch(`${API_BASE}${endpoint}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...options?.headers,
+      },
+      ...options,
+      signal: controller.signal,
+    })
 
-  return response.json()
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Request failed' }))
+      throw new Error(error.detail || `API error: ${response.status}`)
+    }
+    return response.json()
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('PeopleOS did not respond in time. Check the local app and retry.')
+    }
+    throw error
+  } finally {
+    window.clearTimeout(timeout)
+    externalSignal?.removeEventListener('abort', abortFromExternal)
+  }
 }
 
 export const api = {
@@ -172,11 +196,21 @@ export const api = {
   // Advisor endpoints
   advisor: {
     getStatus: () => fetchAPI('/api/advisor/status'),
-    getSummary: () => fetchAPI('/api/advisor/summary'),
+    getSummary: () => fetchAPI('/api/advisor/summary', undefined, LONG_RUNNING_API_TIMEOUT_MS),
     ask: (question: string) =>
       fetchAPI(`/api/advisor/ask?question=${encodeURIComponent(question)}`, {
         method: 'POST',
-      }),
+      }, LONG_RUNNING_API_TIMEOUT_MS),
+  },
+
+  // Governed People Intelligence endpoints
+  intelligence: {
+    investigate: (request: { question: string; dataset_version?: string }, signal?: AbortSignal) =>
+      fetchAPI('/api/intelligence/investigate', {
+        method: 'POST',
+        signal,
+        body: JSON.stringify(request),
+      }, LONG_RUNNING_API_TIMEOUT_MS),
   },
 
   // Optional local AI setup endpoints
@@ -192,12 +226,12 @@ export const api = {
         method: 'POST',
         body: JSON.stringify(model ? { model } : {}),
       }),
-    test: () => fetchAPI<{ passed: boolean; model: string; response: string; elapsed_ms: number }>('/api/llm/test', { method: 'POST' }),
+    test: () => fetchAPI<{ passed: boolean; model: string; response: string; elapsed_ms: number }>('/api/llm/test', { method: 'POST' }, LONG_RUNNING_API_TIMEOUT_MS),
   },
 
   // NLP endpoints
   nlp: {
-    getAnalysis: () => fetchAPI('/api/nlp/analysis'),
+    getAnalysis: () => fetchAPI('/api/nlp/analysis', undefined, LONG_RUNNING_API_TIMEOUT_MS),
   },
 
   // Survival Analysis endpoints

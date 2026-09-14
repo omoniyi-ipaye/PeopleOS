@@ -50,14 +50,14 @@ export default function InsightsPage() {
     {
       title: 'Retention',
       description: platform.data?.capabilities?.predictive_model ? 'Aggregate model-score patterns and cohort retention evidence.' : 'Recorded attrition and cohort retention evidence. Predictive insights remain optional.',
-      href: '/flight-risk',
+      href: '/retention-forecast',
       icon: BarChartHorizontal,
       available: hasData,
     },
     {
       title: 'Compensation',
       description: 'Salary distribution, dispersion and pay-gap screening with explicit coverage.',
-      href: '/workforce-health',
+      href: '/advisor?q=Average%20salary%20by%20department',
       icon: Activity,
       available: hasData && features.compensation !== false,
       unavailableLabel: hasData ? 'Confirm annual pay and currency in Data' : 'Add workforce data first',
