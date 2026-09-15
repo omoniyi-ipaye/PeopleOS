@@ -33,7 +33,13 @@ def answer_matches_known_values(answer, include_span=False):
         # so the oracle remains compatible with older acceptance fixtures.
         return f'[{evidence_id}]' in answer or f'[{evidence_id}; {source_tool}]' in answer
 
-    headcount = re.search(r'\bactive\s+(?:employee\s+count|headcount)\s*(?:is|:)\s*80\b', answer, re.IGNORECASE)
+    # Accept the two equivalent People-language renderings used by local
+    # models, while keeping the independent literal fixed at exactly 80.
+    headcount = re.search(
+        r'(?:\bactive\s+(?:employee\s+count|headcount)\s*(?:is|:)\s*80\b|\b80\s+active\s+employees?\b)',
+        answer,
+        re.IGNORECASE,
+    )
     expected_evidence = has_citation('ev_synthetic_headcount', 'workforce.summary')
     span = re.search(r'\baverage\s+manager\s+span\s+of\s+control\s*(?:is|:)\s*5\b', answer, re.IGNORECASE)
     if include_span:

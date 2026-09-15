@@ -127,6 +127,8 @@ def test_model_composes_a_grounded_narrative_from_the_completed_tool_bundle(work
 
     assert narrator.request["analysis_phase"] == "completed"
     assert narrator.request["completed_tool_results"]
+    assert all("metadata" not in item for item in narrator.request["evidence"])
+    assert all("metadata" not in result for result in narrator.request["completed_tool_results"])
     assert result.model == "controlled-narrator-fixture"
     assert result.synthesis_mode == "grounded_llm"
     assert "Taken together" in result.answer

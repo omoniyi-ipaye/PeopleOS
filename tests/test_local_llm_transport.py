@@ -191,8 +191,10 @@ def test_safe_client_non_selector_keeps_standard_generation_path(monkeypatch):
 def test_acceptance_oracle_rejects_changed_numbers_injected_labels_and_missing_sources():
     from scripts.validate_local_llm import answer_matches_known_values
     headcount = '- Current active employee count: 80 [ev_synthetic_headcount; workforce.summary]'
+    natural_headcount = 'The organization has 80 active employees [ev_synthetic_headcount].'
     span = '- Average manager span of control: 5 [ev_synthetic_span; workforce.organization_structure]'
     assert answer_matches_known_values(headcount)
+    assert answer_matches_known_values(natural_headcount)
     assert answer_matches_known_values(headcount + '\n' + span, include_span=True)
     assert not answer_matches_known_values(headcount.replace(': 80 ', ': 81 '))
     assert not answer_matches_known_values(headcount + '\n999999')
