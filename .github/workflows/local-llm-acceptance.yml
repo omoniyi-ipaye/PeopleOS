@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   pull_request:
     branches: [main]
-    paths: ['src/**', 'api/**', 'config.yaml', 'scripts/validate_local_llm.py', 'scripts/validate_local_llm_api.py', 'scripts/validate_cloud_llm.py', 'requirements*.txt', '.github/workflows/local-llm-acceptance.yml']
+    paths: ['src/**', 'api/**', 'config.yaml', 'scripts/setup_local_llm.py', 'scripts/validate_local_llm.py', 'scripts/validate_local_llm_api.py', 'scripts/validate_cloud_llm.py', 'requirements*.txt', '.github/workflows/local-llm-acceptance.yml']
 
 permissions:
   contents: read
@@ -84,6 +84,9 @@ jobs:
           assert 'gemma3:4b' in names, f'Configured model missing after pull: {sorted(n for n in names if n)}'
           PY
           curl --fail --silent --max-time 90 http://127.0.0.1:11434/api/generate -H 'Content-Type: application/json' -d '{"model":"gemma3:4b","prompt":"","stream":false,"keep_alive":"10m","options":{"num_predict":1}}' > local-llm-evidence/model-warmup.json
+      - name: Opt in isolated PeopleOS local AI
+        timeout-minutes: 3
+        run: timeout --signal=TERM 140s python scripts/setup_local_llm.py --model gemma3:4b --no-api-refresh > local-llm-evidence/setup.log 2>&1
       - name: Strict real local selector acceptance
         id: selector
         timeout-minutes: 3

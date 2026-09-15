@@ -93,7 +93,7 @@ def test_governed_selector_uses_json_mode_and_bounded_generation(monkeypatch):
     )
 
 
-def test_grounded_narrative_uses_json_mode_and_allows_a_longer_explanation(monkeypatch):
+def test_grounded_narrative_uses_json_mode_and_stays_bounded(monkeypatch):
     client, transport = safe_client(monkeypatch)
     prompt = 'Compose a grounded PeopleOS answer after the analytical phase. REQUEST_DATA: {}'
     result = client.generate(prompt, options={'temperature': 0.2, 'num_predict': 1400})
@@ -103,7 +103,7 @@ def test_grounded_narrative_uses_json_mode_and_allows_a_longer_explanation(monke
         model='gemma3:4b',
         prompt=prompt,
         format='json',
-        options={'num_predict': 800, 'temperature': 0.2},
+        options={'num_predict': 384, 'temperature': 0.2},
     )
 
 

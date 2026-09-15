@@ -20,7 +20,7 @@ _SELECTOR_PROMPT_PREFIX = "Select relevant evidence for a governed PeopleOS inve
 _NARRATIVE_PROMPT_PREFIX = "Compose a grounded PeopleOS answer after the analytical phase."
 _SELECTOR_DATA_MARKER = "\nREQUEST_DATA:\n"
 _SELECTOR_MAX_TOKENS = 256
-_NARRATIVE_MAX_TOKENS = 800
+_NARRATIVE_MAX_TOKENS = 384
 _SELECTOR_REQUIRED_PREFIXES = {
     "headcount": ("Current active employee count:",),
     "observed_attrition_share": ("Observed attrition share:",),
