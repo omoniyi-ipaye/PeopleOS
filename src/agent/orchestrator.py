@@ -393,7 +393,8 @@ class PeopleIntelligenceAgent:
 
         items = bundle.evidence_items()
         ledger = {item.evidence_id: item for item in items}
-        requested_metrics = list(required_metrics) if required_metrics is not None else self.planner.plan(question).required_metrics
+        explicit_metric_contract = required_metrics is not None
+        requested_metrics = list(required_metrics) if explicit_metric_contract else self.planner.plan(question).required_metrics
         next_steps = {
             "validate_source": "Reconcile the cited aggregates against the source HR records with the responsible People owner.",
             "review_coverage": "Review missing measurements and population coverage before interpreting the cited findings.",
@@ -404,13 +405,31 @@ class PeopleIntelligenceAgent:
         # ledger: large engine metadata repeats the same aggregates, slows
         # local CPU models, and gives data-supplied labels more room to steer
         # the prompt. Tool completion is represented separately below.
+        if explicit_metric_contract and requested_metrics:
+            # A typed plan is the analytical contract for this question. Keep
+            # unrelated aggregates out of the narrative context even when a
+            # broad tool returned them; the full bundle remains available in
+            # the response and evidence ledger for drill-down.
+            narrative_items = [item for item in items if item.metric in requested_metrics]
+            if not narrative_items:
+                narrative_items = self._representative_evidence(
+                    bundle,
+                    required_metrics=requested_metrics,
+                )
+        else:
+            # Open-ended People questions still benefit from one grounded
+            # representative from each completed analytical source.
+            narrative_items = self._representative_evidence(
+                bundle,
+                required_metrics=requested_metrics if explicit_metric_contract else None,
+            )
         evidence_payload = [{
             "evidence_id": item.evidence_id,
             "claim": self._format_evidence(item),
             "metric": item.metric,
             "value": item.value,
             "source_tool": item.source_tool,
-        } for item in items]
+        } for item in narrative_items]
         completed_tool_results = [{
             "tool_id": result.tool_id,
             "status": getattr(result.status, 'value', str(result.status)),
@@ -526,7 +545,12 @@ class PeopleIntelligenceAgent:
                 "Model narrative failed verification; verified analytical evidence was used."
             ])
 
-    def _representative_evidence(self, bundle: EvidenceBundle, limit: int = 8) -> List[EvidenceItem]:
+    def _representative_evidence(
+        self,
+        bundle: EvidenceBundle,
+        limit: int = 8,
+        required_metrics: Optional[List[str]] = None,
+    ) -> List[EvidenceItem]:
         items = bundle.evidence_items()
         if not items:
             return []
@@ -534,8 +558,11 @@ class PeopleIntelligenceAgent:
         for item in items:
             by_tool.setdefault(item.source_tool, []).append(item)
 
-        required_metrics = set(self.planner.plan(bundle.question).required_metrics)
-        selected: List[EvidenceItem] = [item for item in items if item.metric in required_metrics]
+        required_metric_set = set(
+            self.planner.plan(bundle.question).required_metrics
+            if required_metrics is None else required_metrics
+        )
+        selected: List[EvidenceItem] = [item for item in items if item.metric in required_metric_set]
         selected_ids: set[str] = {item.evidence_id for item in selected}
         for result in bundle.tool_results:
             tool_items = by_tool.get(result.tool_id, [])

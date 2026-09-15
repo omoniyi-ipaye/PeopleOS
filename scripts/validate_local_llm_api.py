@@ -65,7 +65,11 @@ def run(report, requested_model=None):
             if time.monotonic() >= deadline:
                 raise RuntimeError('Local API startup timed out')
             time.sleep(.05)
-        with httpx.Client(base_url=f'http://127.0.0.1:{port}', timeout=60, trust_env=False) as api:
+        # A cold CPU model can spend longer than the discovery timeout loading
+        # and completing a bounded narrative. Match the production transport's
+        # 180-second generation ceiling so this harness measures the API result
+        # rather than the harness client impatience.
+        with httpx.Client(base_url=f'http://127.0.0.1:{port}', timeout=180, trust_env=False) as api:
             upload = api.post('/api/upload', files={'file': ('synthetic-local.csv', fictional_roster(), 'text/csv')})
             upload.raise_for_status()
             client = get_local_state().llm_client

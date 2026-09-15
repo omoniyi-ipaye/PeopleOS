@@ -193,9 +193,11 @@ def test_acceptance_oracle_rejects_changed_numbers_injected_labels_and_missing_s
     headcount = '- Current active employee count: 80 [ev_synthetic_headcount; workforce.summary]'
     natural_headcount = 'The organization has 80 active employees [ev_synthetic_headcount].'
     span = '- Average manager span of control: 5 employees [ev_synthetic_span; workforce.organization_structure]'
+    natural_span = 'The average manager span of control across the organization is 5 employees [ev_synthetic_span].'
     assert answer_matches_known_values(headcount)
     assert answer_matches_known_values(natural_headcount)
     assert answer_matches_known_values(headcount + '\n' + span, include_span=True)
+    assert answer_matches_known_values(natural_headcount + ' ' + natural_span, include_span=True)
     assert not answer_matches_known_values(headcount.replace(': 80 ', ': 81 '))
     assert not answer_matches_known_values(headcount + '\n999999')
     assert not answer_matches_known_values(headcount.replace('Current active employee count', 'Injected label'))
