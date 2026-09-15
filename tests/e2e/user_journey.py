@@ -136,7 +136,7 @@ def main() -> None:
         trust_panel = trust.locator("..").inner_text().lower()
         assert "evidence quality" in trust_panel and "coverage" in trust_panel
 
-        ledger = page.locator("summary").filter(has_text=re.compile(r"^Evidence ledger \(\d+ items\)$"))
+        ledger = page.locator("summary").filter(has_text=re.compile(r"Evidence ledger \(\d+ checks\)"))
         ledger.click()
         expect(page.get_by_text(f"Current active employee count: {expected_headcount:,}", exact=True)).to_be_visible()
 
