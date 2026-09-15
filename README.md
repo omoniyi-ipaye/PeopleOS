@@ -372,7 +372,7 @@ The historical public-beta engineering candidate passed the complete validation 
 
 The browser suite exercises real People-team journeys including data import, pay-unit gating, malicious source labels, bad replacement data, concise AI answers with inspectable evidence, unsupported/causal abstention, dataset changes, mobile layout, scenario planning and Trust & Privacy.
 
-CI is strong technical evidence. It is **not** a substitute for independent fresh-user usability testing or organization-specific prospective validation of predictive use cases. The current pilot-hardening working tree is documented separately in [the 2026-09-15 readiness handoff](docs/validation/PUBLIC_PILOT_READINESS_2026-09-15.md); its local results must not be confused with remote CI until the exact committed head is rerun.
+CI is strong technical evidence. It is **not** a substitute for independent fresh-user usability testing or organization-specific prospective validation of predictive use cases. The current pushed pilot candidate is documented separately in [the 2026-09-15 readiness handoff](docs/validation/PUBLIC_PILOT_READINESS_2026-09-15.md); verify that the PR checks match the exact local `HEAD`.
 
 ---
 

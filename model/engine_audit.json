@@ -1112,7 +1112,7 @@
     "web/components/charts/nine-box-grid.tsx": "17da3a404459fa683e1d00f953a4afe0c43e3cad2060f216d8b9efa44c85c038",
     "web/components/charts/retention-curve-chart.tsx": "15c4c563187fa54b878dd1bd46e46280c60622b0a057be3f76149d1a4863e1da",
     "web/components/charts/risk-distribution-pie.tsx": "19fb73bef4d113c4ba57413961a565491937321d302a01d30de4b38f54c4e5e4",
-    "web/components/charts/shap-waterfall-chart.tsx": "acba487fc84b6d6fee317985bfe205b747701b48662d77132eeed503ab8dc35e",
+    "web/components/charts/shap-waterfall-chart.tsx": "ed5fb542b4a1101b75b1e16b443e4d5224f02e1e7479463db0dd38dc1fcd8aa1",
     "web/components/charts/tenure-distribution-chart.tsx": "16d9f862cd82ba080e035a1348e4cdd763a397ebedc4a9bf033439a7123701c1",
     "web/components/dashboard/employee-detail-modal.tsx": "9e9eae16aaa39c1987f65cfcce39f1ed10c63447f994031089afb675bf0a40e2",
     "web/components/dashboard/high-risk-table.tsx": "82ee26bcd8e0c373e420ea4871e9d78799aac505d3c4d3ede18fc8ff08e33644",

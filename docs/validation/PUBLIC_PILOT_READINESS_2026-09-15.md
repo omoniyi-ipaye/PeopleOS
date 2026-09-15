@@ -8,8 +8,8 @@ claim of organization-specific predictive validity.
 
 - Branch: `quality/cycle-017-ml-engine-forensic`
 - Source base: `83bec3a68e857b784e984fe4b96e03584e75cb50`
-- The working tree contains uncommitted pilot-hardening changes. This snapshot
-  therefore has no exact-head remote-CI result yet.
+- The pilot-hardening changes are committed on the PR branch. Keep the local
+  `HEAD` and PR head aligned before relying on remote-CI evidence.
 - The local UI is running at `http://127.0.0.1:3001` and the API at
   `http://127.0.0.1:8000`.
 - The active fictional sample is loaded and integrity-verified: 800 source
@@ -79,8 +79,8 @@ and [public beta guide](../PUBLIC_BETA_GUIDE.md) for the detailed limits.
 
 These are release controls, not hidden application defects:
 
-1. Review the complete working-tree diff and explicitly authorize commit/push.
-2. Run remote CI against the exact committed head and retain its artifacts.
+1. Review the complete pushed PR diff and confirm the final exact-head checks.
+2. Retain the remote-CI artifacts for the exact commit intended for the pilot.
 3. Review/merge the pilot PR and configure the documented `main` branch rules.
 4. Conduct an independent fresh-user installation and usability walkthrough on
    each target operating system.

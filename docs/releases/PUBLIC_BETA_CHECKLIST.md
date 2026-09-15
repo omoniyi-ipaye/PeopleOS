@@ -8,9 +8,9 @@ Historical merge to `main`: `a300db48b2fe6d11076ed14fcdd891d170316764` via PR #6
 
 ## Current launch candidate
 
-The current local engineering snapshot is based on commit `83bec3a68e857b784e984fe4b96e03584e75cb50` on PR #18 (`quality/cycle-017-ml-engine-forensic`). It includes uncommitted pilot-hardening changes and has not been pushed as an exact-head candidate, merged or published.
+The current engineering candidate is the pushed head of PR #18 (`quality/cycle-017-ml-engine-forensic`). It contains the pilot-hardening changes, remains a draft and has not been merged or published.
 
-The older commit `5cf477dec5e9a6a4dd6561323f4a6bb80c19c642` has historical exact-head remote-CI evidence, including desktop/mobile People Team Browser Acceptance, engine-forensic workflows, VectorEngine, Analytics Validation, Release Security, Local Ollama Acceptance, E2E User Journey and desktop package/smoke jobs. That result must not be presented as remote CI for the current dirty tree.
+The older commit `5cf477dec5e9a6a4dd6561323f4a6bb80c19c642` has historical exact-head remote-CI evidence, including desktop/mobile People Team Browser Acceptance, engine-forensic workflows, VectorEngine, Analytics Validation, Release Security, Local Ollama Acceptance, E2E User Journey and desktop package/smoke jobs. That result is historical; use the current PR checks for the pushed candidate.
 
 Current local verification is recorded in [PUBLIC_PILOT_READINESS_2026-09-15.md](../validation/PUBLIC_PILOT_READINESS_2026-09-15.md): full Python (`1,229 passed`, 38 warnings, 6 subtests), targeted checks (`65 passed`, 11 warnings), design governance, zero-warning frontend lint, analytics renderer tests (`52 passed`), web builds, browser acceptance (`28 passed`, desktop/mobile), local LLM readiness and a macOS Apple Silicon package smoke probe.
 
