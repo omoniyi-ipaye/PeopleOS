@@ -1,6 +1,6 @@
 """Workspace-scoped platform architecture for PeopleOS."""
 
-from .workspace import WorkspaceStore, WorkspaceRecord, DatasetVersion, ModelVersion, InvestigationSession
+from .workspace import WorkspaceStore, WorkspaceRecord, DatasetVersion, ModelVersion, InvestigationSession, ScenarioRecord
 from .health import SystemHealthMonitor
 
 __all__ = [
@@ -9,5 +9,6 @@ __all__ = [
     "DatasetVersion",
     "ModelVersion",
     "InvestigationSession",
+    "ScenarioRecord",
     "SystemHealthMonitor",
 ]

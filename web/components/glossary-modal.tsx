@@ -175,7 +175,8 @@ export function GlossaryModal({ isOpen, onClose, initialSearch = '' }: GlossaryM
 
   useEffect(() => {
     if (isOpen) {
-      setSearchTerm(initialSearch)
+      const reset = window.setTimeout(() => setSearchTerm(initialSearch), 0)
+      return () => window.clearTimeout(reset)
     }
   }, [isOpen, initialSearch])
 
@@ -265,7 +266,7 @@ export function GlossaryModal({ isOpen, onClose, initialSearch = '' }: GlossaryM
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {filteredTerms.length === 0 ? (
             <div className="text-center py-8 text-text-muted">
-              No terms found matching "{searchTerm}"
+              No terms found matching &quot;{searchTerm}&quot;
             </div>
           ) : (
             filteredTerms.map((item) => (

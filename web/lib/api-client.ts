@@ -60,11 +60,12 @@ export const api = {
 
   // Upload endpoints
   upload: {
-    uploadFile: async (file: File, pay?: { annual: boolean; currency: string }) => {
+    uploadFile: async (file: File, pay?: { annual: boolean; currency: string }, mapping?: Record<string, string | null>) => {
       const formData = new FormData()
       formData.append('file', file)
       if (pay?.annual) formData.append('salary_basis', 'annual')
       if (pay?.currency.trim()) formData.append('salary_currency', pay.currency.trim().toUpperCase())
+      if (mapping) formData.append('column_mapping', JSON.stringify(mapping))
 
       const response = await fetch(`${API_BASE}/api/upload`, {
         method: 'POST',
@@ -78,10 +79,36 @@ export const api = {
 
       return response.json()
     },
+    previewFile: async (file: File, options?: { annual?: boolean; currency?: string; mapping?: Record<string, string | null>; useLLM?: boolean }) => {
+      const formData = new FormData()
+      formData.append('file', file)
+      if (options?.annual) formData.append('salary_basis', 'annual')
+      if (options?.currency?.trim()) formData.append('salary_currency', options.currency.trim().toUpperCase())
+      if (options?.mapping) formData.append('column_mapping', JSON.stringify(options.mapping))
+      if (options?.useLLM) formData.append('use_llm', 'true')
+
+      const response = await fetch(`${API_BASE}/api/upload/preview`, {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Import review failed' }))
+        throw new Error(error.detail || 'Import review failed')
+      }
+
+      return response.json()
+    },
     getStatus: () => fetchAPI('/api/upload/status'),
     loadSample: () => fetchAPI('/api/upload/load-sample', { method: 'POST' }),
     downloadTemplate: () => {
-      window.location.href = `${API_BASE}/api/upload/template`;
+      const link = document.createElement('a')
+      link.href = `${API_BASE}/api/upload/template`
+      link.download = 'peopleos-template.csv'
+      link.rel = 'noreferrer'
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
     },
     reset: () => fetchAPI('/api/upload/reset', { method: 'POST' }),
   },
@@ -408,6 +435,16 @@ export const api = {
         method: 'POST',
         body: JSON.stringify(scenarioIds),
       }),
+    saveScenario: (request: { scenario_id: string; scenario_name: string }) =>
+      fetchAPI('/api/scenario/save', {
+        method: 'POST',
+        body: JSON.stringify(request),
+      }),
+    drilldownScenarios: (request: { scenario_ids: string[]; question: string }) =>
+      fetchAPI('/api/scenario/drilldown', {
+        method: 'POST',
+        body: JSON.stringify(request),
+      }, LONG_RUNNING_API_TIMEOUT_MS),
     getScenario: (scenarioId: string) =>
       fetchAPI(`/api/scenario/${scenarioId}`),
     deleteScenario: (scenarioId: string) =>

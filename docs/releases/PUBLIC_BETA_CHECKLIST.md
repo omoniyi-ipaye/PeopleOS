@@ -3,16 +3,16 @@
 This is a preparation record, not a published release or a production certification.
 
 Baseline before public-beta hardening: `ae986ef5be780790a798871d5a20fb6d2e95f343` (PR #5 merged).
-Verified public-beta candidate: `90f1958708a78481b8931893076f14c076be92a1`.
-Merged to `main`: `a300db48b2fe6d11076ed14fcdd891d170316764` via PR #6.
+Historical verified public-beta candidate: `90f1958708a78481b8931893076f14c076be92a1`.
+Historical merge to `main`: `a300db48b2fe6d11076ed14fcdd891d170316764` via PR #6.
 
 ## Current launch candidate
 
-The current engineering launch candidate is commit `5cf477dec5e9a6a4dd6561323f4a6bb80c19c642` on PR #18 (`quality/cycle-017-ml-engine-forensic`). It remains a draft pull request and has not been merged or published.
+The current local engineering snapshot is based on commit `83bec3a68e857b784e984fe4b96e03584e75cb50` on PR #18 (`quality/cycle-017-ml-engine-forensic`). It includes uncommitted pilot-hardening changes and has not been pushed as an exact-head candidate, merged or published.
 
-Exact-head remote CI passed all 24 workflows for this candidate, including the complete desktop/mobile People Team Browser Acceptance journey, all engine-forensic workflows, VectorEngine, Analytics Validation, Release Security, Local Ollama Acceptance, E2E User Journey and the Windows x64, macOS Apple Silicon and Linux x64 desktop package/smoke jobs.
+The older commit `5cf477dec5e9a6a4dd6561323f4a6bb80c19c642` has historical exact-head remote-CI evidence, including desktop/mobile People Team Browser Acceptance, engine-forensic workflows, VectorEngine, Analytics Validation, Release Security, Local Ollama Acceptance, E2E User Journey and desktop package/smoke jobs. That result must not be presented as remote CI for the current dirty tree.
 
-Local verification also passed the full Python suite (`1,202 passed`, `33 warnings`, `6 subtests`), the app-lock/API and audit checks, frontend typecheck, lint with zero errors, production build and the real Sentence Transformers + FAISS vector benchmark (`13/13` synthetic acceptance checks).
+Current local verification is recorded in [PUBLIC_PILOT_READINESS_2026-09-15.md](../validation/PUBLIC_PILOT_READINESS_2026-09-15.md): full Python (`1,229 passed`, 38 warnings, 6 subtests), targeted checks (`65 passed`, 11 warnings), design governance, zero-warning frontend lint, analytics renderer tests (`52 passed`), web builds, browser acceptance (`28 passed`, desktop/mobile), local LLM readiness and a macOS Apple Silicon package smoke probe.
 
 ## Intended release scope
 
@@ -34,6 +34,7 @@ Local, single-user descriptive People analytics and evidence-backed investigatio
 - [x] README updated to the current People-team product positioning.
 - [x] Commercial-use policy documented and a request template added.
 - [x] Pilot feedback template added.
+- [x] Current working-tree evidence and release boundaries recorded in [PUBLIC_PILOT_READINESS_2026-09-15.md](../validation/PUBLIC_PILOT_READINESS_2026-09-15.md).
 
 ## Licensing status
 
@@ -76,7 +77,9 @@ CI artifacts are build evidence until promoted to a versioned release. Checksums
 
 ## Verification summary
 
-PR #6 (`Prepare public beta distribution and close dependency security gaps`) merged the verified candidate after all eight required workflows passed. The final browser acceptance rerun passed the complete desktop/mobile journeys and its action/process coverage ledger. No privacy, evidence, security or analytical guardrail was weakened to obtain the passing result.
+PR #6 (`Prepare public beta distribution and close dependency security gaps`) merged a historical verified candidate after all eight required workflows passed. The final browser acceptance rerun passed the complete desktop/mobile journeys and its action/process coverage ledger. No privacy, evidence, security or analytical guardrail was weakened to obtain the passing result.
+
+For the current source snapshot, use [PUBLIC_PILOT_READINESS_2026-09-15.md](../validation/PUBLIC_PILOT_READINESS_2026-09-15.md). Remote CI, merge, release publication and independent pilot acceptance remain separate gates.
 
 See also:
 

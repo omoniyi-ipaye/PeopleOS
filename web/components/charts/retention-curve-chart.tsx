@@ -24,7 +24,14 @@ export function RetentionCurveChart({ data }: RetentionCurveChartProps) {
         time_years: point.time_months / 12
     }))
 
+    const firstYear = chartData[0]?.time_years ?? 0
+    const lastYear = chartData[chartData.length - 1]?.time_years ?? firstYear
+
     return (
+        <div
+            role="img"
+            aria-label={`Recorded retention history chart showing the share of the cohort still here by tenure, from ${firstYear.toFixed(1)} to ${lastYear.toFixed(1)} years.`}
+        >
         <ResponsiveContainer width="100%" height={300}>
             <ComposedChart data={chartData} margin={{ top: 10, right: 30, left: 10, bottom: 10 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
@@ -45,7 +52,7 @@ export function RetentionCurveChart({ data }: RetentionCurveChartProps) {
                     tickLine={false}
                     domain={[0, 1]}
                     tickFormatter={(value) => `${(Number(value) * 100).toFixed(0)}%`}
-                    label={{ value: 'Survival Probability', angle: -90, position: 'insideLeft', fill: 'var(--text-muted)', fontSize: 10 }}
+                    label={{ value: 'Share still here', angle: -90, position: 'insideLeft', fill: 'var(--text-muted)', fontSize: 10 }}
                 />
                 <Tooltip
                     contentStyle={{
@@ -57,11 +64,11 @@ export function RetentionCurveChart({ data }: RetentionCurveChartProps) {
                     formatter={(value, name) => {
                         const numeric = Number(value ?? 0)
                         const key = String(name ?? '')
-                        if (key === 'survival_probability') return [`${(numeric * 100).toFixed(1)}%`, 'Cohort survival']
-                        if (key === 'at_risk') return [numeric, 'Under observation before event']
+                        if (key === 'survival_probability') return [`${(numeric * 100).toFixed(1)}%`, 'Share still here']
+                        if (key === 'at_risk') return [numeric, 'People still in recorded follow-up']
                         return [numeric, key]
                     }}
-                    labelFormatter={(label) => `Tenure: ${label} years`}
+                    labelFormatter={(label) => `Tenure: ${Number(label).toFixed(1)} years`}
                 />
                 <Area type="stepAfter" dataKey="survival_probability" fill="var(--accent)" fillOpacity={0.1} stroke="none" />
                 <Line
@@ -74,5 +81,6 @@ export function RetentionCurveChart({ data }: RetentionCurveChartProps) {
                 />
             </ComposedChart>
         </ResponsiveContainer>
+        </div>
     )
 }

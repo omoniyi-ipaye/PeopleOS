@@ -1,6 +1,7 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
+import { useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import { Header } from '@/components/header'
 import { Sidebar } from '@/components/sidebar'
@@ -28,6 +29,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   })
   const setupRoute = isSetupRoute(pathname, status)
 
+  useEffect(() => {
+    document.querySelector<HTMLElement>('[data-peopleos-scroll-container]')?.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+  }, [pathname])
+
   if (appLock.isLoading) {
     return <main className="grid min-h-screen place-items-center bg-slate-50 px-4 dark:bg-slate-950"><div className="text-sm text-slate-500 dark:text-slate-400">Checking PeopleOS lock…</div></main>
   }
@@ -48,7 +53,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <Sidebar />
     <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
       <Header />
-      <main className="flex-1 overflow-y-auto px-4 py-5 md:px-7 md:py-7">
+      <main data-peopleos-scroll-container className="flex-1 overflow-y-auto px-4 py-5 md:px-7 md:py-7">
         {children}
       </main>
     </div>

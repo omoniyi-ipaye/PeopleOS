@@ -88,8 +88,8 @@ test('quality-of-hire omitted summary fields do not become measured zero', () =>
   const Page = require('../app/quality-of-hire/page').default
   const html = render(Page, [[['quality-of-hire','analysis'], {summary:{},source_effectiveness:[],correlations:{correlations:[]},warnings:[],recommendations:[]} ]])
   assert.match(html, /People represented[\s\S]*Unavailable/)
-  assert.match(html, /Source cohorts[\s\S]*Unavailable/)
-  assert.match(html, /Pre-hire measures[\s\S]*Unavailable/)
+  assert.match(html, /Hiring sources[\s\S]*Unavailable/)
+  assert.match(html, /Before-hire measures[\s\S]*Unavailable/)
   assert.match(html, /role="tablist"/)
   assert.match(html, /role="tab" aria-selected="true"/)
   assert.match(html, /role="tabpanel"/)

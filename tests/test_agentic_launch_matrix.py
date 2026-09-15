@@ -63,6 +63,36 @@ def test_headcount_paraphrases_return_the_known_active_population(workforce, que
 
 
 @pytest.mark.parametrize("question", [
+    "What should I be paying attention to in this workforce?",
+    "How are we doing when it comes to compensation?",
+    "What should People team focus on?",
+])
+def test_normal_people_language_can_start_a_bounded_strategic_investigation(workforce, question):
+    plan = PeopleIntelligenceAgent(workforce).planner.plan(question)
+    assert plan.supported
+    assert not plan.must_abstain
+    assert "workforce.summary" in plan.tool_ids
+    assert len(plan.tool_ids) > 1
+
+
+def test_agent_returns_a_transparent_execution_trace_and_bounded_follow_ups(workforce):
+    result = PeopleIntelligenceAgent(workforce).investigate("What is our workforce headcount?")
+
+    assert [step.id for step in result.agent_steps] == ["understand", "evidence", "verify", "explain", "next"]
+    assert result.agent_steps[1].status == "complete"
+    assert result.agent_steps[2].status == "complete"
+    assert result.next_actions
+    assert all(action.question != result.question for action in result.next_actions)
+    assert all(action.reason for action in result.next_actions)
+    assert all(action.question in {
+        "Headcount by department",
+        "Recorded attrition share by department",
+        "Average salary by department",
+        "Headcount by location",
+    } for action in result.next_actions)
+
+
+@pytest.mark.parametrize("question", [
     "Do not analyze attrition; just tell me headcount.",
     "Skip retention and show the employee count.",
     "Without compensation, what is our workforce size?",

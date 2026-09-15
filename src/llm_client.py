@@ -15,6 +15,7 @@ from src.utils import load_config
 logger = get_logger('llm_client')
 
 
+_OLLAMA_GENERATION_TIMEOUT_SECONDS = 180.0
 
 # Prohibited content patterns
 PROHIBITED_PATTERNS = [
@@ -60,7 +61,11 @@ class _OllamaTransport:
                 prompt,
                 options=kwargs.get('options'),
                 response_format=kwargs.get('format'),
-                timeout=self._timeout,
+                # Model loading can take longer than the discovery/client
+                # timeout, especially for a large local model after Ollama
+                # has just started. Keep the app's ready check responsive but
+                # give an actual bounded generation enough time to complete.
+                timeout=max(self._timeout, _OLLAMA_GENERATION_TIMEOUT_SECONDS),
             )
         if self._native_think:
             kwargs = {'think': False, **kwargs}
@@ -168,6 +173,7 @@ class LLMClient:
             response = self.client.generate(
                 model=self.model,
                 prompt=prompt,
+                **({'format': kwargs['format']} if kwargs.get('format') else {}),
                 options=options
             )
             return response.get('response', '')

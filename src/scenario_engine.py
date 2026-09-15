@@ -614,11 +614,12 @@ class ScenarioEngine:
                 "No observed causal pay-response evidence is available."
             )
 
+        target_label = target.get('department') or ('whole workforce' if target.get('scope', 'all') == 'all' else 'selected group')
         return ScenarioResult(
             scenario_id=scenario_id,
             scenario_name=(f"{adjustment_label}% raise" if adjustment_type in {'percentage', 'market_adjustment'}
                            else f"{adjustment_label} annual salary-unit increase per employee")
-                          + f" for {target.get('department', 'selected group')}",
+                          + f" for {target_label}",
             scenario_type='compensation',
             input_parameters={
                 'adjustment_type': adjustment_type,
@@ -766,9 +767,10 @@ class ScenarioEngine:
 
         conf_level, conf_score = self._get_confidence_level(n_change)
 
+        target_label = target.get('department') or ('whole workforce' if target.get('scope', 'all') == 'all' else 'organization')
         scenario_name = (
             f"{'Reduce' if change_type == 'reduction' else 'Expand'} "
-            f"{n_change} positions in {target.get('department', 'organization')}"
+            f"{n_change} positions in {target_label}"
         )
 
         return ScenarioResult(

@@ -40,6 +40,19 @@ def test_timeout_and_exact_installed_model_digest(monkeypatch, listing):
     factory.assert_called_once_with(host='http://localhost:11434', timeout=12)
 
 
+def test_standard_client_can_request_json_mode(monkeypatch):
+    client, transport, _ = client_with_models(monkeypatch, {'models': [{'name': 'gemma3:4b'}]})
+    transport.generate.return_value = {'response': '{"mappings": []}'}
+
+    assert client.generate('schema prompt', format='json', options={'num_predict': 12}) == '{"mappings": []}'
+    transport.generate.assert_called_once_with(
+        model='gemma3:4b',
+        prompt='schema prompt',
+        format='json',
+        options={'num_predict': 12},
+    )
+
+
 def test_latest_alias(monkeypatch):
     client, _, _ = client_with_models(monkeypatch, {'models': [{'name': 'gemma3:latest'}]}, 'gemma3')
     assert client.is_available
@@ -80,6 +93,20 @@ def test_governed_selector_uses_json_mode_and_bounded_generation(monkeypatch):
     )
 
 
+def test_grounded_narrative_uses_json_mode_and_allows_a_longer_explanation(monkeypatch):
+    client, transport = safe_client(monkeypatch)
+    prompt = 'Compose a grounded PeopleOS answer after the analytical phase. REQUEST_DATA: {}'
+    result = client.generate(prompt, options={'temperature': 0.2, 'num_predict': 1400})
+
+    assert result == '{"evidence_ids":["ev_1"],"next_step":"validate_source"}'
+    transport.generate.assert_called_once_with(
+        model='gemma3:4b',
+        prompt=prompt,
+        format='json',
+        options={'num_predict': 800, 'temperature': 0.2},
+    )
+
+
 def test_governed_headcount_selector_compacts_irrelevant_same_source_rows(monkeypatch):
     client, transport = safe_client(monkeypatch)
     request = {
@@ -103,6 +130,32 @@ def test_governed_headcount_selector_compacts_irrelevant_same_source_rows(monkey
     sent_request = json.loads(sent.split('\nREQUEST_DATA:\n', 1)[1])
     assert [item['evidence_id'] for item in sent_request['evidence']] == ['ev_headcount']
     assert 'ev_salary' not in sent and 'ev_age' not in sent and 'ev_records' not in sent
+
+
+def test_governed_strategic_selector_compacts_to_one_representative_per_source(monkeypatch):
+    client, transport = safe_client(monkeypatch)
+    request = {
+        'question': 'What should I be paying attention to in this workforce?',
+        'plan': 'baseline workforce context; strategic workforce health lens',
+        'required_metrics': [],
+        'evidence': [
+            {'evidence_id': 'ev_summary', 'claim': 'Current active employee count: 80', 'source_tool': 'workforce.summary', 'limitations': {}},
+            {'evidence_id': 'ev_summary_extra', 'claim': 'Average active-employee salary: 70,000', 'source_tool': 'workforce.summary', 'limitations': {}},
+            {'evidence_id': 'ev_pay', 'claim': 'Unadjusted gender pay gap is 2.2%', 'source_tool': 'workforce.compensation_equity', 'limitations': {}},
+            {'evidence_id': 'ev_pay_extra', 'claim': 'Salary association: 0.13', 'source_tool': 'workforce.compensation_equity', 'limitations': {}},
+            {'evidence_id': 'ev_experience', 'claim': 'Configured Employee Experience Index: 49.1/100', 'source_tool': 'workforce.employee_experience', 'limitations': {}},
+        ],
+        'limitations': ['A predictive model is not active.'],
+        'contradictions': [],
+    }
+    prompt = ('Select relevant evidence for a governed PeopleOS investigation. Rules.\nREQUEST_DATA:\n'
+              + json.dumps(request))
+    client.generate(prompt, options={'temperature': 0.0})
+
+    sent = transport.generate.call_args.kwargs['prompt']
+    sent_request = json.loads(sent.split('\nREQUEST_DATA:\n', 1)[1])
+    assert [item['evidence_id'] for item in sent_request['evidence']] == ['ev_summary', 'ev_pay', 'ev_experience']
+    assert 'ev_summary_extra' not in sent and 'ev_pay_extra' not in sent
 
 
 def test_selector_compaction_fails_safe_for_unknown_required_metric(monkeypatch):

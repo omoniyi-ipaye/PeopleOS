@@ -56,8 +56,10 @@
       "renderers": [
         "web/app/page.tsx",
         "web/app/workforce-health/page.tsx",
+        "web/components/relationship-insight.tsx",
         "web/components/charts/correlation-heatmap.tsx",
         "web/components/charts/department-bar-chart.tsx",
+        "web/components/charts/group-summary-chart.tsx",
         "web/components/charts/tenure-distribution-chart.tsx",
         "ui/dashboard_layout.py",
         "src/insight_interpreter.py",
@@ -74,8 +76,10 @@
       "renderer_state": {
         "web/app/page.tsx": "routed_or_shared",
         "web/app/workforce-health/page.tsx": "routed_or_shared",
+        "web/components/relationship-insight.tsx": "routed via workforce insights",
         "web/components/charts/correlation-heatmap.tsx": "dormant_or_legacy",
         "web/components/charts/department-bar-chart.tsx": "dormant_or_legacy",
+        "web/components/charts/group-summary-chart.tsx": "routed via advisor result",
         "web/components/charts/tenure-distribution-chart.tsx": "dormant_or_legacy",
         "ui/dashboard_layout.py": "dormant_or_legacy",
         "src/insight_interpreter.py": "dormant_or_legacy",
@@ -235,7 +239,8 @@
         "tests/test_snapshot_recovery.py"
       ],
       "renderers": [
-        "web/app/employee-experience/page.tsx"
+        "web/app/employee-experience/page.tsx",
+        "web/components/relationship-insight.tsx"
       ],
       "remaining_validation": [
         "Weights/bands and survey construct validity need instrument validation. Manager/lifecycle comparisons are cross-sectional and confounded."
@@ -246,7 +251,8 @@
         "api/schemas/experience.py"
       ],
       "renderer_state": {
-        "web/app/employee-experience/page.tsx": "routed_or_shared"
+        "web/app/employee-experience/page.tsx": "routed_or_shared",
+        "web/components/relationship-insight.tsx": "routed via experience insights"
       }
     },
     {
@@ -620,6 +626,7 @@
       ],
       "renderers": [
         "web/app/quality-of-hire/page.tsx",
+        "web/components/relationship-insight.tsx",
         "web/components/risk-analysis-modal.tsx"
       ],
       "remaining_validation": [
@@ -632,6 +639,7 @@
       ],
       "renderer_state": {
         "web/app/quality-of-hire/page.tsx": "routed_or_shared",
+        "web/components/relationship-insight.tsx": "routed via hiring insights",
         "web/components/risk-analysis-modal.tsx": "dormant_or_legacy"
       }
     },
@@ -1097,6 +1105,7 @@
     "web/app/search/page.tsx": "07da6d1133b8da4f09385ba95c26881c2fc30e67353ea25df260b4613229db14",
     "web/app/workforce-health/page.tsx": "4e89051d3da0aa0244044e57a479cff9c94c95aae9e5453a60653c3311cbb2d5",
     "web/components/advisor/model-lab.tsx": "2c4e3674c5769ab860569abd196bdb543b777d47663a0e2bd9e4a406fc39599e",
+    "web/components/relationship-insight.tsx": "ce31d077a20d3f2c0325c2c30fc854ff9b3d43f4a76da0345842a19afcd2578f",
     "web/components/charts/correlation-heatmap.tsx": "dd9d834ae0c980ee676360abaf3f8e25908287d5bb4bb332a88de4430359b35d",
     "web/components/charts/department-bar-chart.tsx": "ed17377d6c48f553c8f792fe1bcaf051320695d38b3b3767c814d20a64a7efe5",
     "web/components/charts/feature-importance-chart.tsx": "a0389f324daeed949e0d5ec56116f4ffbebbe216eca0db6c1f10b7752686857c",

@@ -59,7 +59,7 @@ Supported import formats:
 - `.csv`
 - `.json`
 
-PeopleOS validates the dataset before analysis and fails closed when required meaning or units are unclear.
+Before activation, PeopleOS opens an import review that shows how each source column was interpreted, exposes sample values, and lets the owner correct mappings. An optional local AI assistant can suggest meanings from column names and shape/type metadata only; it never receives workforce cell values and never activates a dataset. PeopleOS validates the confirmed dataset before analysis and fails closed when required meaning or units are unclear.
 
 ### 2. See what deserves attention
 
@@ -179,7 +179,7 @@ By default the backend binds to:
 127.0.0.1
 ```
 
-Local AI synthesis can run through Ollama, and deterministic analytics continue to work without making a model the calculator or source of truth.
+After the approved analytical checks complete, optional local Ollama AI can select and combine the verified results into a plain-language explanation. The model is not the calculator or source of truth: citations, scope and policy are validated server-side, and deterministic evidence remains the recovery path when local AI is unavailable.
 
 If you intentionally expose the API beyond loopback, configure authentication and a server-side role:
 
@@ -359,7 +359,7 @@ PeopleOS intentionally keeps deterministic analytics engines responsible for cal
 
 ## Verification
 
-The public-beta engineering candidate passed the complete validation matrix before merge to `main`:
+The historical public-beta engineering candidate passed the complete validation matrix before merge to `main`:
 
 - Agent Foundation
 - Frontend Modernization
@@ -372,7 +372,7 @@ The public-beta engineering candidate passed the complete validation matrix befo
 
 The browser suite exercises real People-team journeys including data import, pay-unit gating, malicious source labels, bad replacement data, concise AI answers with inspectable evidence, unsupported/causal abstention, dataset changes, mobile layout, scenario planning and Trust & Privacy.
 
-CI is strong technical evidence. It is **not** a substitute for independent fresh-user usability testing or organization-specific prospective validation of predictive use cases.
+CI is strong technical evidence. It is **not** a substitute for independent fresh-user usability testing or organization-specific prospective validation of predictive use cases. The current pilot-hardening working tree is documented separately in [the 2026-09-15 readiness handoff](docs/validation/PUBLIC_PILOT_READINESS_2026-09-15.md); its local results must not be confused with remote CI until the exact committed head is rerun.
 
 ---
 

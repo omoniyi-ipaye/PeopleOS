@@ -108,7 +108,9 @@ The sample button is disabled when a dataset is already active. Use a separate t
 
 Use synthetic or appropriately de-identified test data for beta feedback. Never upload workforce files, database copies or employee screenshots to public issues.
 
-The upload route accepts **CSV or JSON**, not Excel files. Download the current Golden Schema template from Data & Sources or [the source-run template endpoint](http://127.0.0.1:8000/api/upload/template) (packaged users should use the Data & Sources button at the app’s actual port). The source template is [peopleos_template.csv](../data/templates/peopleos_template.csv). Follow the template and validation messages for required fields, types and optional capabilities. Historical analysis needs genuine dated observations; a single current snapshot cannot establish a historical trend.
+The upload route accepts **CSV, JSON and Excel (`.xlsx`)** files. Download the current Golden Schema template from Data & Sources or [the source-run template endpoint](http://127.0.0.1:8000/api/upload/template) (packaged users should use the Data & Sources button at the app’s actual port). The source template is [peopleos_template.csv](../data/templates/peopleos_template.csv). Follow the template and validation messages for required fields, types and optional capabilities. Historical analysis needs genuine dated observations; a single current snapshot cannot establish a historical trend.
+
+Every file first opens a non-mutating **Import review**. PeopleOS proposes deterministic aliases and makes every source-column meaning visible with a few local examples. If you explicitly ask for local AI assistance, the mapper receives column names plus shape/type metadata only—not workforce cell values—and its suggestions remain marked for human review. You can change any target to **Not used** or another canonical field, run the integrity check again, and activate only after confirming the mapping. A preview never replaces the active workforce; activation creates a new governed dataset version and preserves the previous version in lifecycle history.
 
 ### Declare salary units before pay analysis
 

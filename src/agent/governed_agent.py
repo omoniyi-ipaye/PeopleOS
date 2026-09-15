@@ -38,31 +38,63 @@ class GovernedPeopleIntelligenceAgent(PeopleIntelligenceAgent):
         if result.status == ToolResultStatus.SUCCESS and result.evidence:
             bundle.sufficiency = EvidenceSufficiency.SUFFICIENT
             reporting_currency = (getattr(self.state, 'runtime_provenance', None) or {}).get('reporting_currency')
-            answer = self._render_derived_answer(
+            deterministic_answer = self._render_derived_answer(
                 spec.model_dump(), result.evidence[0].value, reporting_currency=reporting_currency
             )
+            synthesis = self._synthesize(
+                question,
+                f"typed {spec.operation.replace('_', ' ')} analysis",
+                bundle,
+                required_metrics=[],
+                fallback_answer=deterministic_answer,
+            )
+            answer = synthesis.answer
+            model = synthesis.model
+            synthesis_mode = synthesis.mode
+            cited_evidence_ids = synthesis.cited_evidence_ids
+            warnings.extend(synthesis.warnings)
             status = 'complete'
         else:
             bundle.sufficiency = EvidenceSufficiency.INSUFFICIENT
             reason = result.warnings[0] if result.warnings else 'The current data does not support this calculation.'
             bundle.unknowns.append(reason)
             answer = f"PeopleOS cannot calculate that reliably from the current measured population. {reason}"
+            model = None
+            synthesis_mode = 'verified_evidence'
+            cited_evidence_ids = []
             status = 'insufficient'
 
         try:
             answer = self.policy.enforce_text(answer)
         except PolicyViolation:
-            answer = 'PeopleOS blocked this derived output because it crossed the employment-action policy boundary.'
+            answer = deterministic_answer if result.status == ToolResultStatus.SUCCESS and result.evidence else 'PeopleOS blocked this derived output because it crossed the employment-action policy boundary.'
+            model = None
+            synthesis_mode = 'verified_evidence'
+            cited_evidence_ids = []
             status = 'insufficient'; bundle.sufficiency = EvidenceSufficiency.INSUFFICIENT
             warnings.append('Derived output was blocked by HR advice policy.')
 
+        tools_used = [self.derived_tool.tool_id]
+        next_actions = self._next_actions(question, status=status)
+        agent_steps = self._build_agent_steps(
+            rationale=f"typed {spec.operation.replace('_', ' ')} analysis",
+            tool_ids=tools_used,
+            results=[result],
+            bundle=bundle,
+            model=model,
+            synthesis_mode=synthesis_mode,
+            status=status,
+            next_actions=next_actions,
+        )
         response = AgentAnswer(request_id=request_id, question=question, answer=answer, status=status,
                                confidence=float(bundle.overall_confidence or (1.0 if status == 'complete' else 0.0)),
-                               tools_used=[self.derived_tool.tool_id], model=None, evidence=bundle, warnings=warnings)
+                               tools_used=tools_used, model=model, evidence=bundle, warnings=warnings,
+                               agent_steps=agent_steps, next_actions=next_actions,
+                               synthesis_mode=synthesis_mode, cited_evidence_ids=cited_evidence_ids)
         if record_audit:
             try:
                 self.audit.record(request_id=request_id, question=question, status=status, confidence=response.confidence,
-                                  tools_used=response.tools_used, tool_results=[result], model=None,
+                                  tools_used=response.tools_used, tool_results=[result], model=model,
                                   policy_id=self.policy.policy_id, policy_blocked=False, workspace_id=workspace_id,
                                   dataset_version=dataset_version, actor_id=actor_id)
             except Exception as exc:

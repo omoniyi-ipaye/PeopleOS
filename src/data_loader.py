@@ -12,7 +12,7 @@ import json
 import sqlite3
 import numpy as np
 from difflib import get_close_matches
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Mapping, Optional
 
 import pandas as pd
 
@@ -75,36 +75,52 @@ class DataLoader:
         self.max_rows = self.data_config.get('max_rows', 50000)
         self.allowed_formats = self.data_config.get('allowed_formats', ['csv', 'json', 'sqlite'])
         self.column_mapping: dict[str, str] = {}
+        self.mapping_details: dict[str, dict[str, Any]] = {}
         self.validation_warnings: list[str] = []
         self.features_enabled = {'predictive': True, 'nlp': True}
 
     def _reset_load_state(self) -> None:
         self.validation_warnings = []
         self.column_mapping = {}
+        self.mapping_details = {}
         self.features_enabled = {'predictive': True, 'nlp': True}
 
-    def load(self, file_path: str, table_name: Optional[str] = None) -> pd.DataFrame:
-        self._reset_load_state()
+    def _read_frame(self, file_path: str, table_name: Optional[str] = None) -> pd.DataFrame:
+        """Read a source without mapping, validation, or runtime activation."""
         ext = get_file_extension(file_path)
         if ext not in self.allowed_formats:
             raise DataValidationError(get_error_message('file_load_failed'))
         try:
             if ext == 'csv':
                 # Preserve lexemes before aliases are mapped; measurements convert below.
-                df = pd.read_csv(file_path, dtype=str, keep_default_na=False, na_values=[''])
-            elif ext == 'json':
+                return pd.read_csv(file_path, dtype=str, keep_default_na=False, na_values=[''])
+            if ext == 'json':
                 with open(file_path, 'r') as handle:
                     payload = json.load(handle)
-                df = pd.DataFrame(payload if isinstance(payload, list) else payload.get('data', [payload]) if isinstance(payload, dict) else payload)
-            elif ext in ('sqlite', 'db', 'sqlite3'):
-                df = self._load_sqlite(file_path, table_name)
-            else:
-                raise DataValidationError(get_error_message('file_load_failed'))
+                return pd.DataFrame(
+                    payload if isinstance(payload, list)
+                    else payload.get('data', [payload]) if isinstance(payload, dict)
+                    else payload
+                )
+            if ext in ('sqlite', 'db', 'sqlite3'):
+                return self._load_sqlite(file_path, table_name)
+            raise DataValidationError(get_error_message('file_load_failed'))
         except DataValidationError:
             raise
         except Exception as exc:
             logger.error('Failed to load file: %s', type(exc).__name__)
             raise DataValidationError(get_error_message('file_load_failed')) from exc
+
+    def load(
+        self,
+        file_path: str,
+        table_name: Optional[str] = None,
+        *,
+        column_mapping: Optional[Mapping[str, Optional[str]]] = None,
+        mapping_methods: Optional[Mapping[str, str]] = None,
+    ) -> pd.DataFrame:
+        self._reset_load_state()
+        df = self._read_frame(file_path, table_name)
 
         if len(df) < self.min_rows:
             raise DataValidationError(get_error_message('insufficient_data', count=len(df)))
@@ -114,7 +130,7 @@ class DataLoader:
                 'Import was rejected to avoid analyzing an incomplete population.'
             )
 
-        df = self._map_columns(df)
+        df = self._map_columns(df, explicit_mapping=column_mapping, mapping_methods=mapping_methods)
         self._validate_required_columns(df)
         df = self._validate_data_quality(df)
         logger.info('Successfully loaded %s rows', len(df))
@@ -132,52 +148,138 @@ class DataLoader:
             safe_name = table_name.replace('"', '""')
             return pd.read_sql_query(f'SELECT * FROM "{safe_name}"', conn)
 
-    def _canonical_from_alias(self, normalized: str) -> Optional[str]:
+    def _canonical_match(self, normalized: str) -> tuple[Optional[str], str, float]:
         all_fields = GOLDEN_SCHEMA['required'] + GOLDEN_SCHEMA['optional']
         for canonical in all_fields:
             if normalized == canonical.lower():
-                return canonical
+                return canonical, 'exact', 1.0
         for key, aliases in COLUMN_ALIASES.items():
             if normalized == key or normalized in aliases:
-                return next((field for field in all_fields if field.lower() == key), None)
-        return None
+                canonical = next((field for field in all_fields if field.lower() == key), None)
+                return canonical, 'alias', 0.96
+        return None, 'unmapped', 0.0
 
-    def _fuzzy_match_column(self, column: str) -> Optional[str]:
+    def _canonical_from_alias(self, normalized: str) -> Optional[str]:
+        return self._canonical_match(normalized)[0]
+
+    def _mapping_detail(
+        self,
+        source: str,
+        target: Optional[str],
+        method: str,
+        confidence: float,
+    ) -> None:
+        status = 'mapped'
+        if target is None:
+            status = 'needs_review' if method == 'ambiguous' else 'unmapped'
+        elif method in {'similarity', 'llm'}:
+            status = 'needs_review'
+        self.mapping_details[source] = {
+            'source': source,
+            'target': target,
+            'method': method,
+            'confidence': max(0.0, min(1.0, float(confidence))),
+            'required': target in GOLDEN_SCHEMA['required'] if target else False,
+            'status': status,
+        }
+
+    def _fuzzy_match_detail(self, column: str) -> tuple[Optional[str], str, float]:
         normalized = column.strip().lower().replace(' ', '_').replace('-', '_')
-        explicit = self._canonical_from_alias(normalized)
+        explicit, method, confidence = self._canonical_match(normalized)
         if explicit:
-            return explicit
+            return explicit, method, confidence
         # Critical identity/pay/outcome fields are never inferred from weak spelling similarity.
-        noncritical = [f for f in GOLDEN_SCHEMA['required'] + GOLDEN_SCHEMA['optional'] if f not in CRITICAL_MAPPING_FIELDS]
+        noncritical = [
+            f for f in GOLDEN_SCHEMA['required'] + GOLDEN_SCHEMA['optional']
+            if f not in CRITICAL_MAPPING_FIELDS
+        ]
         candidates = {f.lower(): f for f in noncritical}
         matches = get_close_matches(normalized, list(candidates), n=2, cutoff=0.88)
         if len(matches) == 1:
             mapped = candidates[matches[0]]
-            self.validation_warnings.append(f"Column '{column}' was conservatively mapped to '{mapped}' by name similarity")
-            return mapped
+            self.validation_warnings.append(
+                f"Column '{column}' was conservatively mapped to '{mapped}' by name similarity"
+            )
+            return mapped, 'similarity', 0.88
         if matches:
-            self.validation_warnings.append(f"Column '{column}' was not mapped because the match was ambiguous")
-        return None
+            self.validation_warnings.append(
+                f"Column '{column}' was not mapped because the match was ambiguous"
+            )
+            return None, 'ambiguous', 0.0
+        return None, 'unmapped', 0.0
 
-    def _map_columns(self, df: pd.DataFrame) -> pd.DataFrame:
+    def _fuzzy_match_column(self, column: str) -> Optional[str]:
+        return self._fuzzy_match_detail(column)[0]
+
+    def _map_columns(
+        self,
+        df: pd.DataFrame,
+        *,
+        explicit_mapping: Optional[Mapping[str, Optional[str]]] = None,
+        mapping_methods: Optional[Mapping[str, str]] = None,
+    ) -> pd.DataFrame:
+        source_columns = [str(column) for column in df.columns]
+        if len(source_columns) != len(set(source_columns)):
+            raise DataValidationError('The file contains duplicate column names. Rename them before importing.')
+
         rename_map: dict[str, str] = {}
         mapped_targets: set[str] = set()
+
+        if explicit_mapping is not None:
+            unknown_sources = sorted(set(str(key) for key in explicit_mapping) - set(source_columns))
+            if unknown_sources:
+                raise DataValidationError(
+                    'The mapping refers to columns that are not in this file: ' + ', '.join(unknown_sources)
+                )
+            allowed_targets = set(GOLDEN_SCHEMA['required'] + GOLDEN_SCHEMA['optional'])
+            for col in source_columns:
+                requested = explicit_mapping.get(col)
+                # A canonical column omitted from a partial mapping remains safe as-is.
+                if col not in explicit_mapping and col in allowed_targets:
+                    requested = col
+                if requested is None or str(requested).strip() == '':
+                    self._mapping_detail(col, None, 'unmapped', 0.0)
+                    continue
+                target = str(requested).strip()
+                if target not in allowed_targets:
+                    raise DataValidationError(
+                        f"Column '{col}' cannot be mapped to '{target}'. Choose a PeopleOS field from the import review."
+                    )
+                if target in mapped_targets:
+                    raise DataValidationError(f"Multiple columns map to '{target}'; provide one unambiguous source column")
+                rename_map[col] = target
+                mapped_targets.add(target)
+                method = str((mapping_methods or {}).get(col, 'user_confirmed'))
+                confidence = 1.0 if method in {'user_confirmed', 'exact'} else 0.9
+                self.column_mapping[col] = target
+                self._mapping_detail(col, target, method, confidence)
+            if self.column_mapping:
+                logger.info('Column mapping: %s', sanitize_for_logging(self.column_mapping))
+            return df.rename(columns=rename_map)
+
         for col in df.columns:
-            mapped = self._canonical_from_alias(str(col).strip().lower().replace(' ', '_').replace('-', '_'))
+            source = str(col)
+            normalized = source.strip().lower().replace(' ', '_').replace('-', '_')
+            mapped, method, confidence = self._canonical_match(normalized)
             if mapped and mapped in mapped_targets:
                 raise DataValidationError(f"Multiple columns map to '{mapped}'; provide one unambiguous source column")
             if mapped and mapped not in mapped_targets:
                 rename_map[col] = mapped
-                self.column_mapping[col] = mapped
+                self.column_mapping[source] = mapped
                 mapped_targets.add(mapped)
+                self._mapping_detail(source, mapped, method, confidence)
         for col in df.columns:
             if col in rename_map:
                 continue
-            mapped = self._fuzzy_match_column(str(col))
+            source = str(col)
+            mapped, method, confidence = self._fuzzy_match_detail(source)
             if mapped and mapped not in mapped_targets:
                 rename_map[col] = mapped
-                self.column_mapping[col] = mapped
+                self.column_mapping[source] = mapped
                 mapped_targets.add(mapped)
+                self._mapping_detail(source, mapped, method, confidence)
+            else:
+                self._mapping_detail(source, mapped, method, confidence)
         if self.column_mapping:
             logger.info('Column mapping: %s', sanitize_for_logging(self.column_mapping))
         return df.rename(columns=rename_map)
@@ -287,7 +389,12 @@ class DataLoader:
             )
 
     def get_column_mapping_report(self) -> dict:
-        return {'mappings': self.column_mapping, 'warnings': self.validation_warnings, 'features_enabled': self.features_enabled}
+        return {
+            'mappings': self.column_mapping,
+            'details': list(self.mapping_details.values()),
+            'warnings': self.validation_warnings,
+            'features_enabled': self.features_enabled,
+        }
 
     def load_from_database(self) -> Optional[pd.DataFrame]:
         if not self.config.get('persistence', {}).get('enabled', True):

@@ -15,7 +15,7 @@ interface ErrorStateProps {
   className?: string
 }
 
-export function ErrorState({ title = 'Something went wrong', message, error, onRetry, className }: ErrorStateProps) {
+export function ErrorState({ title = 'Something went wrong', message, error, onRetry }: ErrorStateProps) {
   const errorMessage = message || (error instanceof Error ? error.message : 'An unexpected error occurred. Please try again.')
   return (
     <GovernedEmptyState

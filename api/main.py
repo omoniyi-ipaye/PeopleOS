@@ -153,6 +153,10 @@ async def api_status():
     workspace = WorkspaceStore().get_workspace("local")
 
     integrity = runtime_integrity(state, workspace)
+    active_dataset = next((item for item in workspace.datasets if item.dataset_id == workspace.active_dataset_id), None)
+    if integrity.get("snapshot") is not None and active_dataset is not None:
+        integrity["snapshot"].setdefault("source_name", active_dataset.source_name)
+        integrity["snapshot"].setdefault("dataset_version", active_dataset.version)
     payload = {
         "integrity": integrity,
         "status": "running",

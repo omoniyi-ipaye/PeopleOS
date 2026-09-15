@@ -29,6 +29,12 @@ _DEV_ORIGINS = {
     "http://localhost:3001",
     "http://127.0.0.1:3001",
 }
+
+
+def _configured_local_proxy_origins() -> set[str]:
+    """Return explicitly configured loopback proxy origins for local test/dev hosts."""
+    configured = os.getenv('PEOPLEOS_LOCAL_PROXY_ORIGINS', '')
+    return {origin.strip() for origin in configured.split(',') if origin.strip()}
 # Explicit method/path mappings cover legacy writes as well as the control plane.
 # New mutation routes fail closed for remote roles until assigned a permission.
 _MUTATION_PERMISSIONS = (
@@ -132,7 +138,7 @@ def _trusted_browser_origin(request: Request) -> bool:
     origin = request.headers.get('origin')
     if not origin:
         return request.headers.get('sec-fetch-site') not in {'cross-site'}
-    if origin in _DEV_ORIGINS:
+    if origin in _DEV_ORIGINS or origin in _configured_local_proxy_origins():
         return True
     try:
         parsed = urlsplit(origin)

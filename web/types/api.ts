@@ -104,6 +104,9 @@ export interface UploadStatus {
     has_data: boolean
     employee_count: number
     features_enabled: Record<string, boolean>
+    active_dataset_id?: string | null
+    dataset_version?: number | null
+    source_name?: string | null
     reporting_currency?: string | null
     data?: {
         loaded: boolean
@@ -118,6 +121,46 @@ export interface UploadResponse {
     rows_loaded: number
     columns: string[]
     features_enabled: Record<string, boolean>
+    workspace_id?: string
+    dataset_id?: string | null
+    dataset_version?: number | null
+    deferred?: Record<string, boolean>
+    mapping_report?: Record<string, unknown> | null
+}
+
+export interface ColumnMappingPreview {
+    source: string
+    target?: string | null
+    method: string
+    confidence: number
+    required: boolean
+    status: 'mapped' | 'needs_review' | 'unmapped' | string
+    sample_values: string[]
+    reason?: string | null
+}
+
+export interface LLMMappingPreview {
+    requested: boolean
+    available: boolean
+    used: boolean
+    reason?: string | null
+    data_scope: string
+}
+
+export interface UploadPreviewResponse {
+    success: boolean
+    filename: string
+    rows_detected: number
+    source_columns: string[]
+    available_fields: string[]
+    mappings: ColumnMappingPreview[]
+    missing_required_fields: string[]
+    blocking_issues: string[]
+    warnings: string[]
+    features_enabled: Record<string, boolean>
+    can_activate: boolean
+    requires_review: boolean
+    llm: LLMMappingPreview
 }
 
 export interface TeamHealth {
@@ -142,8 +185,8 @@ export interface DiversityMetrics {
 export interface TeamAnalysis {
     health: TeamHealth[]
     diversity: DiversityMetrics[]
-    at_risk_teams: any[]
-    summary: any
+    at_risk_teams: Record<string, unknown>[]
+    summary: Record<string, unknown>
 }
 
 export interface NineBoxSummary {
@@ -381,7 +424,7 @@ export interface CohortInsight {
     cohort_description: string
     cohort_name?: string
     cohort_size: number
-    filters_applied?: Record<string, any>
+    filters_applied?: Record<string, unknown>
     attrition_count?: number
     attrition_rate?: number
     avg_tenure_years?: number
@@ -523,9 +566,9 @@ export interface QualityOfHireAnalysisResult {
         top_predictor?: string
         predictive_signals?: string[]
         quality_trend?: string
-        [key: string]: any
+        [key: string]: unknown
     }
-    cohort_analysis: Array<any>
+    cohort_analysis: Array<Record<string, unknown>>
     new_hire_risks: NewHireRisk[]
     summary: {
         total_employees: number

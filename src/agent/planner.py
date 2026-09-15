@@ -152,27 +152,38 @@ class EvidencePlanner:
         if any(term in routing_q for term in ["department", "team", "function", "hotspot"]):
             add("workforce.department_risk", "department-level evidence requested")
 
-        if any(term in routing_q for term in ["salary", "pay", "compensation", "equity", "equal pay", "gender gap", "pay gap"]):
+        # Match domain words as words. In particular, "paying attention" is a
+        # common People-language phrase, not a compensation request.
+        if any(re.search(rf"\b{re.escape(term)}\b", routing_q) for term in ["salary", "pay", "compensation", "equity", "equal pay", "gender gap", "pay gap"]):
             add("workforce.compensation_equity", "compensation/equity evidence requested")
 
-        if any(term in routing_q for term in ["fairness", "bias", "disparity", "protected group", "adverse impact"]):
+        if any(re.search(rf"\b{re.escape(term)}\b", routing_q) for term in ["fairness", "bias", "disparity", "protected group", "adverse impact"]):
             add("workforce.fairness", "fairness/disparity evidence requested")
 
-        if any(term in routing_q for term in ["experience", "engagement", "enps", "pulse", "work-life", "work life", "employee sentiment"]):
+        if any(re.search(rf"\b{re.escape(term)}\b", routing_q) for term in ["experience", "engagement", "enps", "pulse", "work-life", "work life", "employee sentiment"]):
             add("workforce.employee_experience", "employee-experience evidence requested")
 
-        if any(term in routing_q for term in ["manager", "span", "structure", "stagnation", "promotion", "org design", "organization design", "burnout"]):
+        if any(re.search(rf"\b{re.escape(term)}\b", routing_q) for term in ["manager", "span", "structure", "stagnation", "promotion", "org design", "organization design", "burnout"]):
             add("workforce.organization_structure", "organization-structure evidence requested")
 
+        broad_attention_question = bool(re.search(
+            r"\b(?:what|where|which)\b[^?.]{0,80}\b(?:pay(?:ing)? attention to|focus on|watch|prioriti[sz]e|matters|concerned about)\b"
+            r"|\bhow are we doing\b|\bwhat should (?:the )?(?:people|hr) team\b",
+            q,
+        ))
         # Broad strategic questions benefit from the major systemic lenses without
         # exposing employee-level data.
-        if any(term in q for term in ["workforce health", "people health", "what should we do", "strategic", "executive", "overall"]):
+        if broad_attention_question or any(term in q for term in ["workforce health", "people health", "what should we do", "strategic", "executive", "overall"]):
             add("workforce.retention_risk", "strategic workforce health lens")
             add("workforce.department_risk", "strategic hotspot lens")
-            add("workforce.compensation_equity", "strategic compensation lens")
-            add("workforce.fairness", "strategic fairness lens")
-            add("workforce.employee_experience", "strategic employee-experience lens")
-            add("workforce.organization_structure", "strategic structure lens")
+            if not any(re.search(rf"\b{re.escape(term)}\b", routing_q) for term in ["salary", "pay", "compensation", "equity", "equal pay", "gender gap", "pay gap"]):
+                add("workforce.compensation_equity", "strategic compensation lens")
+            if not any(re.search(rf"\b{re.escape(term)}\b", routing_q) for term in ["fairness", "bias", "disparity", "protected group", "adverse impact"]):
+                add("workforce.fairness", "strategic fairness lens")
+            if not any(re.search(rf"\b{re.escape(term)}\b", routing_q) for term in ["experience", "engagement", "enps", "pulse", "work-life", "work life", "employee sentiment"]):
+                add("workforce.employee_experience", "strategic employee-experience lens")
+            if not any(re.search(rf"\b{re.escape(term)}\b", routing_q) for term in ["manager", "span", "structure", "stagnation", "promotion", "org design", "organization design", "burnout"]):
+                add("workforce.organization_structure", "strategic structure lens")
 
         headcount_requested = bool(re.search(
             r"\b(?:headcount|employee count|workforce size|staff count)\b|\bhow (?:many|large|big)\s+(?:is\s+)?(?:our\s+|the\s+)?workforce\b|"
@@ -240,7 +251,7 @@ class EvidencePlanner:
         # A generic workforce keyword is not evidence that an arbitrary metric
         # or population restriction has been implemented. Until typed filters are
         # available, treat unfamiliar summary-query terms conservatively.
-        summary_words = set("what is are was were the our my a an and of for in about tell me show give please can you do we have how many employees employee people workforce staff members work here large big size current currently active total headcount count number average mean age salary tenure performance rating overview summary statistics company organization organisation now today just not analyze analyse attrition departure observed recorded share percentage each per there look like".split())
+        summary_words = set("what is are was were the our my i a an and of for in about tell me show give please can you do we have how many employees employee people workforce staff members work here large big size current currently active total headcount count number average mean age salary tenure performance rating overview summary statistics company organization organisation now today just not analyze analyse attrition departure observed recorded share percentage each per there look like how doing when comes to this be paying attention focus watch matters concerned prioritize prioritise on".split())
         summary_words.update({"q1", "q2", "q3", "q4"})
         tokens = set(re.findall(r"[a-z]+[0-9]*", routing_q))
         # Every meaningful word must belong to the supported aggregate question
@@ -295,7 +306,7 @@ class EvidencePlanner:
             must_abstain = True
         if re.search(
             r"\b(women|men|female|male|nonbinary|part.time|full.time|contractors?|remote|onsite)\b|"
-            r"\b(in|within|among)\s+(?!our\b|the workforce\b|the company\b|the organization\b|"
+            r"\b(in|within|among)\s+(?!our\b|the workforce\b|this workforce\b|the company\b|this company\b|the organization\b|this organization\b|"
             r"each\b|every\b|all\b|per\b)\w+",
             q,
         ):

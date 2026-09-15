@@ -21,3 +21,11 @@ test('scenario planner exposes bounded aggregate inputs and cost timing', () => 
   assert.match(source, /reporting_currency/)
   assert.match(source, /valueClassName="whitespace-normal break-words text-xl leading-tight"/)
 })
+
+test('scenario planner presents AI drill-down as an HR decision brief', () => {
+  assert.match(source, /ScenarioDrilldownBrief/)
+  assert.match(source, /local AI prioritizes what to inspect/)
+  assert.match(fs.readFileSync(path.join(__dirname, '../components/scenario-drilldown-brief.tsx'), 'utf8'), /What this means for People/)
+  assert.match(fs.readFileSync(path.join(__dirname, '../components/scenario-drilldown-brief.tsx'), 'utf8'), /What to validate next/)
+  assert.match(fs.readFileSync(path.join(__dirname, '../components/scenario-drilldown-brief.tsx'), 'utf8'), /Show evidence explanation/)
+})

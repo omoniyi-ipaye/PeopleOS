@@ -2,13 +2,15 @@
 
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import Link from 'next/link'
 import { api } from '@/lib/api-client'
-import { Button, EmptyState, MetricCard, Page, PageHeader, SectionHeader, StateSummary, StatusBadge, Surface, TrustDisclosure } from '@/components/ui'
+import { Button, EmptyState, MetricCard, Page, PageHeader, SectionHeader, StateSummary, Surface, TrustDisclosure } from '@/components/ui'
+import { RelationshipInsight } from '@/components/relationship-insight'
 import { ArrowUpRight, Heart, Layers, RefreshCw, Signal, Target } from 'lucide-react'
 
 type ExperienceTab = 'overview' | 'patterns'
 interface Segment { segment: string; count: number | null; percentage: number | null; avg_exi: number | null; suppressed?: boolean }
-interface Driver { factor: string; correlation: number; impact: string; direction: string }
+interface Driver { factor: string; correlation: number; impact: string; direction: string; sample_size?: number }
 interface Stage { stage: string; count: number; avg_exi: number | null; respondent_count?: number; at_risk_count: number | null; at_risk_suppressed?: boolean }
 interface ExperienceAnalysis {
   experience_index: { available: boolean; reason?: string; overall_exi?: number; respondent_count?: number; response_coverage?: number; interpretation?: string }
@@ -34,8 +36,9 @@ function humanize(value: string) { return value.replaceAll('_', ' ').replace(/([
 
 export default function EmployeeExperiencePage() {
   const [tab, setTab] = useState<ExperienceTab>('overview')
+  const [showAllDrivers, setShowAllDrivers] = useState(false)
   const { data, isLoading, isError, error, refetch } = useQuery<ExperienceAnalysis>({ queryKey: ['experience', 'analysis'], queryFn: () => api.experience.getAnalysis() as Promise<ExperienceAnalysis> })
-  const header = <PageHeader eyebrow="Insights · Experience" title="How are people experiencing work?" description="See what your measured experience signals say, with response coverage kept visible and assumptions available when you want them." />
+  const header = <PageHeader eyebrow="Insights · Experience" title="How are people experiencing work?" description="See what your measured experience signals say, with response coverage kept visible and assumptions available when you want them." actions={<Link href="/advisor" className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500">Ask PeopleOS <ArrowUpRight className="h-4 w-4" /></Link>} />
   if (isLoading) return <Page>{header}<StateSummary title="Preparing experience insights" description="Reading the measured survey and experience signals available in your data." tone="info" /></Page>
   if (isError) return <Page>{header}<EmptyState title="Experience insights are unavailable" description={error instanceof Error ? error.message : 'PeopleOS could not read the experience data.'} action={<Button onClick={() => refetch()}><RefreshCw className="h-4 w-4" />Retry</Button>} /></Page>
 
@@ -46,6 +49,7 @@ export default function EmployeeExperiencePage() {
   const responseCoverage = measured && Number.isFinite(data?.experience_index.response_coverage) ? data?.experience_index.response_coverage : undefined
   const segments = measured ? (data?.segments.segments ?? []) : []
   const drivers = measured ? (data?.drivers.drivers ?? []) : []
+  const visibleDrivers = showAllDrivers ? drivers : drivers.slice(0, 4)
   const stages = measured ? (data?.lifecycle.stages ?? []) : []
   const visibleSegments = segments.filter(segment => !segment.suppressed && typeof segment.percentage === 'number' && Number.isFinite(segment.percentage))
   const largestSegment = [...visibleSegments].sort((a, b) => (b.percentage ?? 0) - (a.percentage ?? 0))[0]
@@ -57,19 +61,20 @@ export default function EmployeeExperiencePage() {
     {!measured && <EmptyState title="No measured experience data yet" description="Add explicit survey or experience fields to analyse employee experience. PeopleOS will not guess engagement from salary, tenure or performance." />}
 
     {measured && <>
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Experience composite" value={score === undefined ? 'Unavailable' : Math.round(score)} detail="Configured composite of measured signals" icon={Heart} />
-        <MetricCard label="Respondents" value={respondents == null ? 'Unavailable' : respondents.toLocaleString()} detail={responseCoverage == null ? 'Coverage unavailable' : `${(responseCoverage * 100).toFixed(1)}% response coverage`} icon={Target} />
-        <MetricCard label="Signals available" value={(data?.signals.total_signals ?? 0).toLocaleString()} detail={`${data?.signals.has_enps ? 'eNPS response · ' : ''}${data?.signals.has_pulse ? 'Pulse · ' : ''}measured inputs`} icon={Signal} />
-        <MetricCard label="Two lower score bands" value={lowScoreCount == null ? 'Suppressed' : lowScoreCount.toLocaleString()} detail={lowScoreCount == null ? 'Small-cell privacy protection applied' : 'Configured bands · aggregate only'} icon={Heart} tone={lowScoreCount != null && lowScoreCount > 0 ? 'warning' : 'neutral'} />
-      </section>
-
       <div className="flex flex-wrap gap-2" role="tablist" aria-label="Employee experience views">
-        <Button role="tab" aria-selected={tab === 'overview'} variant={tab === 'overview' ? 'primary' : 'secondary'} size="sm" onClick={() => setTab('overview')}><Heart className="h-4 w-4" />Overview</Button>
-        <Button role="tab" aria-selected={tab === 'patterns'} variant={tab === 'patterns' ? 'primary' : 'secondary'} size="sm" onClick={() => setTab('patterns')}><Layers className="h-4 w-4" />Patterns</Button>
+        <Button role="tab" aria-selected={tab === 'overview'} aria-controls="experience-overview" variant={tab === 'overview' ? 'primary' : 'secondary'} size="sm" onClick={() => setTab('overview')}><Heart className="h-4 w-4" />Overview</Button>
+        <Button role="tab" aria-selected={tab === 'patterns'} aria-controls="experience-patterns" variant={tab === 'patterns' ? 'primary' : 'secondary'} size="sm" onClick={() => setTab('patterns')}><Layers className="h-4 w-4" />Patterns</Button>
       </div>
 
-      {tab === 'overview' ? <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <MetricCard label="Experience score" value={score === undefined ? 'Unavailable' : Math.round(score)} detail="Combined score from the survey signals in this dataset" icon={Heart} />
+        <MetricCard label="Respondents" value={respondents == null ? 'Unavailable' : respondents.toLocaleString()} detail={responseCoverage == null ? 'Coverage unavailable' : `${(responseCoverage * 100).toFixed(1)}% response coverage`} icon={Target} />
+        <MetricCard label="Survey signals" value={(data?.signals.total_signals ?? 0).toLocaleString()} detail={`${data?.signals.has_enps ? 'eNPS · ' : ''}${data?.signals.has_pulse ? 'Pulse · ' : ''}other measured inputs`} icon={Signal} />
+        <MetricCard label="Lower-score responses" value={lowScoreCount == null ? 'Suppressed' : lowScoreCount.toLocaleString()} detail={lowScoreCount == null ? 'Small-cell privacy protection applied' : 'People in the two lower score bands; aggregate only'} icon={Heart} tone={lowScoreCount != null && lowScoreCount > 0 ? 'warning' : 'neutral'} />
+      </section>
+
+      {tab === 'overview' ? <div id="experience-overview" role="tabpanel" className="space-y-6">
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
         <Surface padding="lg"><SectionHeader title="Experience distribution" description="How measured responses fall across the configured score bands." /><div className="mt-5 space-y-4">{segments.length ? segments.map(segment => {
           const suppressed = Boolean(segment.suppressed) || segment.count == null || segment.percentage == null
           const percentage = suppressed ? 0 : segment.percentage as number
@@ -82,9 +87,10 @@ export default function EmployeeExperiencePage() {
             <div className="rounded-xl border border-border p-4 text-sm leading-6 text-text-secondary">{lowerShare == null ? 'The combined lower-band share is suppressed because revealing it could expose a small survey-derived cell.' : `${lowerShare.toFixed(1)}% of measured responses fall in the two lower configured score bands. Use the underlying survey questions and local context before deciding what this means.`}</div>
           </div>
         </Surface>
-      </div> : <div className="grid gap-6 lg:grid-cols-2">
-        <Surface padding="lg"><SectionHeader title="Related patterns" description="Signals that move with the experience composite and may deserve investigation." /><div className="mt-5 space-y-3">{drivers.length ? drivers.map(driver => <div key={driver.factor} className="flex items-center justify-between gap-4 border-b border-border py-3 last:border-0"><div><div className="font-medium">{humanize(driver.factor)}</div><div className="text-xs text-text-muted">{driver.direction} relationship</div></div><StatusBadge tone={Math.abs(driver.correlation) >= .4 ? 'info' : 'neutral'}>r={driver.correlation.toFixed(2)}</StatusBadge></div>) : <EmptyState title="No reliable related patterns yet" description={data?.drivers.reason ?? 'More paired measurements are needed.'} />}</div></Surface>
-        <Surface padding="lg"><SectionHeader title="Lifecycle view" description="How the measured composite differs across workforce stages." /><div className="mt-5 space-y-3">{stages.length ? stages.map(stage => <div key={stage.stage} className="grid grid-cols-[1fr_auto] gap-4 border-b border-border py-3 last:border-0"><div><div className="font-medium">{humanize(stage.stage)}</div><div className="text-xs text-text-muted">{stage.count.toLocaleString()} people · {(stage.respondent_count ?? stage.count).toLocaleString()} respondents</div></div><div className="text-right"><div className="font-semibold">{stage.avg_exi == null ? '—' : stage.avg_exi.toFixed(1)}</div><div className="text-[11px] text-text-muted">composite</div></div></div>) : <EmptyState title="No lifecycle comparison available" description={data?.lifecycle.reason ?? 'More measured experience data is needed.'} />}</div></Surface>
+        </div>
+      </div> : <div id="experience-patterns" role="tabpanel" className="space-y-6">
+        <Surface padding="lg"><SectionHeader title="Related patterns" description="Signals that move with the experience score. Open a next check when you want to put a signal into workforce context." /><div className="mt-5 grid gap-4 md:grid-cols-2">{visibleDrivers.length ? visibleDrivers.map(driver => <RelationshipInsight key={driver.factor} signal={humanize(driver.factor)} outcome="overall experience score" correlation={driver.correlation} observations={driver.sample_size} context="experience" nextStep="Check the underlying survey questions and response coverage before treating this as the main lever for experience." />) : <EmptyState title="No reliable related patterns yet" description={data?.drivers.reason ?? 'More paired measurements are needed.'} />}</div>{drivers.length > 4 && <div className="mt-5 flex justify-center"><Button type="button" variant="secondary" size="sm" aria-expanded={showAllDrivers} onClick={() => setShowAllDrivers(value => !value)}>{showAllDrivers ? 'Show fewer patterns' : `Show all ${drivers.length} patterns`}<ArrowUpRight className={`h-3.5 w-3.5 transition-transform ${showAllDrivers ? 'rotate-[-90deg]' : 'rotate-90'}`} aria-hidden="true" /></Button></div>}</Surface>
+        <Surface padding="lg"><SectionHeader title="Lifecycle view" description="How the experience score differs across workforce stages." /><div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{stages.length ? stages.map(stage => <div key={stage.stage} className="rounded-xl border border-border p-4"><div className="font-medium">{humanize(stage.stage)}</div><div className="mt-1 text-xs text-text-muted">{stage.count.toLocaleString()} people · {(stage.respondent_count ?? stage.count).toLocaleString()} respondents</div><div className="mt-4 text-xl font-semibold">{stage.avg_exi == null ? '—' : stage.avg_exi.toFixed(1)}</div><div className="text-[11px] text-text-muted">experience score</div></div>) : <EmptyState title="No lifecycle comparison available" description={data?.lifecycle.reason ?? 'More measured experience data is needed.'} />}</div></Surface>
       </div>}
 
       <TrustDisclosure title="How this experience score works" summary={responseCoverage == null ? undefined : `${(responseCoverage * 100).toFixed(1)}% response coverage`}>
