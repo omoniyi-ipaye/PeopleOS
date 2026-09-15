@@ -85,7 +85,7 @@ def main() -> None:
             ("/workforce-health", "What is happening across your workforce?", "05-workforce.png"),
             ("/employee-experience", "How are people experiencing work?", "06-experience.png"),
             ("/quality-of-hire", "What can we learn from our hiring data?", "07-quality-of-hire.png"),
-            ("/retention-forecast", "How does retention change with tenure?", "08-retention-forecast.png"),
+            ("/retention-forecast", "What does recorded retention history show?", "08-retention-forecast.png"),
             ("/advisor", "What would you like to understand?", "09-ask-peopleos.png"),
             ("/scenario-planner", "What if we changed something?", "10-plan.png"),
             ("/platform", "Can I rely on PeopleOS?", "11-trust-privacy.png"),
