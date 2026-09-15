@@ -114,7 +114,7 @@ def main() -> None:
         expected_headcount = summary["headcount"]
         assert isinstance(expected_headcount, int) and expected_headcount > 0, summary
         question = "What is current headcount?"
-        page.get_by_role("textbox", name="Ask PeopleOS", exact=True).fill(question)
+        page.get_by_role("textbox", name="Message PeopleOS", exact=True).fill(question)
         with page.expect_response(lambda response: response.url.endswith("/api/intelligence/investigate") and response.request.method == "POST", timeout=180_000) as investigation_response:
             page.get_by_role("button", name="Ask PeopleOS", exact=True).click()
         response = investigation_response.value
