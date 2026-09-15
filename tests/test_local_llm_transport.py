@@ -103,7 +103,7 @@ def test_grounded_narrative_uses_json_mode_and_stays_bounded(monkeypatch):
         model='gemma3:4b',
         prompt=prompt,
         format='json',
-        options={'num_predict': 384, 'temperature': 0.2},
+        options={'num_predict': 160, 'temperature': 0.2},
     )
 
 

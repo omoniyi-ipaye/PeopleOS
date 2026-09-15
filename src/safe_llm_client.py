@@ -20,7 +20,10 @@ _SELECTOR_PROMPT_PREFIX = "Select relevant evidence for a governed PeopleOS inve
 _NARRATIVE_PROMPT_PREFIX = "Compose a grounded PeopleOS answer after the analytical phase."
 _SELECTOR_DATA_MARKER = "\nREQUEST_DATA:\n"
 _SELECTOR_MAX_TOKENS = 256
-_NARRATIVE_MAX_TOKENS = 384
+# Narrative answers are intentionally concise: the analytical result, chart
+# and evidence drawer carry the detail, while this bounded completion keeps a
+# local CPU pilot responsive and leaves server-side verification in control.
+_NARRATIVE_MAX_TOKENS = 160
 _SELECTOR_REQUIRED_PREFIXES = {
     "headcount": ("Current active employee count:",),
     "observed_attrition_share": ("Observed attrition share:",),

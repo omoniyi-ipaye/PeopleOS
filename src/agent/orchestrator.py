@@ -454,7 +454,7 @@ class PeopleIntelligenceAgent:
             "\nREQUEST_DATA:\n" + json.dumps(request, default=str)
         )
         try:
-            generated = llm.generate(prompt, options={"temperature": 0.2, "num_predict": 384})
+            generated = llm.generate(prompt, options={"temperature": 0.2, "num_predict": 160})
             if not isinstance(generated, str) or not generated.strip():
                 raise ValueError("empty model response")
             if not self.policy.evaluate_text(generated).allowed:
