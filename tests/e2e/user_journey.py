@@ -86,7 +86,7 @@ def main() -> None:
             ("/employee-experience", "How are people experiencing work?", "06-experience.png"),
             ("/quality-of-hire", "What can we learn from our hiring data?", "07-quality-of-hire.png"),
             ("/retention-forecast", "What does recorded retention history show?", "08-retention-forecast.png"),
-            ("/advisor", "What would you like to understand?", "09-ask-peopleos.png"),
+            ("/advisor", "Ask your workforce a question", "09-ask-peopleos.png"),
             ("/scenario-planner", "What if we changed something?", "10-plan.png"),
             ("/platform", "Can I rely on PeopleOS?", "11-trust-privacy.png"),
             ("/settings", "PeopleOS settings", "12-settings.png"),
@@ -109,7 +109,7 @@ def main() -> None:
         capture(page, "13-retention-signals.png")
 
         page.goto(f"{BASE_URL}/advisor", wait_until="domcontentloaded", timeout=120_000)
-        page.get_by_role("heading", name="What would you like to understand?").wait_for(timeout=30_000)
+        page.get_by_role("heading", name="Ask your workforce a question").wait_for(timeout=30_000)
         summary = fetch_json(f"{API_URL}/api/analytics/summary")
         expected_headcount = summary["headcount"]
         assert isinstance(expected_headcount, int) and expected_headcount > 0, summary
