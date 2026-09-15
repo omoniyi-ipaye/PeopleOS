@@ -1,5 +1,6 @@
 """Agent-level tests for governed downstream calculations."""
 from types import SimpleNamespace
+import json
 
 import pandas as pd
 
@@ -84,6 +85,46 @@ def test_agent_runs_derived_salary_analysis_without_llm_or_row_output():
     assert evidence[0].kind.value == 'derived'
     assert evidence[0].dataset_version == 'dataset-1'
     assert 'EmployeeID' not in str(evidence[0].value)
+
+
+def test_derived_analysis_finishes_before_local_ai_composes_the_explanation():
+    class Narrator:
+        is_available = True
+        model = 'derived-narrator-fixture'
+
+        def __init__(self):
+            self.request = None
+
+        def generate(self, prompt, **kwargs):
+            self.request = json.loads(prompt.split('REQUEST_DATA:\n', 1)[1])
+            evidence_id = self.request['evidence'][0]['evidence_id']
+            return json.dumps({
+                'answer': f'The workforce is split across the measured roles in this snapshot; use the breakdown to decide where to look next. [{evidence_id}]',
+                'evidence_ids': [evidence_id],
+                'next_step': 'investigate_system',
+            })
+
+    runtime = state()
+    runtime.llm_client = Narrator()
+    agent = GovernedPeopleIntelligenceAgent(runtime)
+    agent.audit.record = lambda **kwargs: None
+    answer = agent.investigate('Headcount by role', dataset_version='dataset-1')
+
+    assert runtime.llm_client.request['analysis_phase'] == 'completed'
+    assert runtime.llm_client.request['completed_tool_results'][0]['tool_id'] == 'workforce.derived_analysis'
+    assert answer.model == 'derived-narrator-fixture'
+    assert answer.synthesis_mode == 'grounded_llm'
+    assert 'measured roles' in answer.answer
+
+
+def test_derived_investigation_exposes_the_same_agent_trace_and_follow_ups():
+    agent = GovernedPeopleIntelligenceAgent(state())
+    agent.audit.record = lambda **kwargs: None
+    answer = agent.investigate('What is average salary by department?', dataset_version='dataset-1')
+
+    assert [step.id for step in answer.agent_steps] == ['understand', 'evidence', 'verify', 'explain', 'next']
+    assert answer.agent_steps[1].tools == ['workforce.derived_analysis']
+    assert answer.next_actions
 
 
 def test_agent_runs_observed_attrition_share_on_current_population():

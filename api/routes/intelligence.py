@@ -1,5 +1,6 @@
 """Governed People Intelligence Agent API routes."""
 
+import asyncio
 from typing import Optional
 from types import SimpleNamespace
 from src.platform.runtime_lock import RUNTIME_MUTATION_LOCK
@@ -58,6 +59,18 @@ async def capabilities(request: Request, state: AppState = Depends(get_app_state
 @router.post("/investigate", response_model=AgentAnswer)
 async def investigate(payload: InvestigationRequest, request: Request, state: AppState = Depends(require_dataset)) -> AgentAnswer:
     """Investigate a workforce question through governed aggregate tools."""
+    return await _run_investigation(payload, request, state, persist_session=True, record_audit=True)
+
+
+async def _run_investigation(
+    payload: InvestigationRequest,
+    request: Request,
+    state: AppState,
+    *,
+    persist_session: bool,
+    record_audit: bool,
+) -> AgentAnswer:
+    """Run one investigation with an explicit durable-side-effect policy."""
     actor = require_permission(request, "investigate")
     workspace = _store.ensure_workspace(payload.workspace_id)
 
@@ -75,14 +88,22 @@ async def investigate(payload: InvestigationRequest, request: Request, state: Ap
         if payload.dataset_version and payload.dataset_version != session.dataset_id:
             raise HTTPException(status_code=409, detail="An investigation session cannot change datasets. Start a new investigation.")
     else:
-        session = _store.open_session(
-            workspace_id=payload.workspace_id,
-            dataset_id=payload.dataset_version or workspace.active_dataset_id,
-            model_id=workspace.active_model_id,
-            actor_id=actor.actor_id,
-        )
+        if persist_session:
+            session = _store.open_session(
+                workspace_id=payload.workspace_id,
+                dataset_id=payload.dataset_version or workspace.active_dataset_id,
+                model_id=workspace.active_model_id,
+                actor_id=actor.actor_id,
+            )
+        else:
+            session = SimpleNamespace(
+                session_id=None,
+                dataset_id=payload.dataset_version or workspace.active_dataset_id or
+                (getattr(state, 'runtime_provenance', None) or {}).get('dataset_id'),
+                model_id=workspace.active_model_id,
+            )
 
-    dataset_id = payload.dataset_version or session.dataset_id or workspace.active_dataset_id
+    dataset_id = payload.dataset_version or session.dataset_id or workspace.active_dataset_id or (getattr(state, 'runtime_provenance', None) or {}).get('dataset_id')
     try:
         require_dataset_identity(state, payload.workspace_id, dataset_id)
     except IntegrityError as exc:
@@ -98,13 +119,19 @@ async def investigate(payload: InvestigationRequest, request: Request, state: Ap
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         analysis_state = SimpleNamespace(**state.__dict__)
 
-    answer = GovernedPeopleIntelligenceAgent(analysis_state).investigate(
+    # Evidence planning is synchronous and the optional local synthesis path
+    # can wait on Ollama. Keep that work off FastAPI's event loop so a slow
+    # model cannot freeze health, navigation or lock requests.
+    answer = await asyncio.to_thread(
+        GovernedPeopleIntelligenceAgent(analysis_state).investigate,
         payload.question,
         actor_id=actor.actor_id,
         workspace_id=payload.workspace_id,
         dataset_version=dataset_id,
         model_version=model_id,
+        record_audit=record_audit,
     )
-    with RUNTIME_MUTATION_LOCK:
-        _store.record_request(payload.workspace_id, session.session_id, answer.request_id, payload.question)
+    if persist_session:
+        with RUNTIME_MUTATION_LOCK:
+            _store.record_request(payload.workspace_id, session.session_id, answer.request_id, payload.question)
     return answer

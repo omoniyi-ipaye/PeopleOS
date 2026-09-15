@@ -14,6 +14,7 @@ interface TabGroupProps<T extends string> {
   onTabChange: (tab: T) => void
   className?: string
   size?: 'sm' | 'md'
+  'aria-label'?: string
 }
 
 export function TabGroup<T extends string>({
@@ -21,11 +22,13 @@ export function TabGroup<T extends string>({
   activeTab,
   onTabChange,
   className,
-  size = 'md'
+  size = 'md',
+  'aria-label': ariaLabel,
 }: TabGroupProps<T>) {
   return (
     <div
       role="tablist"
+      aria-label={ariaLabel}
       className={cn(
         "flex bg-surface dark:bg-surface-dark border border-border dark:border-border-dark p-1 rounded-lg shadow-sm overflow-x-auto no-scrollbar",
         className
@@ -34,6 +37,8 @@ export function TabGroup<T extends string>({
       {tabs.map((tab) => (
         <button
           key={tab.id}
+          id={tab.id}
+          type="button"
           role="tab"
           aria-selected={activeTab === tab.id}
           aria-controls={`${tab.id}-panel`}
@@ -45,7 +50,8 @@ export function TabGroup<T extends string>({
             activeTab === tab.id
               ? 'bg-accent text-white shadow-sm'
               : 'text-text-secondary dark:text-text-dark-secondary hover:text-text-primary dark:hover:text-text-dark-primary',
-            tab.disabled && 'opacity-50 cursor-not-allowed'
+            tab.disabled && 'opacity-50 cursor-not-allowed',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-1'
           )}
         >
           {tab.label}

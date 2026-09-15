@@ -92,6 +92,10 @@ def _safe_correlation_response(raw: dict) -> CorrelationAnalysisResponse:
         recommendations=[
             "Treat these results as observational screening evidence only. Validate promising signals prospectively before changing hiring rubrics or selection weights."
         ],
+        outcome_observations=raw.get("outcome_observations"),
+        outcome_recorded_observations=raw.get("outcome_recorded_observations"),
+        outcome_maturity=raw.get("outcome_maturity"),
+        measurement_gaps=raw.get("measurement_gaps", []),
     )
 
 
@@ -99,6 +103,8 @@ def _safe_source(row: dict) -> SourceEffectiveness:
     """Remove unsupported automatic investment recommendations from source metrics."""
     payload = json_safe(dict(row))
     payload["recommendation"] = "Compare with role mix, tenure exposure, cost and future cohorts before changing source allocation."
+    payload.setdefault("quality_claim", "descriptive_observed_composite_not_hiring_effectiveness")
+    payload.setdefault("quality_comparison_basis", "same dataset-wide effective components and weights; every scored source must meet the component floor")
     return SourceEffectiveness(**payload)
 
 

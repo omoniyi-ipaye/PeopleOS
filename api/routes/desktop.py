@@ -16,7 +16,9 @@ def _require_desktop() -> None:
 
 @router.get("/status")
 async def desktop_status():
-    _require_desktop()
+    # The web build probes this read-only capability endpoint to decide
+    # whether to render desktop controls. Return an explicit disabled state
+    # instead of making a normal web deployment look unhealthy with a 404.
     return controller.status()
 
 

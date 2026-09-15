@@ -1,6 +1,9 @@
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import List, Optional
 from pydantic import BaseModel
+
+from api.dependencies import AppState, get_app_state
+from src.platform.provenance import IntegrityError, validated_risk_scores
 
 router = APIRouter(prefix="/api/model-lab", tags=["Model Lab"])
 
@@ -45,7 +48,7 @@ class RefinementPlan(BaseModel):
     reasoning: str
 
 
-def _model_lab():
+def _model_lab(*, state: Optional[AppState] = None):
     """Resolve the optional predictive training stack only when requested.
 
     Everyday PeopleOS Desktop does not require XGBoost, LightGBM, Optuna,
@@ -54,7 +57,17 @@ def _model_lab():
     """
     try:
         from src.model_lab_engine import ModelLabEngine
-        return ModelLabEngine()
+        if state is None:
+            return ModelLabEngine()
+        if not state.has_data() and not state.load_from_database():
+            raise HTTPException(status_code=400, detail='No data loaded. Please upload a file first.')
+        engine = getattr(state, 'ml_engine', None)
+        if engine is not None and getattr(engine, 'is_trained', False):
+            try:
+                validated_risk_scores(state)
+            except IntegrityError as exc:
+                raise HTTPException(status_code=409, detail=str(exc)) from exc
+        return ModelLabEngine(ml_engine=engine, data=state.raw_df)
     except (ImportError, ModuleNotFoundError, OSError) as exc:
         raise HTTPException(
             status_code=409,
@@ -75,19 +88,27 @@ async def get_model_validation(days_back: int = Query(default=90, ge=7, le=365))
 
 
 @router.get("/sensitivity", response_model=List[FeatureSensitivity])
-async def get_feature_sensitivity():
-    return _model_lab().analyze_feature_sensitivity()
+async def get_feature_sensitivity(state: AppState = Depends(get_app_state)):
+    try:
+        return _model_lab(state=state).analyze_feature_sensitivity()
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 @router.get("/refinement-plan", response_model=RefinementPlan)
-async def get_refinement_plan():
-    return _model_lab().generate_refinement_plan()
+async def get_refinement_plan(state: AppState = Depends(get_app_state)):
+    try:
+        return _model_lab(state=state).generate_refinement_plan()
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 @router.post("/optimize")
-async def optimize_model():
-    lab = _model_lab()
-    plan = lab.generate_refinement_plan()
+async def optimize_model(state: AppState = Depends(get_app_state)):
+    try:
+        plan = _model_lab(state=state).generate_refinement_plan()
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     return {
         "status": "review_only",
         "message": "Review generated; no model or feature changes were applied.",

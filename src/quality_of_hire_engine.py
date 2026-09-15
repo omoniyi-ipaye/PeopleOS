@@ -32,6 +32,7 @@ logger = get_logger('quality_of_hire_engine')
 MIN_SAMPLE_FOR_CORRELATION = 20
 MIN_SAMPLE_FOR_SOURCE = 10
 MIN_COHORT_SIZE = 10
+ROLE_MIX_COLUMNS = ('Dept', 'JobLevel', 'JobTitle')
 
 
 class QualityOfHireEngineError(Exception):
@@ -87,6 +88,7 @@ class QualityOfHireEngine:
         self.expected_sources = self.qoh_config.get('sources', [
             'Referral', 'LinkedIn', 'Agency', 'JobBoard', 'Internal', 'Website'
         ])
+        self.role_mix_columns = [column for column in ROLE_MIX_COLUMNS if column in self.df.columns]
 
         # Quality score weights
         self.quality_weights = self.qoh_config.get('quality_score_weights', {
@@ -98,7 +100,7 @@ class QualityOfHireEngine:
 
         # Check available columns
         self._identify_available_columns()
-        for col in ['LastRating', 'Tenure', 'PromotionCount', *self.prehire_columns]:
+        for col in ['LastRating', 'Tenure', 'PromotionCount', 'Attrition', *self.prehire_columns]:
             if col in self.df:
                 self.df[col] = pd.to_numeric(self.df[col], errors='coerce').replace([np.inf, -np.inf], np.nan)
         if self.has_performance:
@@ -180,6 +182,57 @@ class QualityOfHireEngine:
             return False
         return True
 
+    @staticmethod
+    def _valid_numeric_mask(df: pd.DataFrame, column: str, low: float, high: float) -> pd.Series:
+        """Return a finite, domain-valid mask without changing the source frame."""
+        if column not in df.columns:
+            return pd.Series(False, index=df.index)
+        values = pd.to_numeric(df[column], errors='coerce')
+        return values.between(low, high) & np.isfinite(values)
+
+    def _window_eligible_mask(self, df: pd.DataFrame, window_months: int) -> pd.Series:
+        """Identify rows with the configured duration exposure for an outcome."""
+        if 'Tenure' not in df.columns:
+            return pd.Series(False, index=df.index)
+        tenure = pd.to_numeric(df['Tenure'], errors='coerce')
+        return tenure.ge(float(window_months) / 12) & np.isfinite(tenure)
+
+    def _performance_masks(self, df: pd.DataFrame) -> tuple[pd.Series, pd.Series]:
+        """Return recorded and performance-window-qualified rating masks."""
+        recorded = self._valid_numeric_mask(df, 'LastRating', 1, 5)
+        return recorded, recorded & self._window_eligible_mask(df, self.performance_window)
+
+    def _retention_masks(self, df: pd.DataFrame) -> tuple[pd.Series, pd.Series]:
+        """Return recorded attrition and duration-qualified retention masks."""
+        recorded = self._valid_numeric_mask(df, 'Attrition', 0, 1)
+        return recorded, recorded & self._window_eligible_mask(df, self.retention_window)
+
+    def _outcome_maturity(self, recorded: int, eligible: int, has_exposure: bool, window_months: int) -> str:
+        """Describe whether an outcome is measured at the configured exposure."""
+        if not has_exposure:
+            return 'unavailable_no_duration_exposure'
+        if eligible < MIN_SAMPLE_FOR_SOURCE:
+            return f'insufficient_{window_months}mo_exposure'
+        if recorded < MIN_SAMPLE_FOR_SOURCE:
+            return 'insufficient_observed_outcomes'
+        return 'duration_qualified_observed'
+
+    def _role_mix(self, df: pd.DataFrame) -> Dict[str, Dict[str, float]]:
+        """Return aggregate role composition percentages, never employee rows."""
+        mix: Dict[str, Dict[str, float]] = {}
+        for column in self.role_mix_columns:
+            values = df[column].where(df[column].notna()).astype('string').str.strip()
+            values = values[values.ne('') & values.ne('<NA>')]
+            if values.empty:
+                continue
+            counts = values.value_counts().sort_index()
+            mix[column] = {str(key): round(float(value / len(df)), 3) for key, value in counts.items()}
+        return mix
+
+    def _configured_quality_weights(self) -> Dict[str, float]:
+        """Return configured weights for evidence accounting, including unsupported components."""
+        return {key: float(value) for key, value in self.quality_weights.items()}
+
     def calculate_source_effectiveness(self) -> pd.DataFrame:
         """
         Analyze effectiveness of each hiring source.
@@ -209,9 +262,16 @@ class QualityOfHireEngine:
         df = self.df.copy()
         results = []
         quality_weights = self._quality_comparison_weights()
+        configured_weights = self._configured_quality_weights()
+        sources = (
+            df['HireSource'].astype('string').str.strip().replace('', pd.NA).fillna('Unknown')
+        )
 
-        for source in df['HireSource'].unique():
-            source_df = df[df['HireSource'] == source]
+        for source in sources.unique():
+            # Missing source provenance is a real cohort, not an empty
+            # category. Keeping it visible prevents sources_analyzed and
+            # percentages from silently dropping rows from the denominator.
+            source_df = df.loc[sources == source].copy()
             n = len(source_df)
 
             if n < MIN_SAMPLE_FOR_SOURCE:
@@ -220,25 +280,51 @@ class QualityOfHireEngine:
             result = {
                 'HireSource': source,
                 'hire_count': n,
+                'total_hires': n,
                 'pct_of_total': round(n / len(df) * 100, 1)
             }
 
             # Performance metrics
             if self.has_performance:
-                result['avg_performance'] = round(source_df['LastRating'].mean(), 2)
-                result['high_performers'] = int((source_df['LastRating'] >= 4.0).sum())
+                performance_recorded, performance_eligible = self._performance_masks(source_df)
+                performance_values = source_df.loc[performance_eligible, 'LastRating']
+                result['avg_performance'] = round(performance_values.mean(), 2) if len(performance_values) else None
+                result['high_performers'] = int((performance_values >= 4.0).sum())
                 result['high_performer_rate'] = round(
-                    result['high_performers'] / source_df['LastRating'].count() * 100, 1
-                ) if source_df['LastRating'].count() else None
-                result['performance_observations'] = int(source_df['LastRating'].count())
+                    result['high_performers'] / len(performance_values) * 100, 1
+                ) if len(performance_values) else None
+                result['performance_recorded_observations'] = int(performance_recorded.sum())
+                result['performance_observations'] = int(performance_eligible.sum())
+                result['performance_coverage'] = round(result['performance_recorded_observations'] / n, 3)
+                result['performance_window_observations'] = int(performance_eligible.sum())
+                result['performance_window_coverage'] = round(result['performance_observations'] / n, 3)
+                result['performance_maturity'] = self._outcome_maturity(
+                    result['performance_recorded_observations'],
+                    result['performance_observations'],
+                    self.has_tenure,
+                    self.performance_window,
+                )
 
             # Retention metrics
             if self.has_attrition:
-                result['outcome_observations'] = int(source_df['Attrition'].count())
-                result['attrition_count'] = int(source_df['Attrition'].sum())
+                retention_recorded, retention_eligible = self._retention_masks(source_df)
+                retention_values = source_df.loc[retention_eligible, 'Attrition']
+                result['retention_recorded_observations'] = int(retention_recorded.sum())
+                result['retention_eligible_hires'] = int(self._window_eligible_mask(source_df, self.retention_window).sum()) if self.has_tenure else None
+                result['retention_observations'] = int(retention_eligible.sum())
+                result['outcome_observations'] = result['retention_observations']
+                result['retention_recorded_coverage'] = round(result['retention_recorded_observations'] / n, 3)
+                result['retention_coverage'] = round(result['retention_observations'] / n, 3)
+                result['retention_maturity'] = self._outcome_maturity(
+                    result['retention_recorded_observations'],
+                    result['retention_observations'],
+                    self.has_tenure,
+                    self.retention_window,
+                )
+                result['attrition_count'] = int(retention_values.sum()) if len(retention_values) else None
                 result['retention_rate'] = round(
-                    1 - source_df['Attrition'].mean(), 3
-                ) if source_df['Attrition'].count() else None
+                    1 - retention_values.mean(), 3
+                ) if len(retention_values) else None
                 result['retention_rate_pct'] = round(result['retention_rate'] * 100, 1) if result['retention_rate'] is not None else None
 
             # Promotion metrics
@@ -266,11 +352,22 @@ class QualityOfHireEngine:
             _, observations = self._quality_measurements(source_df)
             result['quality_components'] = list(quality_weights)
             result['quality_weights'] = quality_weights
+            result['effective_quality_weights'] = quality_weights
+            result['configured_quality_weights'] = configured_weights
+            result['excluded_quality_components'] = [
+                key for key, weight in configured_weights.items()
+                if weight > 0 and key not in quality_weights
+            ]
             result['component_observations'] = observations
             result['component_coverage'] = {key: count / n for key, count in observations.items()}
             result['minimum_component_observations'] = MIN_SAMPLE_FOR_SOURCE
             result['quality_unavailable_reason'] = None
             result['quality_semantics'] = 'retrospective_heuristic_fixed_dataset_components_not_validated_hire_quality'
+            result['quality_claim'] = 'descriptive_observed_composite_not_hiring_effectiveness'
+            result['quality_comparison_status'] = 'comparable_within_effective_construct' if np.isfinite(quality_score) else 'insufficient_component_support'
+            result['quality_comparison_basis'] = 'same dataset-wide effective components and weights; every scored source must meet the component floor'
+            result['role_mix'] = self._role_mix(source_df)
+            result['role_mix_columns'] = list(result['role_mix'])
 
             # Missing outcome measurements do not earn a failing grade.
             if not np.isfinite(quality_score):
@@ -305,18 +402,20 @@ class QualityOfHireEngine:
 
         return result_df
 
-    @staticmethod
-    def _quality_measurements(df: pd.DataFrame):
-        """Return observed component scores and their actual measured counts."""
+    def _quality_measurements(self, df: pd.DataFrame):
+        """Return duration-qualified component scores and their measured counts."""
         components = {}
         observations = {'performance': 0, 'retention': 0, 'promotion': 0}
-        for key, column, low, high in [('performance', 'LastRating', 1, 5),
-                                      ('retention', 'Attrition', 0, 1),
-                                      ('promotion', 'PromotionCount', 0, float('inf'))]:
+        masks = {
+            'performance': self._performance_masks(df)[1],
+            'retention': self._retention_masks(df)[1],
+            'promotion': self._valid_numeric_mask(df, 'PromotionCount', 0, float('inf')),
+        }
+        columns = {'performance': 'LastRating', 'retention': 'Attrition', 'promotion': 'PromotionCount'}
+        for key, column in columns.items():
             if column not in df:
                 continue
-            values = pd.to_numeric(df[column], errors='coerce')
-            values = values[values.between(low, high) & np.isfinite(values)]
+            values = pd.to_numeric(df.loc[masks[key], column], errors='coerce')
             observations[key] = int(len(values))
             if values.empty:
                 continue
@@ -329,8 +428,9 @@ class QualityOfHireEngine:
     def _quality_comparison_weights(self) -> Dict[str, float]:
         """Define one construct for this dataset, never reweight per source.
 
-        Entirely unsupported components are omitted once for the dataset. A
-        cohort missing support for a required component receives no composite.
+        Entirely unmeasured components are omitted once for the dataset. A
+        partially measured component remains required so weak support cannot
+        silently turn into a different composite construct for one source.
         The minimum is a reporting guard, not evidence of statistical validity.
         """
         _, observations = self._quality_measurements(self.df)
@@ -338,7 +438,7 @@ class QualityOfHireEngine:
         if any(not np.isfinite(w) or w < 0 for w in weights.values()):
             raise QualityOfHireEngineError('Quality weights must be finite and non-negative')
         weights = {key: weight for key, weight in weights.items()
-                   if weight > 0 and observations[key] >= MIN_SAMPLE_FOR_SOURCE}
+                   if weight > 0 and observations[key] > 0}
         total = sum(weights.values())
         return {key: weight / total for key, weight in weights.items()} if total else {}
 
@@ -392,20 +492,63 @@ class QualityOfHireEngine:
             }
 
         df = self.df.copy()
+        if outcome_column == 'LastRating':
+            outcome_valid = self._performance_masks(df)[1]
+            outcome_recorded = int(self._performance_masks(df)[0].sum())
+            outcome_maturity = self._outcome_maturity(
+                outcome_recorded,
+                int(outcome_valid.sum()),
+                self.has_tenure,
+                self.performance_window,
+            )
+        elif outcome_column == 'Attrition':
+            outcome_valid = self._retention_masks(df)[1]
+            outcome_recorded = int(self._retention_masks(df)[0].sum())
+            outcome_maturity = self._outcome_maturity(
+                outcome_recorded,
+                int(outcome_valid.sum()),
+                self.has_tenure,
+                self.retention_window,
+            )
+        else:
+            outcome_valid = self._valid_numeric_mask(df, outcome_column, -float('inf'), float('inf'))
+            outcome_recorded = int(outcome_valid.sum())
+            outcome_maturity = 'observed_outcome_window_not_defined'
         results = {
             'available': True,
             'outcome_column': outcome_column,
+            'outcome_observations': int(outcome_valid.sum()),
+            'outcome_recorded_observations': outcome_recorded,
+            'outcome_maturity': outcome_maturity,
             'correlations': [],
             'best_predictors': [],
             'non_predictors': [],
-            'recommendations': []
+            'recommendations': [],
+            'measurement_gaps': [],
         }
 
         for predictor in self.prehire_columns:
-            # Get valid pairs (non-null for both)
-            valid_df = df[[predictor, outcome_column]].apply(pd.to_numeric, errors='coerce').replace([np.inf, -np.inf], np.nan).dropna()
-
-            if len(valid_df) < MIN_SAMPLE_FOR_CORRELATION or (valid_df.nunique() < 2).any():
+            predictor_values = pd.to_numeric(df[predictor], errors='coerce')
+            predictor_valid = predictor_values.notna() & np.isfinite(predictor_values)
+            valid_mask = predictor_valid & outcome_valid
+            valid_df = pd.DataFrame({predictor: predictor_values, outcome_column: pd.to_numeric(df[outcome_column], errors='coerce')}).loc[valid_mask]
+            gap_reason = None
+            if len(valid_df) < MIN_SAMPLE_FOR_CORRELATION:
+                gap_reason = 'insufficient_paired_observations'
+            elif valid_df[predictor].nunique() < 2:
+                gap_reason = 'predictor_has_no_variation'
+            elif valid_df[outcome_column].nunique() < 2:
+                gap_reason = 'outcome_has_no_variation'
+            if gap_reason:
+                results['measurement_gaps'].append({
+                    'predictor': predictor,
+                    'display_name': predictor.replace('InterviewScore_', '').replace('_', ' '),
+                    'paired_observations': int(len(valid_df)),
+                    'predictor_observations': int(predictor_valid.sum()),
+                    'outcome_observations': int(outcome_valid.sum()),
+                    'minimum_paired_observations': MIN_SAMPLE_FOR_CORRELATION,
+                    'reason': gap_reason,
+                })
                 continue
 
             # Calculate Pearson correlation
@@ -488,6 +631,12 @@ class QualityOfHireEngine:
                 f"{', '.join(weak_predictors)}. Absence of sample significance does not establish absence of usefulness."
             )
 
+        if results['measurement_gaps']:
+            results['recommendations'].append(
+                f"COLLECT: {len(results['measurement_gaps'])} pre-hire signal(s) lack the minimum "
+                f"{MIN_SAMPLE_FOR_CORRELATION} paired observations or outcome variation; no relationship is reported for them."
+            )
+
         return results
 
     def get_hiring_insights(self) -> Dict[str, Any]:
@@ -510,14 +659,30 @@ class QualityOfHireEngine:
         }
 
         df = self.df.copy()
+        performance_recorded, performance_eligible = self._performance_masks(df)
+        retention_recorded, retention_eligible = self._retention_masks(df)
 
         # Summary statistics
         results['summary'] = {
             'total_employees': len(df),
+            'total_hires': len(df),
             'sources_analyzed': df['HireSource'].nunique() if self.has_hire_source else 0,
             'prehire_signals_available': len(self.prehire_columns),
-            'avg_performance': round(df['LastRating'].mean(), 2) if self.has_performance else None,
-            'overall_retention': round(1 - df['Attrition'].mean(), 3) if self.has_attrition and df['Attrition'].notna().any() else None
+            'avg_performance': round(df.loc[performance_eligible, 'LastRating'].mean(), 2) if performance_eligible.any() else None,
+            'overall_retention': round(1 - df.loc[retention_eligible, 'Attrition'].mean(), 3) if retention_eligible.any() else None,
+            'performance_recorded_observations': int(performance_recorded.sum()),
+            'performance_observations': int(performance_eligible.sum()),
+            'performance_coverage': round(float(performance_recorded.sum()) / len(df), 3) if len(df) else 0,
+            'performance_window_coverage': round(float(performance_eligible.sum()) / len(df), 3) if len(df) else 0,
+            'retention_recorded_observations': int(retention_recorded.sum()),
+            'retention_observations': int(retention_eligible.sum()),
+            'retention_recorded_coverage': round(float(retention_recorded.sum()) / len(df), 3) if len(df) else 0,
+            'retention_coverage': round(float(retention_eligible.sum()) / len(df), 3) if len(df) else 0,
+            'performance_maturity': self._outcome_maturity(int(performance_recorded.sum()), int(performance_eligible.sum()), self.has_tenure, self.performance_window),
+            'retention_maturity': self._outcome_maturity(int(retention_recorded.sum()), int(retention_eligible.sum()), self.has_tenure, self.retention_window),
+            'performance_window_months': self.performance_window,
+            'retention_window_months': self.retention_window,
+            'role_mix_columns': list(self.role_mix_columns),
         }
 
         # Source analysis
@@ -560,7 +725,7 @@ class QualityOfHireEngine:
         # ROI analysis (simplified)
         if not source_df.empty and self.has_performance:
             # Calculate relative quality by source
-            overall_quality = df['LastRating'].mean() if self.has_performance else 3.0
+            overall_quality = df.loc[performance_eligible, 'LastRating'].mean() if performance_eligible.any() else None
 
             for _, row in source_df.iterrows():
                 if (row.get('performance_observations', 0) >= MIN_SAMPLE_FOR_SOURCE
@@ -575,6 +740,7 @@ class QualityOfHireEngine:
                         'quality_vs_average': round(quality_diff, 2),
                         'roi_indicator': roi_indicator,
                         'metric_semantics': 'relative_recorded_rating_not_return_on_investment',
+                        'claim_boundary': 'descriptive_difference_not_hiring_effectiveness_or_financial_roi',
                         'recommendation': row.get('recommendation', '')
                     }
 
@@ -630,32 +796,56 @@ class QualityOfHireEngine:
 
         for cohort in df[cohort_column].unique():
             cohort_df = df[df[cohort_column] == cohort]
+            total_cohort_df = self.df[self.df[cohort_column] == cohort]
 
             if len(cohort_df) < MIN_SAMPLE_FOR_SOURCE:
                 continue
 
             result = {
                 cohort_column: cohort,
-                'count': len(cohort_df)
+                'count': len(cohort_df),
+                'total_hires': len(total_cohort_df),
+                'mature_hires': len(cohort_df),
             }
 
             # Performance metrics
             if self.has_performance:
-                result['avg_performance'] = round(cohort_df['LastRating'].mean(), 2)
-                result['performance_std'] = round(cohort_df['LastRating'].std(), 2)
+                performance_recorded, performance_eligible = self._performance_masks(cohort_df)
+                performance_values = cohort_df.loc[performance_eligible, 'LastRating']
+                result['avg_performance'] = round(performance_values.mean(), 2) if len(performance_values) else None
+                result['performance_std'] = round(performance_values.std(), 2) if len(performance_values) else None
                 result['high_performer_pct'] = round(
-                    (cohort_df['LastRating'].dropna() >= 4.0).mean() * 100, 1
-                )
+                    (performance_values >= 4.0).mean() * 100, 1
+                ) if len(performance_values) else None
                 result['low_performer_pct'] = round(
-                    (cohort_df['LastRating'].dropna() <= 2.5).mean() * 100, 1
+                    (performance_values <= 2.5).mean() * 100, 1
+                ) if len(performance_values) else None
+                result['performance_recorded_observations'] = int(performance_recorded.sum())
+                result['performance_observations'] = int(performance_eligible.sum())
+                result['performance_coverage'] = round(float(performance_recorded.sum()) / len(total_cohort_df), 3) if len(total_cohort_df) else 0
+                result['performance_maturity'] = self._outcome_maturity(
+                    result['performance_recorded_observations'],
+                    result['performance_observations'],
+                    self.has_tenure,
+                    self.performance_window,
                 )
-
-                result['performance_observations'] = int(cohort_df['LastRating'].count())
             # Observed retained share; not a survival-adjusted retention rate.
             if self.has_attrition:
-                known = cohort_df['Attrition'].dropna()
+                recorded, eligible = self._retention_masks(cohort_df)
+                known = cohort_df.loc[eligible, 'Attrition']
+                result['retention_recorded_observations'] = int(recorded.sum())
+                result['retention_eligible_hires'] = int(self._window_eligible_mask(cohort_df, self.retention_window).sum()) if self.has_tenure else None
+                result['retention_observations'] = int(eligible.sum())
+                result['retention_recorded_coverage'] = round(float(recorded.sum()) / len(total_cohort_df), 3) if len(total_cohort_df) else 0
+                result['retention_coverage'] = round(float(eligible.sum()) / len(total_cohort_df), 3) if len(total_cohort_df) else 0
                 result['retention_rate'] = round(1 - float(known.mean()), 3) if len(known) else None
-                result['outcome_observations'] = len(known)
+                result['outcome_observations'] = result['retention_observations']
+                result['retention_maturity'] = self._outcome_maturity(
+                    result['retention_recorded_observations'],
+                    result['retention_observations'],
+                    self.has_tenure,
+                    self.retention_window,
+                )
 
             # Tenure
             if self.has_tenure:
@@ -698,6 +888,7 @@ class QualityOfHireEngine:
         results = {
             'source_effectiveness': [],
             'correlations': {},
+            'retention_correlations': {},
             'insights': {},
             'cohort_analysis': [],
             'new_hire_risks': [],
@@ -737,15 +928,34 @@ class QualityOfHireEngine:
         # Summary
         results['summary'] = {
             'total_employees': len(self.df),
+            'total_hires': len(self.df),
             'has_hire_source': self.has_hire_source,
             'has_interview_scores': self.has_interview_score,
             'has_assessment': self.has_assessment,
             'prehire_signals_count': len(self.prehire_columns),
             'sources_analyzed': len(results['source_effectiveness']),
             'best_source': next((row['HireSource'] for row in results['source_effectiveness'] if row.get('quality_score') is not None and pd.notna(row['quality_score'])), None),
+            'best_source_semantics': 'descriptive_composite_only_not_hiring_effectiveness',
             'top_predictor': results['correlations'].get('best_predictors', [{}])[0].get('predictor') if results.get('correlations', {}).get('best_predictors') else None,
-            'new_hires_at_risk': len([r for r in results['new_hire_risks'] if r.get('risk_category') in ['High', 'Medium']])
+            'new_hires_at_risk': len([r for r in results['new_hire_risks'] if r.get('risk_category') in ['High', 'Medium']]),
         }
+        performance_recorded, performance_eligible = self._performance_masks(self.df)
+        retention_recorded, retention_eligible = self._retention_masks(self.df)
+        results['summary'].update({
+            'performance_recorded_observations': int(performance_recorded.sum()),
+            'performance_observations': int(performance_eligible.sum()),
+            'performance_coverage': round(float(performance_recorded.sum()) / len(self.df), 3) if len(self.df) else 0,
+            'performance_window_coverage': round(float(performance_eligible.sum()) / len(self.df), 3) if len(self.df) else 0,
+            'retention_recorded_observations': int(retention_recorded.sum()),
+            'retention_observations': int(retention_eligible.sum()),
+            'retention_recorded_coverage': round(float(retention_recorded.sum()) / len(self.df), 3) if len(self.df) else 0,
+            'retention_coverage': round(float(retention_eligible.sum()) / len(self.df), 3) if len(self.df) else 0,
+            'performance_maturity': self._outcome_maturity(int(performance_recorded.sum()), int(performance_eligible.sum()), self.has_tenure, self.performance_window),
+            'retention_maturity': self._outcome_maturity(int(retention_recorded.sum()), int(retention_eligible.sum()), self.has_tenure, self.retention_window),
+            'performance_window_months': self.performance_window,
+            'retention_window_months': self.retention_window,
+            'role_mix_columns': list(self.role_mix_columns),
+        })
 
         # Compile recommendations
         if results['insights'].get('recommendations'):
@@ -756,6 +966,23 @@ class QualityOfHireEngine:
 
         # Add warnings
         results['warnings'] = self.warnings.copy()
+        if results['summary']['performance_maturity'] != 'duration_qualified_observed':
+            results['warnings'].append(
+                'Performance evidence is not fully duration-qualified for the configured '
+                f"{self.performance_window}-month window; recorded ratings and qualified observations are reported separately."
+            )
+        if results['summary']['retention_maturity'] != 'duration_qualified_observed':
+            results['warnings'].append(
+                'Retention is unavailable or immature for the configured '
+                f"{self.retention_window}-month window; current attrition status is not treated as duration-qualified retention."
+            )
+        results['warnings'].append(
+            'Source scores are descriptive composites of observed outcomes. They do not measure hiring effectiveness, source ROI, causation or expected future performance.'
+        )
+        results['warnings'].extend([
+            'Performance and retention denominators are duration-qualified observations; total hires and recorded-but-unqualified outcomes remain separate.',
+            'Prospective independent-cohort validation is required before changing hiring criteria, source allocation or selection weights.',
+        ])
 
         logger.info(f"Quality of hire analysis complete. Warnings: {len(self.warnings)}")
         return results

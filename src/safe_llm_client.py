@@ -17,8 +17,13 @@ from src.logger import get_logger
 logger = get_logger("safe_llm_client")
 
 _SELECTOR_PROMPT_PREFIX = "Select relevant evidence for a governed PeopleOS investigation."
+_NARRATIVE_PROMPT_PREFIX = "Compose a grounded PeopleOS answer after the analytical phase."
 _SELECTOR_DATA_MARKER = "\nREQUEST_DATA:\n"
 _SELECTOR_MAX_TOKENS = 256
+# Narrative answers are intentionally concise: the analytical result, chart
+# and evidence drawer carry the detail, while this bounded completion keeps a
+# local CPU pilot responsive and leaves server-side verification in control.
+_NARRATIVE_MAX_TOKENS = 160
 _SELECTOR_REQUIRED_PREFIXES = {
     "headcount": ("Current active employee count:",),
     "observed_attrition_share": ("Observed attrition share:",),
@@ -48,7 +53,7 @@ def _compact_selector_prompt(prompt: str) -> str:
         return prompt
     evidence = request.get("evidence")
     required_metrics = request.get("required_metrics")
-    if not isinstance(evidence, list) or not isinstance(required_metrics, list) or not required_metrics:
+    if not isinstance(evidence, list) or not isinstance(required_metrics, list):
         return prompt
 
     required_ids: set[str] = set()
@@ -78,6 +83,12 @@ def _compact_selector_prompt(prompt: str) -> str:
             source_ids.add(evidence_id)
 
     keep_ids = required_ids | source_ids
+    # The selector contract allows at most eight references and requires every
+    # available source to be represented. If the compact set cannot satisfy
+    # both constraints, retain the full prompt and let the orchestrator fail
+    # closed if the model cannot select safely.
+    if len(source_ids) > 8 or len(keep_ids) > 8:
+        return prompt
     compacted = [item for item in evidence if isinstance(item, dict) and item.get("evidence_id") in keep_ids]
     if not compacted or len(compacted) >= len(evidence):
         return prompt
@@ -109,23 +120,25 @@ class _GuardedOllamaClient:
 class SafeLLMClient(LLMClient):
     """Legacy-compatible LLMClient with a transport-level safety boundary."""
 
-    def __init__(self):
+    def __init__(self, *, respect_preferences: bool = False):
         self.policy = HRAdvicePolicy()
-        super().__init__()
+        super().__init__(respect_preferences=respect_preferences)
         if self.client is not None:
             self.client = _GuardedOllamaClient(self.client, self.policy)
 
     def generate(self, prompt: str, **kwargs: Any) -> Any:
-        """Generate safely, with strict JSON mode for the governed evidence selector."""
-        if prompt.startswith(_SELECTOR_PROMPT_PREFIX):
+        """Generate safely, with strict JSON for governed selection or narration."""
+        json_prompt = prompt.startswith((_SELECTOR_PROMPT_PREFIX, _NARRATIVE_PROMPT_PREFIX))
+        if json_prompt:
             if not self.is_available or self.client is None:
                 raise LLMClientError("LLM client not available")
             caller_options = kwargs.get("options", {})
+            max_tokens = _SELECTOR_MAX_TOKENS if prompt.startswith(_SELECTOR_PROMPT_PREFIX) else _NARRATIVE_MAX_TOKENS
             options = {
-                "num_predict": min(int(caller_options.get("num_predict", _SELECTOR_MAX_TOKENS)), _SELECTOR_MAX_TOKENS),
+                "num_predict": min(int(caller_options.get("num_predict", max_tokens)), max_tokens),
                 **{key: value for key, value in caller_options.items() if key != "num_predict"},
             }
-            transport_prompt = _compact_selector_prompt(prompt)
+            transport_prompt = _compact_selector_prompt(prompt) if prompt.startswith(_SELECTOR_PROMPT_PREFIX) else prompt
             try:
                 response = self.client.generate(
                     model=self.model,
@@ -137,7 +150,7 @@ class SafeLLMClient(LLMClient):
             except LLMClientError:
                 raise
             except Exception as exc:
-                logger.error("Governed selector generation failed: %s", exc)
+                logger.error("Governed model generation failed: %s", exc)
                 raise LLMClientError(f"LLM generation failed: {exc}") from exc
         else:
             generated = super().generate(prompt, **kwargs)

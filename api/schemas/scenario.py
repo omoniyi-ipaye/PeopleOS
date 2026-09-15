@@ -112,11 +112,31 @@ class ScenarioResultResponse(BaseModel):
     computed_at: str = Field(..., description="ISO timestamp of computation")
     engines_used: List[str] = Field(default_factory=list, description="Engines used for prediction")
     data_sources: List[str] = Field(default_factory=list, description="Data sources used for predictions")
+    cost_semantics: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Explicit one-off, recurring, payback and decision-boundary semantics",
+    )
 
 
 class ScenarioComparisonRequest(BaseModel):
     """Request to compare multiple scenarios."""
     scenario_ids: List[str] = Field(..., min_length=2, description="Scenario IDs to compare")
+
+
+class ScenarioSaveRequest(BaseModel):
+    """Request to give a calculated scenario a durable, human-readable name."""
+    scenario_id: str = Field(..., min_length=1, max_length=100)
+    scenario_name: str = Field(..., min_length=2, max_length=120)
+
+
+class ScenarioDrilldownRequest(BaseModel):
+    """Request for an AI-guided explanation of two verified scenarios."""
+    scenario_ids: List[str] = Field(..., min_length=2, max_length=2)
+    question: str = Field(
+        default="What is the difference between these scenarios, and what should we validate next?",
+        min_length=3,
+        max_length=2000,
+    )
 
 
 class ScenarioComparisonItem(BaseModel):
@@ -137,6 +157,24 @@ class ScenarioComparisonResponse(BaseModel):
     scenarios: List[ScenarioComparisonItem]
     recommended_scenario: str = Field(..., description="Name of recommended scenario")
     reasoning: str = Field(..., description="Explanation for recommendation")
+
+
+class ScenarioDrilldownResponse(BaseModel):
+    """Plain-language comparison explanation grounded in scenario evidence."""
+    available: bool = True
+    status: Literal["complete", "fallback"]
+    answer: str
+    focus: str
+    selected_evidence: List[str] = Field(default_factory=list)
+    model: Optional[str] = None
+    comparison: ScenarioComparisonResponse
+    warnings: List[str] = Field(default_factory=list)
+    focus_label: str = "Comparison focus"
+    headline: str = ""
+    people_takeaway: str = ""
+    use_for: List[str] = Field(default_factory=list)
+    validate_next: List[str] = Field(default_factory=list)
+    decision_boundary: str = ""
 
 
 class ScenarioTemplate(BaseModel):

@@ -349,6 +349,10 @@ async def get_comprehensive_metrics(
     """
     df, _ = resolve_current_population(state.raw_df)
     df = clean_team_frame(df)
+    if 'Dept' in df.columns:
+        df['Dept'] = (
+            df['Dept'].astype('string').str.strip().replace('', pd.NA).fillna('Unknown').astype(str)
+        )
     filters_applied = {}
 
     requested = {'Dept': departments, 'Location': locations, 'Country': countries,
@@ -577,8 +581,9 @@ async def get_comprehensive_metrics(
 
             # Gender ratio for department
             if 'Gender' in dept_df.columns:
-                male_count = (dept_df['Gender'] == 'Male').sum()
-                female_count = (dept_df['Gender'] == 'Female').sum()
+                dept_gender = dept_df['Gender'].astype('string').str.strip().str.lower()
+                male_count = dept_gender.isin(['male', 'm', 'man']).sum()
+                female_count = dept_gender.isin(['female', 'f', 'woman']).sum()
                 dept_data['male_pct'] = round(male_count / dept_total * 100, 1) if dept_total > 0 else 0
                 dept_data['female_pct'] = round(female_count / dept_total * 100, 1) if dept_total > 0 else 0
 

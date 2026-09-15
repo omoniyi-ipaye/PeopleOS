@@ -25,18 +25,12 @@ export function ShapWaterfallChart({
       (a, b) => Math.abs(b.contribution) - Math.abs(a.contribution)
     )
 
-    // Calculate cumulative values
-    let cumulative = baseValue
-    const bars = sorted.map((f) => {
-      const start = cumulative
-      cumulative += f.contribution
-      return {
-        ...f,
-        start,
-        end: cumulative,
-        isPositive: f.contribution >= 0,
-      }
-    })
+    // Calculate cumulative values without mutating a render-scoped accumulator.
+    const bars = sorted.reduce<Array<ShapFeature & { start: number; end: number; isPositive: boolean }>>((items, f) => {
+      const start = items.length ? items[items.length - 1].end : baseValue
+      const end = start + f.contribution
+      return [...items, { ...f, start, end, isPositive: f.contribution >= 0 }]
+    }, [])
 
     return bars
   }, [features, baseValue])

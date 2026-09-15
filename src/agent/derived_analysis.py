@@ -101,6 +101,18 @@ def plan_derived_analysis(question: str) -> Optional[AnalysisSpec]:
     if match:
         return AnalysisSpec(operation='group_summary', population='active', filters=filters, group_by=_GROUPS[match.group(1)], statistic='count')
 
+    # Natural People-language equivalent of "headcount by department".
+    # Keep this aggregate-only and typed; "my team" remains a separate
+    # unsupported scope because the local owner has no manager identity here.
+    match = re.search(
+        rf'\b(?:how\s+many|number\s+of)\s+(?:active\s+)?'
+        rf'(?:employees|people|staff(?:\s+members?)?)\s+(?:are\s+)?'
+        rf'(?:in\s+each|per)\s+({group_words})\b',
+        q,
+    )
+    if match:
+        return AnalysisSpec(operation='group_summary', population='active', filters=filters, group_by=_GROUPS[match.group(1)], statistic='count')
+
     match = re.search(rf'\b(?:recorded |observed )?(?:attrition|departure)\s+(?:share|rate|percentage)\s+(?:by|across)\s+({group_words})\b', q)
     if match:
         return AnalysisSpec(operation='group_summary', population='current', filters=filters, group_by=_GROUPS[match.group(1)], measure='Attrition', statistic='rate')

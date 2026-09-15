@@ -1,0 +1,60 @@
+{
+  "cycle": "020",
+  "engine": "NLPEngine",
+  "status": "locally_forensically_reviewed_exploratory",
+  "verified_behavioral_base": "362f294605bb57f1fbf573c64254155751e87033",
+  "scope": "controlled-response integrity, exact sentiment identity coverage, invalid and non-finite score rejection, bounded NLP configuration, source-grounded skill extraction, source-review presence-count semantics, generated-theme prevalence suppression, topic sampling disclosure, component-level partial status, legacy process_all compatibility, cache schema validation, and dataset-provenance fencing",
+  "forensic_and_compatibility_contracts": {
+    "passed": 52,
+    "total": 52,
+    "tests": [
+      "tests/test_nlp_engine_forensic_cycle020.py",
+      "tests/test_nlp_engine.py",
+      "tests/test_engine_renderer_integrity.py"
+    ]
+  },
+  "reviewed_source_sha256": {
+    "src/nlp_engine.py": "3bbe0eb96321351cf20506d59d748eaf1b33ca953444dd1d47171c764f86a7f7",
+    "api/routes/nlp.py": "8f858a88e612a2f7e558ee8edb2f9a0e09d1c7f348790c17303eb9e0ab5ed4e6"
+  },
+  "confirmed_findings_fixed": [
+    "The full NLP pipeline logged completion but returned None; process_all now returns its governed result for both the API and legacy Streamlit consumer.",
+    "Sentiment batches could return a subset of requested employee identities; every accepted batch now requires exact one-to-one identity coverage, and failed batches remain missing rather than neutral.",
+    "Sentiment output now rejects booleans, non-finite values, out-of-range scores and score/label contradictions before aggregation.",
+    "NLP configuration values for batch size, review length and topic count now require bounded integer contracts before model calls can run.",
+    "Duplicate or invalid review identities no longer reach row-level model inference.",
+    "Skill output now enforces the declared 15-item category limit and rejects skills without a literal case-insensitive source-text mention.",
+    "Skill counts are explicitly labeled as the number of source reviews containing a skill, not token-frequency counts or validated prevalence.",
+    "Topic prompts no longer request prevalence; returned model prevalence is discarded, duplicate theme names fail closed, and the first-50 sampling scope is disclosed.",
+    "Same-snapshot cached NLP responses now undergo schema validation; malformed cached evidence is cleared and rejected with HTTP 409 instead of being reused or becoming an unhandled server error.",
+    "Fresh NLP result construction and unexpected pipeline failures now fail closed with no cache commit; component status and unprocessed sentiment observations remain observable when analysis is partial."
+  ],
+  "confirmed_behavior_not_claimed": [
+    "Controlled fixtures establish response and provenance integrity only; they do not establish LLM accuracy.",
+    "No labeled review corpus or held-out corpus was available for this cycle, so extraction precision, recall and sentiment accuracy are unvalidated.",
+    "Negation, irony, multilingual behavior, inter-rater agreement and subgroup stability remain unvalidated.",
+    "First-50 theme sampling cannot support workforce-wide prevalence claims, and no prevalence is exposed.",
+    "Literal skill grounding improves source traceability but does not establish semantic recall, ontology completeness or skill-extraction validity.",
+    "No live Ollama inference was used as a correctness oracle in this cycle."
+  ],
+  "cross_product_validation": {
+    "nlp_forensic_and_existing_renderer_tests": "local_success_52_of_52",
+    "snapshot_and_analytics_compatibility": "local_success_96_of_96",
+    "full_repository_validation": "1185_passed_5_failed_6_subtests_passed; failures are the intentionally stale shared audit inventory/hash gate, one unrelated ML performance timeout, and two existing SentimentEngine exact-dictionary assertions",
+    "specialist_measurement_regression": "blocked_by_2_pre_existing_sentiment_engine_exact-dictionary-assertion-failures; outside_cycle_020_scope",
+    "remote_ci": "not_run_no_push_authorized",
+    "browser_acceptance": "not_run_nlp_is_not_exercised_by_the_current_browser_launch_journey"
+  },
+  "interpretation_boundary": "NLPEngine produces exploratory generated sentiment, skills and themes from performance-review text. It is not a validated measurement instrument, prevalence estimator, employee assessment, predictive signal, causal explanation or employment-decision authority.",
+  "runtime_state": "Exploratory generated text",
+  "launch_state": "unavailable_for_public_launch_claims",
+  "remaining_scientific_limits": [
+    "A labeled, organization-relevant and held-out review corpus is required for sentiment accuracy and skill/topic precision-recall evaluation.",
+    "Negation, irony, multilingual and code-switched text require stratified test cases and human adjudication.",
+    "Human agreement, reviewer guidance, disagreement handling and subgroup error analysis remain required.",
+    "Prevalence requires full-population topic assignment with defined missingness and confidence semantics; generated first-50 themes cannot supply it.",
+    "Model, prompt, tokenizer and language revisions require repeat validation; local transport availability is not model validity.",
+    "Employee-level generated summaries remain retired and no automated HR action is within scope."
+  ],
+  "release_gate": "Local NLP integrity and compatibility contracts are clean. The engine remains exploratory and unavailable for public launch claims until corpus-based accuracy, extraction precision/recall, multilingual/negation/irony behavior, human agreement, and independent owner review are complete."
+}

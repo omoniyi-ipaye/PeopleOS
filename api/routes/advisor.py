@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException, Depends, Request, Query
 from pydantic import BaseModel
 
 from api.dependencies import get_app_state, AppState
-from api.routes.intelligence import InvestigationRequest, investigate, require_dataset
+from api.routes.intelligence import InvestigationRequest, _run_investigation, require_dataset
 from src.logger import get_logger
 
 logger = get_logger('advisor_route')
@@ -95,9 +95,10 @@ async def get_strategic_summary(
     state: AppState = Depends(require_dataset)
 ) -> StrategicSummary:
     """Compatibility endpoint using the same governed investigation boundary."""
-    result = await investigate(
+    result = await _run_investigation(
         InvestigationRequest(question="Give an overall workforce health summary."),
         request=request, state=state,
+        persist_session=False, record_audit=False,
     )
     return StrategicSummary(
         summary=result.answer,
@@ -117,8 +118,9 @@ async def ask_advisor(
     state: AppState = Depends(require_dataset)
 ) -> Dict[str, Any]:
     """Ask through governed authorization, provenance and evidence verification."""
-    result = await investigate(
+    result = await _run_investigation(
         InvestigationRequest(question=question), request=request, state=state,
+        persist_session=True, record_audit=True,
     )
     return result.model_dump(mode="json")
 

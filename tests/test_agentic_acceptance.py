@@ -97,6 +97,47 @@ def test_valid_model_selection_only_renders_verified_cited_claims(workforce):
     assert "Reconcile the cited aggregates" in result.answer
 
 
+def test_model_composes_a_grounded_narrative_from_the_completed_tool_bundle(workforce):
+    class Narrator:
+        is_available = True
+        model = "controlled-narrator-fixture"
+
+        def __init__(self):
+            self.request = None
+
+        def generate(self, prompt, **kwargs):
+            self.request = json.loads(prompt.split("REQUEST_DATA:\n", 1)[1])
+            headcount = next(item for item in self.request["evidence"] if item["metric"] == "headcount")
+            salary = next(item for item in self.request["evidence"] if item["metric"] == "salary_mean")
+            return json.dumps({
+                "answer": (
+                    f"Your active workforce is {headcount['value']} people, and the average salary is "
+                    f"{salary['value']:,.0f}. Taken together, this gives the People team a clear baseline "
+                    f"for deciding which workforce patterns to examine next. [{headcount['evidence_id']}] [{salary['evidence_id']}]"
+                ),
+                "evidence_ids": [headcount["evidence_id"], salary["evidence_id"]],
+                "next_step": "review_coverage",
+            })
+
+    narrator = Narrator()
+    workforce.llm_client = narrator
+    result = PeopleIntelligenceAgent(workforce).investigate(
+        "How many active employees do we have and what is average salary?"
+    )
+
+    assert narrator.request["analysis_phase"] == "completed"
+    assert narrator.request["completed_tool_results"]
+    assert all("metadata" not in item for item in narrator.request["evidence"])
+    assert {item["metric"] for item in narrator.request["evidence"]} <= {"headcount", "salary_mean"}
+    assert all("metadata" not in result for result in narrator.request["completed_tool_results"])
+    assert result.model == "controlled-narrator-fixture"
+    assert result.synthesis_mode == "grounded_llm"
+    assert "Taken together" in result.answer
+    assert len(result.cited_evidence_ids) == 2
+    assert all(item_id.startswith("ev_") for item_id in result.cited_evidence_ids)
+    assert all(item_id in result.answer for item_id in result.cited_evidence_ids)
+
+
 @pytest.mark.parametrize("transform", [
     lambda request: "There are 9000 employees and poor managers caused all departures.",
     lambda request: "",
