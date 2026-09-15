@@ -41,7 +41,7 @@ def answer_matches_known_values(answer, include_span=False):
         re.IGNORECASE,
     )
     expected_evidence = has_citation('ev_synthetic_headcount', 'workforce.summary')
-    span = re.search(r'\baverage\s+manager\s+span\s+of\s+control\s*(?:is|:)\s*5\b', answer, re.IGNORECASE)
+    span = re.search(r'\baverage\s+manager\s+span\s+of\s+control\s*(?:is|:)\s*5(?:\s+employees?)?\b', answer, re.IGNORECASE)
     if include_span:
         expected_evidence = expected_evidence and bool(span) and has_citation(
             'ev_synthetic_span', 'workforce.organization_structure'

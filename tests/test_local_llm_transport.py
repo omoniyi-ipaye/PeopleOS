@@ -192,7 +192,7 @@ def test_acceptance_oracle_rejects_changed_numbers_injected_labels_and_missing_s
     from scripts.validate_local_llm import answer_matches_known_values
     headcount = '- Current active employee count: 80 [ev_synthetic_headcount; workforce.summary]'
     natural_headcount = 'The organization has 80 active employees [ev_synthetic_headcount].'
-    span = '- Average manager span of control: 5 [ev_synthetic_span; workforce.organization_structure]'
+    span = '- Average manager span of control: 5 employees [ev_synthetic_span; workforce.organization_structure]'
     assert answer_matches_known_values(headcount)
     assert answer_matches_known_values(natural_headcount)
     assert answer_matches_known_values(headcount + '\n' + span, include_span=True)

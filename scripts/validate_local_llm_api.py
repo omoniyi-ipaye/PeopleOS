@@ -73,6 +73,18 @@ def run(report, requested_model=None):
             report['model_digest'] = getattr(client, 'model_digest', None)
             if client is None or not client.is_available or not report['model_digest']:
                 raise RuntimeError('Production runtime did not initialize an installed local model with digest')
+            # Keep the production transport and verifier intact, but retain
+            # the synthetic completion so a failed acceptance run can be
+            # diagnosed without guessing what the local model returned.
+            report['raw_completions'] = []
+            original_generate = client.generate
+
+            def record_generate(*args, **kwargs):
+                generated = original_generate(*args, **kwargs)
+                report['raw_completions'].append(generated)
+                return generated
+
+            client.generate = record_generate
             baseline = api.get('/api/analytics/summary')
             baseline.raise_for_status()
             report['independent_fixture'] = {'source_rows': 120, 'active_count': 80, 'api_summary': baseline.json()}
@@ -87,7 +99,7 @@ def run(report, requested_model=None):
             passed = (baseline.json()['headcount'] == 80 and cited_headcount and
                 result.get('model') == selected_model and
                 result.get('synthesis_mode') == 'grounded_llm' and
-                re.search(r'\bactive\s+(?:employee\s+count|headcount)\s+is\s+80\b', result['answer'], re.IGNORECASE) is not None and
+                re.search(r'(?:\bactive\s+(?:employee\s+count|headcount)\s+is\s+80\b|\b80\s+active\s+employees?\b)', result['answer'], re.IGNORECASE) is not None and
                 not any('failed verification' in w for w in result.get('warnings', [])))
             report['cases'].append({'name': 'live_api_local_headcount', 'passed': passed, 'response': result})
             report['status'] = 'passed' if passed else 'failed'
