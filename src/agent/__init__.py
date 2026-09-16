@@ -7,10 +7,11 @@ from src.agent.evidence import (
     ToolResult,
     ToolResultStatus,
 )
-from src.agent.tools import AgentTool, ToolContext
+from src.agent.tools import AgentTool, AgentToolDescriptor, ToolContext
 
 __all__ = [
     "AgentTool",
+    "AgentToolDescriptor",
     "EvidenceBundle",
     "EvidenceItem",
     "EvidenceKind",

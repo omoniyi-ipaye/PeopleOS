@@ -92,6 +92,11 @@ def resolve_current_population(df: pd.DataFrame) -> tuple[pd.DataFrame, Populati
     snapshot_history = "SnapshotDate" in frame.columns
     as_of_date: Optional[str] = None
 
+    if "EmployeeID" in frame.columns:
+        identifiers = frame["EmployeeID"].astype("string").str.strip()
+        if identifiers.isna().any() or identifiers.eq('').any():
+            raise ValueError('Current-state population requires a nonempty EmployeeID on every row.')
+
     if snapshot_history:
         parsed = pd.to_datetime(frame["SnapshotDate"], errors="coerce", utc=True)
         frame = _reject_conflicting_snapshot_ties(frame, parsed)
@@ -104,7 +109,13 @@ def resolve_current_population(df: pd.DataFrame) -> tuple[pd.DataFrame, Populati
         frame = frame.sort_values(["EmployeeID", "_snapshot_sort"], na_position="first", kind="stable")
         frame = frame.drop_duplicates(subset=["EmployeeID"], keep="last").drop(columns=["_snapshot_sort"])
     elif "EmployeeID" in frame.columns:
-        frame = frame.drop_duplicates(subset=["EmployeeID"], keep="last")
+        # Byte-identical duplicates carry no additional information. Any
+        # remaining duplicate identifier has no timestamp with which to choose
+        # a canonical row, so fail closed instead of making results depend on
+        # input order.
+        frame = frame.drop_duplicates().copy()
+        if frame["EmployeeID"].duplicated().any():
+            raise ValueError('Current-state population contains conflicting duplicate EmployeeID values; provide one row per employee or add SnapshotDate.')
 
     if "Attrition" in frame.columns:
         frame["Attrition"] = normalize_attrition(frame["Attrition"])

@@ -6,7 +6,7 @@ from typing import Any, Dict, List
 import pandas as pd
 
 from src.agent.evidence import EvidenceItem, EvidenceKind, ToolResult, ToolResultStatus
-from src.agent.tools import ToolContext
+from src.agent.tools import AgentToolDescriptor, ToolContext
 
 
 def _elapsed_ms(started: float) -> float:
@@ -18,10 +18,28 @@ class FairnessOutcomeTool:
 
     tool_id = "workforce.fairness"
     description = "Aggregate attrition outcome disparity across sufficiently large groups."
+    descriptor = AgentToolDescriptor(
+        tool_id=tool_id,
+        description=description,
+        engine='fairness',
+        api_routes=('/api/fairness/analysis', '/api/fairness/four-fifths', '/api/fairness/demographic-parity'),
+        availability='conditional',
+    )
     min_group_size = 10
 
     def __init__(self, state: Any):
         self.state = state
+
+    def is_available(self) -> bool:
+        raw_df = getattr(self.state, 'raw_df', None)
+        return (
+            getattr(self.state, 'fairness_engine', None) is not None
+            and raw_df is not None
+            and 'Attrition' in raw_df.columns
+        )
+
+    def availability_reason(self) -> str:
+        return '' if self.is_available() else 'Known attrition outcomes and eligible protected-group fields are not active.'
 
     def execute(self, context: ToolContext) -> ToolResult:
         started = perf_counter()
@@ -136,9 +154,22 @@ class EmployeeExperienceTool:
 
     tool_id = "workforce.employee_experience"
     description = "Aggregate configured experience composite, engagement segments and measured signals."
+    descriptor = AgentToolDescriptor(
+        tool_id=tool_id,
+        description=description,
+        engine='experience',
+        api_routes=('/api/experience/analysis', '/api/experience/index', '/api/experience/segments', '/api/experience/drivers', '/api/experience/lifecycle', '/api/experience/signals'),
+        availability='conditional',
+    )
 
     def __init__(self, state: Any):
         self.state = state
+
+    def is_available(self) -> bool:
+        return getattr(self.state, 'experience_engine', None) is not None
+
+    def availability_reason(self) -> str:
+        return '' if self.is_available() else 'Employee-experience fields are not available for this snapshot.'
 
     def execute(self, context: ToolContext) -> ToolResult:
         started = perf_counter()

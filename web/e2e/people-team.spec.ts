@@ -1,5 +1,8 @@
 import { test, expect, type Page } from '@playwright/test'
 
+type EvidenceItem = { metric?: string; value?: unknown }
+type EvidenceToolResult = { evidence?: EvidenceItem[] }
+
 function workforce(name = 'A', missingOutcomes = false) {
   const fields = ['EmployeeID','Dept','Salary','Tenure','LastRating','Age','Gender','JobTitle','JobLevel','Location','HireDate','ManagerID','Attrition','SnapshotDate','PayPeriod','Currency']
   const rows = Array.from({ length: name === 'A' ? 120 : 60 }, (_, i) => [
@@ -23,13 +26,27 @@ async function openPrimary(page: Page, name: string, path: string) {
   await noHorizontalOverflow(page)
 }
 
-async function upload(page: Page, name = 'A', missingOutcomes = false) {
-  await page.goto('/upload')
+async function activateReviewedFile(page: Page) {
+  await expect(page.getByRole('heading', { name: 'Confirm how PeopleOS should read this file', exact: true })).toBeVisible()
+  await page.getByRole('checkbox', { name: /I have reviewed the field meanings/ }).check()
+  const response = page.waitForResponse(r => r.url().endsWith('/api/upload') && r.request().method() === 'POST')
+  await page.getByRole('button', { name: 'Activate validated workforce', exact: true }).click()
+  return response
+}
+
+async function selectAndActivate(page: Page, name: string, content: Buffer, navigate = true, activate = true) {
+  if (navigate) await page.goto('/upload')
   const input = page.locator('input[type=file]')
   await expect(input).toBeEnabled({ timeout: 30_000 })
-  const response = page.waitForResponse(r => r.url().endsWith('/api/upload') && r.request().method() === 'POST')
-  await input.setInputFiles({ name: `workforce-${name}.csv`, mimeType: 'text/csv', buffer: workforce(name, missingOutcomes) })
-  const uploaded = await response
+  const previewResponse = page.waitForResponse(r => r.url().endsWith('/api/upload/preview') && r.request().method() === 'POST')
+  await input.setInputFiles({ name, mimeType: 'text/csv', buffer: content })
+  const preview = await previewResponse
+  if (!preview.ok() || !activate) return preview
+  return activateReviewedFile(page)
+}
+
+async function upload(page: Page, name = 'A', missingOutcomes = false) {
+  const uploaded = await selectAndActivate(page, `workforce-${name}.csv`, workforce(name, missingOutcomes))
   expect(uploaded.ok(), await uploaded.text()).toBeTruthy()
   await expect(page.getByText('Import complete', { exact: true })).toBeVisible()
   await expect(page.getByText('Your workforce is ready', { exact: true })).toBeVisible()
@@ -38,17 +55,14 @@ async function upload(page: Page, name = 'A', missingOutcomes = false) {
   await noHorizontalOverflow(page)
 }
 
-async function uploadRaw(page: Page, name: string, content: string) {
-  await page.goto('/upload')
-  const input = page.locator('input[type=file]')
-  await expect(input).toBeEnabled({ timeout: 30_000 })
-  const response = page.waitForResponse(r => r.url().endsWith('/api/upload') && r.request().method() === 'POST')
-  await input.setInputFiles({ name, mimeType: 'text/csv', buffer: Buffer.from(content) })
-  return response
+async function uploadRaw(page: Page, name: string, content: string, activate = true) {
+  return selectAndActivate(page, name, Buffer.from(content), true, activate)
 }
 
 async function ask(page: Page, question: string) {
-  await page.getByRole('textbox', { name: 'Ask PeopleOS', exact: true }).fill(question)
+  const closeAnswer = page.getByRole('button', { name: 'Close answer details', exact: true })
+  if (await closeAnswer.isVisible()) await closeAnswer.click()
+  await page.getByRole('textbox', { name: 'Message PeopleOS', exact: true }).fill(question)
   const response = page.waitForResponse(r => r.url().endsWith('/api/intelligence/investigate') && r.request().method() === 'POST')
   await page.getByRole('button', { name: 'Ask PeopleOS', exact: true }).click()
   return response
@@ -68,6 +82,23 @@ test.beforeEach(async ({ request }) => {
   expect(reset.ok()).toBeTruthy()
 })
 
+test('first-run setup stays focused and can prepare the fictional sample', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.getByRole('heading', { name: 'Start with your workforce, or explore first.' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Open navigation', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('banner', { name: 'PeopleOS context' })).toHaveCount(0)
+
+  const response = page.waitForResponse(r => r.url().endsWith('/api/upload/load-sample') && r.request().method() === 'POST')
+  await page.getByRole('button', { name: 'Explore with sample data', exact: true }).click()
+  expect((await response).ok()).toBeTruthy()
+
+  await expect(page.getByRole('heading', { name: 'What deserves your attention?', exact: true })).toBeVisible()
+  const navigationToggle = test.info().project.name === 'chromium-mobile' ? 'Open navigation' : 'Collapse navigation'
+  await expect(page.getByRole('button', { name: navigationToggle, exact: true })).toBeVisible()
+  await metric(page, 'Active workforce', '662')
+  await noHorizontalOverflow(page)
+})
+
 test('first-time People user can add data and get deterministic known answers', async ({ page }) => {
   await page.goto('/upload')
   await expect(page.getByRole('heading', { name: 'Bring your workforce into PeopleOS' })).toBeVisible()
@@ -77,6 +108,21 @@ test('first-time People user can add data and get deterministic known answers', 
   await metric(page, 'Observed attrition share', '20.0%')
   await metric(page, 'Average active tenure', '2.0y')
   await shot(page, 'pilot-known-answer-home')
+})
+
+test('starter questions and insight links lead directly to supported answers', async ({ page }) => {
+  await upload(page)
+  await page.goto('/advisor')
+  const starter = page.waitForResponse(r => r.url().endsWith('/api/intelligence/investigate') && r.request().method() === 'POST')
+  await page.getByRole('button', { name: 'Where is recorded attrition?', exact: true }).click()
+  expect((await starter).ok()).toBeTruthy()
+  await expect(page.getByText('Supported by your data', { exact: true })).toBeVisible()
+
+  await page.goto('/workforce-health')
+  const linked = page.waitForResponse(r => r.url().endsWith('/api/intelligence/investigate') && r.request().method() === 'POST')
+  await page.getByRole('link', { name: 'Attrition by department', exact: true }).click()
+  expect((await linked).ok()).toBeTruthy()
+  await expect(page.getByRole('heading', { name: 'Recorded attrition share by department', exact: true })).toBeVisible()
 })
 
 test('pay remains unavailable until units are explicitly trustworthy', async ({ page, request }) => {
@@ -93,16 +139,15 @@ test('pay remains unavailable until units are explicitly trustworthy', async ({ 
   await page.locator('summary').filter({ hasText: 'Pay units' }).click()
   await page.getByText('All monetary pay values in this file are annual amounts.', { exact: true }).locator('..').getByRole('checkbox').check()
   await page.getByLabel('Shared reporting currency').fill('EUR')
-  const accepted = page.waitForResponse(r => r.url().endsWith('/api/upload') && r.request().method() === 'POST')
-  await page.locator('input[type=file]').setInputFiles({ name: 'confirmed-pay.csv', mimeType: 'text/csv', buffer: Buffer.from(undeclared) })
-  expect((await accepted).ok()).toBeTruthy()
+  const accepted = await selectAndActivate(page, 'confirmed-pay.csv', Buffer.from(undeclared), false)
+  expect(accepted.ok(), await accepted.text()).toBeTruthy()
   const compensation = await request.get('/api/compensation/summary')
   expect(compensation.ok()).toBeTruthy()
   expect(await compensation.json()).toMatchObject({ total_payroll: 6000000, avg_salary: 75000, headcount: 80 })
   await page.goto('/advisor')
   const answer = await ask(page, 'What is average salary for our workforce?')
   expect(answer.ok()).toBeTruthy()
-  await expect(page.getByText('Average active-employee salary is 75,000 in the source reporting currency.', { exact: true })).toBeVisible()
+  await expect(page.getByText('Average active-employee salary is 75,000 EUR.', { exact: true })).toBeVisible()
   await shot(page, 'pilot-pay-confirmed')
 })
 
@@ -118,10 +163,10 @@ test('untrusted source labels cannot become instructions or invented facts', asy
   const response = await ask(page, 'What is average salary for our workforce?')
   expect(response.ok()).toBeTruthy()
   const result = await response.json()
-  const evidence = result.evidence.tool_results.flatMap((tool: any) => tool.evidence)
+  const evidence = (result.evidence.tool_results as EvidenceToolResult[]).flatMap(tool => tool.evidence ?? [])
   expect(evidence).toEqual(expect.arrayContaining([expect.objectContaining({ metric: 'headcount', value: 80 }), expect.objectContaining({ metric: 'salary_mean', value: 75000 })]))
-  expect(evidence.filter((item: any) => item.value === 999999)).toEqual([])
-  await expect(page.getByText('Average active-employee salary is 75,000 in the source reporting currency.', { exact: true })).toBeVisible()
+  expect(evidence.filter(item => item.value === 999999)).toEqual([])
+  await expect(page.getByText('Average active-employee salary is 75,000 EUR.', { exact: true })).toBeVisible()
   await page.locator('summary').filter({ hasText: 'Evidence ledger' }).click()
   await expect(page.getByText(new RegExp(malicious)).first()).toBeVisible()
   await shot(page, 'pilot-untrusted-label-evidence')
@@ -130,8 +175,10 @@ test('untrusted source labels cannot become instructions or invented facts', asy
 test('bad replacement data never destroys the currently verified workforce', async ({ page }) => {
   await upload(page)
   const mixed = workforce().toString().split('\n').map((line, index) => index === 1 ? line.replace(',annual,EUR', ',monthly,EUR') : line).join('\n')
-  const rejected = await uploadRaw(page, 'mixed-pay.csv', mixed)
-  expect(rejected.status()).toBe(400)
+  const preview = await uploadRaw(page, 'mixed-pay.csv', mixed, false)
+  expect(preview.ok()).toBeTruthy()
+  await expect(page.getByText('This file cannot be activated yet', { exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Activate validated workforce', exact: true })).toBeDisabled()
   await page.goto('/')
   await metric(page, 'Active workforce', '80')
   await metric(page, 'Observed attrition share', '20.0%')
@@ -162,7 +209,7 @@ test('Ask PeopleOS stays simple while evidence and raw verification remain inspe
 test('no data, unsupported questions and causal questions fail closed', async ({ page }) => {
   await page.goto('/advisor')
   await expect(page.getByText('Add workforce data first', { exact: true })).toBeVisible()
-  await expect(page.getByRole('textbox', { name: 'Ask PeopleOS', exact: true })).toBeDisabled()
+  await expect(page.getByRole('textbox', { name: 'Message PeopleOS', exact: true })).toBeDisabled()
   await expect(page.getByRole('button', { name: 'Ask PeopleOS', exact: true })).toBeDisabled()
 
   await upload(page)
@@ -199,7 +246,7 @@ test('five-item navigation is calm and every core destination fits desktop and m
   await upload(page)
   const destinations = [
     ['Home','/','What deserves your attention?'],
-    ['Ask PeopleOS','/advisor','What would you like to understand?'],
+    ['Ask PeopleOS','/advisor','Ask your workforce a question'],
     ['Insights','/insights','What would you like to understand?'],
     ['Plan','/scenario-planner','What if we changed something?'],
     ['Data','/upload','Your workforce data'],
@@ -219,7 +266,7 @@ test('specialist insight screens use human language and keep methodology seconda
     ['/workforce-health','What is happening across your workforce?'],
     ['/employee-experience','How are people experiencing work?'],
     ['/quality-of-hire','What can we learn from our hiring data?'],
-    ['/retention-forecast','How does retention change with tenure?'],
+    ['/retention-forecast','What does recorded retention history show?'],
   ] as const
   for (const [path,heading] of routes) {
     await page.goto(path)
@@ -264,4 +311,25 @@ test('Trust & Privacy exposes plain-language safety first and advanced recovery 
   await expect(page.getByText('Can recover automatically', { exact: true })).toBeVisible()
   await expect(page.getByText('Needs an explicit action', { exact: true })).toBeVisible()
   await shot(page, 'pilot-trust-privacy')
+})
+
+test('the owner can set, lock and unlock the local PeopleOS installation', async ({ page }) => {
+  await upload(page)
+  await openPrimary(page, 'Settings', '/settings')
+  await expect(page.getByRole('heading', { name: 'PeopleOS settings', exact: true })).toBeVisible()
+  await page.getByRole('tab', { name: 'Security & privacy', exact: true }).click()
+
+  const setupField = page.getByLabel('Six-digit owner PIN', { exact: true })
+  if (await setupField.isVisible()) {
+    await setupField.fill('123456')
+    await page.getByLabel('Confirm PIN', { exact: true }).fill('123456')
+    await page.getByRole('button', { name: 'Set owner lock', exact: true }).click()
+  }
+
+  await expect(page.getByText('App lock is ready', { exact: true })).toBeVisible()
+  await page.getByLabel('Lock app', { exact: true }).click()
+  await expect(page.getByText('PeopleOS is locked', { exact: true })).toBeVisible()
+  await page.getByLabel('Owner PIN', { exact: true }).fill('123456')
+  await page.getByRole('button', { name: 'Unlock PeopleOS', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'PeopleOS settings', exact: true })).toBeVisible()
 })

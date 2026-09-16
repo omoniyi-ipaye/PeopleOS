@@ -1,0 +1,47 @@
+{
+  "cycle": "021",
+  "engine": "QualityOfHireEngine",
+  "status": "locally_forensically_reviewed_observational",
+  "verified_behavioral_base": "362f294605bb57f1fbf573c64254155751e87033",
+  "scope": "source cohort denominators, duration-qualified outcome maturity, partial evidence, common composite construct, effective weights, aggregate role/source mix, correlation measurement gaps, API serialization, and prospective-validation boundaries",
+  "forensic_and_compatibility_contracts": {
+    "cycle_021_contracts": {"passed": 8, "total": 8},
+    "focused_existing_qoh_contracts": {"passed": 12, "total": 12},
+    "combined_qoh_contracts": {"passed": 20, "total": 20}
+  },
+  "reviewed_source_sha256": {
+    "src/quality_of_hire_engine.py": "4188a5d64d1d92c88cbdae47c1a0f435c8e26686045749ad45c2a9bb1a5d9791",
+    "api/routes/quality_of_hire.py": "c21541989ce8c5ecf71940ee2d398b3d601650982d34e1b616ad45e22e146230",
+    "api/schemas/quality_of_hire.py": "8a9e42911b0949340d1ab12d694a63f1274f96346bde6688b359b76522c7928e",
+    "web/app/quality-of-hire/page.tsx": "e47d2e1ba36e3b3c9ac5eb9e7ccc40f3a977cfde3c76928ecad8780037718b63",
+    "web/types/api.ts": "23f584f00d8d85e8f38f97af3581723814651c5b3dc990320e461f88f3325fc3",
+    "tests/test_quality_of_hire_engine_forensic_cycle021.py": "77446b5c1d38b65496c3bd17cc9a9a0b458aab079233663cde3e54bc1b3c00e8",
+    ".github/workflows/quality-of-hire-engine-forensic.yml": "b816dddd3e3483efbdf8a7b9cbe374614512bdba19e50428e581efa51280df1f"
+  },
+  "confirmed_findings_fixed": [
+    "Total hires are separated from recorded and duration-qualified performance observations, with coverage and the configured performance window exposed.",
+    "Partial performance support no longer disappears from the effective composite; a source below the component observation floor receives an unavailable score instead of a score from a different construct.",
+    "Retention is measured only from attrition observations with the configured tenure exposure, while recorded-but-immature outcomes and eligible hires remain visible separately.",
+    "Source composites use one dataset-wide effective component set and common weights; effective, configured and excluded components are surfaced and missing cohorts are suppressed.",
+    "Aggregate Dept, JobLevel and JobTitle role mix is exposed per source without disclosing employee-level records.",
+    "Pre-hire correlations now report measurement gaps, paired denominators, outcome maturity and minimum support rather than silently omitting weakly supported signals.",
+    "API schemas, route sanitization and the current Quality of Hire page carry denominator, maturity, effective-weight and observational claim boundaries.",
+    "Source-score and relative-rating outputs explicitly state that they are descriptive observations, not hiring effectiveness, causation, source ROI or prospective performance evidence."
+  ],
+  "interpretation_boundary": "Quality-of-hire results describe measured associations and descriptive source composites in the current dataset. They do not establish hiring effectiveness, causal source uplift, financial ROI, validated prediction, or a basis for individual employment action.",
+  "cross_product_validation": {
+    "python_cycle_and_existing_qoh_contracts": "local_success_20_of_20",
+    "web_typecheck": "local_success",
+    "web_production_build": "local_success",
+    "web_renderer_suite": "42_passed_1_unrelated_preexisting_scenario_planner_failure",
+    "remote_ci": "not_run_no_push_authorized"
+  },
+  "remaining_scientific_limits": [
+    "The configured performance and retention windows depend on Tenure as an exposure proxy; event dates, repeated ratings and true censoring are not modeled by this engine.",
+    "Current Attrition is not a duration-qualified retention event unless the required exposure is observed; no survival analysis or competing-risk adjustment is claimed here.",
+    "Role/source composition is descriptive and does not adjust for job family, level, geography, labor market, recruiter, selection intensity or other confounding.",
+    "Composite weights and thresholds remain product assumptions; measurement reliability, calibration, multiplicity control and held-out organizational validation are not established.",
+    "Future prospective independent cohorts with stable outcome definitions, source costs, role mix, exposure windows and owner-approved validation are required before changing hiring criteria or source allocation."
+  ],
+  "release_gate": "Safe for aggregate descriptive cohort review with denominators, maturity and role mix visible. Not validated for hiring effectiveness, source investment, selection decisions or public predictive claims. Broad public launch remains NO-GO for this engine."
+}

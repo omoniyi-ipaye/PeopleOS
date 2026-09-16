@@ -1,0 +1,80 @@
+{
+  "cycle": "027",
+  "engine": "VectorEngine",
+  "status": "locally_forensically_reviewed_benchmark_passed",
+  "verified_behavioral_base": "362f294605bb57f1fbf573c64254155751e87033",
+  "scope": "unavailable-backend behavior, finite vectors, exact index/data provenance, stale refresh isolation, raw identifier disclosure, ranking-metric semantics, multilingual contract declaration, concurrent refresh/search isolation, access control, cache headers, and in-memory retention boundaries",
+  "forensic_and_compatibility_contracts": {
+    "passed": 41,
+    "total": 41,
+    "selection": "tests/test_vector_engine_forensic_cycle027.py tests/test_vector_engine.py tests/test_real_vector_contract.py tests/test_extended_integrity.py"
+  },
+  "reviewed_source_sha256": {
+    "src/vector_engine.py": "ffef4b28e3a7c05a545b60d45c262ed775c057d11d420301c2b9e5b7ba980093",
+    "api/routes/search.py": "ce8f56fa35c68dbc0e40a3d4a7ecb93dc324805c127848d24f627ef3f8f3b2d9",
+    "ui/components.py": "70b3dce43f1f914a0f2b9b4d45c46405ce96fa82393f6ef7559ae01ce0fa39b6",
+    "web/app/search/page.tsx": "0dea3c99526b8946408ef554f44e22ac5a0bf18c2381e700b7e963a529d28097",
+    "web/types/api.ts": "23f584f00d8d85e8f38f97af3581723814651c5b3dc990320e461f88f3325fc3"
+  },
+  "confirmed_findings_fixed": [
+    "Refresh and search now share a re-entrant lock; refresh clears the live index and provenance before validation, so failed or empty replacement builds cannot leave prior workforce text queryable.",
+    "Embeddings, query vectors, backend result shapes, distances and scores are checked for finite, aligned, non-negative and shape-compatible evidence; malformed backend responses fail closed.",
+    "A supported API search is bound to the exact workspace, dataset, generation and current frame fingerprint. Missing, stale or changed provenance returns unavailable/conflict and no result payload.",
+    "The search API no longer serializes EmployeeID. The current web renderer and dormant Streamlit renderer also avoid displaying raw worker identifiers while retaining internal metadata for legacy index compatibility.",
+    "The API distinguishes missing PerformanceText from an unavailable optional backend/index and returns no-store-sensitive responses through the existing access boundary.",
+    "Search results expose dataset provenance and explicitly retain inverse squared L2 ranking semantics; no probability, relevance validation or employment recommendation claim is made."
+  ],
+  "interpretation_boundary": "Vector search retrieves candidate workforce-text passages. Similarity scores are inverse squared L2 ranking indices, not probabilities, truth values, validated relevance ratings, employee assessments or employment recommendations.",
+  "relevance_validation": {
+    "offline_metric_contracts": {
+      "status": "passed",
+      "recall_at_1_example": 0.5,
+      "recall_at_2_example": 1.0,
+      "perfect_ndcg_at_2_example": 1.0,
+      "reversed_ndcg_at_2_is_below_perfect": true,
+      "note": "Metric arithmetic and ranking semantics are tested with controlled synthetic relevance labels; this is not model or population validity."
+    },
+    "real_embedding_benchmark": {
+      "status": "passed",
+      "recall_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "ndcg_at_1": 1.0,
+      "ndcg_at_3": 1.0,
+      "cases_passed": 13,
+      "cases_total": 13,
+      "dependencies": {
+        "faiss-cpu": "1.15.0",
+        "sentence-transformers": "6.0.1",
+        "torch": "2.14.0",
+        "transformers": "5.17.0"
+      },
+      "model_revision": "e8f8c211226b894fcb81acc59f3b34ba3efd5f42",
+      "evidence": "model/quality_cycle_027_vector_relevance_benchmark.json",
+      "runner": "scripts/validate_local_embeddings.py"
+    }
+  },
+  "multilingual_validation": {
+    "default_model": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+    "pinned_revision": "e8f8c211226b894fcb81acc59f3b34ba3efd5f42",
+    "contract_status": "executed_on_small_synthetic_corpus",
+    "covered_scopes": ["english", "spanish", "cross_language", "negation"],
+    "limit": "This is a small synthetic acceptance corpus, not an organization-approved holdout or population-level relevance validation."
+  },
+  "retention_and_access_boundary": [
+    "The vector index is process-memory only; clear_index, empty rebuild, reset and failed refresh remove indexed text and its provenance from the live engine.",
+    "The API remains protected by the existing sensitive.read permission and no-store cache policy; this cycle adds no remote access or persistence path.",
+    "Raw worker identifiers remain internal metadata for legacy indexing compatibility and are not a supported API or rendered result field."
+  ],
+  "remaining_scientific_limits": [
+    "The real benchmark passed on the small synthetic corpus, but must be rerun against a fixed organization-approved holdout before any public relevance claim.",
+    "No validated no-match threshold exists; unrelated queries may still return candidate passages.",
+    "No independent holdout, population-level relevance study, concurrency/load benchmark, tenant-isolation deployment test or retention review has been completed.",
+    "The governed runtime intentionally leaves vector indexing as an explicit downstream operation; the supported API remains unavailable until a provenance-bound index is prepared."
+  ],
+  "cross_product_validation": {
+    "vector_forensic_selection": "local_success_41_of_41",
+    "full_python_validation": "local_success_1195_tests_and_6_subtests",
+    "remote_ci": "pending_push"
+  },
+  "release_gate": "NO-GO for public semantic-search claims. Local code contracts are clean, but the optional backend, real relevance/multilingual evidence, benchmark/holdout, load/concurrency evidence and explicit owner/independent review remain pending."
+}

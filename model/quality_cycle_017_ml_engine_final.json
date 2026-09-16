@@ -1,0 +1,41 @@
+{
+  "cycle": "017",
+  "engine": "MLEngine",
+  "status": "forensically_reviewed",
+  "verified_behavioral_candidate": "362f294605bb57f1fbf573c64254155751e87033",
+  "scope": "retrospective attrition-classification configuration, input and outcome contracts, leakage-safe model selection, rejected-model isolation, exact scoring features, finite probabilities, stale-state clearing, aggregate-only product boundaries, diagnostic explanation integrity, and cross-product compatibility",
+  "forensic_and_release_contracts": {"passed": 44, "total": 44},
+  "reviewed_source_sha256": {
+    "src/ml_engine.py": "489815408e728d31fd7366785f04ac19b093a7e88699aa87e2862ef7ef04d164",
+    "src/model_training.py": "4a381e941348d5fb546c6abe69341cc591169463342cf5ae93edbedafa007ae2"
+  },
+  "confirmed_findings_fixed": [
+    "Invalid, reversed, boolean or non-finite predictive configuration could reach scoring and categorization paths; thresholds, split ratio, seed and explanation sample size now fail closed at initialization.",
+    "Legacy feature-matrix training could accept single-class, under-supported, misaligned, non-numeric or non-finite inputs; the retained compatibility path now enforces binary outcomes, minimum support, aligned indices and a finite numeric feature contract.",
+    "Failed or rejected training could leave a previously fitted model available; training clears model, feature and explanation state before work and again on failure.",
+    "Candidate selection now respects configured model families and rejects unavailable or non-finite candidates rather than silently substituting an unreviewed path.",
+    "Scoring now requires the exact trained feature names and order, a finite matrix, an identified positive class and finite probabilities in the unit interval.",
+    "A retrospectively fitted model that fails release reliability gates is no longer left trained for direct scoring.",
+    "The legacy employee-level prediction list and rule-based employee action recommendations are disabled at the engine boundary; governed product use remains aggregate-only.",
+    "Feature-importance and SHAP diagnostic outputs now fail closed when class, dimensionality or finite-value contracts do not reconcile."
+  ],
+  "cross_product_validation": {
+    "ml_engine_forensic_validation": "local_success_44_of_44_and_remote_success_on_candidate",
+    "analytics_validation": "local_success_841_of_841_after_review_digest_correction",
+    "full_python_validation_after_cycles_018_and_019": "local_success_1115_tests_and_6_subtests",
+    "agent_foundation": "remote_success_on_candidate",
+    "e2e_user_journey": "remote_success_on_candidate",
+    "people_team_browser_acceptance": "remote_success_on_candidate",
+    "release_security": "remote_success_on_candidate",
+    "local_ollama_acceptance": "remote_success_on_candidate"
+  },
+  "interpretation_boundary": "MLEngine is a retrospectively evaluated classifier component. Its scores are not validated future-departure probabilities, individual employment decisions, causal explanations or recommended actions. Product exposure remains governed and aggregate-only until a model passes the separate release and activation controls.",
+  "remaining_scientific_limits": [
+    "The IBM synthetic holdout does not establish transportability, calibration or prospective accuracy for an organization or future time period.",
+    "Temporal and entity-separated validation, subgroup stability, drift monitoring, calibration intervals and mature-outcome follow-up remain required before stronger predictive claims.",
+    "SHAP availability and mathematical consistency do not establish causal explanation, intervention value or fairness.",
+    "The low-level preprocessed-matrix training method cannot attest upstream preprocessing isolation and remains an explicitly unvalidated compatibility surface.",
+    "No employee-level prediction list or automated employment-action recommendation is within the validated product scope."
+  ],
+  "release_gate": "Local forensic and cross-product validation is clean. Remote CI rerun, independent review and explicit owner authorization remain pending."
+}

@@ -79,7 +79,7 @@ test('scenario inputs expose bounded numeric contracts and bound select labels',
     [['analytics','departments'], {departments:[{dept:'Very long department name used to validate wrapping behavior'}]}],
     [['platform','status'], {integrity:{snapshot:{generation:'g1'}}}],
   ])
-  assert.match(html, /min="-100" max="100" step="0\.1"/)
+  assert.match(html, /min="0" max="100" step="0\.1"/)
   assert.match(html, /for="scenario-scope"/)
   assert.match(html, /id="scenario-scope"/)
 })
@@ -88,8 +88,8 @@ test('quality-of-hire omitted summary fields do not become measured zero', () =>
   const Page = require('../app/quality-of-hire/page').default
   const html = render(Page, [[['quality-of-hire','analysis'], {summary:{},source_effectiveness:[],correlations:{correlations:[]},warnings:[],recommendations:[]} ]])
   assert.match(html, /People represented[\s\S]*Unavailable/)
-  assert.match(html, /Source cohorts[\s\S]*Unavailable/)
-  assert.match(html, /Pre-hire measures[\s\S]*Unavailable/)
+  assert.match(html, /Hiring sources[\s\S]*Unavailable/)
+  assert.match(html, /Before-hire measures[\s\S]*Unavailable/)
   assert.match(html, /role="tablist"/)
   assert.match(html, /role="tab" aria-selected="true"/)
   assert.match(html, /role="tabpanel"/)

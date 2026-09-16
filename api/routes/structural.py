@@ -49,7 +49,11 @@ async def get_structural_analysis(state: AppState = Depends(require_structural))
         'span_of_control': span,
         'promotion_equity': promotion,
         'promotion_bottlenecks': bottlenecks,
-        'governance': 'Aggregate structural screening only; no employee or manager ranking is exposed.',
+        'governance': (
+            'Aggregate structural observations only. Reporting span and role-duration '
+            'metrics are not burnout, promotion-readiness, discrimination, or causal '
+            'organizational-health findings; no employee or manager ranking is exposed.'
+        ),
     })
 
 
@@ -63,9 +67,9 @@ async def get_stagnation_hotspots(state: AppState = Depends(require_structural))
     result = state.structural_engine.identify_stagnation_hotspots()
     if not isinstance(result, dict):
         return json_safe(result)
-    return {k: v for k, v in result.items() if k not in {'critical_employees', 'employees'}} | {
+    return json_safe({k: v for k, v in result.items() if k not in {'critical_employees', 'employees'}} | {
         'metric_semantics': 'aggregate_role_tenure_screening_not_employee_performance_determination'
-    }
+    })
 
 
 @router.get("/span-of-control", deprecated=True)
@@ -79,8 +83,8 @@ async def get_span_analysis(state: AppState = Depends(require_structural)):
     if not isinstance(result, dict):
         return json_safe(result)
     safe = {k: v for k, v in result.items() if k not in {'at_risk_managers', 'managers'}}
-    safe['recommendations'] = ["Use span thresholds as structural workload prompts, not a diagnosis of manager burnout."]
-    safe['metric_semantics'] = 'span_of_control_screening_not_burnout_diagnosis'
+    safe['recommendations'] = ["Use span thresholds as structural workload prompts, not as evidence of burnout, effectiveness or team health."]
+    safe['metric_semantics'] = 'recorded_reporting_span_screening_not_burnout_prediction_or_causal_health_finding'
     return json_safe(safe)
 
 

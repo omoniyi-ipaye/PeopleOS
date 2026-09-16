@@ -39,6 +39,31 @@ def pay_basis_is_confirmed(frame: pd.DataFrame) -> bool:
     return bool(currencies.notna().all() and currencies.str.fullmatch('[A-Z]{3}').all() and currencies.nunique() == 1)
 
 
+def apply_pay_declarations(
+    frame: pd.DataFrame,
+    *,
+    salary_basis: Optional[str] = None,
+    salary_currency: Optional[str] = None,
+) -> pd.DataFrame:
+    """Apply explicit upload declarations without guessing or converting money."""
+    result = frame.copy()
+    if salary_basis is not None:
+        if salary_basis != 'annual':
+            raise ValueError('Salary basis confirmation must be annual; PeopleOS does not guess conversion factors.')
+        if not any(column in result for column in ('PayPeriod', 'PayFrequency')):
+            result['PayPeriod'] = 'annual'
+    if salary_currency is not None:
+        import re
+
+        currency = salary_currency.strip().upper()
+        if not re.fullmatch('[A-Z]{3}', currency):
+            raise ValueError('Enter a three-letter reporting currency, such as EUR.')
+        if 'Currency' in result and not result['Currency'].astype('string').str.upper().eq(currency).all():
+            raise ValueError('Confirmed currency conflicts with the source Currency column. No amounts were converted.')
+        result['Currency'] = currency
+    return result
+
+
 def _prepare_predictive_inputs(state) -> None:
     """Record predictive readiness without fitting/evaluating a model."""
     state.features_df = None
@@ -68,7 +93,6 @@ def _initialize_read_only_engines(state) -> None:
     from src.insight_interpreter import InsightInterpreter
     from src.nlp_engine import NLPEngine
     from src.quality_of_hire_engine import QualityOfHireEngine
-    from src.safe_llm_client import SafeLLMClient as LLMClient
     from src.scenario_engine import ScenarioEngine
     from src.sentiment_engine import SentimentEngine
     from src.structural_engine import StructuralEngine
@@ -94,16 +118,25 @@ def _initialize_read_only_engines(state) -> None:
     state.team_dynamics_engine = safe(lambda: TeamDynamicsEngine(raw), 'TeamDynamicsEngine')
     state.vector_engine = None
 
-    try:
-        state.llm_client = LLMClient()
-        if state.llm_client.is_available:
-            state.features_enabled['llm'] = True
-        state.nlp_engine = NLPEngine(state.llm_client)
-        state.insight_interpreter = InsightInterpreter(state.llm_client)
-    except Exception as exc:
-        logger.warning('Local LLM initialization degraded: %s', exc)
+    from src.platform.ai_runtime import AIPreferencesStore
+
+    preferences = AIPreferencesStore().get()
+    if preferences['provider'] == 'ollama' and preferences['enabled']:
+        try:
+            from src.safe_llm_client import SafeLLMClient
+
+            state.llm_client = SafeLLMClient(respect_preferences=True)
+            state.features_enabled['llm'] = bool(state.llm_client.is_available)
+            state.nlp_engine = NLPEngine(state.llm_client)
+            state.insight_interpreter = InsightInterpreter(state.llm_client)
+        except Exception as exc:
+            logger.warning('Local LLM initialization degraded: %s', exc)
+            state.llm_client = None
+            state.nlp_engine = NLPEngine(None)
+            state.insight_interpreter = InsightInterpreter()
+    else:
         state.llm_client = None
-        state.nlp_engine = None
+        state.nlp_engine = NLPEngine(None)
         state.insight_interpreter = InsightInterpreter()
 
     state.survival_engine = safe(lambda: SurvivalEngine(raw), 'SurvivalEngine') if {'Tenure', 'Attrition'}.issubset(raw.columns) else None
@@ -182,7 +215,7 @@ def _populate_dataframe(
     }
 
 
-def prepare_dataframe(state, historical, *, feature_flags=None, workspace_id='local', dataset_id=None):
+def prepare_dataframe(state, historical, *, feature_flags=None, workspace_id='local', dataset_id=None, source_name=None):
     """Build an isolated candidate; failures cannot partially replace live engines."""
     candidate = SimpleNamespace(**state.__dict__)
     candidate.preprocessor = deepcopy(state.preprocessor)
@@ -203,36 +236,35 @@ def prepare_dataframe(state, historical, *, feature_flags=None, workspace_id='lo
                               'Pay outputs are unavailable. Reimport with annual pay and one shared currency declared; workforce counts remain available.'),
         'population_contract': 'observed_status' if 'Attrition' in candidate.raw_df else 'active_only_input',
     }
+    if source_name:
+        candidate.runtime_provenance['source_name'] = source_name
     result['provenance'] = candidate.runtime_provenance
     result['auxiliary_inputs_cleared'] = True
     return candidate, result
 
 
 @runtime_mutation
-def activate_dataframe(state, historical, *, feature_flags=None, workspace_id='local', dataset_id=None):
-    candidate, result = prepare_dataframe(state, historical, feature_flags=feature_flags, workspace_id=workspace_id, dataset_id=dataset_id)
+def activate_dataframe(state, historical, *, feature_flags=None, workspace_id='local', dataset_id=None, source_name=None):
+    candidate, result = prepare_dataframe(state, historical, feature_flags=feature_flags, workspace_id=workspace_id, dataset_id=dataset_id, source_name=source_name)
     state.__dict__.update(candidate.__dict__)
     return result
 
 
 @runtime_mutation
-def load_dataset(state, file_path: str, file_name: str = 'upload', *, salary_basis=None, salary_currency=None) -> Dict[str, Any]:
+def load_dataset(
+    state,
+    file_path: str,
+    file_name: str = 'upload',
+    *,
+    salary_basis=None,
+    salary_currency=None,
+    column_mapping=None,
+    mapping_methods=None,
+) -> Dict[str, Any]:
     """Activate a complete upload as its own snapshot; never blend workspaces via SQLite."""
     loader = deepcopy(state.data_loader)
-    frame = loader.load(file_path)
-    if salary_basis is not None:
-        if salary_basis != 'annual':
-            raise ValueError('Salary basis confirmation must be annual; PeopleOS does not guess conversion factors.')
-        if not any(column in frame for column in ('PayPeriod', 'PayFrequency')):
-            frame['PayPeriod'] = 'annual'
-    if salary_currency is not None:
-        import re
-        currency = salary_currency.strip().upper()
-        if not re.fullmatch('[A-Z]{3}', currency):
-            raise ValueError('Enter a three-letter reporting currency, such as EUR.')
-        if 'Currency' in frame and not frame['Currency'].astype('string').str.upper().eq(currency).all():
-            raise ValueError('Confirmed currency conflicts with the source Currency column. No amounts were converted.')
-        frame['Currency'] = currency
+    frame = loader.load(file_path, column_mapping=column_mapping, mapping_methods=mapping_methods)
+    frame = apply_pay_declarations(frame, salary_basis=salary_basis, salary_currency=salary_currency)
     activation = activate_dataframe(state, frame, feature_flags=loader.features_enabled.copy())
     state.data_loader = loader
     activation['merge_result'] = None

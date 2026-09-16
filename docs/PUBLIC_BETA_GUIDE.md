@@ -88,7 +88,11 @@ npm run dev -- --hostname 127.0.0.1
 
 Open [PeopleOS](http://127.0.0.1:3000). The UI development proxy expects the API on port 8000. [API health](http://127.0.0.1:8000/api/health) and [API documentation](http://127.0.0.1:8000/docs) help diagnose startup problems. Stop each process with Ctrl+C when finished.
 
-For optional embeddings/search, `python -m pip install -r requirements-advanced.txt` installs the advanced tier, including core. Optional local synthesis requires a separately installed and running Ollama server and a compatible model. Deterministic investigation summaries remain available without it; installing an LLM is not a prerequisite for this walkthrough.
+For optional embeddings/search, `python -m pip install -r requirements-advanced.txt` installs the advanced tier, including core. After activation, open `/search` and choose **Prepare semantic search**. The pinned model is loaded on demand and the FAISS index remains process-memory only, so prepare it again after an API restart or dataset activation.
+
+Optional local synthesis is owner-controlled. On the first-run screen or in **Settings**, leave **Use local AI assistance** off for deterministic mode, or choose a local Ollama model and **Set up automatically**. PeopleOS starts Ollama when needed, downloads the selected model only if it is missing, then tests it with a fixed prompt that contains no workforce data. The same flow can be run from the repository root with `python scripts/setup_local_llm.py` (use `--model MODEL_NAME` to choose a model); if the API is running, the script refreshes its in-memory preference, otherwise restart the API afterward. Ollama and model weights are not bundled with the archive. If Ollama is missing, use the [official download page](https://ollama.com/download). Deterministic investigation summaries remain available when local AI is off or unavailable.
+
+WebLLM is shown as an experimental informational option. It can run a model inside a WebGPU-capable browser after downloading model assets to browser storage, but it is separate from the governed FastAPI/Ollama path and is not enabled as a workforce-data provider in this beta.
 
 ## First run with fictional data
 
@@ -104,7 +108,9 @@ The sample button is disabled when a dataset is already active. Use a separate t
 
 Use synthetic or appropriately de-identified test data for beta feedback. Never upload workforce files, database copies or employee screenshots to public issues.
 
-The upload route accepts **CSV or JSON**, not Excel files. Download the current Golden Schema template from Data & Sources or [the source-run template endpoint](http://127.0.0.1:8000/api/upload/template) (packaged users should use the Data & Sources button at the app’s actual port). The source template is [peopleos_template.csv](../data/templates/peopleos_template.csv). Follow the template and validation messages for required fields, types and optional capabilities. Historical analysis needs genuine dated observations; a single current snapshot cannot establish a historical trend.
+The upload route accepts **CSV, JSON and Excel (`.xlsx`)** files. Download the current Golden Schema template from Data & Sources or [the source-run template endpoint](http://127.0.0.1:8000/api/upload/template) (packaged users should use the Data & Sources button at the app’s actual port). The source template is [peopleos_template.csv](../data/templates/peopleos_template.csv). Follow the template and validation messages for required fields, types and optional capabilities. Historical analysis needs genuine dated observations; a single current snapshot cannot establish a historical trend.
+
+Every file first opens a non-mutating **Import review**. PeopleOS proposes deterministic aliases and makes every source-column meaning visible with a few local examples. If you explicitly ask for local AI assistance, the mapper receives column names plus shape/type metadata only—not workforce cell values—and its suggestions remain marked for human review. You can change any target to **Not used** or another canonical field, run the integrity check again, and activate only after confirming the mapping. A preview never replaces the active workforce; activation creates a new governed dataset version and preserves the previous version in lifecycle history.
 
 ### Declare salary units before pay analysis
 

@@ -1,7 +1,7 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import React, { useEffect } from 'react'
+import { motion } from 'framer-motion'
 import { Brain } from 'lucide-react'
 
 export interface SplashScreenProps {
@@ -9,17 +9,12 @@ export interface SplashScreenProps {
 }
 
 export const SplashScreen: React.FC<SplashScreenProps> = ({ finishLoading }) => {
-    const [isMounted, setIsMounted] = useState(false)
-
     useEffect(() => {
-        setIsMounted(true)
         const timeout = setTimeout(() => {
             if (finishLoading) finishLoading()
         }, 2500)
         return () => clearTimeout(timeout)
     }, [finishLoading])
-
-    if (!isMounted) return null
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950 overflow-hidden">

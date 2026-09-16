@@ -1,10 +1,11 @@
 'use client'
 
 import Link from 'next/link'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Database, RefreshCw, ShieldCheck } from 'lucide-react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Database, LockKeyhole, RefreshCw, ShieldCheck } from 'lucide-react'
 import { api } from '@/lib/api-client'
 import { Button } from '@/components/ui/button'
+import { type AppLockStatus } from '@/components/app-lock'
 
 interface PlatformStatus {
   integrity?: { snapshot?: { source_rows?: number; active_rows?: number } }
@@ -21,6 +22,11 @@ export function Header() {
     queryFn: () => api.getStatus() as Promise<PlatformStatus>,
     refetchInterval: 30_000,
   })
+  const appLock = useQuery<AppLockStatus>({ queryKey: ['app-lock', 'status'], queryFn: api.appLock.getStatus, retry: false })
+  const lockMutation = useMutation({
+    mutationFn: api.appLock.lock,
+    onSuccess: next => queryClient.setQueryData(['app-lock', 'status'], next),
+  })
 
   const hasData = Boolean(status?.data?.loaded)
   const activeModel = Boolean(status?.capabilities?.predictive_model)
@@ -33,6 +39,7 @@ export function Header() {
         {hasData && <><span aria-hidden="true">·</span><span className="hidden sm:inline">{activeModel ? 'experimental model available' : 'evidence-first analysis'}</span></>}
       </div>
       <div className="flex items-center gap-1">
+        {appLock.data?.enabled && <Button variant="ghost" size="sm" aria-label="Lock app" disabled={lockMutation.isPending} onClick={() => lockMutation.mutate()}><LockKeyhole className="h-3.5 w-3.5" />Lock</Button>}
         <Link href="/platform" className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-text-muted transition hover:bg-background-secondary hover:text-text-primary">
           <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />Trust
         </Link>

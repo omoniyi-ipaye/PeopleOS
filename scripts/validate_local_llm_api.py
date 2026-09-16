@@ -10,6 +10,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import socket
 import subprocess
 import sys
@@ -23,20 +24,35 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 
-def run(report):
+def run(report, requested_model=None):
     import httpx
     import uvicorn
     from src.utils import load_config
+    from src.platform.ai_runtime import probe_ollama
     config = load_config()['ollama']
-    report['configuration'] = config
-    if urlparse(config['host']).hostname not in {'localhost', '127.0.0.1', '::1'} or config['model'].endswith('-cloud'):
+    selected_model = requested_model or config['model']
+    selection_source = 'explicit_argument' if requested_model else 'config_default'
+    if not requested_model:
+        probe = probe_ollama(config['host'], config['model'])
+        selected_model = probe.get('recommended_model') or config['model']
+        if selected_model != config['model']:
+            selection_source = 'installed_local_model_recommendation'
+    report['configuration'] = {**config, 'model': selected_model, 'model_selection_source': selection_source}
+    model_tag = selected_model.rsplit('/', 1)[-1]
+    if urlparse(config['host']).hostname not in {'localhost', '127.0.0.1', '::1'} or model_tag.endswith((':cloud', '-cloud')):
         raise RuntimeError('Only loopback installed local models are accepted')
     with urlopen(config['host'] + '/api/version', timeout=5) as response:
         report['runtime_version'] = json.load(response)
     from api.main import app
     from api.runtime_registry import get_local_state
+    from src.platform.ai_runtime import AIPreferencesStore
     # Only the fictional CSV generator is shared; no cloud transport is created.
     from scripts.validate_cloud_llm import fictional_roster
+    # The product defaults to deterministic mode until the owner opts in.
+    # Exercise that same explicit preference boundary before loading the
+    # production runtime instead of treating an installed model as implicit
+    # consent.
+    AIPreferencesStore().update(enabled=True, model=selected_model)
     sock = socket.socket()
     sock.bind(('127.0.0.1', 0))
     port = sock.getsockname()[1]
@@ -49,7 +65,11 @@ def run(report):
             if time.monotonic() >= deadline:
                 raise RuntimeError('Local API startup timed out')
             time.sleep(.05)
-        with httpx.Client(base_url=f'http://127.0.0.1:{port}', timeout=60, trust_env=False) as api:
+        # A cold CPU model can spend longer than the discovery timeout loading
+        # and completing a bounded narrative. Match the production transport's
+        # 180-second generation ceiling so this harness measures the API result
+        # rather than the harness client impatience.
+        with httpx.Client(base_url=f'http://127.0.0.1:{port}', timeout=180, trust_env=False) as api:
             upload = api.post('/api/upload', files={'file': ('synthetic-local.csv', fictional_roster(), 'text/csv')})
             upload.raise_for_status()
             client = get_local_state().llm_client
@@ -57,6 +77,18 @@ def run(report):
             report['model_digest'] = getattr(client, 'model_digest', None)
             if client is None or not client.is_available or not report['model_digest']:
                 raise RuntimeError('Production runtime did not initialize an installed local model with digest')
+            # Keep the production transport and verifier intact, but retain
+            # the synthetic completion so a failed acceptance run can be
+            # diagnosed without guessing what the local model returned.
+            report['raw_completions'] = []
+            original_generate = client.generate
+
+            def record_generate(*args, **kwargs):
+                generated = original_generate(*args, **kwargs)
+                report['raw_completions'].append(generated)
+                return generated
+
+            client.generate = record_generate
             baseline = api.get('/api/analytics/summary')
             baseline.raise_for_status()
             report['independent_fixture'] = {'source_rows': 120, 'active_count': 80, 'api_summary': baseline.json()}
@@ -66,10 +98,12 @@ def run(report):
             result = response.json()
             items = [e for t in result['evidence']['tool_results'] for e in t['evidence']]
             cited_headcount = any(e['metric'] == 'headcount' and e['value'] == 80 and
-                f"[{e['evidence_id']}; {e['source_tool']}]" in result['answer'] for e in items)
+                (f"[{e['evidence_id']}]" in result['answer'] or
+                 f"[{e['evidence_id']}; {e['source_tool']}]" in result['answer']) for e in items)
             passed = (baseline.json()['headcount'] == 80 and cited_headcount and
-                result.get('model') == config['model'] and
-                'Current active employee count: 80' in result['answer'] and
+                result.get('model') == selected_model and
+                result.get('synthesis_mode') == 'grounded_llm' and
+                re.search(r'(?:\bactive\s+(?:employee\s+count|headcount)\s+is\s+80\b|\b80\s+active\s+employees?\b)', result['answer'], re.IGNORECASE) is not None and
                 not any('failed verification' in w for w in result.get('warnings', [])))
             report['cases'].append({'name': 'live_api_local_headcount', 'passed': passed, 'response': result})
             report['status'] = 'passed' if passed else 'failed'
@@ -82,6 +116,7 @@ def run(report):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', required=True, type=Path)
+    parser.add_argument('--model', help='Optional installed local Ollama model override')
     args = parser.parse_args()
     report = {'timestamp_utc': datetime.now(timezone.utc).isoformat(), 'status': 'incomplete', 'cases': [],
         'commit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
@@ -96,7 +131,7 @@ def main():
             os.environ['PEOPLEOS_HOME'] = home
             os.environ['PEOPLEOS_WORKSPACE_REGISTRY'] = str(Path(home) / 'workspaces.json')
             os.environ['PEOPLEOS_AGENT_AUDIT_PATH'] = str(Path(home) / 'audit.jsonl')
-            run(report)
+            run(report, args.model)
     except Exception as exc:
         report['status'] = 'failed'
         report['harness_error'] = {'type': type(exc).__name__, 'message': str(exc)}

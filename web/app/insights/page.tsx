@@ -50,14 +50,14 @@ export default function InsightsPage() {
     {
       title: 'Retention',
       description: platform.data?.capabilities?.predictive_model ? 'Aggregate model-score patterns and cohort retention evidence.' : 'Recorded attrition and cohort retention evidence. Predictive insights remain optional.',
-      href: '/flight-risk',
+      href: '/retention-forecast',
       icon: BarChartHorizontal,
       available: hasData,
     },
     {
       title: 'Compensation',
       description: 'Salary distribution, dispersion and pay-gap screening with explicit coverage.',
-      href: '/workforce-health',
+      href: '/advisor?q=Average%20salary%20by%20department',
       icon: Activity,
       available: hasData && features.compensation !== false,
       unavailableLabel: hasData ? 'Confirm annual pay and currency in Data' : 'Add workforce data first',
@@ -79,7 +79,7 @@ export default function InsightsPage() {
   ]
 
   return <Page>
-    <PageHeader eyebrow="Insights" title="What would you like to understand?" description="PeopleOS adapts to the data you have. Open an available area, or ask a question and let PeopleOS choose the right evidence." />
+    <PageHeader eyebrow="Insights" title="What would you like to understand?" description="PeopleOS adapts to the data you have. Open an available area, or ask a question and let PeopleOS choose the right evidence." actions={<Link href="/advisor" className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"><Sparkles className="h-4 w-4" />Ask PeopleOS</Link>} />
 
     {upload.isLoading || platform.isLoading ? <StateSummary title="Checking what your data supports" description="PeopleOS is preparing the insight areas available for this dataset." tone="info" /> : !hasData ? <EmptyState title="Add data to unlock your insights" description="Start with the fictional sample or add your own workforce file. PeopleOS only shows conclusions your data can support." action={<Link href="/upload" className="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white">Add workforce data <ArrowRight className="h-4 w-4" /></Link>} /> : null}
 
