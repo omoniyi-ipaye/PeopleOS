@@ -232,7 +232,7 @@ export const api = {
 
   // Governed People Intelligence endpoints
   intelligence: {
-    investigate: (request: { question: string; dataset_version?: string }, signal?: AbortSignal) =>
+    investigate: (request: { question: string; dataset_version?: string; agentic?: boolean }, signal?: AbortSignal) =>
       fetchAPI('/api/intelligence/investigate', {
         method: 'POST',
         signal,

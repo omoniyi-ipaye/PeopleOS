@@ -36,8 +36,9 @@ def workforce(tmp_path, monkeypatch):
     )
 
 
-def test_registry_exposes_only_the_seven_governed_aggregate_tools(workforce):
-    assert set(PeopleIntelligenceAgent(workforce).registry.list_ids()) == {
+def test_registry_exposes_base_tools_and_the_full_governed_read_catalog(workforce):
+    registered = set(PeopleIntelligenceAgent(workforce).registry.list_ids())
+    assert {
         "workforce.summary",
         "workforce.department_risk",
         "workforce.retention_risk",
@@ -45,7 +46,26 @@ def test_registry_exposes_only_the_seven_governed_aggregate_tools(workforce):
         "workforce.fairness",
         "workforce.employee_experience",
         "workforce.organization_structure",
-    }
+    } <= registered
+    assert {
+        "system.data_profile",
+        "system.runtime_status",
+        "workforce.analytics_detail",
+        "workforce.compensation_detail",
+        "workforce.quality_of_hire",
+        "workforce.sentiment",
+        "workforce.nlp",
+        "workforce.succession",
+        "workforce.survival",
+        "workforce.team_dynamics",
+        "workforce.scenario_library",
+        "workforce.predictive_detail",
+        "workforce.semantic_search",
+        "workforce.network",
+        "workforce.causal",
+        "workforce.clustering",
+        "workforce.forecasting",
+    } <= registered
 
 
 @pytest.mark.parametrize("question", [

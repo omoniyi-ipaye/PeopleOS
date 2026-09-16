@@ -10,6 +10,7 @@ import json
 from typing import Any
 
 from src.agent.policy import HRAdvicePolicy, PolicyViolation
+from src.agent.selector import TOOL_PLAN_PROMPT_PREFIX
 from src.llm_client import LLMClient, LLMClientError
 from src.logger import get_logger
 
@@ -20,10 +21,13 @@ _SELECTOR_PROMPT_PREFIX = "Select relevant evidence for a governed PeopleOS inve
 _NARRATIVE_PROMPT_PREFIX = "Compose a grounded PeopleOS answer after the analytical phase."
 _SELECTOR_DATA_MARKER = "\nREQUEST_DATA:\n"
 _SELECTOR_MAX_TOKENS = 256
+_TOOL_PLAN_MAX_TOKENS = 120
+_TOOL_PLAN_TIMEOUT_SECONDS = 20.0
 # Narrative answers are intentionally concise: the analytical result, chart
 # and evidence drawer carry the detail, while this bounded completion keeps a
 # local CPU pilot responsive and leaves server-side verification in control.
 _NARRATIVE_MAX_TOKENS = 160
+_NARRATIVE_TIMEOUT_SECONDS = 75.0
 _SELECTOR_REQUIRED_PREFIXES = {
     "headcount": ("Current active employee count:",),
     "observed_attrition_share": ("Observed attrition share:",),
@@ -128,23 +132,34 @@ class SafeLLMClient(LLMClient):
 
     def generate(self, prompt: str, **kwargs: Any) -> Any:
         """Generate safely, with strict JSON for governed selection or narration."""
-        json_prompt = prompt.startswith((_SELECTOR_PROMPT_PREFIX, _NARRATIVE_PROMPT_PREFIX))
+        json_prompt = prompt.startswith((_SELECTOR_PROMPT_PREFIX, _NARRATIVE_PROMPT_PREFIX, TOOL_PLAN_PROMPT_PREFIX))
         if json_prompt:
             if not self.is_available or self.client is None:
                 raise LLMClientError("LLM client not available")
             caller_options = kwargs.get("options", {})
-            max_tokens = _SELECTOR_MAX_TOKENS if prompt.startswith(_SELECTOR_PROMPT_PREFIX) else _NARRATIVE_MAX_TOKENS
+            if prompt.startswith(_SELECTOR_PROMPT_PREFIX):
+                max_tokens = _SELECTOR_MAX_TOKENS
+            elif prompt.startswith(TOOL_PLAN_PROMPT_PREFIX):
+                max_tokens = _TOOL_PLAN_MAX_TOKENS
+            else:
+                max_tokens = _NARRATIVE_MAX_TOKENS
             options = {
                 "num_predict": min(int(caller_options.get("num_predict", max_tokens)), max_tokens),
                 **{key: value for key, value in caller_options.items() if key != "num_predict"},
             }
             transport_prompt = _compact_selector_prompt(prompt) if prompt.startswith(_SELECTOR_PROMPT_PREFIX) else prompt
+            generation_timeout = (
+                _TOOL_PLAN_TIMEOUT_SECONDS
+                if prompt.startswith(TOOL_PLAN_PROMPT_PREFIX)
+                else _NARRATIVE_TIMEOUT_SECONDS
+            )
             try:
                 response = self.client.generate(
                     model=self.model,
                     prompt=transport_prompt,
                     format="json",
                     options=options,
+                    _generation_timeout=generation_timeout,
                 )
                 generated = response.get("response", "") if isinstance(response, dict) else ""
             except LLMClientError:

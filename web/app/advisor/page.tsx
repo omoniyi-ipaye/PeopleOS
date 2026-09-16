@@ -190,7 +190,7 @@ function PeopleIntelligencePageContent() {
     const abort = new AbortController()
     const turnId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
     let timedOut = false
-    const timeout = window.setTimeout(() => { timedOut = true; abort.abort() }, 90_000)
+    const timeout = window.setTimeout(() => { timedOut = true; abort.abort() }, 120_000)
     controller.current = abort
     activeTurnRef.current = turnId
     setActiveTurnId(turnId)
@@ -206,7 +206,7 @@ function PeopleIntelligencePageContent() {
       if (refreshed.isError || !captured || refreshed.data?.data?.loaded !== true || refreshed.data.integrity?.status !== 'verified') {
         throw new Error('PeopleOS could not verify the current workforce snapshot. Refresh the connection and retry.')
       }
-      const answer = await api.intelligence.investigate({ question: prompt, dataset_version: captured.dataset_id }, abort.signal) as AgentAnswer
+      const answer = await api.intelligence.investigate({ question: prompt, dataset_version: captured.dataset_id, agentic: true }, abort.signal) as AgentAnswer
       if (!abort.signal.aborted) {
         setResult({ answer, generation: captured.generation, reportingCurrency: captured.reporting_currency, source: `${captured.source_name ?? 'Current workforce'}${captured.dataset_version == null ? '' : ` · version ${captured.dataset_version}`}` })
         setConversationHistory(current => current.map(turn => turn.id === turnId ? { ...turn, status: 'complete', answer } : turn))

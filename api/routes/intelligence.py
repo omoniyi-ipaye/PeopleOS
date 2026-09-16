@@ -12,6 +12,7 @@ from api.authorization import require_permission
 from api.dependencies import AppState, get_app_state
 from src.agent.orchestrator import AgentAnswer
 from src.agent.governed_agent import GovernedPeopleIntelligenceAgent
+from src.agent.tools import AgentToolDescriptor
 from src.platform.workspace import WorkspaceStore
 from src.platform.provenance import IntegrityError, require_dataset_identity
 
@@ -25,6 +26,7 @@ class InvestigationRequest(BaseModel):
     workspace_id: str = "local"
     dataset_version: Optional[str] = None
     session_id: Optional[str] = None
+    agentic: bool = True
 
 
 def require_dataset(state: AppState = Depends(get_app_state)) -> AppState:
@@ -38,10 +40,37 @@ async def capabilities(request: Request, state: AppState = Depends(get_app_state
     require_permission(request, "workspace.read")
     agent = GovernedPeopleIntelligenceAgent(state)
     workspace = _store.ensure_workspace("local", "Local workspace")
+    tool_catalog = agent.registry.list_descriptors()
+    tool_catalog.append(AgentToolDescriptor(
+        tool_id=agent.derived_tool.tool_id,
+        description=agent.derived_tool.description,
+        engine='analysis_sandbox',
+        api_routes=('/api/intelligence/investigate',),
+        availability='available',
+    ).as_dict())
     return {
         "agent": "People Intelligence Agent",
         "mode": "governed-read-only",
-        "tools": agent.registry.list_ids() + [agent.derived_tool.tool_id],
+        "tools": [item['tool_id'] for item in tool_catalog],
+        "tool_catalog": tool_catalog,
+        # The catalog is the source of truth for the read surfaces. Keeping
+        # this list aligned with the executable registry prevents a capability
+        # response from claiming less (or more) access than the agent has.
+        "api_read_surfaces": tool_catalog,
+        "agentic_tool_selection": {
+            "enabled": True,
+            "execution_order": "deterministic_plan_then_local_model_selection_then_grounded_explanation",
+            "max_additional_tools": 4,
+            "model_can_select": "allowlisted read-only tool IDs only",
+        },
+        "data_access": {
+            "full_active_snapshot_internal_read": True,
+            "model_context": "schema_and_redacted_aggregate_evidence",
+            "raw_records_to_model": False,
+            "employee_identifiers_to_model": False,
+            "free_text_to_model": False,
+            "reason": "PeopleOS scans the complete snapshot in-process for governed calculations, then redacts row-level and free-text material before local-model interpretation.",
+        },
         "policy": agent.policy.policy_id,
         "llm_available": bool(getattr(state, "llm_client", None) and getattr(state.llm_client, "is_available", False)),
         "derived_analysis": {
@@ -130,6 +159,7 @@ async def _run_investigation(
         dataset_version=dataset_id,
         model_version=model_id,
         record_audit=record_audit,
+        agentic=payload.agentic,
     )
     if persist_session:
         with RUNTIME_MUTATION_LOCK:

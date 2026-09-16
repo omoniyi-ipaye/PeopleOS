@@ -48,6 +48,7 @@ class _OllamaTransport:
             return False
 
     def generate(self, *args: Any, **kwargs: Any) -> Any:
+        generation_timeout = kwargs.pop('_generation_timeout', None)
         if self._legacy_native_client and not self._native_think:
             model = kwargs.get('model') or (args[0] if args else '')
             prompt = kwargs.get('prompt') or (args[1] if len(args) > 1 else '')
@@ -65,7 +66,11 @@ class _OllamaTransport:
                 # timeout, especially for a large local model after Ollama
                 # has just started. Keep the app's ready check responsive but
                 # give an actual bounded generation enough time to complete.
-                timeout=max(self._timeout, _OLLAMA_GENERATION_TIMEOUT_SECONDS),
+                timeout=(
+                    max(0.1, float(generation_timeout))
+                    if generation_timeout is not None
+                    else max(self._timeout, _OLLAMA_GENERATION_TIMEOUT_SECONDS)
+                ),
             )
         if self._native_think:
             kwargs = {'think': False, **kwargs}

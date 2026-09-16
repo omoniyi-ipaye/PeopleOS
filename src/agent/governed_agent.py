@@ -6,7 +6,7 @@ from uuid import uuid4
 
 from src.agent.derived_analysis import GovernedDerivedAnalysisTool, plan_derived_analysis
 from src.agent.evidence import EvidenceSufficiency, ToolResultStatus
-from src.agent.orchestrator import AgentAnswer, PeopleIntelligenceAgent
+from src.agent.orchestrator import AgentAnswer, PeopleIntelligenceAgent, _SynthesisResult
 from src.agent.policy import PolicyViolation
 from src.agent.tools import ToolContext
 
@@ -20,20 +20,35 @@ class GovernedPeopleIntelligenceAgent(PeopleIntelligenceAgent):
 
     def investigate(self, question: str, *, actor_id: Optional[str] = None, workspace_id: Optional[str] = None,
                     dataset_version: Optional[str] = None, model_version: Optional[str] = None,
-                    record_audit: bool = True) -> AgentAnswer:
+                    record_audit: bool = True, agentic: bool = False) -> AgentAnswer:
         spec = plan_derived_analysis(question)
         if spec is None:
             return super().investigate(question, actor_id=actor_id, workspace_id=workspace_id,
                                        dataset_version=dataset_version, model_version=model_version,
-                                       record_audit=record_audit)
+                                       record_audit=record_audit, agentic=agentic)
 
         request_id = f"pia_{uuid4().hex}"
         context = ToolContext(request_id=request_id, actor_id=actor_id, workspace_id=workspace_id,
                               dataset_version=dataset_version, parameters={'analysis_spec': spec.model_dump()})
         result = self.derived_tool.execute(context)
-        bundle = self.aggregator.aggregate(question, [result], workspace_id=workspace_id,
+        results = [result]
+        tools_used = [self.derived_tool.tool_id]
+        agentic_warnings = []
+        if agentic and result.status == ToolResultStatus.SUCCESS and self._should_expand_tool_plan(question, None):
+            additional_results, additional_ids, selection_warnings = self._run_agentic_read_tools(
+                question,
+                context,
+                completed_tool_ids=tools_used,
+                completed_results=results,
+            )
+            results.extend(additional_results)
+            tools_used.extend(additional_ids)
+            agentic_warnings.extend(selection_warnings)
+
+        bundle = self.aggregator.aggregate(question, results, workspace_id=workspace_id,
                                            dataset_version=dataset_version, model_version=model_version)
-        warnings = list(result.warnings)
+        warnings = list(result.warnings) + list(agentic_warnings)
+        warnings.extend(item for item in bundle.unknowns if item not in warnings)
 
         if result.status == ToolResultStatus.SUCCESS and result.evidence:
             bundle.sufficiency = EvidenceSufficiency.SUFFICIENT
@@ -41,19 +56,26 @@ class GovernedPeopleIntelligenceAgent(PeopleIntelligenceAgent):
             deterministic_answer = self._render_derived_answer(
                 spec.model_dump(), result.evidence[0].value, reporting_currency=reporting_currency
             )
-            synthesis = self._synthesize(
-                question,
-                f"typed {spec.operation.replace('_', ' ')} analysis",
-                bundle,
-                required_metrics=[],
-                fallback_answer=deterministic_answer,
-            )
+            if agentic_warnings:
+                synthesis = _SynthesisResult(answer=deterministic_answer, model=None)
+                warnings.append('Probabilistic synthesis skipped because optional agentic selection did not complete.')
+            else:
+                synthesis = self._synthesize(
+                    question,
+                    f"typed {spec.operation.replace('_', ' ')} analysis" + (
+                        f"; the local agent added read checks: {', '.join(tools_used[1:])}"
+                        if len(tools_used) > 1 else ''
+                    ),
+                    bundle,
+                    required_metrics=[],
+                    fallback_answer=deterministic_answer,
+                )
             answer = synthesis.answer
             model = synthesis.model
             synthesis_mode = synthesis.mode
             cited_evidence_ids = synthesis.cited_evidence_ids
             warnings.extend(synthesis.warnings)
-            status = 'complete'
+            status = 'partial' if any(item.status != ToolResultStatus.SUCCESS for item in results[1:]) else 'complete'
         else:
             bundle.sufficiency = EvidenceSufficiency.INSUFFICIENT
             reason = result.warnings[0] if result.warnings else 'The current data does not support this calculation.'
@@ -74,12 +96,11 @@ class GovernedPeopleIntelligenceAgent(PeopleIntelligenceAgent):
             status = 'insufficient'; bundle.sufficiency = EvidenceSufficiency.INSUFFICIENT
             warnings.append('Derived output was blocked by HR advice policy.')
 
-        tools_used = [self.derived_tool.tool_id]
         next_actions = self._next_actions(question, status=status)
         agent_steps = self._build_agent_steps(
             rationale=f"typed {spec.operation.replace('_', ' ')} analysis",
             tool_ids=tools_used,
-            results=[result],
+            results=results,
             bundle=bundle,
             model=model,
             synthesis_mode=synthesis_mode,
@@ -94,7 +115,7 @@ class GovernedPeopleIntelligenceAgent(PeopleIntelligenceAgent):
         if record_audit:
             try:
                 self.audit.record(request_id=request_id, question=question, status=status, confidence=response.confidence,
-                                  tools_used=response.tools_used, tool_results=[result], model=model,
+                                  tools_used=response.tools_used, tool_results=results, model=model,
                                   policy_id=self.policy.policy_id, policy_blocked=False, workspace_id=workspace_id,
                                   dataset_version=dataset_version, actor_id=actor_id)
             except Exception as exc:
