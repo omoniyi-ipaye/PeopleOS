@@ -16,7 +16,7 @@ This is a local, single-user People analytics pilot. Multi-user hosting, real em
 - Enabled main protection: up-to-date passing required checks, pull requests, administrator enforcement, conversation resolution, and no force pushes or deletion. No independent human approval is claimed.
 - Corrected shutdown instructions: packaged Settings provides Quit PeopleOS and Restart app; closing a browser tab does not stop the local backend.
 
-Local validation passed: 1,240 Python tests plus 6 subtests (38 warnings), 54 frontend renderer/tooling tests, lint, design governance, production build, zero-advisory full dependency audit, and 30 desktop/mobile browser journeys including light/dark and keyboard-focus checks. Exact counts and final remote checks are recorded in PR #18. Remote checks additionally exercise actual local CPU AI, all engine forensic suites and Windows, macOS ARM64 and Linux packages.
+Local validation passed: 1,240 Python tests plus 6 subtests (38 warnings), 61 frontend renderer/tooling tests, lint, design governance, production build, zero-advisory full dependency audit, and 30 desktop/mobile browser journeys including light/dark and keyboard-focus checks. Exact counts and final remote checks are recorded in PR #18. Remote checks additionally exercise actual local CPU AI, all engine forensic suites and Windows, macOS ARM64 and Linux packages.
 
 The browser requirements are Safari 16.4+, Chrome 111+ or Firefox 128+ due to Tailwind 4. Existing source-available commercial-use restrictions remain in effect.
 
