@@ -338,7 +338,7 @@ test('the owner can set, lock and unlock the local PeopleOS installation', async
 test('light and dark themes preserve readable surfaces and keyboard focus', async ({ page }) => {
   await upload(page)
   // Tailwind 4 uses perceptual CSS colors; inspect their rendered sRGB pixels.
-  const surfaceBrightness = () => page.locator('body').evaluate((body) => {
+  const surfaceBrightness = (surface = page.locator('body')) => surface.evaluate((body) => {
     const context = document.createElement('canvas').getContext('2d')!
     context.fillStyle = getComputedStyle(body).backgroundColor
     context.fillRect(0, 0, 1, 1)
@@ -353,7 +353,10 @@ test('light and dark themes preserve readable surfaces and keyboard focus', asyn
   await expect(action).toHaveCSS('outline-style', 'solid')
   await expect(action).toHaveCSS('outline-width', '2px')
   await page.evaluate(() => document.documentElement.classList.add('dark'))
-  await expect.poll(surfaceBrightness).toBeLessThan(60)
+  await expect.poll(() => surfaceBrightness()).toBeLessThan(60)
+  await expect.poll(() => surfaceBrightness(action)).toBeGreaterThan(730)
+  const sidebar = page.getByRole('complementary')
+  if (await sidebar.isVisible()) await expect.poll(() => surfaceBrightness(sidebar)).toBeLessThan(60)
   await expect(action).toBeVisible()
   await noHorizontalOverflow(page)
   await shot(page, 'pilot-dark-theme')
