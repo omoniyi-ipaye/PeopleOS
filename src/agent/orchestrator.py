@@ -634,6 +634,17 @@ class PeopleIntelligenceAgent:
                 raise ValueError("unknown or repeated evidence reference")
             if not isinstance(step, str) or step not in next_steps:
                 raise ValueError("unapproved next step")
+            # Small local models may group references as [e1, e2]. Normalize
+            # only syntax here; the existing ledger/selection checks below
+            # must still validate every individual reference before use.
+            def normalize_citation(match):
+                tokens = [token.strip() for token in match.group(1).split(",")]
+                if any(not token or token not in ids or
+                       (token not in narrative_ledger and token not in ledger) for token in tokens):
+                    raise ValueError("narrative contains an unknown or unselected evidence citation")
+                return "".join(f"[{token}]" for token in tokens)
+
+            answer = re.sub(r"\[([^\[\]]+)\]", normalize_citation, answer)
             citation_tokens = re.findall(r"\[([^\[\]]+)\]", answer)
             if not citation_tokens or any(token not in narrative_ledger and token not in ledger for token in citation_tokens):
                 raise ValueError("narrative contains an unknown or missing evidence citation")

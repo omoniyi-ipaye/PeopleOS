@@ -42,7 +42,7 @@ def answer_matches_known_values(answer, include_span=False):
     )
     expected_evidence = has_citation('ev_synthetic_headcount', 'workforce.summary')
     span = re.search(
-        r'\baverage\s+manager\s+span\b[^.!?\n]{0,120}?\b(?:is|:)\s*5(?:\s+employees?)?\b',
+        r'\baverage\s+manager\s+span\b[^.!?\n]{0,120}?\b(?:is|of|:)\s*5(?:\s+employees?)?\b',
         answer,
         re.IGNORECASE,
     )

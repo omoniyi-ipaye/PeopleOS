@@ -202,3 +202,12 @@ def test_acceptance_oracle_rejects_changed_numbers_injected_labels_and_missing_s
     assert not answer_matches_known_values(headcount + '\n999999')
     assert not answer_matches_known_values(headcount.replace('Current active employee count', 'Injected label'))
     assert not answer_matches_known_values(headcount, include_span=True)
+
+
+def test_acceptance_oracle_handles_observed_multi_source_cpu_narrative():
+    from scripts.validate_local_llm import answer_matches_known_values
+    answer = ("The organization currently has 80 active employees with an average manager span of control of 5 "
+              "[ev_synthetic_headcount][ev_synthetic_span].")
+    assert answer_matches_known_values(answer, include_span=True)
+    assert not answer_matches_known_values(answer.replace("of 5", "of 6"), include_span=True)
+    assert not answer_matches_known_values(answer.replace("[ev_synthetic_span]", ""), include_span=True)
