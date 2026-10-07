@@ -104,6 +104,9 @@ export interface UploadStatus {
     has_data: boolean
     employee_count: number
     features_enabled: Record<string, boolean>
+    active_dataset_id?: string | null
+    dataset_version?: number | null
+    source_name?: string | null
     reporting_currency?: string | null
     data?: {
         loaded: boolean
@@ -118,6 +121,46 @@ export interface UploadResponse {
     rows_loaded: number
     columns: string[]
     features_enabled: Record<string, boolean>
+    workspace_id?: string
+    dataset_id?: string | null
+    dataset_version?: number | null
+    deferred?: Record<string, boolean>
+    mapping_report?: Record<string, unknown> | null
+}
+
+export interface ColumnMappingPreview {
+    source: string
+    target?: string | null
+    method: string
+    confidence: number
+    required: boolean
+    status: 'mapped' | 'needs_review' | 'unmapped' | string
+    sample_values: string[]
+    reason?: string | null
+}
+
+export interface LLMMappingPreview {
+    requested: boolean
+    available: boolean
+    used: boolean
+    reason?: string | null
+    data_scope: string
+}
+
+export interface UploadPreviewResponse {
+    success: boolean
+    filename: string
+    rows_detected: number
+    source_columns: string[]
+    available_fields: string[]
+    mappings: ColumnMappingPreview[]
+    missing_required_fields: string[]
+    blocking_issues: string[]
+    warnings: string[]
+    features_enabled: Record<string, boolean>
+    can_activate: boolean
+    requires_review: boolean
+    llm: LLMMappingPreview
 }
 
 export interface TeamHealth {
@@ -142,8 +185,8 @@ export interface DiversityMetrics {
 export interface TeamAnalysis {
     health: TeamHealth[]
     diversity: DiversityMetrics[]
-    at_risk_teams: any[]
-    summary: any
+    at_risk_teams: Record<string, unknown>[]
+    summary: Record<string, unknown>
 }
 
 export interface NineBoxSummary {
@@ -217,25 +260,64 @@ export interface FeatureImportance {
 
 export interface SearchResult {
     results: {
-        employee_id: string
         dept: string
         text: string
         similarity_score: number
         squared_l2_distance?: number | null
         score_semantics?: string
     }[]
+    provenance: {
+        workspace_id?: string | null
+        dataset_id?: string | null
+        generation?: string | null
+        current_fingerprint?: string | null
+    }
 }
 
 export interface SearchStatus {
     available: boolean
+    state?: string
+    backend_available?: boolean
+    can_prepare?: boolean
     reason?: string
-    indexed_records: number
+    indexed_records?: number
+    embedding_dimension?: number
+    index_dataset_id?: string | null
 }
 
 export interface AdvisorStatus {
     available: boolean
     reason?: string
     model?: string
+}
+
+export interface InstalledLLMModel {
+    name: string
+    digest?: string | null
+    size?: number | null
+    remote?: boolean
+}
+
+export interface LLMStatus {
+    provider: 'none' | 'ollama'
+    enabled: boolean
+    ready: boolean
+    ollama_installed: boolean
+    ollama_running: boolean
+    ollama_binary?: string | null
+    host: string
+    selected_model: string
+    selected_model_installed: boolean
+    selected_model_digest?: string | null
+    installed_models: InstalledLLMModel[]
+    recommended_model: string
+    reason?: string | null
+    download_guide: string
+    setup_state: 'idle' | 'starting' | 'pulling' | 'testing' | 'ready' | 'error' | string
+    setup_progress: number
+    setup_message?: string | null
+    setup_error_code?: string | null
+    setup_model?: string | null
 }
 
 export interface AdvisorSummary {
@@ -342,7 +424,7 @@ export interface CohortInsight {
     cohort_description: string
     cohort_name?: string
     cohort_size: number
-    filters_applied?: Record<string, any>
+    filters_applied?: Record<string, unknown>
     attrition_count?: number
     attrition_rate?: number
     avg_tenure_years?: number
@@ -387,12 +469,40 @@ export interface SurvivalAnalysisResult {
 export interface SourceEffectiveness {
     HireSource: string
     hire_count: number
+    total_hires?: number
     pct_of_total: number
     avg_performance: number | null
+    performance_recorded_observations?: number
+    performance_observations?: number
+    performance_coverage?: number
+    performance_window_observations?: number
+    performance_window_coverage?: number
+    performance_maturity?: string
     retention_rate_pct: number | null
-    high_performer_rate: number
-    quality_score: number
-    grade: 'A' | 'B' | 'C' | 'D' | 'F'
+    retention_recorded_observations?: number
+    retention_eligible_hires?: number | null
+    retention_observations?: number
+    retention_recorded_coverage?: number
+    retention_coverage?: number
+    retention_maturity?: string
+    high_performer_rate: number | null
+    quality_score: number | null
+    grade: 'A' | 'B' | 'C' | 'D' | 'F' | 'Unavailable'
+    quality_components?: string[]
+    quality_weights?: Record<string, number>
+    effective_quality_weights?: Record<string, number>
+    configured_quality_weights?: Record<string, number>
+    excluded_quality_components?: string[]
+    component_observations?: Record<string, number>
+    component_coverage?: Record<string, number>
+    minimum_component_observations?: number
+    quality_unavailable_reason?: string | null
+    quality_semantics?: string
+    quality_claim?: string
+    quality_comparison_status?: string
+    quality_comparison_basis?: string
+    role_mix?: Record<string, Record<string, number>>
+    role_mix_columns?: string[]
     recommendation?: string
 }
 
@@ -419,6 +529,18 @@ export interface QoHCorrelationsResult {
     best_predictors?: PreHireCorrelation[]
     non_predictors?: PreHireCorrelation[]
     recommendations?: string[]
+    outcome_observations?: number
+    outcome_recorded_observations?: number
+    outcome_maturity?: string
+    measurement_gaps?: Array<{
+        predictor: string
+        display_name: string
+        paired_observations: number
+        predictor_observations: number
+        outcome_observations: number
+        minimum_paired_observations: number
+        reason: string
+    }>
 }
 
 export interface NewHireRisk {
@@ -444,12 +566,13 @@ export interface QualityOfHireAnalysisResult {
         top_predictor?: string
         predictive_signals?: string[]
         quality_trend?: string
-        [key: string]: any
+        [key: string]: unknown
     }
-    cohort_analysis: Array<any>
+    cohort_analysis: Array<Record<string, unknown>>
     new_hire_risks: NewHireRisk[]
     summary: {
         total_employees: number
+        total_hires?: number
         sources_analyzed: number
         prehire_signals_count: number
         new_hires_at_risk: number
@@ -458,6 +581,20 @@ export interface QualityOfHireAnalysisResult {
         has_hire_source?: boolean
         has_interview_scores?: boolean
         has_assessment?: boolean
+        best_source_semantics?: string
+        performance_recorded_observations?: number
+        performance_observations?: number
+        performance_coverage?: number
+        performance_window_coverage?: number
+        retention_recorded_observations?: number
+        retention_observations?: number
+        retention_recorded_coverage?: number
+        retention_coverage?: number
+        performance_maturity?: string
+        retention_maturity?: string
+        performance_window_months?: number
+        retention_window_months?: number
+        role_mix_columns?: string[]
     }
     recommendations: string[]
     warnings: string[]

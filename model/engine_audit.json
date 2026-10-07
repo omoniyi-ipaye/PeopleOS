@@ -56,8 +56,10 @@
       "renderers": [
         "web/app/page.tsx",
         "web/app/workforce-health/page.tsx",
+        "web/components/relationship-insight.tsx",
         "web/components/charts/correlation-heatmap.tsx",
         "web/components/charts/department-bar-chart.tsx",
+        "web/components/charts/group-summary-chart.tsx",
         "web/components/charts/tenure-distribution-chart.tsx",
         "ui/dashboard_layout.py",
         "src/insight_interpreter.py",
@@ -74,8 +76,10 @@
       "renderer_state": {
         "web/app/page.tsx": "routed_or_shared",
         "web/app/workforce-health/page.tsx": "routed_or_shared",
+        "web/components/relationship-insight.tsx": "routed via workforce insights",
         "web/components/charts/correlation-heatmap.tsx": "dormant_or_legacy",
         "web/components/charts/department-bar-chart.tsx": "dormant_or_legacy",
+        "web/components/charts/group-summary-chart.tsx": "routed via advisor result",
         "web/components/charts/tenure-distribution-chart.tsx": "dormant_or_legacy",
         "ui/dashboard_layout.py": "dormant_or_legacy",
         "src/insight_interpreter.py": "dormant_or_legacy",
@@ -235,7 +239,8 @@
         "tests/test_snapshot_recovery.py"
       ],
       "renderers": [
-        "web/app/employee-experience/page.tsx"
+        "web/app/employee-experience/page.tsx",
+        "web/components/relationship-insight.tsx"
       ],
       "remaining_validation": [
         "Weights/bands and survey construct validity need instrument validation. Manager/lifecycle comparisons are cross-sectional and confounded."
@@ -246,7 +251,8 @@
         "api/schemas/experience.py"
       ],
       "renderer_state": {
-        "web/app/employee-experience/page.tsx": "routed_or_shared"
+        "web/app/employee-experience/page.tsx": "routed_or_shared",
+        "web/components/relationship-insight.tsx": "routed via experience insights"
       }
     },
     {
@@ -481,11 +487,13 @@
       ],
       "review_status": "reviewed_with_limits",
       "findings": [
-        "Unavailable backtest stays unavailable in UI; removed zero accuracy and one-click accuracy claims. Feature diagnostics are labeled heuristic."
+        "Unavailable backtest stays unavailable in UI; removed zero accuracy and one-click accuracy claims. Feature diagnostics are labeled heuristic.",
+        "Cycle 018 binds diagnostics to the active runtime model and verified dataset snapshot, fails closed on incompatible or non-finite evidence, treats insufficient observations explicitly, and permits review-only actions with no automatic pruning or promised accuracy lift."
       ],
       "verification": [
         "tests/test_extended_integrity.py",
-        "tests/test_model_validation.py"
+        "tests/test_model_validation.py",
+        "tests/test_model_lab_engine_forensic_cycle018.py"
       ],
       "renderers": [
         "web/components/advisor/model-lab.tsx"
@@ -515,10 +523,12 @@
       "python_consumers": [],
       "review_status": "reviewed_with_limits",
       "findings": [
-        "Removed department-clique edges and proxy influence/isolation rankings from engine as well as API. Reporting structure remains a separate measured structural metric."
+        "Removed department-clique edges and proxy influence/isolation rankings from engine as well as API. Reporting structure remains a separate measured structural metric.",
+        "Cycle 019 confirms that unavailable engine and API paths disclose no employee rankings or identifiers, preserve source immutability, and cannot be reopened through deprecated endpoint parameters."
       ],
       "verification": [
-        "tests/test_engine_renderer_integrity.py"
+        "tests/test_engine_renderer_integrity.py",
+        "tests/test_network_engine_forensic_cycle019.py"
       ],
       "renderers": [],
       "remaining_validation": [
@@ -616,6 +626,7 @@
       ],
       "renderers": [
         "web/app/quality-of-hire/page.tsx",
+        "web/components/relationship-insight.tsx",
         "web/components/risk-analysis-modal.tsx"
       ],
       "remaining_validation": [
@@ -628,6 +639,7 @@
       ],
       "renderer_state": {
         "web/app/quality-of-hire/page.tsx": "routed_or_shared",
+        "web/components/relationship-insight.tsx": "routed via hiring insights",
         "web/components/risk-analysis-modal.tsx": "dormant_or_legacy"
       }
     },
@@ -764,7 +776,8 @@
         "Impossible/missing role durations stay unavailable. Reporting spans exclude self/dangling links and work without optional role columns. Removed numeric burnout proxy; API handles nonfinite summaries."
       ],
       "verification": [
-        "tests/test_engine_renderer_integrity.py"
+        "tests/test_engine_renderer_integrity.py",
+        "tests/test_structural_engine_forensic_cycle024.py"
       ],
       "renderers": [
         "web/app/advisor/page.tsx",
@@ -950,7 +963,9 @@
       ],
       "methods": [
         "build_index",
+        "clear_index",
         "is_initialized",
+        "matches_provenance",
         "search"
       ],
       "python_consumers": [
@@ -966,7 +981,8 @@
         "Prior finite-vector, metadata alignment, empty/failed rebuild and failure-status tests retained. Legacy search display now labels similarity index instead of percent match."
       ],
       "verification": [
-        "tests/test_extended_integrity.py"
+        "tests/test_extended_integrity.py",
+        "tests/test_vector_engine_forensic_cycle027.py"
       ],
       "renderers": [
         "web/app/search/page.tsx",
@@ -1089,13 +1105,14 @@
     "web/app/search/page.tsx": "07da6d1133b8da4f09385ba95c26881c2fc30e67353ea25df260b4613229db14",
     "web/app/workforce-health/page.tsx": "4e89051d3da0aa0244044e57a479cff9c94c95aae9e5453a60653c3311cbb2d5",
     "web/components/advisor/model-lab.tsx": "2c4e3674c5769ab860569abd196bdb543b777d47663a0e2bd9e4a406fc39599e",
+    "web/components/relationship-insight.tsx": "ce31d077a20d3f2c0325c2c30fc854ff9b3d43f4a76da0345842a19afcd2578f",
     "web/components/charts/correlation-heatmap.tsx": "dd9d834ae0c980ee676360abaf3f8e25908287d5bb4bb332a88de4430359b35d",
     "web/components/charts/department-bar-chart.tsx": "ed17377d6c48f553c8f792fe1bcaf051320695d38b3b3767c814d20a64a7efe5",
     "web/components/charts/feature-importance-chart.tsx": "a0389f324daeed949e0d5ec56116f4ffbebbe216eca0db6c1f10b7752686857c",
     "web/components/charts/nine-box-grid.tsx": "17da3a404459fa683e1d00f953a4afe0c43e3cad2060f216d8b9efa44c85c038",
     "web/components/charts/retention-curve-chart.tsx": "15c4c563187fa54b878dd1bd46e46280c60622b0a057be3f76149d1a4863e1da",
     "web/components/charts/risk-distribution-pie.tsx": "19fb73bef4d113c4ba57413961a565491937321d302a01d30de4b38f54c4e5e4",
-    "web/components/charts/shap-waterfall-chart.tsx": "acba487fc84b6d6fee317985bfe205b747701b48662d77132eeed503ab8dc35e",
+    "web/components/charts/shap-waterfall-chart.tsx": "ed5fb542b4a1101b75b1e16b443e4d5224f02e1e7479463db0dd38dc1fcd8aa1",
     "web/components/charts/tenure-distribution-chart.tsx": "16d9f862cd82ba080e035a1348e4cdd763a397ebedc4a9bf033439a7123701c1",
     "web/components/dashboard/employee-detail-modal.tsx": "9e9eae16aaa39c1987f65cfcce39f1ed10c63447f994031089afb675bf0a40e2",
     "web/components/dashboard/high-risk-table.tsx": "82ee26bcd8e0c373e420ea4871e9d78799aac505d3c4d3ede18fc8ff08e33644",

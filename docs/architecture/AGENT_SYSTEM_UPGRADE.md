@@ -162,6 +162,8 @@ Request
  -> bind active dataset/model provenance
  -> deterministic evidence plan
  -> execute allowlisted aggregate tools
+ -> optional bounded local-model selection of additional available read tools
+ -> execute selected tools in the same workspace/snapshot context
  -> aggregate evidence
  -> detect unknowns/contradictions
  -> calculate confidence + coverage + sufficiency
@@ -239,6 +241,9 @@ Desired state
 - advisor/agent output is policy-validated outside prompt text;
 - agent tools are explicitly allowlisted;
 - first agent release is read-only and aggregate-oriented;
+- the local model may select at most four exact IDs from the server-owned read catalog after the deterministic pass;
+- selection cannot provide URLs, code, shell commands, writes or arbitrary tool parameters;
+- the complete active snapshot may be scanned in-process for governed calculations, but row-level identifiers and free text are redacted before model interpretation;
 - fairness evidence suppresses small groups;
 - client cannot choose its own trusted actor identity;
 - insufficient evidence disables probabilistic synthesis;

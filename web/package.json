@@ -13,7 +13,7 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "design:check": "node scripts/validate-design-system.mjs",
-    "test:analytics": "node --test tests/analytics-renderers.test.cjs tests/specialist-review-renderers.test.cjs tests/design-usability.test.cjs tests/renderer-edge-cases.test.cjs tests/launch-output-integrity.test.cjs",
+    "test:analytics": "node --test tests/*.test.cjs",
     "test:e2e": "playwright test"
   },
   "dependencies": {
@@ -21,25 +21,30 @@
     "clsx": "2.1.0",
     "framer-motion": "^12.25.0",
     "lucide-react": "1.41.0",
-    "next": "16.3.3",
+    "next": "16.3.8",
     "react": "19.2.7",
     "react-dom": "19.2.7",
     "react-dropzone": "14.2.3",
     "react-is": "19.2.7",
     "recharts": "3.10.1",
-    "tailwind-merge": "2.2.0",
+    "tailwind-merge": "3.3.1",
     "zustand": "5.0.15"
   },
   "devDependencies": {
     "@playwright/test": "1.63.0",
+    "@tailwindcss/postcss": "4.3.3",
     "@types/node": "^20.17.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "autoprefixer": "10.4.17",
     "eslint": "^9.0.0",
-    "eslint-config-next": "16.3.3",
+    "eslint-config-next": "16.3.8",
     "postcss": "8.5.28",
-    "tailwindcss": "3.4.1",
+    "tailwindcss": "4.3.3",
     "typescript": "^5.9.0"
+  },
+  "overrides": {
+    "@next/eslint-plugin-next": {
+      "fast-glob": "npm:tinyglobby@0.2.17"
+    }
   }
 }

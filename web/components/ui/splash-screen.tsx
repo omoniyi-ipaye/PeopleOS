@@ -1,7 +1,7 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import React, { useEffect } from 'react'
+import { motion } from 'framer-motion'
 import { Brain } from 'lucide-react'
 
 export interface SplashScreenProps {
@@ -9,20 +9,15 @@ export interface SplashScreenProps {
 }
 
 export const SplashScreen: React.FC<SplashScreenProps> = ({ finishLoading }) => {
-    const [isMounted, setIsMounted] = useState(false)
-
     useEffect(() => {
-        setIsMounted(true)
         const timeout = setTimeout(() => {
             if (finishLoading) finishLoading()
         }, 2500)
         return () => clearTimeout(timeout)
     }, [finishLoading])
 
-    if (!isMounted) return null
-
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950 overflow-hidden">
+        <div className="fixed inset-0 z-100 flex items-center justify-center bg-slate-950 overflow-hidden">
             {/* Background Animated Gradients */}
             <div className="absolute inset-0 overflow-hidden">
                 <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-accent/20 rounded-full blur-[120px] animate-pulse" />

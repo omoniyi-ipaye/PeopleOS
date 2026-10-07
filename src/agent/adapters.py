@@ -12,7 +12,7 @@ from typing import Any, Dict, List
 import pandas as pd
 
 from src.agent.evidence import EvidenceItem, EvidenceKind, ToolResult, ToolResultStatus
-from src.agent.tools import ToolContext
+from src.agent.tools import AgentToolDescriptor, ToolContext
 
 
 def _elapsed_ms(started: float) -> float:
@@ -22,8 +22,21 @@ def _elapsed_ms(started: float) -> float:
 class WorkforceSummaryTool:
     tool_id = 'workforce.summary'
     description = 'Aggregate current workforce headcount, observed attrition share, tenure, rating and salary metrics.'
+    descriptor = AgentToolDescriptor(
+        tool_id=tool_id,
+        description=description,
+        engine='analytics',
+        api_routes=('/api/analytics/summary',),
+        availability='conditional',
+    )
 
     def __init__(self, state: Any): self.state = state
+
+    def is_available(self) -> bool:
+        return getattr(self.state, 'analytics_engine', None) is not None
+
+    def availability_reason(self) -> str:
+        return '' if self.is_available() else 'The active workforce analytics engine is not initialized.'
 
     def execute(self, context: ToolContext) -> ToolResult:
         started = perf_counter(); engine = getattr(self.state, 'analytics_engine', None)
@@ -47,6 +60,8 @@ class WorkforceSummaryTool:
                     excluded = stats.get(f'{column}_excluded_count')
                     metadata.update(population='current active employees', measured_count=measured,
                                     eligible_count=stats.get('headcount'), excluded_count=excluded)
+                    if metric == 'salary_mean':
+                        metadata['reporting_currency'] = (getattr(self.state, 'runtime_provenance', None) or {}).get('reporting_currency')
                     if excluded:
                         warnings.append(f'{label} uses {measured} of {stats.get("headcount")} active employees; {excluded} missing or invalid measurements were excluded.')
                     elif value is None:
@@ -68,8 +83,22 @@ class WorkforceSummaryTool:
 class DepartmentRiskTool:
     tool_id = 'workforce.department_risk'
     description = 'Identify departments with elevated observed attrition share without exposing employees.'
+    descriptor = AgentToolDescriptor(
+        tool_id=tool_id,
+        description=description,
+        engine='analytics',
+        api_routes=('/api/analytics/departments', '/api/analytics/high-risk-departments'),
+        availability='conditional',
+    )
 
     def __init__(self, state: Any): self.state = state
+
+    def is_available(self) -> bool:
+        engine = getattr(self.state, 'analytics_engine', None)
+        return engine is not None and callable(getattr(engine, 'get_high_risk_departments', None))
+
+    def availability_reason(self) -> str:
+        return '' if self.is_available() else 'Department analytics are not initialized for the active snapshot.'
 
     def execute(self, context: ToolContext) -> ToolResult:
         started = perf_counter(); engine = getattr(self.state, 'analytics_engine', None)
@@ -147,8 +176,25 @@ class DepartmentRiskTool:
 class RetentionRiskTool:
     tool_id = 'workforce.retention_risk'
     description = 'Aggregate predictive model-score distribution with separate model-quality evidence.'
+    descriptor = AgentToolDescriptor(
+        tool_id=tool_id,
+        description=description,
+        engine='ml',
+        api_routes=('/api/predictions/risk', '/api/predictions/model-metrics'),
+        availability='conditional',
+    )
 
     def __init__(self, state: Any): self.state = state
+
+    def is_available(self) -> bool:
+        try:
+            validated_risk_scores(self.state)
+            return True
+        except IntegrityError:
+            return False
+
+    def availability_reason(self) -> str:
+        return '' if self.is_available() else 'No validated, snapshot-matched predictive model output is active.'
 
     def execute(self, context: ToolContext) -> ToolResult:
         started = perf_counter()
@@ -208,8 +254,21 @@ class RetentionRiskTool:
 class CompensationEquityTool:
     tool_id = 'workforce.compensation_equity'
     description = 'Aggregate current compensation dispersion and pay-gap screening evidence.'
+    descriptor = AgentToolDescriptor(
+        tool_id=tool_id,
+        description=description,
+        engine='compensation',
+        api_routes=('/api/compensation/equity', '/api/compensation/gender-pay-gap'),
+        availability='conditional',
+    )
 
     def __init__(self, state: Any): self.state = state
+
+    def is_available(self) -> bool:
+        return getattr(self.state, 'compensation_engine', None) is not None
+
+    def availability_reason(self) -> str:
+        return '' if self.is_available() else 'Comparable annual pay data is not active for this snapshot.'
 
     def execute(self, context: ToolContext) -> ToolResult:
         started = perf_counter(); engine = getattr(self.state, 'compensation_engine', None)
@@ -241,6 +300,7 @@ class CompensationEquityTool:
                                     'department': dept,
                                     'measured_count': headcount,
                                     'eligible_count': headcount,
+                                    'reporting_currency': (getattr(self.state, 'runtime_provenance', None) or {}).get('reporting_currency'),
                                     'confidence_basis': 'deterministic_descriptive_metric',
                                     'not_adjusted_pay_equity': True,
                                     'custom_dispersion_score_not_used_as_agent_evidence': True,
@@ -260,6 +320,7 @@ class CompensationEquityTool:
                     confidence=1.0,
                     dataset_version=context.dataset_version,
                     metadata={
+                        'reporting_currency': (getattr(self.state, 'runtime_provenance', None) or {}).get('reporting_currency'),
                         'p_value': gap.get('p_value'),
                         'male_n': gap.get('male_n'),
                         'female_n': gap.get('female_n'),
@@ -279,8 +340,21 @@ class CompensationEquityTool:
 class OrganizationStructureTool:
     tool_id = 'workforce.organization_structure'
     description = 'Aggregate span-of-control and role-stagnation hotspots.'
+    descriptor = AgentToolDescriptor(
+        tool_id=tool_id,
+        description=description,
+        engine='structural',
+        api_routes=('/api/structural/span-of-control/analysis', '/api/structural/stagnation/hotspots', '/api/structural/promotion-bottlenecks'),
+        availability='conditional',
+    )
 
     def __init__(self, state: Any): self.state = state
+
+    def is_available(self) -> bool:
+        return getattr(self.state, 'structural_engine', None) is not None
+
+    def availability_reason(self) -> str:
+        return '' if self.is_available() else 'Organization-structure fields are not available for this snapshot.'
 
     def execute(self, context: ToolContext) -> ToolResult:
         started = perf_counter(); engine = getattr(self.state, 'structural_engine', None)

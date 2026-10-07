@@ -7,10 +7,44 @@ import { KPICard } from '@/components/dashboard/kpi-card'
 import { MessageSquare, Smile, Search, Brain, Star, AlertCircle } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 
+type NLPSentimentSummary = {
+    avg_sentiment?: number | null
+    positive_pct: number
+    neutral_pct: number
+    negative_pct: number
+}
+
+type NLPTopic = {
+    name: string
+    description: string
+    prevalence?: string | null
+    sentiment?: string | null
+}
+
+type NLPSkills = {
+    technical_skills: string[]
+    soft_skills: string[]
+}
+
+type NLPComponentStatus = {
+    excluded_observations?: number
+    sample_size?: number
+    input_observations?: number
+}
+
+type NLPAnalysis = {
+    sentiment_summary: NLPSentimentSummary
+    topics: NLPTopic[]
+    skills: NLPSkills
+    nlp_available: boolean
+    analysis_status?: string
+    component_status?: { sentiment?: NLPComponentStatus }
+}
+
 export function NLPTab() {
-    const { data, isLoading, error } = useQuery<any>({
+    const { data, isLoading, error } = useQuery<NLPAnalysis>({
         queryKey: ['nlp', 'analysis'],
-        queryFn: api.nlp.getAnalysis as any,
+        queryFn: () => api.nlp.getAnalysis() as Promise<NLPAnalysis>,
     })
 
     if (isLoading) return <div className="space-y-6">
@@ -39,7 +73,11 @@ export function NLPTab() {
         </div>
     )
 
-    const { sentiment_summary, topics, skills, nlp_available } = data || { sentiment_summary: {}, topics: [], skills: {}, nlp_available: false }
+    const { sentiment_summary, topics, skills, nlp_available } = data || { sentiment_summary: { positive_pct: 0, neutral_pct: 0, negative_pct: 0 }, topics: [], skills: { technical_skills: [], soft_skills: [] }, nlp_available: false }
+    const sentimentStatus = data?.component_status?.sentiment || {}
+    const excludedReviews = typeof sentimentStatus.excluded_observations === 'number' ? sentimentStatus.excluded_observations : 0
+    const sampledReviews = typeof sentimentStatus.sample_size === 'number' ? sentimentStatus.sample_size : null
+    const sourceReviews = typeof sentimentStatus.input_observations === 'number' ? sentimentStatus.input_observations : null
 
     return (
         <div className="space-y-6">
@@ -49,6 +87,19 @@ export function NLPTab() {
                     <div>
                         <div className="text-sm font-bold text-warning">AI Features Offline</div>
                         <div className="text-[10px] text-warning/80">Ollama is Not Connected. AI-powered insights are currently unavailable.</div>
+                    </div>
+                </div>
+            )}
+            {data?.analysis_status === 'partial' && (
+                <div className="p-4 rounded-xl bg-warning/5 border border-warning/20 flex items-center gap-3">
+                    <AlertCircle className="w-5 h-5 text-warning shrink-0" />
+                    <div className="text-sm text-warning">
+                        <div className="font-bold">Partial review analysis</div>
+                        <div className="text-[11px] text-warning/80">
+                            {excludedReviews > 0 && sampledReviews != null && sourceReviews != null
+                                ? `Sentiment is sampled from ${sampledReviews.toLocaleString()} of ${sourceReviews.toLocaleString()} eligible reviews; ${excludedReviews.toLocaleString()} were not processed.`
+                                : 'One or more review-analysis components could not provide complete evidence.'}
+                        </div>
                     </div>
                 </div>
             )}
@@ -91,7 +142,7 @@ export function NLPTab() {
                 {/* Dominant Topics */}
                 <Card title="Dominant Themes" subtitle="Common patterns across performance reviews">
                     <div className="space-y-4">
-                        {topics.map((topic: any) => (
+                        {topics.map((topic) => (
                             <div key={topic.name} className="p-4 rounded-xl bg-surface-hover dark:bg-surface-dark-hover border border-border dark:border-border-dark group hover:border-accent/40 transition-colors">
                                 <div className="flex justify-between items-start mb-2">
                                     <div className="font-bold text-text-primary dark:text-text-dark-primary group-hover:text-accent transition-colors">{topic.name}</div>

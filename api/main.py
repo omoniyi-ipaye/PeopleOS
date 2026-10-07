@@ -37,6 +37,8 @@ from api.routes.network import router as network_router
 from api.routes.intelligence import router as intelligence_router
 from api.routes.platform import router as platform_router
 from api.routes.desktop import router as desktop_router
+from api.routes.app_lock import router as app_lock_router
+from api.routes.llm import router as llm_router
 from api.dependencies import get_app_state
 from api.runtime_registry import get_local_state, get_workspace_state
 from api.security import local_first_access_guard
@@ -84,6 +86,7 @@ app.add_middleware(
         "http://localhost:3000",
         "http://127.0.0.1:3000",
         "http://localhost:3001",
+        "http://127.0.0.1:3001",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -116,6 +119,8 @@ app.include_router(network_router)
 app.include_router(intelligence_router)
 app.include_router(platform_router)
 app.include_router(desktop_router)
+app.include_router(app_lock_router)
+app.include_router(llm_router)
 
 
 @app.get("/")
@@ -148,6 +153,10 @@ async def api_status():
     workspace = WorkspaceStore().get_workspace("local")
 
     integrity = runtime_integrity(state, workspace)
+    active_dataset = next((item for item in workspace.datasets if item.dataset_id == workspace.active_dataset_id), None)
+    if integrity.get("snapshot") is not None and active_dataset is not None:
+        integrity["snapshot"].setdefault("source_name", active_dataset.source_name)
+        integrity["snapshot"].setdefault("dataset_version", active_dataset.version)
     payload = {
         "integrity": integrity,
         "status": "running",

@@ -111,6 +111,24 @@ class InvestigationSession(BaseModel):
     updated_at: str = Field(default_factory=_utcnow)
 
 
+class ScenarioRecord(BaseModel):
+    """Durable record of one exploratory scenario calculation.
+
+    Scenario payloads are stored as control-plane evidence so a local owner can
+    return to a calculation and compare it later. The payload remains bound to
+    the dataset provenance captured at calculation time; callers must re-check
+    that provenance before displaying it as current.
+    """
+
+    scenario_id: str
+    workspace_id: str
+    scenario_name: str
+    scenario_type: str
+    computed_at: str
+    provenance: Dict[str, Any] = Field(default_factory=dict)
+    payload: Dict[str, Any] = Field(default_factory=dict)
+
+
 class WorkspaceRecord(BaseModel):
     workspace_id: str
     name: str
@@ -120,6 +138,7 @@ class WorkspaceRecord(BaseModel):
     datasets: List[DatasetVersion] = Field(default_factory=list)
     models: List[ModelVersion] = Field(default_factory=list)
     sessions: List[InvestigationSession] = Field(default_factory=list)
+    scenarios: List[ScenarioRecord] = Field(default_factory=list)
 
 
 class WorkspaceStore:
@@ -448,3 +467,55 @@ class WorkspaceStore:
             raise KeyError(f"Unknown session: {session_id}")
         self._replace_workspace(workspace)
         return selected
+
+    @registry_mutation
+    def save_scenario(
+        self,
+        *,
+        workspace_id: str,
+        scenario_id: str,
+        scenario_name: str,
+        scenario_type: str,
+        computed_at: str,
+        provenance: Dict[str, Any],
+        payload: Dict[str, Any],
+    ) -> ScenarioRecord:
+        """Create or update one durable scenario record."""
+        workspace = self.ensure_workspace(workspace_id)
+        record = ScenarioRecord(
+            scenario_id=scenario_id,
+            workspace_id=workspace_id,
+            scenario_name=scenario_name,
+            scenario_type=scenario_type,
+            computed_at=computed_at,
+            provenance=provenance,
+            payload=payload,
+        )
+        for index, existing in enumerate(workspace.scenarios):
+            if existing.scenario_id == scenario_id:
+                workspace.scenarios[index] = record
+                break
+        else:
+            workspace.scenarios.append(record)
+        self._replace_workspace(workspace)
+        return record
+
+    def list_scenarios(self, workspace_id: str = DEFAULT_WORKSPACE_ID) -> List[ScenarioRecord]:
+        """Return durable scenarios in their creation order."""
+        return self.get_workspace(workspace_id).scenarios
+
+    def get_scenario(self, scenario_id: str, workspace_id: str = DEFAULT_WORKSPACE_ID) -> ScenarioRecord:
+        for record in self.list_scenarios(workspace_id):
+            if record.scenario_id == scenario_id:
+                return record
+        raise KeyError(f"Unknown scenario: {scenario_id}")
+
+    @registry_mutation
+    def delete_scenario(self, scenario_id: str, workspace_id: str = DEFAULT_WORKSPACE_ID) -> ScenarioRecord:
+        workspace = self.get_workspace(workspace_id)
+        for index, record in enumerate(workspace.scenarios):
+            if record.scenario_id == scenario_id:
+                removed = workspace.scenarios.pop(index)
+                self._replace_workspace(workspace)
+                return removed
+        raise KeyError(f"Unknown scenario: {scenario_id}")

@@ -1,5 +1,6 @@
 """Route-level acceptance of dataset identity, activation and recovery contracts."""
 import asyncio
+import json
 from types import SimpleNamespace
 
 import numpy as np
@@ -238,3 +239,56 @@ def test_observed_outcome_fairness_is_available_without_training(runtime):
     assert runtime.state.fairness_engine is not None
     result=runtime.state.fairness_engine.calculate_demographic_parity('Attrition')
     assert not result.empty
+
+
+def test_import_preview_is_non_mutating_and_accepts_reviewed_mapping(runtime):
+    frame = roster(n=60).rename(columns={'EmployeeID': 'worker_code', 'Dept': 'org_unit'})
+    content = frame.to_csv(index=False).encode()
+    preview = runtime.client.post('/api/upload/preview', files={'file': ('workforce.csv', content, 'text/csv')})
+    assert preview.status_code == 200, preview.text
+    payload = preview.json()
+    assert payload['can_activate'] is False
+    assert next(item for item in payload['mappings'] if item['source'] == 'worker_code')['target'] is None
+    assert runtime.state.has_data() is False
+
+    mapping = {'worker_code': 'EmployeeID', 'org_unit': 'Dept'}
+    reviewed = runtime.client.post(
+        '/api/upload/preview',
+        files={'file': ('workforce.csv', content, 'text/csv')},
+        data={'column_mapping': json.dumps(mapping)},
+    )
+    assert reviewed.status_code == 200, reviewed.text
+    assert reviewed.json()['can_activate'] is True
+
+    activated = runtime.client.post(
+        '/api/upload',
+        files={'file': ('workforce.csv', content, 'text/csv')},
+        data={'column_mapping': json.dumps(mapping)},
+    )
+    assert activated.status_code == 200, activated.text
+    assert runtime.state.raw_df['EmployeeID'].str.startswith('A').all()
+    assert runtime.state.raw_df['Dept'].eq('001').all()
+
+
+def test_import_preview_can_use_local_ai_for_unresolved_headers(runtime, monkeypatch):
+    frame = roster(n=60).rename(columns={'Dept': 'org_unit'})
+    content = frame.to_csv(index=False).encode()
+    monkeypatch.setattr(runtime.upload, 'suggest_column_mappings', lambda *args, **kwargs: {
+        'available': True,
+        'used': True,
+        'mappings': {'org_unit': 'Dept'},
+        'details': [{'source': 'org_unit', 'target': 'Dept', 'reason': 'The source describes organisational grouping.'}],
+        'reason': None,
+    })
+    preview = runtime.client.post(
+        '/api/upload/preview',
+        files={'file': ('workforce.csv', content, 'text/csv')},
+        data={'use_llm': 'true'},
+    )
+    assert preview.status_code == 200, preview.text
+    payload = preview.json()
+    assert payload['llm']['used'] is True
+    org_unit = next(item for item in payload['mappings'] if item['source'] == 'org_unit')
+    assert org_unit['target'] == 'Dept'
+    assert org_unit['method'] == 'llm'
+    assert runtime.state.has_data() is False

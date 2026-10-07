@@ -122,3 +122,71 @@ def test_registry_rejects_unregistered_tool():
         assert False, "Expected unregistered tool lookup to fail"
     except KeyError:
         pass
+
+
+def test_grouped_narrative_citations_preserve_ledger_and_selection_checks():
+    import json
+    from src.agent.evidence import EvidenceBundle, EvidenceItem, ToolResult
+
+    question = "What is headcount and organisation structure?"
+    bundle = EvidenceBundle(question=question, sufficiency="sufficient",
+        overall_confidence=1, coverage_score=1, tool_results=[
+            ToolResult(tool_id="workforce.summary", status="success", summary="Fixture", evidence=[
+                EvidenceItem(evidence_id="ev_synthetic_headcount", kind="observed",
+                    claim="Current active employee count: 80", source_tool="workforce.summary",
+                    metric="headcount", value=80)]),
+            ToolResult(tool_id="workforce.organization_structure", status="success", summary="Fixture", evidence=[
+                EvidenceItem(evidence_id="ev_synthetic_span", kind="derived",
+                    claim="Average manager span of control: 5", source_tool="workforce.organization_structure",
+                    metric="average_span_of_control", value=5)]),
+        ])
+    for references, selected, accepted in [
+        ("e1, e2", ["e1", "e2"], True),
+        ("e1, unknown", ["e1", "e2"], False),
+        ("e1, e2", ["e1"], False),
+        ("e1,", ["e1", "e2"], False),
+    ]:
+        llm = FakeLLM(json.dumps({
+            "answer": f"The organization has 80 active employees with an average manager span of control of 5 [{references}].",
+            "evidence_ids": selected, "next_step": "review_coverage",
+        }))
+        result = PeopleIntelligenceAgent(SimpleNamespace(llm_client=llm))._synthesize(question, "Fixture", bundle)
+        assert (result.mode == "grounded_llm") is accepted
+        if accepted:
+            assert "[ev_synthetic_headcount][ev_synthetic_span]" in result.answer
+            assert result.cited_evidence_ids == ["ev_synthetic_headcount", "ev_synthetic_span"]
+            assert not result.warnings
+        else:
+            assert result.model is None and result.warnings
+
+
+def test_narrative_cannot_invent_numbers_even_with_valid_citations():
+    import json
+    from src.agent.evidence import EvidenceBundle, EvidenceItem, ToolResult
+
+    question = 'How many active employees?'
+    bundle = EvidenceBundle(question=question, sufficiency='sufficient',
+        overall_confidence=1, coverage_score=1, tool_results=[
+            ToolResult(tool_id='workforce.summary', status='success', summary='Fixture', evidence=[
+                EvidenceItem(evidence_id='ev_count', kind='observed', claim='Current active employee count: 80',
+                    source_tool='workforce.summary', metric='headcount', value=80),
+                EvidenceItem(evidence_id='ev_rate', kind='observed', claim='Observed attrition share: 10.0%',
+                    source_tool='workforce.summary', metric='observed_attrition_share', value=.1)]),
+        ])
+    for narrative, accepted in [
+        ('There are 80 active employees [e1].', True),
+        ('There are 80.0 active employees [e1].', True),
+        ('There are 9,000 active employees [e1].', False),
+        ('There are -80 active employees [e1].', False),
+        ('There are .80 active employees [e1].', False),
+        ('There are 80e3 active employees [e1].', False),
+        ('There are 80% active employees [e1].', False),
+        ('There are 10 active employees [e1].', False),
+    ]:
+        llm = FakeLLM(json.dumps({'answer': narrative, 'evidence_ids': ['e1'], 'next_step': 'review_coverage'}))
+        result = PeopleIntelligenceAgent(SimpleNamespace(llm_client=llm))._synthesize(question, 'Fixture', bundle)
+        assert (result.mode == 'grounded_llm') is accepted, narrative
+        if not accepted:
+            assert result.model is None
+            assert 'Current active employee count: 80' in result.answer
+            assert result.warnings

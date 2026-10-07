@@ -91,6 +91,27 @@ def test_legacy_pay_assumptions_are_disclosed(tmp_path):
     assert any('one shared currency' in warning for warning in loader.validation_warnings)
 
 
+def test_explicit_user_mapping_overrides_source_headers_and_is_reported(tmp_path):
+    frame = workforce().rename(columns={
+        'EmployeeID': 'worker_code',
+        'Dept': 'org_unit',
+    })
+    path = tmp_path / 'workforce.csv'
+    frame.to_csv(path, index=False)
+    loader = DataLoader()
+    result = loader.load(
+        str(path),
+        column_mapping={'worker_code': 'EmployeeID', 'org_unit': 'Dept'},
+        mapping_methods={'worker_code': 'user_confirmed', 'org_unit': 'user_confirmed'},
+    )
+    assert list(result['EmployeeID']) == list(frame['worker_code'])
+    assert result['Dept'].eq('People').all()
+    details = {item['source']: item for item in loader.get_column_mapping_report()['details']}
+    assert details['worker_code']['target'] == 'EmployeeID'
+    assert details['worker_code']['method'] == 'user_confirmed'
+    assert details['org_unit']['target'] == 'Dept'
+
+
 def test_ambiguous_aliases_rejected(tmp_path):
     frame = workforce().assign(annual_salary=120000)
     with pytest.raises(DataValidationError, match="Multiple columns map to 'Salary'"):

@@ -13,6 +13,7 @@ from typing import Dict, Any, List, Optional
 from src.utils import load_config
 from src.population import resolve_current_population
 from src.logger import get_logger
+from src.platform.provenance import frame_fingerprint
 
 
 class SentimentEngine:
@@ -40,9 +41,13 @@ class SentimentEngine:
             onboarding_df: Optional onboarding survey data
         """
         self.employee_df, _ = resolve_current_population(employee_df)
+        self.population_fingerprint = frame_fingerprint(self.employee_df)
+        self.eligible_employee_count = int(self.employee_df['EmployeeID'].nunique()) if 'EmployeeID' in self.employee_df else len(self.employee_df)
         self.enps_df = enps_df.copy() if enps_df is not None else None
         self.onboarding_df = onboarding_df.copy() if onboarding_df is not None else None
-        self.survey_coverage: Dict[str, Dict[str, int]] = {}
+        self.survey_coverage: Dict[str, Dict[str, Any]] = {}
+        self.response_coverage: Dict[str, Dict[str, Any]] = {}
+        self.at_risk_display_limit = 10
 
         self.config = load_config()
         self.sentiment_config = self.config.get('sentiment', {})
@@ -61,6 +66,7 @@ class SentimentEngine:
         if self.enps_df is not None and 'eNPSScore' not in self.enps_df:
             self.survey_coverage['enps']['invalid_score_rows'] = len(self.enps_df)
             self.survey_coverage['enps']['valid_score_rows'] = 0
+            self._refresh_response_coverage('enps', self.enps_df.iloc[:0])
             self.enps_df = None
         if self.enps_df is not None:
             # Ensure date columns are datetime
@@ -84,6 +90,7 @@ class SentimentEngine:
                     lambda x: 'Promoter' if x >= promoter_threshold
                     else ('Detractor' if x <= detractor_threshold else 'Passive')
                 )
+            self._refresh_response_coverage('enps', self.enps_df, measure_column='eNPSScore')
 
         if self.onboarding_df is not None:
             for col in ['OverallScore', 'ClarityOfRole', 'ManagerSupport', 'TeamIntegration', 'ToolsAccess', 'TrainingQuality']:
@@ -107,13 +114,119 @@ class SentimentEngine:
                 frame = frame.loc[supported].copy()
             before = len(frame)
             if 'SurveyDate' in frame:
+                undated = frame['SurveyDate'].isna()
+                self.response_coverage.setdefault('onboarding', {})['undated_rows'] = int(undated.sum())
+                dated = frame.loc[~undated]
+                if not dated.empty:
+                    tie_sizes = dated.groupby(
+                        ['EmployeeID', 'SurveyType', 'SurveyDate'], dropna=False, sort=False
+                    ).size()
+                    self.response_coverage.setdefault('onboarding', {})['date_tie_rows'] = int(
+                        tie_sizes.sub(1).clip(lower=0).sum()
+                    )
+                else:
+                    self.response_coverage.setdefault('onboarding', {})['date_tie_rows'] = 0
                 frame = frame.sort_values('SurveyDate', kind='stable', na_position='first')
+            else:
+                self.response_coverage.setdefault('onboarding', {})['undated_rows'] = len(frame)
+                self.response_coverage.setdefault('onboarding', {})['date_tie_rows'] = 0
             self.onboarding_df = frame.drop_duplicates(['EmployeeID', 'SurveyType'], keep='last')
             self.survey_coverage['onboarding']['superseded_rows'] = before - len(self.onboarding_df)
             self.survey_coverage['onboarding']['latest_response_rows'] = len(self.onboarding_df)
             self.survey_coverage['onboarding']['valid_overall_score_rows'] = (
                 int(self.onboarding_df['OverallScore'].count()) if 'OverallScore' in self.onboarding_df else 0
             )
+            self.response_coverage.setdefault('onboarding', {})['response_selection'] = (
+                'latest_per_employee_and_survey_type_by_SurveyDate; '
+                'missing_dates sort oldest and same-date ties retain the last source row'
+            )
+            self._refresh_response_coverage('onboarding', self.onboarding_df, measure_column='OverallScore')
+
+    def _refresh_response_coverage(
+        self,
+        name: str,
+        frame: Optional[pd.DataFrame],
+        *,
+        measure_column: Optional[str] = None,
+    ) -> None:
+        """Record response units and coverage without implying nonresponse is random."""
+        coverage = self.response_coverage.setdefault(name, {})
+        if frame is None or frame.empty or 'EmployeeID' not in frame:
+            coverage.update({
+                'analysis_rows': 0,
+                'unique_respondents': 0,
+                'repeated_response_rows': 0,
+                'measured_rows': 0,
+                'measured_respondents': 0,
+                'eligible_employee_count': self.eligible_employee_count,
+                'response_rate_pct': 0.0 if self.eligible_employee_count else None,
+                'measured_response_rate_pct': 0.0 if self.eligible_employee_count else None,
+                'response_weighting': 'no eligible responses',
+            })
+            return
+
+        respondent_ids = frame['EmployeeID'].dropna().astype(str)
+        measured = frame
+        if measure_column and measure_column in frame:
+            measured = frame.loc[frame[measure_column].notna()]
+        measured_ids = measured['EmployeeID'].dropna().astype(str) if 'EmployeeID' in measured else pd.Series(dtype=str)
+        unique_respondents = int(respondent_ids.nunique())
+        measured_respondents = int(measured_ids.nunique())
+        coverage.update({
+            'analysis_rows': len(frame),
+            'unique_respondents': unique_respondents,
+            'repeated_response_rows': max(0, len(frame) - unique_respondents),
+            'measured_rows': len(measured),
+            'measured_respondents': measured_respondents,
+            'eligible_employee_count': self.eligible_employee_count,
+            'response_rate_pct': round(unique_respondents / self.eligible_employee_count * 100, 1) if self.eligible_employee_count else None,
+            'measured_response_rate_pct': round(measured_respondents / self.eligible_employee_count * 100, 1) if self.eligible_employee_count else None,
+            'response_weighting': (
+                'each_valid_response_weighted_equally; repeated_employee_responses_are_not_deduplicated'
+                if name == 'enps' else
+                'latest_response_per_employee_and_survey_type; one employee may contribute once per survey type'
+            ),
+        })
+
+    def _coverage_for_frame(
+        self,
+        frame: pd.DataFrame,
+        *,
+        name: str,
+        measure_column: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Return coverage for the exact filtered response frame being analyzed."""
+        coverage = dict(self.response_coverage.get(name, {}))
+        if frame.empty or 'EmployeeID' not in frame:
+            coverage.update({
+                'analysis_rows': 0,
+                'unique_respondents': 0,
+                'repeated_response_rows': 0,
+                'measured_rows': 0,
+                'measured_respondents': 0,
+                'eligible_employee_count': self.eligible_employee_count,
+                'response_rate_pct': 0.0 if self.eligible_employee_count else None,
+                'measured_response_rate_pct': 0.0 if self.eligible_employee_count else None,
+            })
+            return coverage
+        ids = frame['EmployeeID'].dropna().astype(str)
+        measured = frame
+        if measure_column and measure_column in frame:
+            measured = frame.loc[frame[measure_column].notna()]
+        measured_ids = measured['EmployeeID'].dropna().astype(str)
+        unique = int(ids.nunique())
+        measured_unique = int(measured_ids.nunique())
+        coverage.update({
+            'analysis_rows': len(frame),
+            'unique_respondents': unique,
+            'repeated_response_rows': max(0, len(frame) - unique),
+            'measured_rows': len(measured),
+            'measured_respondents': measured_unique,
+            'eligible_employee_count': self.eligible_employee_count,
+            'response_rate_pct': round(unique / self.eligible_employee_count * 100, 1) if self.eligible_employee_count else None,
+            'measured_response_rate_pct': round(measured_unique / self.eligible_employee_count * 100, 1) if self.eligible_employee_count else None,
+        })
+        return coverage
 
     def _match_survey_population(self, frame: Optional[pd.DataFrame], name: str) -> Optional[pd.DataFrame]:
         """Only identified members of the resolved employee population contribute.
@@ -238,7 +351,10 @@ class SentimentEngine:
         result = {
             'available': True,
             'survey_coverage': self.survey_coverage,
+            'response_coverage': self.response_coverage,
+            'analysis_coverage': self._coverage_for_frame(df, name='enps', measure_column='eNPSScore'),
             'measurement_semantics': 'valid_matched_survey_responses_not_unique_employee_prevalence',
+            'nonresponse_boundary': 'Response coverage is descriptive; no nonresponse-bias adjustment or representativeness claim is made.',
             'overall_enps': overall_enps,
             'total_responses': len(df),
             'promoters': int((df['eNPSCategory'] == 'Promoter').sum()),
@@ -307,14 +423,15 @@ class SentimentEngine:
         if self.enps_df is None or 'SurveyDate' not in self.enps_df.columns:
             return {
                 'available': False,
-                'reason': 'No eNPS survey data with dates available'
+                'reason': 'No eNPS survey data with dates available',
+                'survey_coverage': self.survey_coverage,
             }
 
         df = self.enps_df.dropna(subset=['SurveyDate']).copy()
         if df.empty:
-            return {'available': False, 'reason': 'No valid dated eNPS responses'}
+            return {'available': False, 'reason': 'No valid dated eNPS responses', 'survey_coverage': self.survey_coverage}
         if period not in {'week', 'month', 'quarter'}:
-            return {'available': False, 'reason': 'Unsupported trend period'}
+            return {'available': False, 'reason': 'Unsupported trend period', 'survey_coverage': self.survey_coverage}
         # All source timestamps were normalized to UTC before period grouping.
         df['SurveyDate'] = df['SurveyDate'].dt.tz_localize(None)
 
@@ -339,6 +456,8 @@ class SentimentEngine:
                 'period': period_val,
                 'enps': enps,
                 'responses': total,
+                'unique_respondents': int(period_data['EmployeeID'].nunique()),
+                'repeated_response_rows': max(0, total - int(period_data['EmployeeID'].nunique())),
                 'promoters': int(promoters),
                 'detractors': int(detractors)
             })
@@ -359,6 +478,9 @@ class SentimentEngine:
 
         return {
             'available': True,
+            'survey_coverage': self.survey_coverage,
+            'response_coverage': self.response_coverage,
+            'analysis_coverage': self._coverage_for_frame(df, name='enps', measure_column='eNPSScore'),
             'period_type': period,
             'trends': trends,
             'trend_direction': trend_direction,
@@ -372,7 +494,7 @@ class SentimentEngine:
         Returns correlation with sub-scores and identifies key drivers.
         """
         if self.enps_df is None:
-            return {'available': False, 'reason': 'No eNPS data available'}
+            return {'available': False, 'reason': 'No eNPS data available', 'survey_coverage': self.survey_coverage}
 
         # Expected sub-score columns
         sub_scores = [
@@ -385,7 +507,8 @@ class SentimentEngine:
         if not available_scores:
             return {
                 'available': False,
-                'reason': 'No sub-score columns available for driver analysis'
+                'reason': 'No sub-score columns available for driver analysis',
+                'survey_coverage': self.survey_coverage,
             }
 
         drivers = []
@@ -405,6 +528,8 @@ class SentimentEngine:
 
         return {
             'available': bool(drivers),
+            'survey_coverage': self.survey_coverage,
+            'response_coverage': self.response_coverage,
             'drivers': drivers,
             'top_driver': drivers[0]['dimension'] if drivers else None,
             'improvement_areas': [d['dimension'] for d in improvement_areas],
@@ -544,9 +669,13 @@ class SentimentEngine:
             'available': True,
             'trajectories': trajectories,
             'survey_coverage': self.survey_coverage,
-            'response_selection': 'latest_per_employee_and_survey_type; input_order_breaks_date_ties_or_missing_dates',
+            'response_coverage': self.response_coverage,
+            'response_selection': 'latest_per_employee_and_survey_type_by_SurveyDate; missing dates sort oldest and same-date ties retain the last source row',
             'summary': {
                 'total_employees': len(trajectories),
+                'respondent_count': len(trajectories),
+                'eligible_employee_count': self.eligible_employee_count,
+                'response_coverage_pct': round(len(trajectories) / self.eligible_employee_count * 100, 1) if self.eligible_employee_count else None,
                 'declining_count': len(declining),
                 'at_risk_count': len(at_risk),
                 'improving_count': len([t for t in trajectories if t['trajectory_direction'] == 'improving']),
@@ -554,7 +683,12 @@ class SentimentEngine:
                     sum(t['surveys_completed'] for t in trajectories) / len(trajectories) / 3 * 100, 1
                 ) if trajectories else 0
             },
-            'at_risk_employees': at_risk[:10]  # Top 10 at risk
+            'at_risk_employees': at_risk[:self.at_risk_display_limit],
+            'at_risk_employee_count': len(at_risk),
+            'at_risk_employees_returned': min(len(at_risk), self.at_risk_display_limit),
+            'at_risk_employees_truncated': len(at_risk) > self.at_risk_display_limit,
+            'at_risk_employee_limit': self.at_risk_display_limit,
+            'nonresponse_boundary': 'Response coverage is descriptive; no nonresponse-bias adjustment or representativeness claim is made.',
         }
 
     def get_onboarding_health(self) -> Dict[str, Any]:
@@ -586,8 +720,13 @@ class SentimentEngine:
                         'survey_type': survey_type,
                         'avg_score': round(avg_score, 2),
                         'responses': len(type_data),
-                        'healthy_pct': round(healthy_pct, 1)
+                        'healthy_pct': round(healthy_pct, 1),
                     })
+                    self.response_coverage.setdefault('onboarding', {}).setdefault('by_survey_type', {})[survey_type] = {
+                        'unique_respondents': int(type_data['EmployeeID'].nunique()),
+                        'eligible_employee_count': self.eligible_employee_count,
+                        'response_rate_pct': round(type_data['EmployeeID'].nunique() / self.eligible_employee_count * 100, 1) if self.eligible_employee_count else None,
+                    }
 
         # Calculate dimension scores
         dimension_cols = [
@@ -598,10 +737,16 @@ class SentimentEngine:
         for col in dimension_cols:
             if col in df.columns:
                 avg = df[col].mean()
+                observations = int(df[col].notna().sum())
                 dimension_scores.append({
                     'dimension': col,
-                    'avg_score': round(avg, 2) if pd.notna(avg) else None
+                    'avg_score': round(avg, 2) if pd.notna(avg) else None,
                 })
+                self.response_coverage.setdefault('onboarding', {}).setdefault('dimensions', {})[col] = {
+                    'observations': observations,
+                    'eligible_employee_count': self.eligible_employee_count,
+                    'coverage_pct': round(df.loc[df[col].notna(), 'EmployeeID'].nunique() / self.eligible_employee_count * 100, 1) if self.eligible_employee_count else None,
+                }
 
         dimension_scores.sort(key=lambda x: x['avg_score'] if x['avg_score'] else 0)
 
@@ -613,12 +758,14 @@ class SentimentEngine:
             'available': True,
             'by_survey_type': by_survey_type,
             'survey_coverage': self.survey_coverage,
+            'response_coverage': self.response_coverage,
             'response_selection': 'latest_per_employee_and_survey_type; input_order_breaks_date_ties_or_missing_dates',
             'dimension_scores': dimension_scores,
             'weakest_dimensions': weakest,
             'overall_health': ('Unavailable' if not measured_dimensions else
                                'Healthy' if all(d['avg_score'] >= min_healthy for d in measured_dimensions) else 'Needs Attention'),
             'measurement_semantics': 'observed_survey_scores_not_validated_employee_or_onboarding_health',
+            'nonresponse_boundary': 'Dimension and survey-type coverage are descriptive; no nonresponse-bias adjustment or representativeness claim is made.',
             'recommendations': self._generate_onboarding_recommendations(weakest)
         }
 
@@ -676,6 +823,7 @@ class SentimentEngine:
                 'available': False,
                 'reason': 'No matched valid responses support latest-response survey flags',
                 'survey_coverage': self.survey_coverage,
+                'response_coverage': self.response_coverage,
                 'warnings': [],
                 'metric_semantics': 'observed_survey_flags_not_validated_departure_risk',
             }
@@ -699,7 +847,8 @@ class SentimentEngine:
                     'Dept': emp_info['Dept'].iloc[0] if not emp_info.empty and 'Dept' in emp_info else None,
                     'warning_type': 'eNPS Detractor',
                     'severity': 'High',
-                    'details': f"eNPS score: {detractors.loc[emp_id].get('eNPSScore', 'N/A')}"
+                    'details': f"Observed eNPS score: {detractors.loc[emp_id].get('eNPSScore', 'N/A')}. This is a survey flag, not a prediction of future departure.",
+                    'claim_boundary': 'Observed survey flag; not a future departure prediction.',
                 })
 
         # Check declining onboarding trajectories
@@ -711,12 +860,15 @@ class SentimentEngine:
                         continue
                     # Avoid duplicates
                     if not any(w['EmployeeID'] == traj['EmployeeID'] for w in warnings):
+                        declining = traj.get('trajectory_direction') == 'declining'
+                        warning_type = 'Declining Onboarding' if declining else 'Low Onboarding Score'
                         warnings.append({
                             'EmployeeID': traj['EmployeeID'],
                             'Dept': traj.get('Dept'),
-                            'warning_type': 'Declining Onboarding',
+                            'warning_type': warning_type,
                             'severity': 'Medium' if traj.get('latest_score', 5) >= 2.5 else 'High',
-                            'details': f"Trajectory: {traj.get('trajectory_direction')}, Latest: {traj.get('latest_score')}"
+                            'details': f"Observed trajectory: {traj.get('trajectory_direction')}, latest score: {traj.get('latest_score')}. This is a survey flag, not a prediction of future departure.",
+                            'claim_boundary': 'Observed survey flag; not a future departure prediction.',
                         })
 
         # Sort by severity
@@ -727,12 +879,18 @@ class SentimentEngine:
             'available': True,
             'warnings': warnings,
             'survey_coverage': self.survey_coverage,
+            'response_coverage': self.response_coverage,
             'metric_semantics': 'observed_survey_flags_not_validated_departure_risk',
+            'claim_boundary': 'Observed survey flags are not predictions of future departure and must not be used as individual employment decisions.',
             'summary': {
                 'total_at_risk': len(warnings),
+                'total_observed_flags': len(warnings),
+                'eligible_employee_count': self.eligible_employee_count,
+                'flag_coverage_pct': round(len({w['EmployeeID'] for w in warnings}) / self.eligible_employee_count * 100, 1) if self.eligible_employee_count else None,
                 'high_severity': len([w for w in warnings if w['severity'] == 'High']),
                 'medium_severity': len([w for w in warnings if w['severity'] == 'Medium']),
-                'warning_types': list(set(w['warning_type'] for w in warnings))
+                'warning_types': sorted(set(w['warning_type'] for w in warnings)),
+                'claim_boundary': 'Observed survey flags are not predictions of future departure.',
             },
             'recommendations': [
                 "Schedule 1:1 conversations with high-severity employees",
@@ -754,6 +912,7 @@ class SentimentEngine:
         """
         results = {
             'survey_coverage': self.survey_coverage,
+            'response_coverage': self.response_coverage,
             'enps': {},
             'enps_trends': {},
             'enps_drivers': {},
@@ -832,7 +991,8 @@ class SentimentEngine:
             'employees_at_risk': results['early_warnings'].get('summary', {}).get('total_at_risk'),
             'survey_flags_available': results['early_warnings'].get('available', False),
             'total_warnings': len(results['warnings']),
-            'total_recommendations': len(results['recommendations'])
+            'total_recommendations': len(results['recommendations']),
+            'claim_boundary': 'Survey outputs are descriptive and are not predictions of future departure.'
         }
 
         return results

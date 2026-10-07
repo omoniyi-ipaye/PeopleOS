@@ -6,7 +6,7 @@ from uuid import uuid4
 
 from src.agent.derived_analysis import GovernedDerivedAnalysisTool, plan_derived_analysis
 from src.agent.evidence import EvidenceSufficiency, ToolResultStatus
-from src.agent.orchestrator import AgentAnswer, PeopleIntelligenceAgent
+from src.agent.orchestrator import AgentAnswer, PeopleIntelligenceAgent, _SynthesisResult
 from src.agent.policy import PolicyViolation
 from src.agent.tools import ToolContext
 
@@ -19,52 +19,113 @@ class GovernedPeopleIntelligenceAgent(PeopleIntelligenceAgent):
         self.derived_tool = GovernedDerivedAnalysisTool(state)
 
     def investigate(self, question: str, *, actor_id: Optional[str] = None, workspace_id: Optional[str] = None,
-                    dataset_version: Optional[str] = None, model_version: Optional[str] = None) -> AgentAnswer:
+                    dataset_version: Optional[str] = None, model_version: Optional[str] = None,
+                    record_audit: bool = True, agentic: bool = False) -> AgentAnswer:
         spec = plan_derived_analysis(question)
         if spec is None:
             return super().investigate(question, actor_id=actor_id, workspace_id=workspace_id,
-                                       dataset_version=dataset_version, model_version=model_version)
+                                       dataset_version=dataset_version, model_version=model_version,
+                                       record_audit=record_audit, agentic=agentic)
 
         request_id = f"pia_{uuid4().hex}"
         context = ToolContext(request_id=request_id, actor_id=actor_id, workspace_id=workspace_id,
                               dataset_version=dataset_version, parameters={'analysis_spec': spec.model_dump()})
         result = self.derived_tool.execute(context)
-        bundle = self.aggregator.aggregate(question, [result], workspace_id=workspace_id,
+        results = [result]
+        tools_used = [self.derived_tool.tool_id]
+        agentic_warnings = []
+        if agentic and result.status == ToolResultStatus.SUCCESS and self._should_expand_tool_plan(question, None):
+            additional_results, additional_ids, selection_warnings = self._run_agentic_read_tools(
+                question,
+                context,
+                completed_tool_ids=tools_used,
+                completed_results=results,
+            )
+            results.extend(additional_results)
+            tools_used.extend(additional_ids)
+            agentic_warnings.extend(selection_warnings)
+
+        bundle = self.aggregator.aggregate(question, results, workspace_id=workspace_id,
                                            dataset_version=dataset_version, model_version=model_version)
-        warnings = list(result.warnings)
+        warnings = list(result.warnings) + list(agentic_warnings)
+        warnings.extend(item for item in bundle.unknowns if item not in warnings)
 
         if result.status == ToolResultStatus.SUCCESS and result.evidence:
             bundle.sufficiency = EvidenceSufficiency.SUFFICIENT
-            answer = self._render_derived_answer(spec.model_dump(), result.evidence[0].value)
-            status = 'complete'
+            reporting_currency = (getattr(self.state, 'runtime_provenance', None) or {}).get('reporting_currency')
+            deterministic_answer = self._render_derived_answer(
+                spec.model_dump(), result.evidence[0].value, reporting_currency=reporting_currency
+            )
+            if agentic_warnings:
+                synthesis = _SynthesisResult(answer=deterministic_answer, model=None)
+                warnings.append('Probabilistic synthesis skipped because optional agentic selection did not complete.')
+            else:
+                synthesis = self._synthesize(
+                    question,
+                    f"typed {spec.operation.replace('_', ' ')} analysis" + (
+                        f"; the local agent added read checks: {', '.join(tools_used[1:])}"
+                        if len(tools_used) > 1 else ''
+                    ),
+                    bundle,
+                    required_metrics=[],
+                    fallback_answer=deterministic_answer,
+                )
+            answer = synthesis.answer
+            model = synthesis.model
+            synthesis_mode = synthesis.mode
+            cited_evidence_ids = synthesis.cited_evidence_ids
+            warnings.extend(synthesis.warnings)
+            status = 'partial' if any(item.status != ToolResultStatus.SUCCESS for item in results[1:]) else 'complete'
         else:
             bundle.sufficiency = EvidenceSufficiency.INSUFFICIENT
             reason = result.warnings[0] if result.warnings else 'The current data does not support this calculation.'
             bundle.unknowns.append(reason)
             answer = f"PeopleOS cannot calculate that reliably from the current measured population. {reason}"
+            model = None
+            synthesis_mode = 'verified_evidence'
+            cited_evidence_ids = []
             status = 'insufficient'
 
         try:
             answer = self.policy.enforce_text(answer)
         except PolicyViolation:
-            answer = 'PeopleOS blocked this derived output because it crossed the employment-action policy boundary.'
+            answer = deterministic_answer if result.status == ToolResultStatus.SUCCESS and result.evidence else 'PeopleOS blocked this derived output because it crossed the employment-action policy boundary.'
+            model = None
+            synthesis_mode = 'verified_evidence'
+            cited_evidence_ids = []
             status = 'insufficient'; bundle.sufficiency = EvidenceSufficiency.INSUFFICIENT
             warnings.append('Derived output was blocked by HR advice policy.')
 
+        next_actions = self._next_actions(question, status=status)
+        agent_steps = self._build_agent_steps(
+            rationale=f"typed {spec.operation.replace('_', ' ')} analysis",
+            tool_ids=tools_used,
+            results=results,
+            bundle=bundle,
+            model=model,
+            synthesis_mode=synthesis_mode,
+            status=status,
+            next_actions=next_actions,
+        )
         response = AgentAnswer(request_id=request_id, question=question, answer=answer, status=status,
                                confidence=float(bundle.overall_confidence or (1.0 if status == 'complete' else 0.0)),
-                               tools_used=[self.derived_tool.tool_id], model=None, evidence=bundle, warnings=warnings)
-        try:
-            self.audit.record(request_id=request_id, question=question, status=status, confidence=response.confidence,
-                              tools_used=response.tools_used, tool_results=[result], model=None,
-                              policy_id=self.policy.policy_id, policy_blocked=False, workspace_id=workspace_id,
-                              dataset_version=dataset_version, actor_id=actor_id)
-        except Exception as exc:
-            response.warnings.append(f"Audit record could not be written: {exc}")
+                               tools_used=tools_used, model=model, evidence=bundle, warnings=warnings,
+                               agent_steps=agent_steps, next_actions=next_actions,
+                               synthesis_mode=synthesis_mode, cited_evidence_ids=cited_evidence_ids)
+        if record_audit:
+            try:
+                self.audit.record(request_id=request_id, question=question, status=status, confidence=response.confidence,
+                                  tools_used=response.tools_used, tool_results=results, model=model,
+                                  policy_id=self.policy.policy_id, policy_blocked=False, workspace_id=workspace_id,
+                                  dataset_version=dataset_version, actor_id=actor_id)
+            except Exception as exc:
+                response.warnings.append(f"Audit record could not be written: {exc}")
         return response
 
     @staticmethod
-    def _render_derived_answer(spec: dict[str, Any], output: dict[str, Any]) -> str:
+    def _render_derived_answer(
+        spec: dict[str, Any], output: dict[str, Any], *, reporting_currency: Optional[str] = None
+    ) -> str:
         operation = spec['operation']; statistic = spec.get('statistic', 'count')
         measure = spec.get('measure'); group = spec.get('group_by')
 
@@ -76,7 +137,9 @@ class GovernedPeopleIntelligenceAgent(PeopleIntelligenceAgent):
 
         def value_text(value: float) -> str:
             if statistic == 'rate': return f"{value:.1%}"
-            if measure == 'Salary' or statistic == 'sum': return f"{value:,.0f}"
+            if measure == 'Salary' or statistic == 'sum':
+                currency_suffix = f" {reporting_currency.strip()}" if measure == 'Salary' and isinstance(reporting_currency, str) and reporting_currency.strip() else ''
+                return f"{value:,.0f}{currency_suffix}"
             if statistic == 'count': return f"{int(round(value)):,}"
             return f"{value:.2f}"
 
@@ -94,7 +157,8 @@ class GovernedPeopleIntelligenceAgent(PeopleIntelligenceAgent):
             parts = [f"{row['group']}: {value_text(float(row['value']))} (n={row['measured_count']})" for row in rows[:8]]
             suppressed = int(output.get('suppressed_groups', 0) or 0)
             suffix = f" {suppressed} smaller group{'s were' if suppressed != 1 else ' was'} hidden because there was not enough support." if suppressed else ''
-            return cohort + f"{descriptor.capitalize()} by {label(group)} — " + '; '.join(parts) + '.' + suffix
+            caveat = ' This is recorded attrition share among known outcomes, not a period turnover rate.' if statistic == 'rate' and measure == 'Attrition' else ''
+            return cohort + f"{descriptor.capitalize()} by {label(group)} — " + '; '.join(parts) + '.' + suffix + caveat
 
         if operation == 'compare_groups':
             rows = output.get('groups', [])

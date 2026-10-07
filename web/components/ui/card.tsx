@@ -31,7 +31,7 @@ export function Card({ title, subtitle, action, children, className, padding = '
 export function CardSkeleton({ className }: { className?: string }) {
   return (
     <Surface aria-busy="true" className={cn('animate-pulse', className)}>
-      <div className="mb-4 h-4 w-1/3 rounded bg-slate-100 dark:bg-white/5" />
+      <div className="mb-4 h-4 w-1/3 rounded-sm bg-slate-100 dark:bg-white/5" />
       <div className="h-32 rounded-xl bg-slate-100 dark:bg-white/5" />
     </Surface>
   )

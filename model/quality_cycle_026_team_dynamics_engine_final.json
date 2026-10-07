@@ -1,0 +1,14 @@
+{
+  "cycle": "026",
+  "engine": "TeamDynamicsEngine",
+  "status": "locally_forensically_reviewed_descriptive_composite",
+  "verified_behavioral_base": "362f294605bb57f1fbf573c64254155751e87033",
+  "scope": "active and measured denominators, Unknown department reconciliation, missingness, team health/diversity/composition outputs, NLP joins, aggregate-only API and advisor interpretation",
+  "forensic_and_compatibility_contracts": {"focused_existing_tests": "local_success_10_team_tests_plus_shared_regressions", "full_python_validation": "1115_passed_6_subtests"},
+  "reviewed_source_sha256": {"src/team_dynamics_engine.py": "cb8eb7c0042c420738e9bc8074d456c52b523ce774010ad00b4f1a7074f9f885", "api/routes/team.py": "e418e152e67b0d0d77f6690f5d5ea675186e8b7898f5c2880fb83e9c2589e390"},
+  "confirmed_behavior": ["Missing and blank departments map to Unknown and reconcile to active totals.", "Health and performance percentages distinguish active population from measured ratings.", "Empty or unmeasured composites remain unavailable rather than healthy or critical; outputs remain aggregate."],
+  "interpretation_boundary": "Team outputs are configured descriptive composites, not validated team health, diversity, collaboration or employee-risk outcomes.",
+  "remaining_scientific_limits": ["Missing observations, source bias, small-cell privacy and construct validity require organization-specific review.", "Reporting structure or co-membership is not measured collaboration evidence."],
+  "cross_product_validation": {"team_dynamics_engine_contracts": "local_success_10_plus_shared_regressions", "remote_ci": "pending_push"},
+  "release_gate": "Safe for bounded aggregate descriptive reporting; team-outcome and individual-risk claims remain blocked."
+}

@@ -144,7 +144,8 @@ def run(key, model, report):
         bundle = EvidenceBundle(question=question, sufficiency='sufficient', overall_confidence=1,
             coverage_score=1, tool_results=results)
         before = len(transport.calls)
-        answer, selected_model, warnings = agent._synthesize(question, 'Synthetic acceptance', bundle)
+        synthesis = agent._synthesize(question, 'Synthetic acceptance', bundle)
+        answer, selected_model, warnings = synthesis.answer, synthesis.model, synthesis.warnings
         passed = (len(transport.calls) == before + 1 and transport.calls[-1]['success']
                   and transport.calls[-1].get('done') is True and transport.calls[-1].get('returned_model') == model
                   and selected_model == model and not warnings and answer_matches_known_values(answer, span))

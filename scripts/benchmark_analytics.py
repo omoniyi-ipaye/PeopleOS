@@ -49,10 +49,21 @@ def run(ibm_data):
     artifact = train_attrition_model(data)
     assert not set(artifact.train_employee_ids) & set(artifact.test_employee_ids)
     assert len(artifact.train_employee_ids) + len(artifact.test_employee_ids) == len(data)
-    # Exercise the exported artifact's production inference adapter as well.
+    # Exercise the exported artifact's governed scoring primitive as well. The
+    # production engine intentionally exposes no employee-level prediction
+    # payload; this benchmark evaluates probabilities internally against the
+    # untouched holdout without serializing worker rows.
     held_out = data[data['EmployeeID'].astype(str).isin(artifact.test_employee_ids)]
-    predictions = artifact.engine.predict(held_out.drop(columns='Attrition'))
-    checked = binary_metrics(held_out['Attrition'], [p['risk_score'] for p in predictions],
+    holdout_features = artifact.engine.preprocessor.transform(held_out.drop(columns='Attrition'))
+    holdout_features = holdout_features.loc[:, artifact.engine.feature_names]
+    estimator = artifact.engine.model
+    probabilities_matrix = np.asarray(estimator.predict_proba(holdout_features), dtype=float)
+    classes = np.asarray(getattr(estimator, 'classes_', []))
+    positive = np.flatnonzero(classes == 1)
+    assert probabilities_matrix.shape == (len(holdout_features), len(classes))
+    assert len(positive) == 1 and np.isfinite(probabilities_matrix).all()
+    probabilities = probabilities_matrix[:, int(positive[0])]
+    checked = binary_metrics(held_out['Attrition'], probabilities,
                              float(data.loc[data['EmployeeID'].astype(str).isin(artifact.train_employee_ids), 'Attrition'].mean()))
     assert np.isclose(checked['brier_score'], artifact.metrics['brier_score'])
     assert np.isclose(checked['roc_auc'], artifact.metrics['roc_auc'])
@@ -103,7 +114,7 @@ def run(ibm_data):
                     'curve_points_checked': len(times), 'independent_restricted_mean': area,
                     'engine_restricted_mean': actual['mean_survival_months']},
         'checks_passed': ['source_hash', 'active_headcount', 'annualized_active_payroll',
-                          'disjoint_employee_holdout', 'exported_artifact_inference_matches_evaluation', 'three_random_label_controls_rejected',
+                          'disjoint_employee_holdout', 'governed_artifact_scoring_matches_evaluation', 'three_random_label_controls_rejected',
                           'independent_product_limit_curve', 'independent_step_rmst', 'aligned_ci_arrays'],
     }
 

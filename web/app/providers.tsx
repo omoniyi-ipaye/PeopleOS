@@ -19,7 +19,10 @@ function SnapshotObserver() {
     if (previous.current !== undefined && previous.current !== generation) {
       // Clear old values as well as refetching: a failed new query must not retain
       // the previous workforce's measurements in a different dataset context.
-      void client.resetQueries({predicate: (query) => !(query.queryKey[0] === 'platform' && query.queryKey[1] === 'status')})
+      void client.resetQueries({predicate: (query) => {
+        const key = query.queryKey
+        return !(key[0] === 'platform' && key[1] === 'status') && key[0] !== 'app-lock'
+      }})
     }
     previous.current = generation
   }, [data, client])

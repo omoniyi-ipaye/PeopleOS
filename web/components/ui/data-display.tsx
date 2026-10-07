@@ -23,6 +23,7 @@ export function MetricCard({
   icon,
   tone = 'neutral',
   status,
+  valueClassName,
 }: {
   label: string
   value: ReactNode
@@ -30,6 +31,7 @@ export function MetricCard({
   icon?: IconSlot
   tone?: SemanticTone
   status?: ReactNode
+  valueClassName?: string
 }) {
   return (
     <Surface padding="compact" className="min-w-0">
@@ -38,7 +40,7 @@ export function MetricCard({
         {status}
       </div>
       <div className="mt-4 text-xs font-semibold text-slate-500 dark:text-slate-400">{label}</div>
-      <div className="mt-1 truncate text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">{value}</div>
+      <div className={cn('mt-1 text-2xl font-semibold tracking-tight text-slate-950 dark:text-white', valueClassName ?? 'truncate')}>{value}</div>
       {detail && <div className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">{detail}</div>}
     </Surface>
   )
@@ -59,7 +61,7 @@ export function EmptyState({
 }) {
   return (
     <Surface tone={tone} className="flex min-h-64 flex-col items-center justify-center text-center">
-      {icon && <div className="mb-4 grid h-12 w-12 place-items-center rounded-2xl bg-white/70 text-slate-600 shadow-sm dark:bg-white/5 dark:text-slate-300">{renderIcon(icon, false)}</div>}
+      {icon && <div className="mb-4 grid h-12 w-12 place-items-center rounded-2xl bg-white/70 text-slate-600 shadow-xs dark:bg-white/5 dark:text-slate-300">{renderIcon(icon, false)}</div>}
       <h2 className="text-lg font-semibold text-slate-950 dark:text-white">{title}</h2>
       {description && <div className="mt-2 max-w-xl text-sm leading-6 text-slate-600 dark:text-slate-400">{description}</div>}
       {action && <div className="mt-5">{action}</div>}

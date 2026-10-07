@@ -1,0 +1,14 @@
+{
+  "cycle": "025",
+  "engine": "SuccessionEngine",
+  "status": "locally_forensically_reviewed_recorded_assessments",
+  "verified_behavioral_base": "362f294605bb57f1fbf573c64254155751e87033",
+  "scope": "recorded readiness/potential contracts, unassessed states, aggregate 9-box mapping, denominator reconciliation, Unknown departments, legacy proxy retirement and API serialization",
+  "forensic_and_compatibility_contracts": {"focused_existing_tests": "local_success_9_succession_tests_plus_shared_regressions", "full_python_validation": "1115_passed_6_subtests"},
+  "reviewed_source_sha256": {"src/succession_engine.py": "4909599ef244eae82c7f7a961d873bc4d7cddb01c2ab9ab558fead8099d14036", "api/routes/succession.py": "33e44bcc914f236b79853612d8d9af64e1fbab42ff45bf3a42299ae1b3a3fe94"},
+  "confirmed_behavior": ["Missing ratings remain Unassessed and do not become readiness scores.", "Bench, gap and 9-box summaries use actual engine keys and reconcile aggregate denominators.", "Unknown departments retain unassessed active people; legacy rating/tenure high-potential proxies are not the current contract."],
+  "interpretation_boundary": "Succession results reflect recorded assessments and aggregate coverage, not validated potential, future performance or authority to rank employees for employment action.",
+  "remaining_scientific_limits": ["Requires independent assessment reliability, role-specific successor coverage and future-performance validation.", "Legacy individual heuristic helpers must remain retired or explicitly bounded."],
+  "cross_product_validation": {"succession_engine_contracts": "local_success_9_plus_shared_regressions", "remote_ci": "pending_push"},
+  "release_gate": "Safe for recorded aggregate assessment reporting; individual selection and predictive readiness claims remain blocked."
+}

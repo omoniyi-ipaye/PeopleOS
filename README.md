@@ -59,7 +59,7 @@ Supported import formats:
 - `.csv`
 - `.json`
 
-PeopleOS validates the dataset before analysis and fails closed when required meaning or units are unclear.
+Before activation, PeopleOS opens an import review that shows how each source column was interpreted, exposes sample values, and lets the owner correct mappings. An optional local AI assistant can suggest meanings from column names and shape/type metadata only; it never receives workforce cell values and never activates a dataset. PeopleOS validates the confirmed dataset before analysis and fails closed when required meaning or units are unclear.
 
 ### 2. See what deserves attention
 
@@ -179,7 +179,7 @@ By default the backend binds to:
 127.0.0.1
 ```
 
-Local AI synthesis can run through Ollama, and deterministic analytics continue to work without making a model the calculator or source of truth.
+After the approved analytical checks complete, optional local Ollama AI can select and combine the verified results into a plain-language explanation. The model is not the calculator or source of truth: citations, scope and policy are validated server-side, and deterministic evidence remains the recovery path when local AI is unavailable.
 
 If you intentionally expose the API beyond loopback, configure authentication and a server-side role:
 
@@ -247,14 +247,25 @@ The default runtime intentionally excludes the heavy transformer/GPU/vector-sear
 pip install -r requirements-advanced.txt
 ```
 
+After activating a dataset that contains nonempty `PerformanceText`, open
+`/search` and choose **Prepare semantic search**. PeopleOS loads the pinned
+embedding model on demand and keeps the FAISS index in process memory, bound to
+the exact active dataset snapshot. Re-prepare it after restarting the API or
+activating a different dataset; no second database is created.
+
 ### Optional local AI
 
-Install Ollama and pull a compatible model, for example:
+The first-run screen and **Settings** include an owner-controlled local AI card. Leave it off for deterministic mode, or choose **Set up automatically** to let PeopleOS check Ollama, start its local service, download one selected model when needed and run a no-workforce-data readiness test. Cloud-tagged Ollama models are not accepted by this local path.
+
+The same setup can be run explicitly from a terminal:
 
 ```bash
-ollama serve
-ollama pull gemma3
+venv/bin/python scripts/setup_local_llm.py
 ```
+
+Pass `--model MODEL_NAME` to choose a local model. The script persists the owner preference and refreshes a running PeopleOS API when it is available; otherwise restart the API after it completes. If Ollama is not installed, use the [official Ollama download](https://ollama.com/download) and run setup again. The model is not bundled with PeopleOS and can require several gigabytes of disk space.
+
+WebLLM is a different, experimental browser-side approach. It downloads a compatible model into the browser and runs inference through WebGPU. PeopleOS does not use it as the primary governed advisor because browser support, model caching and workforce-data boundaries vary; the current UI explains the option without routing employee records into it.
 
 ### Run the backend
 
@@ -348,7 +359,7 @@ PeopleOS intentionally keeps deterministic analytics engines responsible for cal
 
 ## Verification
 
-The public-beta engineering candidate passed the complete validation matrix before merge to `main`:
+The historical public-beta engineering candidate passed the complete validation matrix before merge to `main`:
 
 - Agent Foundation
 - Frontend Modernization
@@ -361,7 +372,7 @@ The public-beta engineering candidate passed the complete validation matrix befo
 
 The browser suite exercises real People-team journeys including data import, pay-unit gating, malicious source labels, bad replacement data, concise AI answers with inspectable evidence, unsupported/causal abstention, dataset changes, mobile layout, scenario planning and Trust & Privacy.
 
-CI is strong technical evidence. It is **not** a substitute for independent fresh-user usability testing or organization-specific prospective validation of predictive use cases.
+CI is strong technical evidence. It is **not** a substitute for independent fresh-user usability testing or organization-specific prospective validation of predictive use cases. The current pushed pilot candidate is documented separately in [the 2026-09-15 readiness handoff](docs/validation/PUBLIC_PILOT_READINESS_2026-09-15.md); verify that the PR checks match the exact local `HEAD`.
 
 ---
 

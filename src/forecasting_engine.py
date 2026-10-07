@@ -68,6 +68,28 @@ class ForecastingEngine:
         try:
             for month, month_frame in frame.groupby('_source_month', sort=True):
                 latest = month_frame['_source_snapshot'].max()
+                # More than one export in a calendar month is only safe when
+                # the selected latest export is not smaller than an earlier
+                # export. A shrinking latest file is otherwise indistinguish-
+                # able from a partial census and must not become a historical
+                # headcount observation by source-row order or recency alone.
+                monthly_snapshots = (
+                    month_frame.groupby('_source_snapshot')['EmployeeID']
+                    .nunique()
+                    .sort_index()
+                )
+                if len(monthly_snapshots) > 1:
+                    latest_count = int(monthly_snapshots.loc[latest])
+                    earlier_max = int(monthly_snapshots.iloc[:-1].max())
+                    if latest_count < earlier_max:
+                        return {
+                            'success': False,
+                            'reason': (
+                                f'Historical census is incomplete or ambiguous for {month}: the latest dated export '
+                                f'contains {latest_count} unique employees versus {earlier_max} in an earlier export. '
+                                'Provide one complete census per month or correct the partial export before forecasting.'
+                            ),
+                        }
                 census = month_frame[month_frame['_source_snapshot'] == latest].drop(columns=['_source_snapshot', '_source_month'])
                 if 'Attrition' in census.columns:
                     status = normalize_attrition(census['Attrition'])

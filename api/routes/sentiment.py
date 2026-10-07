@@ -9,6 +9,7 @@ from fastapi.responses import FileResponse
 from typing import Optional, List
 
 from src.platform.runtime_lock import RUNTIME_MUTATION_LOCK
+from src.platform.provenance import frame_fingerprint
 from src.serialization import json_safe
 from api.dependencies import get_app_state, AppState
 from api.schemas.sentiment import (
@@ -35,6 +36,55 @@ from api.schemas.sentiment import (
 router = APIRouter(prefix="/api/sentiment", tags=["sentiment"])
 
 
+def _data_provenance(state: AppState) -> dict:
+    """Expose the active snapshot boundary and make cache use explicit."""
+    runtime = getattr(state, 'runtime_provenance', None)
+    cache = {
+        'used': False,
+        'scope': 'request_local',
+        'reason': 'Sentiment results are computed from the active survey frames; no result cache is used.',
+    }
+    if not runtime:
+        return {
+            'status': 'unavailable',
+            'reason': 'Runtime dataset provenance was not supplied.',
+            'cache': cache,
+        }
+
+    raw = getattr(state, 'raw_df', None)
+    engine = getattr(state, 'sentiment_engine', None)
+    current_fingerprint = runtime.get('current_fingerprint')
+    if raw is None or not current_fingerprint:
+        return {'status': 'unavailable', 'reason': 'Active dataset fingerprint is unavailable.', 'cache': cache}
+    try:
+        raw_fingerprint = frame_fingerprint(raw)
+    except Exception:
+        raw_fingerprint = None
+    if raw_fingerprint != current_fingerprint:
+        return {'status': 'unavailable', 'reason': 'Active dataset changed after activation; sentiment output is blocked.', 'cache': cache}
+    engine_fingerprint = getattr(engine, 'population_fingerprint', current_fingerprint)
+    if engine_fingerprint != raw_fingerprint:
+        return {'status': 'unavailable', 'reason': 'Sentiment engine belongs to a different dataset snapshot; output is blocked.', 'cache': cache}
+
+    return {
+        'status': 'verified',
+        'workspace_id': runtime.get('workspace_id'),
+        'dataset_id': runtime.get('dataset_id'),
+        'dataset_version': runtime.get('dataset_version'),
+        'generation': runtime.get('generation'),
+        'current_fingerprint': current_fingerprint,
+        'source_name': runtime.get('source_name'),
+        'cache': cache,
+    }
+
+
+def _prepare_results(results: dict, state: AppState) -> dict:
+    """Serialize engine output and attach one authoritative runtime boundary."""
+    prepared = json_safe(results)
+    prepared['data_provenance'] = _data_provenance(state)
+    return prepared
+
+
 def require_sentiment(state: AppState = Depends(get_app_state)) -> AppState:
     """Dependency that requires sentiment engine to be available."""
     if not state.has_data():
@@ -49,6 +99,13 @@ def require_sentiment(state: AppState = Depends(get_app_state)) -> AppState:
             status_code=400,
             detail="Sentiment analysis not available. Upload eNPS or onboarding survey data first."
         )
+
+    # Real activated runtimes have a provenance record. If that record exists but
+    # no longer reconciles with the engine, do not serve a plausible stale result.
+    if getattr(state, 'runtime_provenance', None):
+        provenance = _data_provenance(state)
+        if provenance.get('status') != 'verified':
+            raise HTTPException(status_code=409, detail=provenance.get('reason', 'Sentiment dataset provenance is unavailable.'))
 
     return state
 
@@ -65,10 +122,12 @@ async def get_sentiment_analysis(
     - Onboarding trajectory analysis
     - Early warning detection
     """
-    results = json_safe(state.sentiment_engine.analyze_all())
+    results = _prepare_results(state.sentiment_engine.analyze_all(), state)
 
     return SentimentAnalysisResponse(
         survey_coverage=results.get('survey_coverage', {}),
+        response_coverage=results.get('response_coverage', {}),
+        data_provenance=results.get('data_provenance', {}),
         enps=results.get('enps', {}),
         enps_trends=results.get('enps_trends', {}),
         enps_drivers=results.get('enps_drivers', {}),
@@ -114,6 +173,9 @@ async def get_enps(
     if not results.get('available', False):
         return ENPSResponse(
         survey_coverage=results.get('survey_coverage', {}),
+            response_coverage=results.get('response_coverage', {}),
+            analysis_coverage=results.get('analysis_coverage', {}),
+            data_provenance=_data_provenance(state),
             available=False,
             reason=results.get('reason', 'eNPS analysis not available')
         )
@@ -124,6 +186,9 @@ async def get_enps(
 
     return ENPSResponse(
         survey_coverage=results.get('survey_coverage', {}),
+        response_coverage=results.get('response_coverage', {}),
+        analysis_coverage=results.get('analysis_coverage', {}),
+        data_provenance=_data_provenance(state),
         available=True,
         overall_enps=results.get('overall_enps'),
         total_responses=results.get('total_responses'),
@@ -159,12 +224,18 @@ async def get_enps_trends(
     if not results.get('available', False):
         return ENPSTrendsResponse(
         survey_coverage=results.get('survey_coverage', {}),
+            response_coverage=results.get('response_coverage', {}),
+            analysis_coverage=results.get('analysis_coverage', {}),
+            data_provenance=_data_provenance(state),
             available=False,
             reason=results.get('reason', 'Trend analysis not available')
         )
 
     return ENPSTrendsResponse(
         survey_coverage=results.get('survey_coverage', {}),
+        response_coverage=results.get('response_coverage', {}),
+        analysis_coverage=results.get('analysis_coverage', {}),
+        data_provenance=_data_provenance(state),
         available=True,
         period_type=results.get('period_type'),
         trends=[ENPSTrendPoint(**t) for t in results.get('trends', [])],
@@ -188,12 +259,16 @@ async def get_enps_drivers(
     if not results.get('available', False):
         return ENPSDriversResponse(
         survey_coverage=results.get('survey_coverage', {}),
+            response_coverage=results.get('response_coverage', {}),
+            data_provenance=_data_provenance(state),
             available=False,
             reason=results.get('reason', 'Driver analysis not available')
         )
 
     return ENPSDriversResponse(
         survey_coverage=results.get('survey_coverage', {}),
+        response_coverage=results.get('response_coverage', {}),
+        data_provenance=_data_provenance(state),
         available=True,
         drivers=[ENPSDriver(**d) for d in results.get('drivers', [])],
         top_driver=results.get('top_driver'),
@@ -222,16 +297,24 @@ async def get_onboarding_trajectories(
     if not results.get('available', False):
         return OnboardingTrajectoryResponse(
         survey_coverage=results.get('survey_coverage', {}),
+            response_coverage=results.get('response_coverage', {}),
+            data_provenance=_data_provenance(state),
             available=False,
             reason=results.get('reason', 'Onboarding analysis not available')
         )
 
     return OnboardingTrajectoryResponse(
         survey_coverage=results.get('survey_coverage', {}),
+        response_coverage=results.get('response_coverage', {}),
+        data_provenance=_data_provenance(state),
         available=True,
         trajectories=[OnboardingTrajectory(**t) for t in results.get('trajectories', [])],
         summary=OnboardingTrajectorySummary(**results.get('summary', {})) if results.get('summary') else None,
-        at_risk_employees=[OnboardingTrajectory(**t) for t in results.get('at_risk_employees', [])]
+        at_risk_employees=[OnboardingTrajectory(**t) for t in results.get('at_risk_employees', [])],
+        at_risk_employee_count=results.get('at_risk_employee_count', 0),
+        at_risk_employees_returned=results.get('at_risk_employees_returned', 0),
+        at_risk_employees_truncated=results.get('at_risk_employees_truncated', False),
+        at_risk_employee_limit=results.get('at_risk_employee_limit'),
     )
 
 
@@ -249,16 +332,20 @@ async def get_onboarding_health(
     if not results.get('available', False):
         return OnboardingHealthResponse(
         survey_coverage=results.get('survey_coverage', {}),
+            response_coverage=results.get('response_coverage', {}),
+            data_provenance=_data_provenance(state),
             available=False,
             reason=results.get('reason', 'Onboarding health not available')
         )
 
     return OnboardingHealthResponse(
         survey_coverage=results.get('survey_coverage', {}),
+        response_coverage=results.get('response_coverage', {}),
+        data_provenance=_data_provenance(state),
         available=True,
-        by_survey_type=[SurveyTypeMetrics(**s) for s in results.get('by_survey_type', [])],
-        dimension_scores=[DimensionScore(**d) for d in results.get('dimension_scores', [])],
-        weakest_dimensions=[DimensionScore(**d) for d in results.get('weakest_dimensions', [])],
+        by_survey_type=[SurveyTypeMetrics(**s, **results.get('response_coverage', {}).get('onboarding', {}).get('by_survey_type', {}).get(s.get('survey_type'), {})) for s in results.get('by_survey_type', [])],
+        dimension_scores=[DimensionScore(**d, **results.get('response_coverage', {}).get('onboarding', {}).get('dimensions', {}).get(d.get('dimension'), {})) for d in results.get('dimension_scores', [])],
+        weakest_dimensions=[DimensionScore(**d, **results.get('response_coverage', {}).get('onboarding', {}).get('dimensions', {}).get(d.get('dimension'), {})) for d in results.get('weakest_dimensions', [])],
         overall_health=results.get('overall_health'),
         recommendations=results.get('recommendations', [])
     )
@@ -278,6 +365,8 @@ async def get_early_warnings(
     if not results.get('available', False):
         return EarlyWarningsResponse(
         survey_coverage=results.get('survey_coverage', {}),
+            response_coverage=results.get('response_coverage', {}),
+            data_provenance=_data_provenance(state),
             available=False,
             warnings=[],
             summary=None,
@@ -286,10 +375,13 @@ async def get_early_warnings(
 
     return EarlyWarningsResponse(
         survey_coverage=results.get('survey_coverage', {}),
+        response_coverage=results.get('response_coverage', {}),
+        data_provenance=_data_provenance(state),
         available=True,
         warnings=[EarlyWarning(**w) for w in results.get('warnings', [])],
         summary=EarlyWarningSummary(**results.get('summary', {})) if results.get('summary') else None,
-        recommendations=results.get('recommendations', [])
+        recommendations=results.get('recommendations', []),
+        claim_boundary=results.get('claim_boundary', 'Observed survey flags are not predictions of future departure.')
     )
 
 
@@ -423,6 +515,8 @@ async def upload_enps_survey(
 
             response = SurveyUploadResponse(
                 survey_coverage=candidate_engine.survey_coverage,
+                response_coverage=candidate_engine.response_coverage,
+                data_provenance=_data_provenance(state),
                 success=True,
                 message=f"Successfully loaded {len(df)} eNPS survey responses",
                 rows_loaded=len(df),
@@ -499,6 +593,8 @@ async def upload_onboarding_survey(
 
             response = SurveyUploadResponse(
                 survey_coverage=candidate_engine.survey_coverage,
+                response_coverage=candidate_engine.response_coverage,
+                data_provenance=_data_provenance(state),
                 success=True,
                 message=f"Successfully loaded {len(df)} onboarding survey responses",
                 rows_loaded=len(df),

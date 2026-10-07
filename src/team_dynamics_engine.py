@@ -15,6 +15,12 @@ from src.population import active_population, resolve_current_population
 logger = get_logger('team_dynamics_engine')
 
 
+def _finite_mean(series: pd.Series, decimals: int) -> float | None:
+    """Return a JSON-safe descriptive mean or an explicit unavailable value."""
+    values = pd.to_numeric(series, errors='coerce').replace([np.inf, -np.inf], np.nan).dropna()
+    return round(float(values.mean()), decimals) if not values.empty else None
+
+
 def clean_team_frame(frame):
     """Keep invalid measurements missing; do not impute descriptive statistics."""
     frame = frame.copy()
@@ -157,16 +163,21 @@ class TeamDynamicsEngine:
             results.append({
                 'Dept': dept,
                 'Headcount': len(dept_df),
-                'HealthScore': round(health_score, 2),
+                'HealthScore': round(float(health_score), 2) if np.isfinite(health_score) else None,
                 'Status': status,
-                'AvgRating': round(dept_df['LastRating'].mean(), 2) if 'LastRating' in dept_df.columns else None,
-                'AvgTenure': round(dept_df['Tenure'].mean(), 1) if 'Tenure' in dept_df.columns else None,
+                'AvgRating': _finite_mean(dept_df['LastRating'], 2) if 'LastRating' in dept_df.columns else None,
+                'AvgTenure': _finite_mean(dept_df['Tenure'], 1) if 'Tenure' in dept_df.columns else None,
                 'AttritionRate': round(attrition_share * 100, 1) if attrition_share is not None else None,
                 'MetricSemantics': 'configured_composite_not_validated_team_health; attrition_is_observed_share',
                 'ComponentCount': len(health_components)
             })
 
-        return pd.DataFrame(results, columns=['Dept', 'Headcount', 'HealthScore', 'Status', 'AvgRating', 'AvgTenure', 'AttritionRate', 'MetricSemantics', 'ComponentCount']).sort_values('HealthScore', ascending=True)
+        result = pd.DataFrame(results, columns=['Dept', 'Headcount', 'HealthScore', 'Status', 'AvgRating', 'AvgTenure', 'AttritionRate', 'MetricSemantics', 'ComponentCount'])
+        if not result.empty:
+            # Keep unavailable values as None in the object column so direct
+            # consumers can serialize the engine result with allow_nan=False.
+            result['HealthScore'] = result['HealthScore'].astype(object)
+        return result.sort_values('HealthScore', ascending=True, na_position='last')
 
     def analyze_team_diversity(self) -> pd.DataFrame:
         """
@@ -210,13 +221,16 @@ class TeamDynamicsEngine:
             result_row = {
                 'Dept': dept,
                 'Headcount': len(dept_df),
-                'OverallDiversity': round(overall, 2),
+                'OverallDiversity': round(float(overall), 2) if np.isfinite(overall) else None,
                 **{k: round(v, 2) for k, v in diversity_scores.items()}
             }
 
             results.append(result_row)
 
-        return pd.DataFrame(results, columns=['Dept','Headcount','OverallDiversity','AgeDiversity','TenureDiversity','SalaryEquity']).sort_values('OverallDiversity', ascending=False)
+        result = pd.DataFrame(results, columns=['Dept','Headcount','OverallDiversity','AgeDiversity','TenureDiversity','SalaryEquity'])
+        if not result.empty:
+            result['OverallDiversity'] = result['OverallDiversity'].astype(object)
+        return result.sort_values('OverallDiversity', ascending=False, na_position='last')
 
     def identify_performance_variance(self) -> pd.DataFrame:
         """
@@ -285,8 +299,8 @@ class TeamDynamicsEngine:
         # Cross-department ratios
         dept_counts = df['Dept'].value_counts()
         indicators['department_count'] = len(dept_counts)
-        indicators['avg_team_size'] = round(dept_counts.mean(), 1)
-        indicators['team_size_variance'] = round(dept_counts.std(), 1)
+        indicators['avg_team_size'] = round(float(dept_counts.mean()), 1) if len(dept_counts) else None
+        indicators['team_size_variance'] = round(float(dept_counts.std()), 1) if len(dept_counts) > 1 else None
 
         # Balance score (how evenly distributed are teams)
         if len(dept_counts) > 1:
@@ -298,13 +312,15 @@ class TeamDynamicsEngine:
 
         # Experience distribution
         if 'Tenure' in df.columns:
-            indicators['avg_org_tenure'] = round(df['Tenure'].mean(), 1)
-            indicators['tenure_range'] = round(df['Tenure'].max() - df['Tenure'].min(), 1)
+            indicators['avg_org_tenure'] = _finite_mean(df['Tenure'], 1)
+            valid_tenure = pd.to_numeric(df['Tenure'], errors='coerce').replace([np.inf, -np.inf], np.nan).dropna()
+            indicators['tenure_range'] = round(float(valid_tenure.max() - valid_tenure.min()), 1) if not valid_tenure.empty else None
 
         # Performance distribution
         if 'LastRating' in df.columns:
-            indicators['org_avg_rating'] = round(df['LastRating'].mean(), 2)
-            indicators['high_performer_ratio'] = round(len(df[df['LastRating'] >= 4.0]) / df['LastRating'].count() * 100, 1) if df['LastRating'].count() else None
+            indicators['org_avg_rating'] = _finite_mean(df['LastRating'], 2)
+            valid_rating = pd.to_numeric(df['LastRating'], errors='coerce').replace([np.inf, -np.inf], np.nan).dropna()
+            indicators['high_performer_ratio'] = round(float((valid_rating >= 4.0).sum() / len(valid_rating) * 100), 1) if len(valid_rating) else None
 
         return indicators
 
@@ -413,9 +429,9 @@ class TeamDynamicsEngine:
             'thriving_teams': len(health_df[health_df['Status'] == 'Thriving']),
             'healthy_teams': len(health_df[health_df['Status'] == 'Healthy']),
             'at_risk_teams': len(health_df[health_df['Status'].isin(['At Risk', 'Critical'])]),
-            'avg_health_score': round(health_df['HealthScore'].mean(), 2),
-            'min_health_score': round(health_df['HealthScore'].min(), 2),
-            'max_health_score': round(health_df['HealthScore'].max(), 2)
+            'avg_health_score': _finite_mean(health_df['HealthScore'], 2),
+            'min_health_score': float(health_df['HealthScore'].min()) if health_df['HealthScore'].notna().any() else None,
+            'max_health_score': float(health_df['HealthScore'].max()) if health_df['HealthScore'].notna().any() else None
         }
 
     def analyze_all(self) -> dict:

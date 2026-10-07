@@ -134,7 +134,7 @@ export function InlineExplainer({ value, explanation, status = 'neutral' }: Inli
         onMouseLeave={() => setShowTip(false)}
       />
       {showTip && (
-        <div className="absolute z-50 bottom-full left-0 mb-2 p-2 bg-slate-900 text-white text-xs rounded shadow-lg max-w-xs whitespace-normal">
+        <div className="absolute z-50 bottom-full left-0 mb-2 p-2 bg-slate-900 text-white text-xs rounded-sm shadow-lg max-w-xs whitespace-normal">
           {explanation}
         </div>
       )}

@@ -1,12 +1,12 @@
-# Recommended protection for `main`
+# Protection for `main`
 
-The repository `main` branch is currently unprotected. Before broad public contribution or release, configure a GitHub branch protection rule or repository ruleset for `main` with the following controls.
+Protection was enabled and read back from GitHub on 2026-10-07. It applies to administrators as well as other contributors. Pull requests, current passing checks, and resolved conversations are required; force pushes and branch deletion are disabled. The repository remains single-maintainer: zero additional approving reviewers are required, which is not a claim of independent review.
 
 ## Required controls
 
 - Require a pull request before merging.
-- Block direct pushes to `main` except for an explicitly designated emergency/maintainer bypass if desired.
-- Require branches to be up to date before merge where practical.
+- Require these controls for administrator changes as well; no bypass is used for the pilot integration.
+- Require branches to be up to date before merge.
 - Require conversation resolution before merge.
 - Require the validated CI checks below before merge.
 - Do not allow force pushes.
@@ -14,18 +14,24 @@ The repository `main` branch is currently unprotected. Before broad public contr
 
 ## Required status checks
 
-Use the repository's current check names:
+Required GitHub Actions job contexts (integration ID 15368):
 
-1. `Agent Foundation`
-2. `Frontend Modernization`
-3. `E2E User Journey`
-4. `Analytics Validation`
-5. `People Team Browser Acceptance`
-6. `Local Desktop Build`
-7. `Release Security`
-8. `Local Ollama Acceptance`
+- `agent-tests`
+- `build`
+- `user-journey`
+- `known_answers_and_benchmarks`
+- `real_people_team_journeys`
+- `local_cpu`
+- `frontend-dependencies`
+- `package-linux-x64`, `package-windows-x64`, `package-macos-arm64`
+- `python-dependencies (requirements-desktop.txt)`
+- `python-dependencies (requirements-core.txt)`
+- `python-dependencies (requirements-advanced.txt)`
+- `python-dependencies (requirements-validation.txt)`
 
-If GitHub exposes job-level rather than workflow-level check names when configuring the rule, select the corresponding required jobs for each workflow and verify the rule against a test pull request before relying on it.
+The integrating release review additionally verifies every engine-forensic job;
+several older workflows share the same `forensic` job name, so those ambiguous
+names are not used as substitutes for the unambiguous core/analytics gates.
 
 ## Maintainer policy
 
@@ -37,6 +43,8 @@ For public-beta development, prefer:
 - no real employee data in issues, pull requests, fixtures, logs or screenshots;
 - release/tag creation only after explicit owner authorization.
 
-## Current limitation
+## Verification boundary
 
-This file documents the intended repository rule. It does **not** itself enable GitHub branch protection. The repository owner must configure the rule in GitHub repository settings because the connected GitHub App used for the preparation pass does not have repository-administration permission.
+The protection API returned the configured rule with administrator enforcement,
+strict status checks and conversation resolution enabled. This is live settings
+evidence; no deliberate prohibited-push test was performed.

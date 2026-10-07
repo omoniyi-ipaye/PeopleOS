@@ -3,8 +3,14 @@
 This is a preparation record, not a published release or a production certification.
 
 Baseline before public-beta hardening: `ae986ef5be780790a798871d5a20fb6d2e95f343` (PR #5 merged).
-Verified public-beta candidate: `90f1958708a78481b8931893076f14c076be92a1`.
-Merged to `main`: `a300db48b2fe6d11076ed14fcdd891d170316764` via PR #6.
+Historical verified public-beta candidate: `90f1958708a78481b8931893076f14c076be92a1`.
+Historical merge to `main`: `a300db48b2fe6d11076ed14fcdd891d170316764` via PR #6.
+
+## Current launch candidate
+
+The current integration is [PR #18](https://github.com/omoniyi-ipaye/PeopleOS/pull/18), including the branch history and substantive work from PR #11. Its live checks and merge status are authoritative.
+
+The October 7 security, compatibility and final acceptance handoff is recorded in [PUBLIC_PILOT_READINESS_2026-10-07.md](../validation/PUBLIC_PILOT_READINESS_2026-10-07.md). Earlier September evidence remains historical and must not be substituted for checks on the final candidate.
 
 ## Intended release scope
 
@@ -20,9 +26,13 @@ Local, single-user descriptive People analytics and evidence-backed investigatio
 - [x] Local Desktop Build passed for Windows x64, macOS ARM64 and Linux x64 build/smoke/restart/archive paths.
 - [x] Release Security passed across the validated frontend and Python dependency profiles.
 - [x] Local Ollama Acceptance passed on the verified candidate.
+- [x] All engine-forensic review workflows passed on the current exact-head candidate.
+- [x] Local owner app-lock setup, fail-closed lock screen, unlock, PIN change and PIN removal are covered by API/unit and browser acceptance tests.
+- [x] Real vector benchmark executed with the pinned multilingual embedding model and FAISS; results remain synthetic acceptance evidence, not a public relevance claim.
 - [x] README updated to the current People-team product positioning.
 - [x] Commercial-use policy documented and a request template added.
 - [x] Pilot feedback template added.
+- [x] Current working-tree evidence and release boundaries recorded in [PUBLIC_PILOT_READINESS_2026-09-15.md](../validation/PUBLIC_PILOT_READINESS_2026-09-15.md).
 
 ## Licensing status
 
@@ -49,12 +59,15 @@ The following are now engineering-ready for a controlled pilot:
 ## Human / owner-controlled items still open
 
 - [ ] Independent fresh-user installation and usability walkthrough on target machines.
+- [ ] Verify the linked PR #18 is merged after all checks pass; its live GitHub state is the merge record.
+- [x] Configure and read back the documented `main` branch protection, including required passing checks and administrator enforcement.
 - [ ] Capture pilot outcomes and recurring friction using the pilot feedback template.
 - [ ] Decide whether Windows code signing and macOS notarization are required before broad public distribution.
 - [ ] Choose a version/tag and final public release notes when publication is authorized.
 - [ ] Review release archives, checksums and third-party/model notices before publishing binaries.
 - [ ] Explicitly authorize creation of a GitHub Release / public binary distribution.
 - [ ] Perform organization-specific prospective predictive validation before making stronger intended-use predictive claims.
+- [ ] Complete approved relevance/accuracy holdouts, load/concurrency, isolation, retention and independent review before making public semantic-search, NLP or predictive claims.
 
 ## Distribution limitations
 
@@ -62,7 +75,9 @@ CI artifacts are build evidence until promoted to a versioned release. Checksums
 
 ## Verification summary
 
-PR #6 (`Prepare public beta distribution and close dependency security gaps`) merged the verified candidate after all eight required workflows passed. The final browser acceptance rerun passed the complete desktop/mobile journeys and its action/process coverage ledger. No privacy, evidence, security or analytical guardrail was weakened to obtain the passing result.
+PR #6 (`Prepare public beta distribution and close dependency security gaps`) merged a historical verified candidate after all eight required workflows passed. The final browser acceptance rerun passed the complete desktop/mobile journeys and its action/process coverage ledger. No privacy, evidence, security or analytical guardrail was weakened to obtain the passing result.
+
+For the current source snapshot, use [PUBLIC_PILOT_READINESS_2026-10-07.md](../validation/PUBLIC_PILOT_READINESS_2026-10-07.md). Remote CI, merge, release publication and independent pilot acceptance remain separate gates.
 
 See also:
 

@@ -56,7 +56,7 @@ export function TooltipContent({ children, className }: { children: React.ReactN
       id={contentId}
       role="tooltip"
       className={cn(
-        'pointer-events-none absolute bottom-full left-1/2 z-[100] mb-2 w-max max-w-xs -translate-x-1/2 rounded-xl border border-slate-200 bg-white px-2.5 py-2 text-xs leading-5 text-slate-700 shadow-xl dark:border-white/10 dark:bg-slate-900 dark:text-slate-200',
+        'pointer-events-none absolute bottom-full left-1/2 z-100 mb-2 w-max max-w-xs -translate-x-1/2 rounded-xl border border-slate-200 bg-white px-2.5 py-2 text-xs leading-5 text-slate-700 shadow-xl dark:border-white/10 dark:bg-slate-900 dark:text-slate-200',
         className
       )}
     >

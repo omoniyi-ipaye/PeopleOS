@@ -52,7 +52,7 @@ Conversationally:
 
 ## Validation
 
-The verified public-beta engineering candidate passed:
+The historical verified public-beta engineering candidate passed:
 
 - Agent Foundation
 - Frontend Modernization
@@ -64,6 +64,8 @@ The verified public-beta engineering candidate passed:
 - Local Ollama Acceptance
 
 The candidate was merged to `main` through PR #6.
+
+The current pilot-hardening evidence is captured in [the October 7 readiness handoff](../validation/PUBLIC_PILOT_READINESS_2026-10-07.md). Consult PR #18 for live merge and check status. A merged source candidate does not constitute a published binary release.
 
 ## Platforms
 

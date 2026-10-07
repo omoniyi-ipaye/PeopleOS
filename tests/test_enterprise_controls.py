@@ -76,7 +76,7 @@ def test_legacy_session_cannot_delete_arbitrary_file(boundary, tmp_path):
     assert protected.read_text() == 'must survive'
 
 
-@pytest.mark.parametrize('origin', ['http://127.0.0.1:49152', 'http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:3001', None])
+@pytest.mark.parametrize('origin', ['http://127.0.0.1:49152', 'http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:3001', 'http://127.0.0.1:3001', None])
 def test_desktop_random_port_and_supported_dev_origins_keep_owner_access(boundary, origin):
     app, changes = boundary
     with client_for(app, '127.0.0.1', 'http://127.0.0.1:49152') as client:

@@ -53,7 +53,7 @@ export function NineBoxGrid({ data }: NineBoxGridProps) {
                 <div
                   key={category}
                   className={cn(
-                    'p-3 rounded-xl border text-center transition-all hover:scale-[1.02] shadow-sm',
+                    'p-3 rounded-xl border text-center transition-all hover:scale-[1.02] shadow-xs',
                     CELL_COLORS[category] || 'bg-surface dark:bg-surface-dark border-border dark:border-border-dark'
                   )}
                 >

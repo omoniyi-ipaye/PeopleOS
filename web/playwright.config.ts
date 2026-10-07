@@ -1,5 +1,7 @@
 import { defineConfig, devices } from '@playwright/test'
 
+const browserUrl = process.env.PEOPLEOS_BROWSER_URL || 'http://127.0.0.1:3000'
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: false,
@@ -11,7 +13,7 @@ export default defineConfig({
   outputDir: 'browser-artifacts/test-results',
   reporter: [['list'], ['html', { outputFolder: 'browser-artifacts/report', open: 'never' }], ['json', { outputFile: 'browser-artifacts/results.json' }]],
   use: {
-    baseURL: 'http://127.0.0.1:3000',
+    baseURL: browserUrl,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
@@ -22,7 +24,7 @@ export default defineConfig({
   ],
   webServer: {
     command: `${process.env.PEOPLEOS_TEST_PYTHON || 'python'} ../scripts/run_browser_acceptance.py`,
-    url: 'http://127.0.0.1:3000',
+    url: browserUrl,
     reuseExistingServer: false,
     timeout: 180_000,
     stdout: 'pipe',

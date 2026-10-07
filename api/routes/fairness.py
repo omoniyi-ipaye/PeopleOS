@@ -1,5 +1,6 @@
 """Fairness analysis route handlers."""
 
+import math
 from typing import List, Dict, Any
 
 from fastapi import APIRouter, HTTPException, Depends
@@ -10,6 +11,23 @@ from api.dependencies import get_app_state, AppState
 from src.serialization import json_safe
 
 router = APIRouter(prefix="/api/fairness", tags=["fairness"])
+
+
+def _safe_int(value: Any, default: int | None = None) -> int | None:
+    """Convert nullable analytical counts without turning NaN into a 500."""
+    value = json_safe(value)
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return default
+    numeric = float(value)
+    return int(numeric) if math.isfinite(numeric) else default
+
+
+def _safe_float(value: Any, default: float | None = None) -> float | None:
+    value = json_safe(value)
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return default
+    numeric = float(value)
+    return numeric if math.isfinite(numeric) else default
 
 
 class FourFifthsResult(BaseModel):
@@ -127,15 +145,18 @@ async def get_demographic_parity(
             'attribute': row['attribute'],
             'dimension_type': row.get('dimension_type'),
             'group': str(row['group']),
-            'rate': float(row['rate']),
-            'count': int(row['count']),
+            'rate': _safe_float(row.get('rate')),
+            'count': _safe_int(row.get('count'), 0),
             'disparity': json_safe(row.get('disparity')),
             'outcome_rate_ratio_to_overall': ratio,
             'parity_ratio': ratio,
-            'overall_known_outcome_count': int(row.get('overall_known_outcome_count', 0) or 0),
-            'attribute_observed_count': int(row.get('attribute_observed_count', 0) or 0),
+            'overall_known_outcome_count': _safe_int(row.get('overall_known_outcome_count'), 0),
+            # A null value is intentional when a small group was suppressed;
+            # replacing it with zero would leak the suppressed group's size by
+            # subtraction and would also make int(NaN) raise here.
+            'attribute_observed_count': _safe_int(row.get('attribute_observed_count')),
             'attribute_coverage': json_safe(row.get('attribute_coverage')),
-            'suppressed_group_count': int(row.get('suppressed_group_count', 0) or 0),
+            'suppressed_group_count': _safe_int(row.get('suppressed_group_count'), 0),
             'metric_semantics': 'observed_attrition_rate_disparity_not_fairness_determination',
         })
 

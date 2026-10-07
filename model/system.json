@@ -106,7 +106,7 @@
       "type": "authority",
       "from": "cmp-agent",
       "to": "cmp-tools",
-      "label": "allowlisted deterministic plan"
+      "label": "deterministic plan then bounded local read-tool selection"
     },
     {
       "id": "flow-evidence",
@@ -184,7 +184,7 @@
     },
     {
       "id": "ctl-agent-tools",
-      "mechanism": "allowlisted read-only aggregate tools",
+      "mechanism": "server-owned read-only tool catalog; deterministic analysis runs first, then the local model may select only exact available tool IDs; complete snapshots are scanned in-process and row-level identifiers/free text are withheld from model context",
       "enforced": true
     },
     {

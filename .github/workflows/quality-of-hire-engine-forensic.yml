@@ -1,0 +1,53 @@
+name: QualityOfHireEngine Forensic Validation
+
+on:
+  pull_request:
+    paths:
+      - 'src/quality_of_hire_engine.py'
+      - 'api/routes/quality_of_hire.py'
+      - 'api/schemas/quality_of_hire.py'
+      - 'web/app/quality-of-hire/page.tsx'
+      - 'web/types/api.ts'
+      - 'tests/test_quality_of_hire_engine_forensic_cycle021.py'
+      - 'tests/test_analytics_accuracy.py'
+      - 'tests/test_specialist_measurement_fixes.py'
+      - 'tests/test_specialist_review_findings.py'
+      - 'tests/test_engine_renderer_integrity.py'
+      - '.github/workflows/quality-of-hire-engine-forensic.yml'
+      - 'model/quality_cycle_021_quality_of_hire_engine_final.json'
+  workflow_dispatch:
+
+jobs:
+  forensic:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: requirements-validation.txt
+      - name: Record Quality of Hire source digests
+        run: |
+          sha256sum src/quality_of_hire_engine.py
+          sha256sum api/routes/quality_of_hire.py
+          sha256sum api/schemas/quality_of_hire.py
+      - name: Install validation dependencies
+        run: python -m pip install -r requirements-validation.txt
+      - name: Run Quality of Hire forensic contracts
+        run: >-
+          pytest -q
+          tests/test_quality_of_hire_engine_forensic_cycle021.py
+          tests/test_analytics_accuracy.py::test_hiring_source_quality_ignores_missing_components
+          tests/test_analytics_accuracy.py::test_hiring_source_missing_responses_do_not_lower_performance_rate
+          tests/test_specialist_measurement_fixes.py::test_single_measured_hire_cannot_receive_a_source_grade
+          tests/test_specialist_measurement_fixes.py::test_sources_share_weights_and_insufficient_components_suppress_comparison
+          tests/test_specialist_measurement_fixes.py::test_wholly_unmeasured_dataset_components_are_excluded_once
+          tests/test_specialist_measurement_fixes.py::test_source_measured_minimum_boundary_is_component_specific
+          tests/test_specialist_measurement_fixes.py::test_sparse_outcomes_do_not_reappear_as_source_flags_or_relative_rating_claims
+          tests/test_specialist_measurement_fixes.py::test_quality_api_preserves_comparison_and_coverage_contract
+          tests/test_specialist_review_findings.py::test_regression_qoh_source_grade_from_one_measured_person
+          tests/test_specialist_review_findings.py::test_regression_composites_changing_with_component_availability
+          tests/test_engine_renderer_integrity.py::test_qoh_unmeasured_sources_have_no_winner_or_roi_recommendation
+          tests/test_analytics_launch_matrix.py::test_remaining_public_analytics_methods_have_explicit_edge_outcomes

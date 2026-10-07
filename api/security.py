@@ -16,22 +16,36 @@ from fastapi import Request
 from fastapi.responses import JSONResponse
 
 from api.authorization import has_permission
+from src.platform.app_lock import AppLockStore
 
 _LOOPBACK_HOSTS = {"127.0.0.1", "::1", "localhost", "testclient"}
 _LOCAL_URL_HOSTS = _LOOPBACK_HOSTS | {"testserver"}
 _PUBLIC_PATHS = {"/", "/api/health"}
 _ALLOWED_REMOTE_ROLES = {"admin", "analyst", "viewer"}
 _SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
-_DEV_ORIGINS = {"http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:3001"}
+_DEV_ORIGINS = {
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:3001",
+    "http://127.0.0.1:3001",
+}
+
+
+def _configured_local_proxy_origins() -> set[str]:
+    """Return explicitly configured loopback proxy origins for local test/dev hosts."""
+    configured = os.getenv('PEOPLEOS_LOCAL_PROXY_ORIGINS', '')
+    return {origin.strip() for origin in configured.split(',') if origin.strip()}
 # Explicit method/path mappings cover legacy writes as well as the control plane.
 # New mutation routes fail closed for remote roles until assigned a permission.
 _MUTATION_PERMISSIONS = (
+    ('POST', r'/api/app-lock/(?:setup|lock|unlock|change|disable)', 'workspace.write'),
     ('POST', r'/api/upload(?:/load-sample|/reset)?', 'dataset.write'),
     ('POST', r'/api/sentiment/upload/(?:enps|onboarding)', 'dataset.write'),
     ('POST', r'/api/scenario/(?:simulate/[^/]+|compare|sensitivity)', 'investigate'),
     ('DELETE', r'/api/scenario/[^/]+', 'investigate'),
     ('POST', r'/api/(?:intelligence/investigate|advisor/ask)', 'investigate'),
     ('POST', r'/api/search', 'sensitive.read'),
+    ('POST', r'/api/search/prepare', 'sensitive.read'),
     ('POST', r'/api/model-lab/optimize', 'model.train'),
     ('POST', r'/api/platform/workspaces', 'workspace.write'),
     ('POST', r'/api/platform/workspaces/[^/]+/datasets/current', 'dataset.write'),
@@ -43,6 +57,7 @@ _MUTATION_PERMISSIONS = (
 )
 
 _READ_PERMISSIONS = (
+    (r'/api/app-lock/status', 'health.read'),
     (r'/api/health', 'health.read'),
     (r'/api/(?:status|upload/(?:template|status)|search/status)', 'health.read'),
     (r'/api/(?:analytics|predictions|compensation|succession|team|fairness|nlp|survival|quality-of-hire|structural|sentiment|experience|scenario|model-lab|geo|causal|network)(?:/.*)?', 'dataset.read'),
@@ -72,6 +87,15 @@ _RETIRED_ROUTES = (
     ('GET', r'/api/succession/(?:readiness|high-potentials|pipeline|recommendations|9box)'),
     ('POST', r'/api/scenario/simulate/intervention'),
 )
+
+_APP_LOCK_EXEMPT_PATHS = {
+    '/api/app-lock/status',
+    '/api/app-lock/setup',
+    '/api/app-lock/lock',
+    '/api/app-lock/unlock',
+    '/api/app-lock/change',
+    '/api/app-lock/disable',
+}
 
 
 def _api_json(status_code: int, content: dict) -> JSONResponse:
@@ -114,7 +138,7 @@ def _trusted_browser_origin(request: Request) -> bool:
     origin = request.headers.get('origin')
     if not origin:
         return request.headers.get('sec-fetch-site') not in {'cross-site'}
-    if origin in _DEV_ORIGINS:
+    if origin in _DEV_ORIGINS or origin in _configured_local_proxy_origins():
         return True
     try:
         parsed = urlsplit(origin)
@@ -134,6 +158,11 @@ def _trusted_browser_origin(request: Request) -> bool:
 
 async def _authorized_response(request: Request, call_next):
     path = request.url.path.rstrip('/') or '/'
+    if path.startswith('/api/') and path not in _APP_LOCK_EXEMPT_PATHS and AppLockStore().is_locked():
+        return _api_json(423, {
+            'detail': 'PeopleOS is locked. Unlock the local installation before accessing workforce evidence.',
+            'code': 'app_locked',
+        })
     # The obsolete session API accepts arbitrary filesystem paths and bypasses
     # dataset lifecycle/provenance. Current UI uses platform sessions instead.
     if path == '/api/sessions' or path.startswith('/api/sessions/'):

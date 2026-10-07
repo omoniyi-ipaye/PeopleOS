@@ -121,7 +121,15 @@ class AppState:
                     }
                     if WorkspaceStore().get_workspace('local').active_dataset_id != record.dataset_id:
                         raise ValueError('Selected dataset changed during restore; retry the request')
-                    activate_dataframe(self, persisted, feature_flags=feature_flags, workspace_id='local', dataset_id=workspace.active_dataset_id)
+                    activate_dataframe(
+                        self,
+                        persisted,
+                        feature_flags=feature_flags,
+                        workspace_id='local',
+                        dataset_id=workspace.active_dataset_id,
+                        source_name=getattr(record, 'source_name', None),
+                    )
+                    self.runtime_provenance['dataset_version'] = getattr(record, 'version', None)
                     return True
                 return False
             if store._read().get('recovery_required'):

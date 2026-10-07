@@ -17,6 +17,9 @@ class ENPSGroupResult(BaseModel):
 
 class ENPSResponse(BaseModel):
     survey_coverage: Dict[str, Any] = Field(default_factory=dict)
+    response_coverage: Dict[str, Any] = Field(default_factory=dict)
+    analysis_coverage: Dict[str, Any] = Field(default_factory=dict)
+    data_provenance: Dict[str, Any] = Field(default_factory=dict)
     """eNPS calculation response."""
     available: bool
     reason: Optional[str] = None
@@ -40,12 +43,17 @@ class ENPSTrendPoint(BaseModel):
     period: str
     enps: Optional[float] = None
     responses: int
+    unique_respondents: int = 0
+    repeated_response_rows: int = 0
     promoters: int
     detractors: int
 
 
 class ENPSTrendsResponse(BaseModel):
     survey_coverage: Dict[str, Any] = Field(default_factory=dict)
+    response_coverage: Dict[str, Any] = Field(default_factory=dict)
+    analysis_coverage: Dict[str, Any] = Field(default_factory=dict)
+    data_provenance: Dict[str, Any] = Field(default_factory=dict)
     """eNPS trends over time response."""
     available: bool
     reason: Optional[str] = None
@@ -65,6 +73,8 @@ class ENPSDriver(BaseModel):
 
 class ENPSDriversResponse(BaseModel):
     survey_coverage: Dict[str, Any] = Field(default_factory=dict)
+    response_coverage: Dict[str, Any] = Field(default_factory=dict)
+    data_provenance: Dict[str, Any] = Field(default_factory=dict)
     """eNPS drivers analysis response."""
     available: bool
     reason: Optional[str] = None
@@ -93,22 +103,34 @@ class OnboardingTrajectorySummary(BaseModel):
     at_risk_count: int
     improving_count: int
     avg_completion_rate: float
+    respondent_count: int = 0
+    eligible_employee_count: int = 0
+    response_coverage_pct: Optional[float] = None
 
 
 class OnboardingTrajectoryResponse(BaseModel):
     survey_coverage: Dict[str, Any] = Field(default_factory=dict)
+    response_coverage: Dict[str, Any] = Field(default_factory=dict)
+    data_provenance: Dict[str, Any] = Field(default_factory=dict)
     """Onboarding trajectory analysis response."""
     available: bool
     reason: Optional[str] = None
     trajectories: List[OnboardingTrajectory] = []
     summary: Optional[OnboardingTrajectorySummary] = None
     at_risk_employees: List[OnboardingTrajectory] = []
+    at_risk_employee_count: int = 0
+    at_risk_employees_returned: int = 0
+    at_risk_employees_truncated: bool = False
+    at_risk_employee_limit: Optional[int] = None
 
 
 class DimensionScore(BaseModel):
     """Score for an onboarding dimension."""
     dimension: str
     avg_score: Optional[float] = None
+    observations: int = 0
+    eligible_employee_count: int = 0
+    coverage_pct: Optional[float] = None
 
 
 class SurveyTypeMetrics(BaseModel):
@@ -117,10 +139,15 @@ class SurveyTypeMetrics(BaseModel):
     avg_score: float
     responses: int
     healthy_pct: float
+    unique_respondents: int = 0
+    eligible_employee_count: int = 0
+    response_rate_pct: Optional[float] = None
 
 
 class OnboardingHealthResponse(BaseModel):
     survey_coverage: Dict[str, Any] = Field(default_factory=dict)
+    response_coverage: Dict[str, Any] = Field(default_factory=dict)
+    data_provenance: Dict[str, Any] = Field(default_factory=dict)
     """Onboarding health assessment response."""
     available: bool
     reason: Optional[str] = None
@@ -138,6 +165,7 @@ class EarlyWarning(BaseModel):
     warning_type: str  # eNPS Detractor, Declining Onboarding
     severity: str  # High, Medium, Low
     details: str
+    claim_boundary: str = 'Observed survey flag; not a future departure prediction.'
 
 
 class EarlyWarningSummary(BaseModel):
@@ -146,15 +174,22 @@ class EarlyWarningSummary(BaseModel):
     high_severity: int
     medium_severity: int
     warning_types: List[str]
+    total_observed_flags: int = 0
+    eligible_employee_count: int = 0
+    flag_coverage_pct: Optional[float] = None
+    claim_boundary: str = 'Observed survey flags are not predictions of future departure.'
 
 
 class EarlyWarningsResponse(BaseModel):
     survey_coverage: Dict[str, Any] = Field(default_factory=dict)
+    response_coverage: Dict[str, Any] = Field(default_factory=dict)
+    data_provenance: Dict[str, Any] = Field(default_factory=dict)
     """Early warnings detection response."""
     available: bool
     warnings: List[EarlyWarning] = []
     summary: Optional[EarlyWarningSummary] = None
     recommendations: List[str] = []
+    claim_boundary: str = 'Observed survey flags are not predictions of future departure.'
 
 
 class SentimentSummary(BaseModel):
@@ -166,10 +201,13 @@ class SentimentSummary(BaseModel):
     employees_at_risk: Optional[int]
     total_warnings: int
     total_recommendations: int
+    claim_boundary: str = 'Survey outputs are descriptive and are not predictions of future departure.'
 
 
 class SentimentAnalysisResponse(BaseModel):
     survey_coverage: Dict[str, Any] = Field(default_factory=dict)
+    response_coverage: Dict[str, Any] = Field(default_factory=dict)
+    data_provenance: Dict[str, Any] = Field(default_factory=dict)
     """Complete sentiment analysis response."""
     enps: Dict[str, Any]
     enps_trends: Dict[str, Any]
@@ -184,6 +222,8 @@ class SentimentAnalysisResponse(BaseModel):
 
 class SurveyUploadResponse(BaseModel):
     survey_coverage: Dict[str, Any] = Field(default_factory=dict)
+    response_coverage: Dict[str, Any] = Field(default_factory=dict)
+    data_provenance: Dict[str, Any] = Field(default_factory=dict)
     """Response after uploading survey data."""
     success: bool
     message: str

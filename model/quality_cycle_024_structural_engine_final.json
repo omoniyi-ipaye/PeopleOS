@@ -1,0 +1,53 @@
+{
+  "cycle": "024",
+  "engine": "StructuralEngine",
+  "status": "locally_forensically_reviewed_descriptive_with_limits",
+  "verified_behavioral_base": "362f294605bb57f1fbf573c64254155751e87033",
+  "scope": "active population selection, role-duration and promotion-date validity, reporting-span link integrity, directed graph cycles, missing observations, threshold semantics, aggregate API redaction, current glossary and legacy structural compatibility",
+  "forensic_and_compatibility_contracts": {
+    "cycle_tests": {"passed": 30, "total": 30},
+    "shared_structural_python_contracts": {"passed": 2, "total": 2},
+    "structural_renderer_contracts": {"passed": 2, "total": 2}
+  },
+  "reviewed_source_sha256": {
+    "src/structural_engine.py": "b082d313bbaa38094ff5f127ac1de1787242bfb8fdf566dc620571a7ef2c8c68",
+    "api/routes/structural.py": "252328db54387b7983b5dfec2723c66c2d6fdb43fa44832937a87e98b338bedf",
+    "api/schemas/structural.py": "d94361d0271b7ad9cd9edfab204ac52f5832d1df86645b770321e2637192c378",
+    "web/components/glossary-modal.tsx": "f4e12269fb0654696d818afc80475fd48e334a1a781a9044e326a282f17b9cd1",
+    "tests/test_structural_engine_forensic_cycle024.py": "78a546e1d98c694bc1c74681751755609dd2c5b4e6b2af02c1c828b8b837ae89",
+    "web/tests/structural-renderers.test.cjs": "78821ee9409498dcf97f60c8b7cf6b270b125c8b9b4c31ccbbe73186f36b0840"
+  },
+  "confirmed_behavior": [
+    "Structural construction copies the active population and reports role-duration, promotion-duration, date-parse and reporting-link coverage without turning missing observations into zero.",
+    "Negative or impossible role durations remain unavailable; future hire dates, promotion dates before hire, promotion dates after an explicit snapshot, and materially mismatched promotion durations are excluded and counted.",
+    "Reporting spans use only exact current EmployeeID-to-ManagerID links; missing, self, dangling and directed-cycle links are excluded and disclosed. Cyclic links never contribute to direct-report counts.",
+    "Span boundaries are explicit: optimal bounds are inclusive, warning_threshold is the first overloaded span, and critical_threshold is the first critical span. The numeric BurnoutRiskScore proxy is no longer emitted.",
+    "Canonical structural analysis and governed API routes expose aggregate observations only, redact employee and manager records, retain deprecated individual routes as blocked, and preserve non-burnout, non-promotion-readiness and non-causal-health semantics.",
+    "Current glossary wording and legacy schema compatibility no longer describe impossible stagnation values or require a non-null burnout score."
+  ],
+  "interpretation_boundary": "Structural outputs describe recorded organization structure and current-state durations. They are screening observations only and do not measure burnout, wellbeing, manager effectiveness, promotion readiness, discrimination, collaboration, team health or causal organizational effects.",
+  "remaining_scientific_limits": [
+    "An explicit SnapshotDate is required for future-date and elapsed-time reconciliation; a cross-sectional file without an as-of date cannot support those checks.",
+    "Role-duration and years-since-promotion fields remain source-defined measurements; their business definitions, rounding tolerance and relationship to actual role changes require owner and HRIS validation.",
+    "Span thresholds are configuration prompts, not empirically validated workload or wellbeing cutoffs; reporting lines do not establish collaboration or organizational health.",
+    "Promotion comparisons remain unadjusted observational group comparisons without multiplicity correction, causal identification, or a validated promotion-readiness outcome.",
+    "Privacy, access control, retention, worker consultation and production-owner acceptance remain required before consequential use."
+  ],
+  "cross_product_validation": {
+    "isolated_workflow_command": "local_success_32_python_tests_and_2_renderer_tests",
+    "full_python_validation": {
+      "passed": 1189,
+      "failed": 5,
+      "subtests_passed": 6,
+      "blocked_findings": [
+        "Shared engine-audit inventory/hash gate is stale for existing uncommitted changes and is explicitly out of scope for this cycle.",
+        "Other uncommitted agent lanes currently fail search permission and sentiment shape expectations; no structural test failed."
+      ]
+    },
+    "frontend_typecheck": "passed",
+    "frontend_lint": "passed_zero_errors_22_existing_warnings",
+    "git_diff_check": "passed",
+    "remote_ci": "not_run_no_push_authorized"
+  },
+  "release_gate": "GO for a bounded local descriptive structural pilot only. NO-GO for public launch or any burnout, promotion-readiness, discrimination, collaboration, team-health or causal organizational claim until scientific validation, shared audit reconciliation, independent review and production governance are complete."
+}

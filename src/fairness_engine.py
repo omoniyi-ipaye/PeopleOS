@@ -120,7 +120,16 @@ class FairnessEngine:
                     'attribute_coverage': attribute_coverage,
                     'metric_semantics': f'observed_{outcome_col.lower()}_rate_disparity',
                 })
-        return pd.DataFrame(rows)
+        result = pd.DataFrame(rows)
+        # Keep undefined suppressed counts/coverage as real nulls in the
+        # direct engine contract as well as in the API serializer. Pandas would
+        # otherwise coerce a mixed nullable column back to NaN, which makes
+        # strict JSON consumers fail even though the value is intentionally
+        # unavailable.
+        for column in ('attribute_observed_count', 'attribute_coverage'):
+            if column in result.columns:
+                result[column] = result[column].astype(object).where(result[column].notna(), None)
+        return result
 
     def calculate_four_fifths_rule(self, outcome_col: str, favorable: bool = False) -> pd.DataFrame:
         if outcome_col not in self.df.columns:

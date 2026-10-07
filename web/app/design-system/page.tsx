@@ -24,7 +24,7 @@ export default function DesignSystemPage() {
           <Surface padding="md">
             <div className="text-xs font-semibold uppercase tracking-wider text-text-muted">01 · Primary</div>
             <div className="mt-2 font-semibold">Decision, insight or action</div>
-            <p className="mt-2 text-sm leading-6 text-text-secondary">The page's main purpose gets the strongest hierarchy: headline finding, key metric, analysis, or next action.</p>
+            <p className="mt-2 text-sm leading-6 text-text-secondary">The page&apos;s main purpose gets the strongest hierarchy: headline finding, key metric, analysis, or next action.</p>
           </Surface>
           <Surface padding="md">
             <div className="text-xs font-semibold uppercase tracking-wider text-text-muted">02 · Supporting</div>

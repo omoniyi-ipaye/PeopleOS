@@ -1,0 +1,81 @@
+name: Remaining Engines Forensic Validation
+
+on:
+  pull_request:
+    paths:
+      - 'src/nlp_engine.py'
+      - 'src/quality_of_hire_engine.py'
+      - 'src/scenario_engine.py'
+      - 'src/sentiment_engine.py'
+      - 'src/structural_engine.py'
+      - 'src/succession_engine.py'
+      - 'src/team_dynamics_engine.py'
+      - 'src/vector_engine.py'
+      - 'api/routes/nlp.py'
+      - 'api/routes/quality_of_hire.py'
+      - 'api/routes/scenario.py'
+      - 'api/routes/sentiment.py'
+      - 'api/routes/structural.py'
+      - 'api/routes/succession.py'
+      - 'api/routes/team.py'
+      - 'api/routes/search.py'
+      - 'tests/test_nlp_engine.py'
+      - 'tests/test_analytics_accuracy.py'
+      - 'tests/test_scenario_engine.py'
+      - 'tests/test_extended_integrity.py'
+      - 'tests/test_succession_engine.py'
+      - 'tests/test_team_dynamics_engine.py'
+      - 'tests/test_engine_renderer_integrity.py'
+      - 'tests/test_specialist_review_findings.py'
+      - 'tests/test_specialist_measurement_fixes.py'
+      - 'model/engine_audit.json'
+      - 'model/engine_audit_review_updates.json'
+      - 'model/quality_cycle_*_final.json'
+      - '.github/workflows/remaining-engines-forensic.yml'
+  workflow_dispatch:
+
+jobs:
+  forensic:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - engine: NLP
+            source: src/nlp_engine.py
+            tests: tests/test_nlp_engine.py tests/test_analytics_accuracy.py tests/test_engine_renderer_integrity.py
+          - engine: QualityOfHire
+            source: src/quality_of_hire_engine.py
+            tests: tests/test_analytics_accuracy.py tests/test_specialist_review_findings.py tests/test_specialist_measurement_fixes.py
+          - engine: Scenario
+            source: src/scenario_engine.py
+            tests: tests/test_scenario_engine.py tests/test_specialist_review_findings.py tests/test_specialist_measurement_fixes.py
+          - engine: Sentiment
+            source: src/sentiment_engine.py
+            tests: tests/test_extended_integrity.py tests/test_specialist_review_findings.py tests/test_specialist_measurement_fixes.py
+          - engine: Structural
+            source: src/structural_engine.py
+            tests: tests/test_engine_renderer_integrity.py tests/test_analytics_accuracy.py
+          - engine: Succession
+            source: src/succession_engine.py
+            tests: tests/test_succession_engine.py tests/test_extended_integrity.py tests/test_specialist_measurement_fixes.py
+          - engine: TeamDynamics
+            source: src/team_dynamics_engine.py
+            tests: tests/test_team_dynamics_engine.py tests/test_extended_integrity.py tests/test_specialist_measurement_fixes.py
+          - engine: Vector
+            source: src/vector_engine.py
+            tests: tests/test_extended_integrity.py tests/test_engine_renderer_integrity.py
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: requirements-validation.txt
+      - name: Record source digest
+        run: sha256sum "${{ matrix.source }}"
+      - name: Install validation dependencies
+        run: python -m pip install -r requirements-validation.txt
+      - name: Run ${{ matrix.engine }} forensic contracts
+        run: pytest -q ${{ matrix.tests }}

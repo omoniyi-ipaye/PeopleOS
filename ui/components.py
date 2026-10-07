@@ -1136,7 +1136,7 @@ def render_search_results(results: list[dict]) -> None:
         with st.container():
             c1, c2 = st.columns([4, 1])
             with c1:
-                st.markdown(f"**Employee:** {res.get('EmployeeID', 'N/A')} | **Dept:** {res.get('Dept', 'N/A')}")
+                st.markdown(f"**Evidence record** | **Dept:** {res.get('Dept', 'N/A')}")
                 text = res.get('PerformanceText', 'No text available.')
                 st.markdown(f'<div style="font-style: italic; border-left: 3px solid #667eea; padding-left: 10px;">{text}</div>', unsafe_allow_html=True)
             with c2:
