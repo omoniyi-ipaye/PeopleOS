@@ -38,7 +38,7 @@ export default function RetentionForecastPage() {
     queryFn: () => api.survival.getAnalysis() as Promise<SurvivalAnalysisResult>,
   })
 
-  const header = <PageHeader eyebrow="Insights · Retention" title="What does recorded retention history show?" description="Explore aggregate cohort patterns over time. PeopleOS does not predict whether an individual employee will leave." actions={<Link href="/advisor" className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500">Ask PeopleOS <ArrowRight className="h-4 w-4" /></Link>} />
+  const header = <PageHeader eyebrow="Insights · Retention" title="What does recorded retention history show?" description="Explore aggregate cohort patterns over time. PeopleOS does not predict whether an individual employee will leave." actions={<Link href="/advisor" className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:bg-violet-500 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-violet-500">Ask PeopleOS <ArrowRight className="h-4 w-4" /></Link>} />
   if (isLoading) return <Page>{header}<StateSummary title="Preparing retention insights" description="Reading recorded tenure and departure outcomes across your workforce." tone="info" /></Page>
   if (isError) return <Page>{header}<EmptyState title="Retention cohort analysis is unavailable" description={error instanceof Error ? error.message : 'Unable to generate cohort retention analysis.'} action={<Button onClick={() => refetch()}>Retry</Button>} /></Page>
 

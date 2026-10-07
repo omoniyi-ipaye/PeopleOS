@@ -69,7 +69,7 @@ export default function SettingsPage() {
       <TabPanel id="workspace" activeTab={activeCategory} className="space-y-5">
         <SectionHeader title="Workspace & data" description="Manage the local app and see what your current workforce source supports." action={<Link href="/upload" className="inline-flex items-center gap-1 text-xs font-semibold text-accent">Manage data source <ArrowRight className="h-3.5 w-3.5" /></Link>} />
 
-        {desktop.data?.desktop && <Surface padding="lg" className="border-violet-200/70 bg-gradient-to-br from-white to-violet-50/30 dark:border-violet-500/20 dark:from-slate-950 dark:to-violet-500/[0.03]">
+        {desktop.data?.desktop && <Surface padding="lg" className="border-violet-200/70 bg-linear-to-br from-white to-violet-50/30 dark:border-violet-500/20 dark:from-slate-950 dark:to-violet-500/3">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
             <div><div className="text-xs font-bold uppercase tracking-[0.16em] text-violet-600 dark:text-violet-300">Desktop app</div><h2 className="mt-2 text-xl font-semibold">PeopleOS is running on this computer</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-text-secondary">Open another PeopleOS tab, restart the local app cleanly, or quit it completely. No terminal or Task Manager needed.</p></div>
             <div className="flex flex-wrap gap-2">

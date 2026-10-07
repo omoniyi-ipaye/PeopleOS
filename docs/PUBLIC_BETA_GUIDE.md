@@ -38,9 +38,11 @@ sha256sum --check SHA256SUMS && tar -xzf PeopleOS-linux-x64.tar.gz && ./PeopleOS
 shasum -a 256 --check SHA256SUMS && tar -xzf PeopleOS-macos-arm64.tar.gz && ./PeopleOS-macos-arm64/PeopleOS
 ```
 
-The launcher serves the included UI and API on `127.0.0.1` at an automatically selected port and opens your default browser after the service is ready. Keep the launcher running while using PeopleOS; closing a browser tab alone does not stop it. For terminal launches, stop with Ctrl+C. If a windowless launcher remains running, use your operating system’s process manager to stop the PeopleOS process before making a preservation copy; this beta has no tray shutdown control. Relaunch the same executable to restart. These archives include the runtime, so separate Python and Node installations are not required. Proceed to the sample walkthrough below.
+The launcher serves the included UI and API on `127.0.0.1` at an automatically selected port and opens your default browser after the service is ready. Keep the launcher running while using PeopleOS; closing a browser tab alone does not stop it. In the packaged app, open Settings and use **Restart app** or **Quit PeopleOS**. Closing a browser tab alone leaves the local app running. For terminal launches, Ctrl+C also stops the launcher. Relaunch the same executable to open it again. These archives include the runtime, so separate Python and Node installations are not required. Proceed to the sample walkthrough below.
 
 Core analytics and deterministic investigation summaries can run offline after obtaining the archive. An Ollama server/model is optional and is not bundled; model downloads need separate setup. The slim desktop runtime also excludes optional predictive training packages. The packaging flow does not sign or notarize these executables. If your operating system blocks an unsigned app, stop and report the platform/message; this guide does not instruct you to disable or bypass operating-system protections.
+
+Use a current browser: Safari 16.4+, Chrome 111+, or Firefox 128+ is required by the styling runtime.
 
 ## Install and run from source
 

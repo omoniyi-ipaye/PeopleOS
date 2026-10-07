@@ -95,7 +95,7 @@ function ConversationMessage({ role, children }: { role: 'assistant' | 'user'; c
   const user = role === 'user'
   return <div className={`flex items-start gap-3 ${user ? 'justify-end' : 'justify-start'}`}>
     {!user && <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-200"><Bot className="h-4 w-4" aria-hidden="true" /></span>}
-    <div className={`max-w-[min(760px,92%)] rounded-2xl px-4 py-3.5 shadow-sm ${user ? 'rounded-tr-md bg-violet-600 text-white' : 'rounded-tl-md border border-slate-200/90 bg-white text-slate-800 dark:border-white/10 dark:bg-slate-900 dark:text-slate-100'}`}>
+    <div className={`max-w-[min(760px,92%)] rounded-2xl px-4 py-3.5 shadow-xs ${user ? 'rounded-tr-md bg-violet-600 text-white' : 'rounded-tl-md border border-slate-200/90 bg-white text-slate-800 dark:border-white/10 dark:bg-slate-900 dark:text-slate-100'}`}>
       <p className={`mb-1 text-[11px] font-bold uppercase tracking-[0.14em] ${user ? 'text-violet-100' : 'text-violet-600 dark:text-violet-300'}`}>{user ? 'You' : 'PeopleOS'}</p>
       <div className="text-[15px] leading-7">{children}</div>
     </div>

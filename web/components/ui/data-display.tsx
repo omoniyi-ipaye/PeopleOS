@@ -61,7 +61,7 @@ export function EmptyState({
 }) {
   return (
     <Surface tone={tone} className="flex min-h-64 flex-col items-center justify-center text-center">
-      {icon && <div className="mb-4 grid h-12 w-12 place-items-center rounded-2xl bg-white/70 text-slate-600 shadow-sm dark:bg-white/5 dark:text-slate-300">{renderIcon(icon, false)}</div>}
+      {icon && <div className="mb-4 grid h-12 w-12 place-items-center rounded-2xl bg-white/70 text-slate-600 shadow-xs dark:bg-white/5 dark:text-slate-300">{renderIcon(icon, false)}</div>}
       <h2 className="text-lg font-semibold text-slate-950 dark:text-white">{title}</h2>
       {description && <div className="mt-2 max-w-xl text-sm leading-6 text-slate-600 dark:text-slate-400">{description}</div>}
       {action && <div className="mt-5">{action}</div>}

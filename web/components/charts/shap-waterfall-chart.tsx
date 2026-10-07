@@ -129,7 +129,7 @@ export function ShapWaterfallChart({
         <div className="w-32 font-medium text-text-primary dark:text-text-dark-primary">Prediction</div>
         <div className="flex-1 relative h-6">
           <div
-            className="absolute top-0 h-full w-2 bg-accent rounded shadow-[0_0_8px_rgba(59,130,246,0.5)]"
+            className="absolute top-0 h-full w-2 bg-accent rounded-sm shadow-[0_0_8px_rgba(59,130,246,0.5)]"
             style={{ left: `${getBarPosition(prediction)}%` }}
           />
           <div
@@ -145,11 +145,11 @@ export function ShapWaterfallChart({
       {/* Legend */}
       <div className="flex items-center justify-center gap-6 pt-4 text-xs text-text-secondary dark:text-text-dark-secondary font-medium">
         <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded bg-danger/80" />
+          <div className="w-3 h-3 rounded-sm bg-danger/80" />
           <span>Increases model output</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded bg-success/80" />
+          <div className="w-3 h-3 rounded-sm bg-success/80" />
           <span>Decreases model output</span>
         </div>
       </div>

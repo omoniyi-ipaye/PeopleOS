@@ -6,6 +6,7 @@ sufficiency gate -> policy-bounded synthesis -> verified response -> audit.
 
 import json
 import re
+from decimal import Decimal
 
 from dataclasses import dataclass, field
 from typing import Any, List, Literal, Optional
@@ -653,6 +654,24 @@ class PeopleIntelligenceAgent:
             cited_items = [narrative_ledger.get(token) or ledger.get(token) for token in set(citation_tokens)]
             if not set(requested_metrics).issubset({item.metric for item in cited_items if item is not None}):
                 raise ValueError("narrative omits a requested metric")
+            # A real citation is not proof of the number written beside it.
+            # Only allow numeric literals present in the cited, display-ready
+            # claims. Keep percent units and signs; source labels cannot supply
+            # measurements. This is a conservative numeric guard, not a claim
+            # of complete semantic verification of generated prose.
+            def numeric_literals(text):
+                pattern = r"(?<![\w.])([+-]?(?:(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?|\.\d+)(?:[eE][+-]?\d+)?)(\s*%)?"
+                return {(Decimal(number.replace(",", "")), bool(percent))
+                        for number, percent in re.findall(pattern, text)}
+
+            supported_numbers = set()
+            for item in cited_items:
+                if item is not None:
+                    claim = self._format_evidence(item).split(" (source department label:", 1)[0]
+                    supported_numbers.update(numeric_literals(claim))
+            prose = re.sub(r"\[[^\[\]]+\]", "", answer)
+            if not numeric_literals(prose).issubset(supported_numbers):
+                raise ValueError("narrative contains an unsupported numeric claim")
             answer = self.policy.enforce_text(answer).strip()
             for citation_key, item in narrative_ledger.items():
                 answer = answer.replace(f'[{citation_key}]', f'[{item.evidence_id}]')

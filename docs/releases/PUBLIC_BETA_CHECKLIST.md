@@ -8,11 +8,9 @@ Historical merge to `main`: `a300db48b2fe6d11076ed14fcdd891d170316764` via PR #6
 
 ## Current launch candidate
 
-The current engineering candidate is the pushed head of PR #18 (`quality/cycle-017-ml-engine-forensic`). It contains the pilot-hardening changes, remains a draft and has not been merged or published.
+The current integration is [PR #18](https://github.com/omoniyi-ipaye/PeopleOS/pull/18), including the branch history and substantive work from PR #11. Its live checks and merge status are authoritative.
 
-The older commit `5cf477dec5e9a6a4dd6561323f4a6bb80c19c642` has historical exact-head remote-CI evidence, including desktop/mobile People Team Browser Acceptance, engine-forensic workflows, VectorEngine, Analytics Validation, Release Security, Local Ollama Acceptance, E2E User Journey and desktop package/smoke jobs. That result is historical; use the current PR checks for the pushed candidate.
-
-Current local verification is recorded in [PUBLIC_PILOT_READINESS_2026-09-15.md](../validation/PUBLIC_PILOT_READINESS_2026-09-15.md): full Python (`1,229 passed`, 38 warnings, 6 subtests), targeted checks (`65 passed`, 11 warnings), design governance, zero-warning frontend lint, analytics renderer tests (`52 passed`), web builds, browser acceptance (`28 passed`, desktop/mobile), local LLM readiness and a macOS Apple Silicon package smoke probe.
+The October 7 security, compatibility and final acceptance handoff is recorded in [PUBLIC_PILOT_READINESS_2026-10-07.md](../validation/PUBLIC_PILOT_READINESS_2026-10-07.md). Earlier September evidence remains historical and must not be substituted for checks on the final candidate.
 
 ## Intended release scope
 
@@ -61,8 +59,8 @@ The following are now engineering-ready for a controlled pilot:
 ## Human / owner-controlled items still open
 
 - [ ] Independent fresh-user installation and usability walkthrough on target machines.
-- [ ] Review and merge PR #18 after the exact-head evidence and owner review are accepted.
-- [ ] Configure the documented `main` branch protection/ruleset; this requires repository-administration access.
+- [ ] Verify the linked PR #18 is merged after all checks pass; its live GitHub state is the merge record.
+- [x] Configure and read back the documented `main` branch protection, including required passing checks and administrator enforcement.
 - [ ] Capture pilot outcomes and recurring friction using the pilot feedback template.
 - [ ] Decide whether Windows code signing and macOS notarization are required before broad public distribution.
 - [ ] Choose a version/tag and final public release notes when publication is authorized.
@@ -79,7 +77,7 @@ CI artifacts are build evidence until promoted to a versioned release. Checksums
 
 PR #6 (`Prepare public beta distribution and close dependency security gaps`) merged a historical verified candidate after all eight required workflows passed. The final browser acceptance rerun passed the complete desktop/mobile journeys and its action/process coverage ledger. No privacy, evidence, security or analytical guardrail was weakened to obtain the passing result.
 
-For the current source snapshot, use [PUBLIC_PILOT_READINESS_2026-09-15.md](../validation/PUBLIC_PILOT_READINESS_2026-09-15.md). Remote CI, merge, release publication and independent pilot acceptance remain separate gates.
+For the current source snapshot, use [PUBLIC_PILOT_READINESS_2026-10-07.md](../validation/PUBLIC_PILOT_READINESS_2026-10-07.md). Remote CI, merge, release publication and independent pilot acceptance remain separate gates.
 
 See also:
 

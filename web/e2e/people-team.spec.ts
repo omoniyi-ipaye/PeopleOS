@@ -74,7 +74,7 @@ async function metric(page: Page, label: string, value: string) {
 }
 
 async function shot(page: Page, name: string) {
-  await test.info().attach(name, { body: await page.screenshot({ fullPage: true }), contentType: 'image/png' })
+  await test.info().attach(name, { body: await page.screenshot({ fullPage: true, animations: 'disabled' }), contentType: 'image/png' })
 }
 
 test.beforeEach(async ({ request }) => {
@@ -332,4 +332,29 @@ test('the owner can set, lock and unlock the local PeopleOS installation', async
   await page.getByLabel('Owner PIN', { exact: true }).fill('123456')
   await page.getByRole('button', { name: 'Unlock PeopleOS', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'PeopleOS settings', exact: true })).toBeVisible()
+})
+
+
+test('light and dark themes preserve readable surfaces and keyboard focus', async ({ page }) => {
+  await upload(page)
+  // Tailwind 4 uses perceptual CSS colors; inspect their rendered sRGB pixels.
+  const surfaceBrightness = () => page.locator('body').evaluate((body) => {
+    const context = document.createElement('canvas').getContext('2d')!
+    context.fillStyle = getComputedStyle(body).backgroundColor
+    context.fillRect(0, 0, 1, 1)
+    const [red, green, blue] = context.getImageData(0, 0, 1, 1).data
+    return red + green + blue
+  })
+  expect(await surfaceBrightness()).toBeGreaterThan(730)
+  const action = page.getByLabel('Start an investigation', { exact: true })
+  await page.keyboard.press('Tab')
+  await action.focus()
+  await expect(action).toBeFocused()
+  await expect(action).toHaveCSS('outline-style', 'solid')
+  await expect(action).toHaveCSS('outline-width', '2px')
+  await page.evaluate(() => document.documentElement.classList.add('dark'))
+  await expect.poll(surfaceBrightness).toBeLessThan(60)
+  await expect(action).toBeVisible()
+  await noHorizontalOverflow(page)
+  await shot(page, 'pilot-dark-theme')
 })

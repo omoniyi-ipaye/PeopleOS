@@ -81,7 +81,7 @@ export function RelationshipInsight({ signal, outcome, correlation, observations
 
   return <article aria-label={`${signal} relationship interpretation`} className="flex h-full flex-col rounded-2xl border border-violet-200/80 bg-violet-50/55 p-4 dark:border-violet-400/20 dark:bg-violet-500/[0.07]">
     <div className="flex items-start gap-3">
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-violet-700 shadow-sm dark:bg-white/10 dark:text-violet-200"><Lightbulb className="h-4 w-4" aria-hidden="true" /></span>
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-violet-700 shadow-xs dark:bg-white/10 dark:text-violet-200"><Lightbulb className="h-4 w-4" aria-hidden="true" /></span>
       <div className="min-w-0 flex-1">
         <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-violet-700 dark:text-violet-300">Relationship signal</p>
         <h3 className="mt-1 text-base font-semibold text-slate-950 dark:text-white">{signal}</h3>
@@ -92,22 +92,22 @@ export function RelationshipInsight({ signal, outcome, correlation, observations
       <StatusBadge tone={strength.tone}>{strength.label} relationship</StatusBadge>
       <span className="text-xs tabular-nums text-slate-500 dark:text-slate-400">Relationship score {score}</span>
     </div>
-    <div className="mt-4 rounded-xl border border-violet-200/70 bg-white/70 px-3 py-3 dark:border-violet-400/15 dark:bg-white/[0.04]">
+    <div className="mt-4 rounded-xl border border-violet-200/70 bg-white/70 px-3 py-3 dark:border-violet-400/15 dark:bg-white/4">
       <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">What this means in practice</p>
       <p className="mt-1.5 text-sm leading-6 text-slate-700 dark:text-slate-200">{relationshipMeaning(signal, outcome, correlation)}</p>
     </div>
     <p className="mt-3 text-xs leading-5 text-slate-500 dark:text-slate-400">{sample === null ? 'Based on people with both measures recorded.' : `Based on ${Math.round(sample).toLocaleString()} people with both measures recorded.`} This does not tell us that one factor caused the other.</p>
     <div className="mt-auto pt-4">
-      <div className="rounded-xl border border-violet-200/70 bg-white/70 px-3 py-2.5 dark:border-violet-400/15 dark:bg-white/[0.04]">
+      <div className="rounded-xl border border-violet-200/70 bg-white/70 px-3 py-2.5 dark:border-violet-400/15 dark:bg-white/4">
         <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">Useful next check</p>
         <p className="mt-1 text-xs leading-5 text-slate-600 dark:text-slate-400">{nextStep ?? defaultNextStep(context)}</p>
         <div className="mt-3 flex flex-wrap gap-2">
-          {actions.map(action => <Link key={`${action.label}-${action.question}`} href={`/advisor?q=${encodeURIComponent(action.question)}`} title={action.reason} className="inline-flex items-center gap-1.5 rounded-lg border border-violet-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-violet-700 transition hover:border-violet-400 hover:bg-violet-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-violet-400/30 dark:bg-slate-950/40 dark:text-violet-200 dark:hover:border-violet-300/60 dark:hover:bg-violet-500/10">{action.label}<ArrowRight className="h-3.5 w-3.5" aria-hidden="true" /></Link>)}
+          {actions.map(action => <Link key={`${action.label}-${action.question}`} href={`/advisor?q=${encodeURIComponent(action.question)}`} title={action.reason} className="inline-flex items-center gap-1.5 rounded-lg border border-violet-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-violet-700 transition hover:border-violet-400 hover:bg-violet-50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-violet-400/30 dark:bg-slate-950/40 dark:text-violet-200 dark:hover:border-violet-300/60 dark:hover:bg-violet-500/10">{action.label}<ArrowRight className="h-3.5 w-3.5" aria-hidden="true" /></Link>)}
         </div>
         <p className="mt-2 text-[11px] leading-5 text-slate-500 dark:text-slate-400">Each check opens Ask PeopleOS with the question ready to run.</p>
       </div>
       <details className="group mt-3">
-        <summary className="flex cursor-pointer list-none items-center gap-1.5 text-xs font-medium text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 dark:text-slate-400"><span>Calculation detail</span><ChevronDown className="h-3.5 w-3.5 transition group-open:rotate-180" /></summary>
+        <summary className="flex cursor-pointer list-none items-center gap-1.5 text-xs font-medium text-slate-500 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-violet-500 dark:text-slate-400"><span>Calculation detail</span><ChevronDown className="h-3.5 w-3.5 transition group-open:rotate-180" /></summary>
         <p className="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400">Technical check: relationship score r={score}{p === null ? '' : ` · sample test p=${formatPValue(p)}`}. A p-value tests whether this pattern is distinguishable from zero in this sample; it is not a probability that the finding is true, a measure of business importance, or proof of cause and effect.</p>
       </details>
     </div>

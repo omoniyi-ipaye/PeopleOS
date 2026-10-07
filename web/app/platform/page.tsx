@@ -65,7 +65,7 @@ export default function TrustCenterPage() {
       <Surface padding="lg"><SectionHeader title="What PeopleOS can do now" description="Capabilities are shown only when the current setup supports them." /><div className="mt-5 space-y-2"><TrustRow label="Workforce analysis" state={evidenceReady ? 'Available' : 'Unavailable'} tone={evidenceReady ? 'success' : 'warning'} /><TrustRow label="Ask PeopleOS" state={evidenceReady ? 'Available' : 'Unavailable'} tone={evidenceReady ? 'success' : 'warning'} /><TrustRow label="Local AI explanation" state={languageModel?.ready && languageModel.enabled ? `Ready · ${languageModel.selected_model}` : 'Optional'} tone={languageModel?.ready && languageModel.enabled ? 'info' : 'neutral'} /><TrustRow label="Predictive insights" state={activeModel ? 'Experimental' : 'Not in this release'} tone={activeModel ? 'info' : 'neutral'} /><TrustRow label="Saved investigations" state={`${workspace?.sessions.length ?? 0}`} tone="info" /></div></Surface>
     </div>
 
-    <Surface padding="lg" className="border-emerald-200/70 bg-emerald-50/40 dark:border-emerald-500/20 dark:bg-emerald-500/[0.03]">
+    <Surface padding="lg" className="border-emerald-200/70 bg-emerald-50/40 dark:border-emerald-500/20 dark:bg-emerald-500/3">
       <div className="flex gap-4"><ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" /><div><div className="font-semibold">PeopleOS analyses. People decide.</div><p className="mt-1 text-sm leading-6 text-text-secondary">PeopleOS does not terminate, demote, discipline, reduce pay or make consequential employee decisions. Individual risk ranking is kept outside the governed product experience.</p></div></div>
     </Surface>
 

@@ -71,11 +71,11 @@ export function CorrelationHeatmap({ data }: CorrelationHeatmapProps) {
       {/* Legend */}
       <div className="flex items-center justify-center gap-6 mt-4 pt-4 border-t border-border-dark">
         <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded bg-danger/30" />
+          <div className="w-4 h-4 rounded-sm bg-danger/30" />
           <span className="text-xs text-text-muted">Positive association (r)</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded bg-success/30" />
+          <div className="w-4 h-4 rounded-sm bg-success/30" />
           <span className="text-xs text-text-muted">Negative association (r)</span>
         </div>
       </div>

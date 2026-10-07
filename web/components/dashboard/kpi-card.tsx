@@ -33,7 +33,7 @@ export function KPICard({
   return (
     <div
       className={cn(
-        'bg-surface dark:bg-surface-dark rounded-xl border border-border dark:border-border-dark p-4 shadow-sm hover:shadow-md transition-shadow',
+        'bg-surface dark:bg-surface-dark rounded-xl border border-border dark:border-border-dark p-4 shadow-xs hover:shadow-md transition-shadow',
         className
       )}
     >

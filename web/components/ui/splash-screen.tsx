@@ -17,7 +17,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ finishLoading }) => 
     }, [finishLoading])
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950 overflow-hidden">
+        <div className="fixed inset-0 z-100 flex items-center justify-center bg-slate-950 overflow-hidden">
             {/* Background Animated Gradients */}
             <div className="absolute inset-0 overflow-hidden">
                 <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-accent/20 rounded-full blur-[120px] animate-pulse" />

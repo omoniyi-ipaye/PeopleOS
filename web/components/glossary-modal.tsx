@@ -210,7 +210,7 @@ export function GlossaryModal({ isOpen, onClose, initialSearch = '' }: GlossaryM
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/50 backdrop-blur-xs"
         onClick={onClose}
       />
 
@@ -239,7 +239,7 @@ export function GlossaryModal({ isOpen, onClose, initialSearch = '' }: GlossaryM
               placeholder="Search terms..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 bg-surface-secondary dark:bg-surface-dark-secondary border border-border dark:border-border-dark rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent/50"
+              className="w-full pl-9 pr-4 py-2 bg-surface-secondary dark:bg-surface-dark-secondary border border-border dark:border-border-dark rounded-lg text-sm focus:outline-hidden focus:ring-2 focus:ring-accent/50"
               autoFocus
             />
           </div>

@@ -161,7 +161,7 @@ const agentStepStatus: Record<AgentStepStatus, { tone: 'success' | 'warning' | '
 export function AgentRunPanel({ result }: { result: AgentAnswer }) {
   const steps = result.agent_steps ?? []
   if (!steps.length) return null
-  return <Surface padding="md" className="border-violet-200/70 bg-violet-50/35 dark:border-violet-500/20 dark:bg-violet-500/[0.04]">
+  return <Surface padding="md" className="border-violet-200/70 bg-violet-50/35 dark:border-violet-500/20 dark:bg-violet-500/4">
     <div className="flex items-start gap-3">
       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-200"><Bot className="h-4 w-4" aria-hidden="true" /></span>
       <div className="min-w-0 flex-1">
@@ -383,12 +383,12 @@ function groundedNarrative(result: AgentAnswer) {
 }
 
 function GroundedNarrative({ text }: { text: string }) {
-  return <div className="rounded-2xl border border-violet-200/80 bg-violet-50/60 p-5 dark:border-violet-400/20 dark:bg-violet-500/[0.08]">
+  return <div className="rounded-2xl border border-violet-200/80 bg-violet-50/60 p-5 dark:border-violet-400/20 dark:bg-violet-500/8">
     <div className="flex items-start gap-3">
       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-600 text-white"><Bot className="h-4 w-4" aria-hidden="true" /></span>
       <div><p className="text-xs font-bold uppercase tracking-[0.16em] text-violet-700 dark:text-violet-200">AI explanation</p><p className="mt-1 text-xs leading-5 text-slate-600 dark:text-slate-300">Composed from the completed analytical checks in this workforce snapshot.</p></div>
     </div>
-    <p className="mt-4 whitespace-pre-wrap break-words text-[17px] leading-8 text-slate-800 dark:text-slate-100">{text}</p>
+    <p className="mt-4 whitespace-pre-wrap wrap-break-word text-[17px] leading-8 text-slate-800 dark:text-slate-100">{text}</p>
   </div>
 }
 
@@ -398,14 +398,14 @@ function GroupSummaryPresentation({ summary, reportingCurrency }: { summary: Gro
   const formatted = (value: number) => formatGroupValue(summary, value, reportingCurrency)
   const supportHeading = summary.statistic === 'count' ? null : summary.statistic === 'rate' ? 'People with recorded outcome' : 'People with a recorded value'
   return <div className="mt-6 space-y-5">
-    <div className="rounded-2xl border border-violet-200/80 bg-violet-50/60 p-5 dark:border-violet-400/20 dark:bg-violet-500/[0.08]">
+    <div className="rounded-2xl border border-violet-200/80 bg-violet-50/60 p-5 dark:border-violet-400/20 dark:bg-violet-500/8">
       <p className="text-xs font-bold uppercase tracking-[0.16em] text-violet-700 dark:text-violet-200">In plain terms</p>
       <p className="mt-2 text-[17px] leading-8 text-slate-800 dark:text-slate-100">{friendlyGroupSummary(summary, reportingCurrency)}</p>
     </div>
     <div className="grid gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(260px,0.9fr)]">
-      <div className="rounded-2xl border border-slate-200/80 bg-slate-50/60 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+      <div className="rounded-2xl border border-slate-200/80 bg-slate-50/60 p-4 dark:border-white/10 dark:bg-white/3">
         <div className="flex items-start gap-3">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-violet-700 shadow-sm dark:bg-white/10 dark:text-violet-200"><BarChart3 className="h-4 w-4" /></span>
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-violet-700 shadow-xs dark:bg-white/10 dark:text-violet-200"><BarChart3 className="h-4 w-4" /></span>
           <div><h3 className="font-semibold text-slate-900 dark:text-white">{heading}</h3><p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">Each bar is calculated from the verified workforce snapshot.</p></div>
         </div>
         <figure className="mt-4" aria-labelledby="group-summary-chart-caption">
@@ -419,7 +419,7 @@ function GroupSummaryPresentation({ summary, reportingCurrency }: { summary: Gro
           <table className="w-full min-w-[220px] text-left text-sm">
             <caption className="sr-only">{heading}</caption>
             <thead><tr className="border-b border-slate-200 text-xs text-slate-500 dark:border-white/10 dark:text-slate-400"><th scope="col" className="pb-2 pr-3 font-medium">{titleCase(group)}</th><th scope="col" className="pb-2 text-right font-medium">{statisticLabel(summary)}</th>{supportHeading && <th scope="col" className="pb-2 pl-3 text-right font-medium">{supportHeading}</th>}</tr></thead>
-            <tbody>{summary.rows.map(row => <tr key={row.group} className="border-b border-slate-100 last:border-0 dark:border-white/[0.06]"><th scope="row" className="py-2.5 pr-3 font-medium text-slate-800 dark:text-slate-200">{row.group}</th><td className="py-2.5 text-right tabular-nums text-slate-900 dark:text-white">{formatted(row.value)}</td>{supportHeading && <td className="py-2.5 pl-3 text-right tabular-nums text-slate-500 dark:text-slate-400">{row.measuredCount === null ? '—' : Math.round(row.measuredCount).toLocaleString()}</td>}</tr>)}</tbody>
+            <tbody>{summary.rows.map(row => <tr key={row.group} className="border-b border-slate-100 last:border-0 dark:border-white/6"><th scope="row" className="py-2.5 pr-3 font-medium text-slate-800 dark:text-slate-200">{row.group}</th><td className="py-2.5 text-right tabular-nums text-slate-900 dark:text-white">{formatted(row.value)}</td>{supportHeading && <td className="py-2.5 pl-3 text-right tabular-nums text-slate-500 dark:text-slate-400">{row.measuredCount === null ? '—' : Math.round(row.measuredCount).toLocaleString()}</td>}</tr>)}</tbody>
           </table>
         </div>
         {summary.suppressedGroups > 0 && <p className="mt-3 text-xs leading-5 text-slate-500 dark:text-slate-400">{summary.suppressedGroups} smaller {pluralLabel(group, summary.suppressedGroups)} hidden until there is enough support.</p>}
@@ -447,7 +447,7 @@ export function InvestigationResult({ result, source, reportingCurrency }: { res
         <StatusBadge tone={complete ? 'success' : partial ? 'warning' : 'neutral'}>{complete ? 'Supported by your data' : partial ? 'Some evidence missing' : 'Not enough evidence'}</StatusBadge>
       </div>
 
-      {groupSummary ? <>{narrative && <GroundedNarrative text={narrative} />}<GroupSummaryPresentation summary={groupSummary} reportingCurrency={reportingCurrency} /></> : narrative ? <div className="mt-6"><GroundedNarrative text={narrative} /></div> : <div className="mt-6 whitespace-pre-wrap break-words text-[17px] leading-8 text-slate-800 dark:text-slate-200">{displayAnswer}</div>}
+      {groupSummary ? <>{narrative && <GroundedNarrative text={narrative} />}<GroupSummaryPresentation summary={groupSummary} reportingCurrency={reportingCurrency} /></> : narrative ? <div className="mt-6"><GroundedNarrative text={narrative} /></div> : <div className="mt-6 whitespace-pre-wrap wrap-break-word text-[17px] leading-8 text-slate-800 dark:text-slate-200">{displayAnswer}</div>}
 
       <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-slate-200/70 pt-4 text-xs text-slate-500 dark:border-white/10 dark:text-slate-400">
         <span className="inline-flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />Source: {source}</span>
@@ -459,7 +459,7 @@ export function InvestigationResult({ result, source, reportingCurrency }: { res
     {(unknowns.length > 0 || contradictions.length > 0) && <StateSummary title={contradictions.length ? 'Some evidence conflicts' : 'There are limits to this answer'} description={(contradictions[0] ?? unknowns[0]) ? userFacingWarning(contradictions[0] ?? unknowns[0]) : 'Review the available evidence before acting.'} tone="warning" />}
 
     <details className="group rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-violet-500">
         <div className="flex items-center gap-3"><ShieldCheck className="h-5 w-5 text-emerald-600 dark:text-emerald-400" /><div><div className="font-semibold text-slate-900 dark:text-white">Why you can trust this answer</div><div className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Source, coverage, missing data and calculation checks</div></div></div>
         <ChevronDown className="h-4 w-4 text-slate-400 transition group-open:rotate-180" />
       </summary>
@@ -475,22 +475,22 @@ export function InvestigationResult({ result, source, reportingCurrency }: { res
     </details>
 
     <details className="group rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500">Calculation details · Evidence ledger ({items.length} checks)<ChevronDown className="h-4 w-4 text-slate-400 transition group-open:rotate-180" /></summary>
-      <div className="space-y-3 border-t border-slate-200/70 p-5 dark:border-white/10">{items.map(item => <div key={item.evidence_id} className="rounded-xl border border-border p-4"><p className="text-sm font-medium">{evidenceClaim(item)}</p><EvidencePopulation item={item} /><p className="mt-2 break-words text-xs text-text-muted">Evidence: {item.evidence_id} · Source: {item.source_tool} · {item.kind}</p></div>)}{items.length === 0 && <p className="text-sm text-text-secondary">No supporting evidence was available.</p>}</div>
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 font-semibold focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-violet-500">Calculation details · Evidence ledger ({items.length} checks)<ChevronDown className="h-4 w-4 text-slate-400 transition group-open:rotate-180" /></summary>
+      <div className="space-y-3 border-t border-slate-200/70 p-5 dark:border-white/10">{items.map(item => <div key={item.evidence_id} className="rounded-xl border border-border p-4"><p className="text-sm font-medium">{evidenceClaim(item)}</p><EvidencePopulation item={item} /><p className="mt-2 wrap-break-word text-xs text-text-muted">Evidence: {item.evidence_id} · Source: {item.source_tool} · {item.kind}</p></div>)}{items.length === 0 && <p className="text-sm text-text-secondary">No supporting evidence was available.</p>}</div>
     </details>
 
     <details className="group rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500">Technical details<ChevronDown className="h-4 w-4 text-slate-400 transition group-open:rotate-180" /></summary>
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 text-sm font-semibold focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-violet-500">Technical details<ChevronDown className="h-4 w-4 text-slate-400 transition group-open:rotate-180" /></summary>
       <div className="border-t border-slate-200/70 p-5 text-sm dark:border-white/10">
         <div className="space-y-3">{tools.map(tool => <div key={tool.result_id} className="flex items-start justify-between gap-4 border-b border-border pb-3 last:border-0"><div><div className="font-medium">{tool.tool_id.replaceAll('_', ' ').replaceAll('.', ' · ')}</div><div className="mt-1 text-xs text-text-muted">{userFacingWarning(tool.summary)} · {tool.evidence.length} evidence items</div></div><StatusBadge tone={tool.status === 'success' ? 'success' : tool.status === 'failed' ? 'danger' : 'warning'}>{tool.status}</StatusBadge></div>)}</div>
-        <details className="mt-5 rounded-xl border border-border p-4"><summary className="cursor-pointer text-xs font-semibold text-text-secondary">Raw verified response</summary><pre className="mt-3 whitespace-pre-wrap break-words font-sans text-xs leading-5 text-text-muted">{result.answer}</pre></details>
+        <details className="mt-5 rounded-xl border border-border p-4"><summary className="cursor-pointer text-xs font-semibold text-text-secondary">Raw verified response</summary><pre className="mt-3 whitespace-pre-wrap wrap-break-word font-sans text-xs leading-5 text-text-muted">{result.answer}</pre></details>
         <p className="mt-4 break-all text-xs text-text-muted">Request: {result.request_id}</p>
       </div>
     </details>
   </div>
 }
 
-function TrustMetric({ label, value }: { label: string; value: string }) { return <div className="rounded-xl bg-slate-50 p-3 dark:bg-white/[0.03]"><dt className="text-[11px] font-medium text-slate-500 dark:text-slate-400">{label}</dt><dd className="mt-1 text-lg font-semibold text-slate-900 dark:text-white">{value}</dd></div> }
+function TrustMetric({ label, value }: { label: string; value: string }) { return <div className="rounded-xl bg-slate-50 p-3 dark:bg-white/3"><dt className="text-[11px] font-medium text-slate-500 dark:text-slate-400">{label}</dt><dd className="mt-1 text-lg font-semibold text-slate-900 dark:text-white">{value}</dd></div> }
 
 function EvidencePopulation({ item }: { item: EvidenceItem }) {
   const labels: Record<string, string> = { measured_count: 'Measured', eligible_count: 'Eligible', excluded_count: 'Excluded or missing', sample_size: 'Sample size', population: 'Population' }

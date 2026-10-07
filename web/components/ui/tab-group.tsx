@@ -30,7 +30,7 @@ export function TabGroup<T extends string>({
       role="tablist"
       aria-label={ariaLabel}
       className={cn(
-        "flex bg-surface dark:bg-surface-dark border border-border dark:border-border-dark p-1 rounded-lg shadow-sm overflow-x-auto no-scrollbar",
+        "flex bg-surface dark:bg-surface-dark border border-border dark:border-border-dark p-1 rounded-lg shadow-xs overflow-x-auto no-scrollbar",
         className
       )}
     >
@@ -48,10 +48,10 @@ export function TabGroup<T extends string>({
             'font-medium rounded-md transition-all whitespace-nowrap',
             size === 'sm' ? 'px-3 py-1 text-xs' : 'px-4 py-1.5 text-sm',
             activeTab === tab.id
-              ? 'bg-accent text-white shadow-sm'
+              ? 'bg-accent text-white shadow-xs'
               : 'text-text-secondary dark:text-text-dark-secondary hover:text-text-primary dark:hover:text-text-dark-primary',
             tab.disabled && 'opacity-50 cursor-not-allowed',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-1'
+            'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-1'
           )}
         >
           {tab.label}

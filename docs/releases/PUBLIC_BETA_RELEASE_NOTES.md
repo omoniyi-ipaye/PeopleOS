@@ -65,7 +65,7 @@ The historical verified public-beta engineering candidate passed:
 
 The candidate was merged to `main` through PR #6.
 
-The current pushed pilot-hardening evidence is captured in [the 2026-09-15 readiness handoff](../validation/PUBLIC_PILOT_READINESS_2026-09-15.md). It remains a draft PR and is not a merged or published release.
+The current pilot-hardening evidence is captured in [the October 7 readiness handoff](../validation/PUBLIC_PILOT_READINESS_2026-10-07.md). Consult PR #18 for live merge and check status. A merged source candidate does not constitute a published binary release.
 
 ## Platforms
 
